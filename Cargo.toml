@@ -1,0 +1,4 @@
+[workspace]
+members = [
+    "player", "game", "game_derive"
+]
