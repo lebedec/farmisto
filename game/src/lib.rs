@@ -2,6 +2,7 @@ use crate::shapes::Shapes;
 pub use domains::*;
 use rusqlite::Connection;
 
+pub mod api;
 mod domains;
 pub mod persistence;
 

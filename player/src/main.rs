@@ -1,18 +1,152 @@
+use crate::input::Input;
 use game::Game;
 use log::info;
+use sdl2::keyboard::Keycode;
+use std::ffi::CString;
 use std::thread;
 use std::time::{Duration, Instant};
 
+pub mod input;
+pub mod network;
+
+trait Mode {
+    fn name(&self) -> &str {
+        std::any::type_name::<Self>()
+    }
+
+    fn start(&mut self) {}
+
+    fn update(&mut self, input: &Input) {}
+
+    fn transition(&self) -> Option<Box<dyn Mode>> {
+        None
+    }
+
+    fn finish(&mut self) {}
+}
+
+struct Loading {}
+
+impl Loading {
+    pub fn new() -> Box<Self> {
+        Box::new(Self {})
+    }
+}
+
+impl Mode for Loading {
+    fn transition(&self) -> Option<Box<dyn Mode>> {
+        Some(Menu::new())
+    }
+}
+
+struct Menu {}
+
+impl Menu {
+    pub fn new() -> Box<Self> {
+        Box::new(Self {})
+    }
+}
+
+impl Mode for Menu {
+    fn update(&mut self, input: &Input) {
+        if input.pressed(Keycode::E) {
+            info!("Run editor mode")
+        }
+
+        if input.pressed(Keycode::J) {
+            info!("Join game")
+        }
+    }
+
+    fn transition(&self) -> Option<Box<dyn Mode>> {
+        None
+    }
+}
+
+struct Gameplay {
+    game: Game,
+    host: Option<usize>,
+    client: usize,
+}
+
+impl Gameplay {
+    pub fn new(game: Game, client: usize, host: Option<usize>) -> Self {
+        Self { game, host, client }
+    }
+}
+
+impl Mode for Gameplay {}
+
+const VERSION: &str = "0.1.0";
+
 fn main() {
     env_logger::init();
-    let mut game = Game::new();
     info!("OS: {}", std::env::consts::OS);
-    let mut t = Instant::now();
-    loop {
-        let time = t.elapsed();
-        t = Instant::now();
-        game.update(time.as_secs_f32());
-        thread::sleep(Duration::from_secs(5))
+
+    let editor = env!("FARMISTO_EDITOR", "no") == "yes";
+    info!("Editor mode: {}", editor);
+
+    #[cfg(windows)]
+    unsafe {
+        winapi::um::shellscalingapi::SetProcessDpiAwareness(1);
     }
-    // info!("Bye!");
+    let system = sdl2::init().unwrap();
+    let video = system.video().unwrap();
+    let window_size = [960, 540];
+    let window = video
+        .window(
+            &format!("Farmisto {}", VERSION),
+            window_size[0],
+            window_size[1],
+        )
+        .allow_highdpi()
+        .position(0, 0)
+        .vulkan()
+        .build()
+        .unwrap();
+    info!(
+        "SDL display: {:?}, dpi {:?}",
+        video.display_bounds(0).unwrap(),
+        video.display_dpi(0).unwrap(),
+    );
+    info!("Vulkan drawable: {:?}", window.vulkan_drawable_size());
+    let mut event_pump = system.event_pump().unwrap();
+    let instance_extensions: Vec<CString> = window
+        .vulkan_instance_extensions()
+        .unwrap()
+        .iter()
+        .map(|&extension| CString::new(extension).unwrap())
+        .collect();
+    info!("Vulkan extensions: {:?}", instance_extensions);
+
+    let mut mode: Box<dyn Mode> = Loading::new();
+    info!("Start {:?}", mode.name());
+    mode.start();
+
+    let mut time = Instant::now();
+    let mut input = Input::new();
+    loop {
+        input.reset();
+        input.time = time.elapsed().as_secs_f32();
+        time = Instant::now();
+        for event in event_pump.poll_iter() {
+            input.handle(event);
+        }
+
+        if input.terminating {
+            break;
+        }
+
+        mode.update(&input);
+        if let Some(next) = mode.transition() {
+            info!("Finish {:?}", mode.name());
+            mode.finish();
+            mode = next;
+            info!("Start {:?}", mode.name());
+            mode.start();
+        }
+
+        thread::sleep(Duration::from_millis(20))
+    }
+    info!("Bye!");
 }
