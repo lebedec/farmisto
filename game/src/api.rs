@@ -12,26 +12,18 @@ pub enum PlayerRequest {
     },
 }
 
-impl PlayerRequest {
-    pub fn as_bytes(&self) -> Result<Vec<u8>, bincode::error::EncodeError> {
-        let config = bincode::config::standard();
-        bincode::encode_to_vec(self, config)
-    }
-}
-
 #[derive(Debug, bincode::Encode, bincode::Decode)]
 pub enum GameResponse {
     Pong,
     Events { events: Vec<Event> },
+    Login { result: LoginResult },
 }
 
-impl GameResponse {
-    #[inline]
-    pub fn from_bytes(data: &[u8]) -> Result<GameResponse, bincode::error::DecodeError> {
-        let config = bincode::config::standard();
-        let (response, _) = bincode::decode_from_slice(data, config)?;
-        Ok(response)
-    }
+#[derive(Debug, bincode::Encode, bincode::Decode)]
+pub enum LoginResult {
+    Success,
+    VersionMismatch,
+    InvalidPassword,
 }
 
 #[derive(Debug, bincode::Encode, bincode::Decode)]

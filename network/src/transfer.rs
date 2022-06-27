@@ -1,36 +1,15 @@
-use game::api::{GameResponse, PlayerRequest};
+use bincode::error::{DecodeError, EncodeError};
+use bincode::{Decode, Encode};
 use log::error;
 use std::io::{Read, Write};
 use std::net::TcpStream;
 
-pub struct Connector {}
-
-pub struct Client {}
-
-impl Client {
-    pub fn new() -> Self {
-        Self {}
-    }
-
-    pub fn connect(address: &str, player: String, password: Option<String>) {
-        todo!()
-    }
-}
-
-pub struct Server {}
-
-impl Server {
-    pub fn new() -> Self {
-        Self {}
-    }
-}
-
-pub struct GameResponseReceiver {
+pub struct SyncReceiver {
     pub reader: TcpStream,
 }
 
-impl GameResponseReceiver {
-    pub fn receive(&mut self) -> Option<GameResponse> {
+impl SyncReceiver {
+    pub fn receive<T: Decode>(&mut self) -> Option<T> {
         let mut buffer = [0_u8; 2];
         if let Err(error) = self.reader.read_exact(&mut buffer) {
             error!("Unable to receive because of header read, {}", error);
@@ -43,7 +22,7 @@ impl GameResponseReceiver {
             error!("Unable to receive because of body read, {}", error);
             return None;
         }
-        match GameResponse::from_bytes(buffer.as_slice()) {
+        match decode(buffer.as_slice()) {
             Ok(response) => Some(response),
             Err(error) => {
                 error!("Unable to receive because of deserialization, {}", error);
@@ -53,13 +32,13 @@ impl GameResponseReceiver {
     }
 }
 
-pub struct PlayerRequestSender {
+pub struct SyncSender {
     pub writer: TcpStream,
 }
 
-impl PlayerRequestSender {
-    pub fn send(&mut self, request: PlayerRequest) -> Option<()> {
-        match request.as_bytes() {
+impl SyncSender {
+    pub fn send<T: Encode>(&mut self, value: &T) -> Option<()> {
+        match encode(value) {
             Ok(body) => {
                 let header = match u16::try_from(body.len()) {
                     Ok(body_length) => body_length.to_be_bytes(),
@@ -84,4 +63,17 @@ impl PlayerRequestSender {
 
         return Some(());
     }
+}
+
+#[inline]
+pub fn decode<T: Decode>(data: &[u8]) -> Result<T, DecodeError> {
+    let config = bincode::config::standard();
+    let (response, _) = bincode::decode_from_slice(data, config)?;
+    Ok(response)
+}
+
+#[inline]
+pub fn encode<T: Encode>(value: &T) -> Result<Vec<u8>, EncodeError> {
+    let config = bincode::config::standard();
+    bincode::encode_to_vec(value, config)
 }

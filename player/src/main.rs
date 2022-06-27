@@ -1,13 +1,13 @@
 use crate::input::Input;
 use game::Game;
 use log::info;
+use network::{Configuration, Server};
 use sdl2::keyboard::Keycode;
 use std::ffi::CString;
 use std::thread;
 use std::time::{Duration, Instant};
 
 pub mod input;
-pub mod network;
 
 trait Mode {
     fn name(&self) -> &str {
@@ -83,6 +83,13 @@ fn main() {
     env_logger::init();
     info!("OS: {}", std::env::consts::OS);
 
+    let config = Configuration {
+        version: VERSION.to_string(),
+        password: None,
+    };
+    let mut server = Server::startup(config);
+    info!("Server: {}", server.address());
+
     let editor = env!("FARMISTO_EDITOR", "no") == "yes";
     info!("Editor mode: {}", editor);
 
@@ -135,6 +142,10 @@ fn main() {
 
         if input.terminating {
             break;
+        }
+
+        if input.pressed(Keycode::T) {
+            server.terminate();
         }
 
         mode.update(&input);
