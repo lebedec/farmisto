@@ -1,11 +1,11 @@
-use crate::transfer::{SyncReceiver, SyncSender};
-use game::api::{GameResponse, LoginResult, PlayerRequest};
+use crate::transfer::{encode, SyncReceiver, SyncSender};
+use game::api::{GameResponse, LoginResult, PlayerRequest, API_VERSION};
 use log::{error, info, warn};
 use std::collections::HashMap;
 use std::net::TcpListener;
 use std::process::Command;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::mpsc::{channel, Receiver, Sender};
+use std::sync::mpsc::{channel, Receiver, RecvTimeoutError, Sender};
 use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
@@ -13,35 +13,45 @@ use std::time::Duration;
 pub struct Player {
     name: String,
     requests: Receiver<PlayerRequest>,
-    responses: Sender<GameResponse>,
+    responses: Sender<Vec<u8>>,
 }
 
 pub struct TrustedPlayerRequest {
-    player: String,
-    request: PlayerRequest,
+    pub player: String,
+    pub request: PlayerRequest,
 }
 
 pub struct Server {
     running: Arc<AtomicBool>,
     address: String,
     authorization: Receiver<Player>,
+    disconnection: Receiver<String>,
     players: HashMap<String, Player>,
 }
 
 pub struct Configuration {
-    pub version: String,
+    pub host: String,
     pub password: Option<String>,
 }
 
 impl Server {
     pub fn startup(config: Configuration) -> Self {
+        let address = detect_server_address();
+        info!("Start server {}", address);
         let running = Arc::new(AtomicBool::new(true));
         let (listener_authorization, authorization) = channel();
-        spawn_listener(running.clone(), config, listener_authorization);
+        let (listener_disconnection, disconnection) = channel();
+        spawn_listener(
+            running.clone(),
+            config,
+            listener_authorization,
+            listener_disconnection,
+        );
         Self {
             running,
-            address: detect_server_address(),
+            address,
             authorization,
+            disconnection,
             players: HashMap::new(),
         }
     }
@@ -66,6 +76,15 @@ impl Server {
         players
     }
 
+    pub fn lost_players(&mut self) -> Vec<String> {
+        let mut players = vec![];
+        for player in self.disconnection.try_iter() {
+            self.players.remove(&player);
+            players.push(player);
+        }
+        players
+    }
+
     pub fn requests(&mut self) -> Vec<TrustedPlayerRequest> {
         let mut requests = vec![];
         for player in self.players.values() {
@@ -82,10 +101,23 @@ impl Server {
     }
 
     pub fn broadcast(&mut self, response: GameResponse) {
-        todo!()
+        // first of all encode response only once
+        // todo: move encoding to separated thread
+        // todo: zero copy senders
+        let response = encode(&response).unwrap();
+        for player in self.players.values() {
+            if player.responses.send(response.clone()).is_err() {
+                error!(
+                    "Unable to send response, player '{}' connection lost",
+                    player.name
+                );
+                continue;
+            }
+        }
     }
 
     pub fn send(&mut self, player: String, response: GameResponse) {
+        let response = encode(&response).unwrap();
         match self.players.get_mut(&player) {
             Some(player) => {
                 if player.responses.send(response).is_err() {
@@ -101,21 +133,22 @@ impl Server {
         }
     }
 
-    pub fn lost_players(&mut self) -> Vec<Player> {
-        todo!()
-    }
-
     pub fn terminate(&mut self) {
         self.running.store(false, Ordering::Relaxed);
     }
 }
 
-fn spawn_listener(running: Arc<AtomicBool>, config: Configuration, authorization: Sender<Player>) {
+fn spawn_listener(
+    running: Arc<AtomicBool>,
+    config: Configuration,
+    authorization: Sender<Player>,
+    disconnection: Sender<String>,
+) {
     thread::spawn(move || {
         let address = "0.0.0.0:8080";
         info!(
-            "Listen player connections on {:?} with {} version",
-            address, config.version
+            "Listen player connections on {:?}, API version is {}",
+            address, API_VERSION
         );
         let listener = match TcpListener::bind(address) {
             Ok(listener) => listener,
@@ -124,7 +157,10 @@ fn spawn_listener(running: Arc<AtomicBool>, config: Configuration, authorization
                 return;
             }
         };
-        let default_timeout = Some(Duration::from_secs(5));
+
+        let default_timeout = Duration::from_secs(5);
+        let heartbeat = Duration::from_secs(2);
+
         while running.load(Ordering::Relaxed) {
             // todo: nonblocking
             for stream in listener.incoming() {
@@ -138,8 +174,8 @@ fn spawn_listener(running: Arc<AtomicBool>, config: Configuration, authorization
                 let peer = stream.peer_addr().unwrap().to_string();
                 info!("New connection from {:?}", peer);
 
-                stream.set_read_timeout(default_timeout).unwrap();
-                stream.set_write_timeout(default_timeout).unwrap();
+                stream.set_read_timeout(Some(default_timeout)).unwrap();
+                stream.set_write_timeout(Some(default_timeout)).unwrap();
 
                 let mut receiver = SyncReceiver {
                     reader: stream.try_clone().unwrap(),
@@ -157,28 +193,28 @@ fn spawn_listener(running: Arc<AtomicBool>, config: Configuration, authorization
                         player,
                         password,
                     }) => {
-                        if version != config.version {
+                        if version != API_VERSION {
                             warn!(
                                 "Unable to authorize '{}' {}, version mismatch {} != {}",
-                                player, peer, version, config.version
+                                player, peer, version, API_VERSION
                             );
-                            let result = GameResponse::Login {
-                                result: LoginResult::VersionMismatch,
-                            };
-                            sender.send(&result).unwrap();
+                            let result = LoginResult::VersionMismatch;
+                            let response = GameResponse::Login { result };
+                            sender.send(&response).unwrap();
                             continue;
                         }
+
                         if password != config.password {
                             warn!(
                                 "Unable to authorize '{}' {}, invalid password",
                                 player, peer
                             );
-                            let result = GameResponse::Login {
-                                result: LoginResult::InvalidPassword,
-                            };
-                            sender.send(&result).unwrap();
+                            let result = LoginResult::InvalidPassword;
+                            let response = GameResponse::Login { result };
+                            sender.send(&response).unwrap();
                             continue;
                         }
+
                         player
                     }
                     _ => {
@@ -186,6 +222,8 @@ fn spawn_listener(running: Arc<AtomicBool>, config: Configuration, authorization
                         continue;
                     }
                 };
+
+                info!("Authorization of '{}' player successful", player);
 
                 let (requests_sender, requests) = channel();
                 let (responses, responses_receiver) = channel();
@@ -197,6 +235,7 @@ fn spawn_listener(running: Arc<AtomicBool>, config: Configuration, authorization
                 };
 
                 let player_id = player.name.clone();
+                let player_disconnection = disconnection.clone();
                 thread::spawn(move || {
                     info!("Start player '{}' requests thread", player_id);
                     while let Some(request) = receiver.receive() {
@@ -205,23 +244,38 @@ fn spawn_listener(running: Arc<AtomicBool>, config: Configuration, authorization
                             break;
                         }
                     }
+                    info!("Stop player '{}' requests thread", player_id);
+
+                    if player_disconnection.send(player_id).is_err() {
+                        error!("Unable to disconnect player, server not working")
+                    }
                 });
 
                 let player_id = player.name.clone();
                 thread::spawn(move || {
                     info!("Start player '{}' responses thread", player_id);
 
-                    let result = GameResponse::Login {
-                        result: LoginResult::Success,
-                    };
-                    sender.send(&result).unwrap();
+                    let result = LoginResult::Success;
+                    let response = GameResponse::Login { result };
+                    sender.send(&response).unwrap();
 
-                    for response in responses_receiver.iter() {
-                        if sender.send(&response).is_none() {
-                            error!("Unable to send response, connection lost");
+                    loop {
+                        let response = match responses_receiver.recv_timeout(heartbeat) {
+                            Ok(response) => response,
+                            Err(RecvTimeoutError::Timeout) => {
+                                encode(&GameResponse::Heartbeat).unwrap()
+                            }
+                            Err(RecvTimeoutError::Disconnected) => {
+                                error!("Unable to send response, connection lost");
+                                break;
+                            }
+                        };
+                        if sender.send_body(response).is_none() {
+                            error!("Unable to send response, network error");
                             break;
                         }
                     }
+                    info!("Stop player '{}' responses thread", player_id);
                 });
 
                 if authorization.send(player).is_err() {

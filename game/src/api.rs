@@ -1,6 +1,8 @@
+pub const API_VERSION: &str = "0.1";
+
 #[derive(Debug, bincode::Encode, bincode::Decode)]
 pub enum PlayerRequest {
-    Ping,
+    Heartbeat,
     Login {
         version: String,
         player: String,
@@ -14,12 +16,12 @@ pub enum PlayerRequest {
 
 #[derive(Debug, bincode::Encode, bincode::Decode)]
 pub enum GameResponse {
-    Pong,
+    Heartbeat,
     Events { events: Vec<Event> },
     Login { result: LoginResult },
 }
 
-#[derive(Debug, bincode::Encode, bincode::Decode)]
+#[derive(Debug, bincode::Encode, bincode::Decode, PartialEq)]
 pub enum LoginResult {
     Success,
     VersionMismatch,

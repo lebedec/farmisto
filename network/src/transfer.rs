@@ -37,31 +37,34 @@ pub struct SyncSender {
 }
 
 impl SyncSender {
+    pub fn send_body(&mut self, body: Vec<u8>) -> Option<()> {
+        let header = match u16::try_from(body.len()) {
+            Ok(body_length) => body_length.to_be_bytes(),
+            Err(error) => {
+                error!("Unable to send because of body length {}", error);
+                return None;
+            }
+        };
+        if let Err(error) = self.writer.write_all(&header) {
+            error!("Unable to send because of header write, {}", error);
+            return None;
+        }
+        if let Err(error) = self.writer.write_all(&body) {
+            error!("Unable to send because of body write, {}", error);
+            None
+        } else {
+            Some(())
+        }
+    }
+
     pub fn send<T: Encode>(&mut self, value: &T) -> Option<()> {
         match encode(value) {
-            Ok(body) => {
-                let header = match u16::try_from(body.len()) {
-                    Ok(body_length) => body_length.to_be_bytes(),
-                    Err(error) => {
-                        error!("Unable to send because of body length {}", error);
-                        return None;
-                    }
-                };
-                if let Err(error) = self.writer.write_all(&header) {
-                    error!("Unable to send because of header write, {}", error);
-                    return None;
-                }
-                if let Err(error) = self.writer.write_all(&body) {
-                    error!("Unable to send because of body write, {}", error);
-                    return None;
-                }
-            }
+            Ok(body) => self.send_body(body),
             Err(error) => {
-                error!("Unable to send because of serialization, {}", error)
+                error!("Unable to send because of serialization, {}", error);
+                None
             }
         }
-
-        return Some(());
     }
 }
 

@@ -1,13 +1,12 @@
 use crate::input::Input;
-use game::Game;
+use crate::modes::Loading;
 use log::info;
-use network::{Configuration, Server};
-use sdl2::keyboard::Keycode;
 use std::ffi::CString;
 use std::thread;
 use std::time::{Duration, Instant};
 
 pub mod input;
+pub mod modes;
 
 trait Mode {
     fn name(&self) -> &str {
@@ -16,6 +15,7 @@ trait Mode {
 
     fn start(&mut self) {}
 
+    #[allow(unused_variables)]
     fn update(&mut self, input: &Input) {}
 
     fn transition(&self) -> Option<Box<dyn Mode>> {
@@ -25,72 +25,11 @@ trait Mode {
     fn finish(&mut self) {}
 }
 
-struct Loading {}
-
-impl Loading {
-    pub fn new() -> Box<Self> {
-        Box::new(Self {})
-    }
-}
-
-impl Mode for Loading {
-    fn transition(&self) -> Option<Box<dyn Mode>> {
-        Some(Menu::new())
-    }
-}
-
-struct Menu {}
-
-impl Menu {
-    pub fn new() -> Box<Self> {
-        Box::new(Self {})
-    }
-}
-
-impl Mode for Menu {
-    fn update(&mut self, input: &Input) {
-        if input.pressed(Keycode::E) {
-            info!("Run editor mode")
-        }
-
-        if input.pressed(Keycode::J) {
-            info!("Join game")
-        }
-    }
-
-    fn transition(&self) -> Option<Box<dyn Mode>> {
-        None
-    }
-}
-
-struct Gameplay {
-    game: Game,
-    host: Option<usize>,
-    client: usize,
-}
-
-impl Gameplay {
-    pub fn new(game: Game, client: usize, host: Option<usize>) -> Self {
-        Self { game, host, client }
-    }
-}
-
-impl Mode for Gameplay {}
-
-const VERSION: &str = "0.1.0";
-
 fn main() {
     env_logger::init();
     info!("OS: {}", std::env::consts::OS);
 
-    let config = Configuration {
-        version: VERSION.to_string(),
-        password: None,
-    };
-    let mut server = Server::startup(config);
-    info!("Server: {}", server.address());
-
-    let editor = env!("FARMISTO_EDITOR", "no") == "yes";
+    let editor = option_env!("FARMISTO_EDITOR").is_some();
     info!("Editor mode: {}", editor);
 
     #[cfg(windows)]
@@ -102,7 +41,7 @@ fn main() {
     let window_size = [960, 540];
     let window = video
         .window(
-            &format!("Farmisto {}", VERSION),
+            &format!("Farmisto [editor:{}] {}", editor, "0.0.1"),
             window_size[0],
             window_size[1],
         )
@@ -126,7 +65,7 @@ fn main() {
         .collect();
     info!("Vulkan extensions: {:?}", instance_extensions);
 
-    let mut mode: Box<dyn Mode> = Loading::new();
+    let mut mode: Box<dyn Mode> = Loading::new(editor);
     info!("Start {:?}", mode.name());
     mode.start();
 
@@ -142,10 +81,6 @@ fn main() {
 
         if input.terminating {
             break;
-        }
-
-        if input.pressed(Keycode::T) {
-            server.terminate();
         }
 
         mode.update(&input);
