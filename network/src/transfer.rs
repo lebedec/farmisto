@@ -1,6 +1,6 @@
 use bincode::error::{DecodeError, EncodeError};
 use bincode::{Decode, Encode};
-use log::error;
+use log::{error, info};
 use std::io::{Read, Write};
 use std::net::TcpStream;
 
@@ -53,6 +53,9 @@ impl SyncSender {
             error!("Unable to send because of body write, {}", error);
             None
         } else {
+            if body.len() > 100 {
+                info!("Sent {} bytes body", body.len());
+            }
             Some(())
         }
     }

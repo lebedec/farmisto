@@ -65,7 +65,12 @@ impl<T: Persist> Mutable<T> {
         self.items.get_mut(&id)
     }
 
-    pub fn load(&mut self, connection: &Connection) {
+    pub fn load<A, R, E>(&mut self, connection: &Connection, insert: A, remove: R) -> Vec<E>
+    where
+        A: Fn(&T) -> E,
+        R: Fn(usize) -> E,
+    {
+        let mut events = vec![];
         let table = std::any::type_name::<T>().split("::").last().unwrap();
         let mut statement = connection
             .prepare(&format!(
@@ -84,11 +89,13 @@ impl<T: Persist> Mutable<T> {
             }
             let deleted: bool = row.get("deleted").unwrap();
             if deleted {
+                events.push(remove(id));
                 self.items.remove(&id);
                 deletes += 1;
             } else {
                 match T::parse(row) {
                     Ok(item) => {
+                        events.push(insert(&item));
                         self.items.insert(id, item);
                         updates += 1;
                     }
@@ -110,6 +117,7 @@ impl<T: Persist> Mutable<T> {
                 self.last_entry
             );
         }
+        events
     }
 
     pub fn dump(&mut self, connection: &Connection) {
@@ -148,8 +156,13 @@ impl<T: Persist> Readonly<T> {
     }
 
     #[inline]
-    pub fn _get(&self, id: usize) -> Option<&T> {
+    pub fn get(&self, id: usize) -> Option<&T> {
         self.items.get(&id)
+    }
+
+    #[inline]
+    pub fn get_unchecked(&self, id: usize) -> &T {
+        self.items.get(&id).unwrap()
     }
 
     pub fn update(&mut self, connection: &Connection) {

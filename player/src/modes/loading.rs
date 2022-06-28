@@ -1,7 +1,8 @@
-use crate::modes::{Gameplay, Menu};
+use crate::modes::{GameThread, Gameplay, Menu};
 use crate::Mode;
-use game::Game;
-use network::{Client, Configuration, Server};
+use network::{Client, Configuration};
+use std::thread;
+use std::time::Duration;
 
 pub struct Loading {
     is_editor: bool,
@@ -17,15 +18,16 @@ impl Mode for Loading {
     fn transition(&self) -> Option<Box<dyn Mode>> {
         if self.is_editor {
             // development mode startup
-            let game = Some(Game::new());
             let player = "dev".to_string();
             let config = Configuration {
                 host: player.clone(),
                 password: None,
             };
-            let server = Server::startup(config);
+            let game = GameThread::spawn(config);
+            // await server start
+            thread::sleep(Duration::from_millis(100));
             let client = Client::connect("127.0.0.1:8080", player, None).unwrap();
-            Some(Gameplay::new(game, client, Some(server)))
+            Some(Gameplay::new(Some(game), client))
         } else {
             Some(Menu::new())
         }

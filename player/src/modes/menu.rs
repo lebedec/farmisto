@@ -28,7 +28,7 @@ impl Mode for Menu {
     fn transition(&self) -> Option<Box<dyn Mode>> {
         if let Some(player) = self.join.as_ref() {
             let client = Client::connect("127.0.0.1:8080", player.to_string(), None).unwrap();
-            return Some(Gameplay::new(None, client, None));
+            return Some(Gameplay::new(None, client));
         }
         None
     }
