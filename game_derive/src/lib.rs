@@ -22,6 +22,11 @@ const SQL_TYPES: [&'static str; 14] = [
     "usize",
 ];
 
+#[proc_macro_attribute]
+pub fn group(_args: TokenStream, input: TokenStream) -> TokenStream {
+    input
+}
+
 fn generate_persisted_trait(ast: &DeriveInput) -> TokenStream {
     let name = &ast.ident;
     let code = match &ast.data {
@@ -32,7 +37,16 @@ fn generate_persisted_trait(ast: &DeriveInput) -> TokenStream {
             let mut mapping = vec![];
             for (index, field) in data.fields.iter().enumerate() {
                 let field_ident = field.ident.as_ref().unwrap();
+
                 let field_name = format!("{}", field_ident);
+                if !field.attrs.is_empty() {
+                    let attrs: Vec<String> = field
+                        .attrs
+                        .iter()
+                        .map(|a| a.path.to_token_stream().to_string())
+                        .collect();
+                    println!("ATTRS: {} {:?}", field_name, attrs)
+                }
                 let index = index + 2; // 1-based, 1-reserved
                 let bind_value = match &field.ty {
                     Type::Path(path)

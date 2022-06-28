@@ -1,12 +1,14 @@
-use log::{error, info};
+pub use game_derive::{group, Domain, Persisted};
+use log::{error, info, warn};
 use rusqlite::{Connection, Row, Statement};
 use serde::de::DeserializeOwned;
 use serde::Serialize;
 use serde_json::Value;
 use std::collections::hash_map::{Values, ValuesMut};
 use std::collections::HashMap;
-
-pub use game_derive::{Domain, Persisted};
+use std::fmt::Debug;
+use std::hash::Hash;
+use std::rc::Rc;
 
 pub trait Persist: Sized {
     fn columns() -> Vec<String>;
@@ -14,6 +16,106 @@ pub trait Persist: Sized {
     fn parse(row: &Row) -> Result<Self, rusqlite::Error>;
 }
 
+pub struct Grouping<G, T, K> {
+    knowledge: HashMap<usize, Rc<K>>,
+    groups: HashMap<G, Vec<T>>,
+    fallback: Vec<T>,
+}
+
+impl<G: Debug + Hash + Eq, T, K> Grouping<G, T, K> {
+    pub fn new() -> Self {
+        Self {
+            knowledge: HashMap::new(),
+            groups: HashMap::new(),
+            fallback: vec![],
+        }
+    }
+
+    pub fn load() {
+        todo!()
+    }
+
+    #[inline]
+    pub fn iter(&self, group: G) -> &Vec<T> {
+        match self.groups.get(&group) {
+            Some(values) => values,
+            None => {
+                warn!(
+                    "Attempt to get the {} values of a non-existent group '{:?}'",
+                    std::any::type_name::<T>(),
+                    group
+                );
+                &self.fallback
+            }
+        }
+    }
+
+    pub fn iter_mut(&mut self, group: G) -> &mut Vec<T> {
+        match self.groups.get_mut(&group) {
+            Some(values) => values,
+            None => {
+                warn!(
+                    "Attempt to get the {} values of a non-existent group '{:?}'",
+                    std::any::type_name::<T>(),
+                    group
+                );
+                &mut self.fallback
+            }
+        }
+    }
+}
+
+pub struct MutableGrouping<G, T> {
+    last_timestamp: i64,
+    last_group_id: usize,
+    last_id: usize,
+    groups: HashMap<usize, (G, HashMap<usize, T>)>,
+    groups2: Vec<(G, Vec<T>)>,
+}
+
+impl<G, T: Persist> MutableGrouping<G, T> {
+    pub fn new() -> Self {
+        Self {
+            last_timestamp: -1,
+            last_group_id: 0,
+            last_id: 0,
+            groups: Default::default(),
+            groups2: vec![],
+        }
+    }
+
+    #[inline]
+    pub fn next_id(&mut self) -> usize {
+        self.last_id += 1;
+        self.last_id
+    }
+
+    #[inline]
+    pub fn iter(&self) -> Values<usize, (G, HashMap<usize, T>)> {
+        self.groups.values()
+    }
+
+    #[inline]
+    pub fn iter_mut(&mut self) -> ValuesMut<usize, (G, HashMap<usize, T>)> {
+        self.groups.values_mut()
+    }
+
+    pub fn iter_groups(&mut self) -> &mut Vec<(G, Vec<T>)> {
+        &mut self.groups2
+    }
+
+    #[inline]
+    pub fn get(&self, group: usize, id: usize) -> Option<&T> {
+        self.groups.get(&group).unwrap().1.get(&id)
+    }
+
+    #[inline]
+    pub fn get_mut(&mut self, group: usize, id: usize) -> Option<&mut T> {
+        self.groups.get_mut(&group).unwrap().1.get_mut(&id)
+    }
+}
+
+#[derive(Debug)]
 pub struct Mutable<T> {
     last_entry: i64,
     last_id: usize,
