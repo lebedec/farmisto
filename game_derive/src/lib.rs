@@ -1,11 +1,10 @@
 extern crate proc_macro;
 
 use proc_macro::TokenStream;
-
 use quote::{quote, ToTokens};
 use syn::{Data, DeriveInput, Type};
 
-#[proc_macro_derive(Persisted)]
+#[proc_macro_derive(Persisted, attributes(group))]
 pub fn persisted_derive(input: TokenStream) -> TokenStream {
     let ast = syn::parse(input).unwrap();
     generate_persisted_trait(&ast).into()
@@ -22,11 +21,6 @@ const SQL_TYPES: [&'static str; 14] = [
     "usize",
 ];
 
-#[proc_macro_attribute]
-pub fn group(_args: TokenStream, input: TokenStream) -> TokenStream {
-    input
-}
-
 fn generate_persisted_trait(ast: &DeriveInput) -> TokenStream {
     let name = &ast.ident;
     let code = match &ast.data {
@@ -35,18 +29,32 @@ fn generate_persisted_trait(ast: &DeriveInput) -> TokenStream {
             let mut binders = vec![];
             let mut columns = vec![];
             let mut mapping = vec![];
+            let mut kind = None;
+            let mut group = "undefined!".to_string();
             for (index, field) in data.fields.iter().enumerate() {
                 let field_ident = field.ident.as_ref().unwrap();
-
                 let field_name = format!("{}", field_ident);
-                if !field.attrs.is_empty() {
-                    let attrs: Vec<String> = field
-                        .attrs
-                        .iter()
-                        .map(|a| a.path.to_token_stream().to_string())
-                        .collect();
-                    println!("ATTRS: {} {:?}", field_name, attrs)
+
+                if field_name == "kind" {
+                    let kind_type = match &field.ty {
+                        Type::Path(path) => path.to_token_stream(),
+                        _ => quote! { () },
+                    };
+                    kind = Some(kind_type);
+                    continue;
                 }
+
+                if field
+                    .attrs
+                    .iter()
+                    .map(|a| a.path.to_token_stream().to_string())
+                    .filter(|attribute| attribute == "group")
+                    .last()
+                    .is_some()
+                {
+                    group = field_name.clone();
+                }
+
                 let index = index + 2; // 1-based, 1-reserved
                 let bind_value = match &field.ty {
                     Type::Path(path)
@@ -74,10 +82,41 @@ fn generate_persisted_trait(ast: &DeriveInput) -> TokenStream {
                     #field_ident: #map_value,
                 })
             }
+
+            let parse = if kind.is_some() {
+                quote! {
+                    fn parse_known(row: &rusqlite::Row, kind: Self::Kind) -> Result<Self, rusqlite::Error> {
+                        Ok(Self {
+                            kind,
+                            #(#mapping)*
+                        })
+                    }
+                }
+            } else {
+                quote! {
+                    fn parse(row: &rusqlite::Row) -> Result<Self, rusqlite::Error> {
+                        Ok(Self {
+                            #(#mapping)*
+                        })
+                    }
+                }
+            };
+
+            let kind = kind.unwrap_or(quote! { () });
             quote! {
                 impl crate::persistence::Persist for #name {
+                    type Kind = #kind;
+
+                    fn entry_id(&self) -> usize {
+                        self.id
+                    }
+
                     fn columns() -> Vec<String> {
                         vec![#(#columns),*]
+                    }
+
+                    fn group() -> String {
+                        #group.to_string()
                     }
 
                     fn bind(&self, statement: &mut rusqlite::Statement) -> rusqlite::Result<()> {
@@ -85,11 +124,7 @@ fn generate_persisted_trait(ast: &DeriveInput) -> TokenStream {
                         Ok(())
                     }
 
-                    fn parse(row: &rusqlite::Row) -> Result<Self, rusqlite::Error> {
-                        Ok(Self {
-                            #(#mapping)*
-                        })
-                    }
+                    #parse
                 }
             }
         }

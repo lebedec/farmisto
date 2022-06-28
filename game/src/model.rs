@@ -1,7 +1,8 @@
-use crate::persistence::{Mutable, Persisted, Readonly};
+use crate::persistence::Persisted;
 
 #[derive(Debug, Persisted)]
 pub struct EntityKind {
+    pub id: usize,
     pub name: String,
     pub triangle: usize,
     pub quad: usize,

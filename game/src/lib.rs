@@ -1,5 +1,5 @@
 use crate::api::{Action, Event};
-use crate::physics::{Physics, PhysicsDomain};
+use crate::physics::PhysicsDomain;
 use crate::shapes::ShapesDomain;
 pub use domains::*;
 pub use model::*;
@@ -25,7 +25,7 @@ impl Game {
         }
     }
 
-    pub fn perform_action(&mut self, action_id: usize, action: Action) -> Vec<Event> {
+    pub fn perform_action(&mut self, _action_id: usize, action: Action) -> Vec<Event> {
         let mut events = vec![];
         match action {
             Action::DoSomething => {
@@ -47,17 +47,22 @@ impl Game {
     pub fn update(&mut self, time: f32) -> Vec<Event> {
         let mut events = vec![];
         let connection = Connection::open("./assets/database.sqlite").unwrap();
-        let state_events = self.shapes.load_state(&connection);
-        events.extend(state_events.into_iter().map(|e| Event::ShapesEvents(e)));
-        self.time += time;
-        if self.time > 5.0 {
-            // events.push(Event::TrianglesSumChanged { sum: self.time });
-            self.shapes.update(self.time);
-            self.time = 0.0;
-        }
 
-        let physics_events = self.physics.update(time);
-        events.extend(physics_events.into_iter().map(|e| Event::PhysicsEvents(e)));
+        self.physics.load(&connection);
+        self.physics.update(time);
+
+        // let state_events = self.shapes.load_state(&connection);
+        // events.extend(state_events.into_iter().map(|e| Event::ShapesEvents(e)));
+        // self.time += time;
+        // if self.time > 5.0 {
+        //     // events.push(Event::TrianglesSumChanged { sum: self.time });
+        //     self.shapes.update(self.time);
+        //     self.time = 0.0;
+        // }
+        //
+        // let physics_events = self.physics.update(time);
+        // events.extend(physics_events.into_iter().map(|e| Event::PhysicsEvents(e)));
+
         // for event in physics_events {
         //     match event {
         //         Physics::BodyPositionChanged { id, position } => {

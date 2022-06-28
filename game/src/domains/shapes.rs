@@ -9,11 +9,13 @@ pub struct ShapesDomain {
 
 #[derive(Debug, Persisted)]
 pub struct TriangleKind {
+    pub id: usize,
     pub name: String,
 }
 
 #[derive(Debug, Persisted)]
 pub struct QuadKind {
+    pub id: usize,
     pub name: String,
 }
 
