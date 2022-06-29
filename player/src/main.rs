@@ -1,7 +1,6 @@
 use crate::input::Input;
 use crate::modes::Loading;
 use log::info;
-use std::collections::HashMap;
 use std::ffi::CString;
 use std::thread;
 use std::time::{Duration, Instant};

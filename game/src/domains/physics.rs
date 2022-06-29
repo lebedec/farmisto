@@ -1,10 +1,12 @@
-use crate::persistence::{Grouping, Persisted};
+use crate::persistence::{Collection, Grouping, Id, Knowledge, Persisted, Shared};
 use log::info;
-use std::rc::Rc;
 
 pub struct PhysicsDomain {
-    pub bodies: Grouping<usize, Body, BodyKind>,
-    pub barriers: Grouping<usize, Barrier, BarrierKind>,
+    pub spaces: Collection<Space, SpaceKind>,
+    pub body_kinds: Knowledge<BodyKind>,
+    pub bodies: Grouping<Body, SpaceId>,
+    pub barrier_kinds: Knowledge<BarrierKind>,
+    pub barriers: Grouping<Barrier, SpaceId>,
 }
 
 #[derive(Debug, Persisted)]
@@ -13,10 +15,13 @@ pub struct SpaceKind {
     name: String,
 }
 
+#[derive(Debug, Id, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct SpaceId(usize);
+
 #[derive(Debug, Persisted)]
 pub struct Space {
-    id: usize,
-    kind: Rc<SpaceKind>,
+    id: SpaceId,
+    kind: Shared<SpaceKind>,
 }
 
 #[derive(Debug, Persisted)]
@@ -26,12 +31,15 @@ pub struct BodyKind {
     pub speed: f32,
 }
 
+#[derive(Debug, Id, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct BodyId(usize);
+
 #[derive(Debug, Persisted)]
 pub struct Body {
-    pub id: usize,
-    pub kind: Rc<BodyKind>,
+    pub id: BodyId,
+    pub kind: Shared<BodyKind>,
     #[group]
-    pub space: usize,
+    pub space: SpaceId,
     pub position: [f32; 2],
 }
 
@@ -42,12 +50,15 @@ pub struct BarrierKind {
     pub bounds: [f32; 2],
 }
 
+#[derive(Debug, Id, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct BarrierId(usize);
+
 #[derive(Debug, Persisted)]
 pub struct Barrier {
-    pub id: usize,
-    pub kind: Rc<BarrierKind>,
+    pub id: BarrierId,
+    pub kind: Shared<BarrierKind>,
     #[group]
-    pub space: usize,
+    pub space: SpaceId,
     pub position: [f32; 2],
 }
 
@@ -63,18 +74,34 @@ pub enum Physics {
 impl PhysicsDomain {
     pub fn new() -> Self {
         Self {
+            spaces: Collection::new(),
+            body_kinds: Knowledge::new(),
             bodies: Grouping::new(),
+            barrier_kinds: Knowledge::new(),
             barriers: Grouping::new(),
         }
     }
 
     pub fn load(&mut self, connection: &rusqlite::Connection) {
-        self.bodies.load(connection);
+        self.spaces.load(connection);
+        self.body_kinds.load(connection);
+        self.bodies.load(connection, &self.body_kinds);
+        self.barrier_kinds.load(connection);
+        self.barriers.load(connection, &self.barrier_kinds);
     }
 
-    pub fn handle_create_barrier(&mut self, space: usize, kind: usize, position: [f32; 2]) {
+    pub fn handle_translate(&mut self, space: SpaceId, body: BodyId, position: [f32; 2]) {
+        match self.bodies.get_mut(space, body) {
+            None => {}
+            Some(body) => {
+                body.position = position;
+            }
+        }
+    }
+
+    pub fn handle_create_barrier(&mut self, space: SpaceId, kind: usize, position: [f32; 2]) {
         let id = self.barriers.next_id();
-        let kind = self.barriers.get_kind(kind).unwrap();
+        let kind = self.barrier_kinds.get(kind).unwrap();
         info!("barrier kind name is {:?}", kind.name);
         self.barriers.insert(
             space,
@@ -90,38 +117,40 @@ impl PhysicsDomain {
     pub fn update(&mut self, time: f32) -> Vec<Physics> {
         let mut events = vec![];
 
-        // for space in [0, 1, 3] {
-        //     let bodies = self.bodies.iter_mut(space).unwrap();
-        //     let barriers = self.barriers.iter_mut(space).unwrap();
-        //     for index in 0..bodies.len() {
-        //         let id = bodies[index].id;
-        //
-        //         // crowd control
-        //         let mut sum = 0.0;
-        //         for other in bodies.iter() {
-        //             if other.id != id {
-        //                 sum += other.position[0] * time * other.kind.speed;
-        //             }
-        //         }
-        //
-        //         // collision detection
-        //         for barrier in barriers.iter() {
-        //             if barrier.kind.bounds[0] < sum {
-        //                 sum = barrier.kind.bounds[0];
-        //             }
-        //         }
-        //
-        //         if sum > 0.0 {
-        //             let body = &mut bodies[index];
-        //             body.position = [sum, sum];
-        //             events.push(Physics::BodyPositionChanged {
-        //                 id: body.id,
-        //                 space: body.space,
-        //                 position: body.position,
-        //             })
-        //         }
-        //     }
-        // }
+        for space in self.spaces.iter() {
+            let mut empty = vec![];
+            let bodies = self.bodies.iter_mut(space.id).unwrap_or(&mut empty);
+            let mut empty = vec![];
+            let barriers = self.barriers.iter_mut(space.id).unwrap_or(&mut empty);
+            for index in 0..bodies.len() {
+                let id = bodies[index].id;
+
+                // crowd control
+                let mut sum = 0.0;
+                for other in bodies.iter() {
+                    if other.id != id {
+                        sum += other.position[0] * time * other.kind.speed;
+                    }
+                }
+
+                // collision detection
+                for barrier in barriers.iter() {
+                    if barrier.kind.bounds[0] < sum {
+                        sum = barrier.kind.bounds[0];
+                    }
+                }
+
+                if sum > 0.0 {
+                    let body = &mut bodies[index];
+                    body.position = [sum, sum];
+                    events.push(Physics::BodyPositionChanged {
+                        id: body.id.into(),
+                        space: body.space.into(),
+                        position: body.position,
+                    })
+                }
+            }
+        }
 
         events
     }

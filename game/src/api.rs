@@ -1,6 +1,3 @@
-use crate::physics::Physics;
-use crate::shapes::Shapes;
-
 pub const API_VERSION: &str = "0.1";
 
 #[derive(Debug, bincode::Encode, bincode::Decode)]
@@ -39,8 +36,6 @@ pub enum Action {
 
 #[derive(Debug, bincode::Encode, bincode::Decode)]
 pub enum Event {
-    ShapesEvents(Shapes),
-    PhysicsEvents(Physics),
     EntityAppeared { id: usize, kind: usize },
     EntityVanished { id: usize },
     EventB,
