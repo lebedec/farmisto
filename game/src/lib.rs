@@ -1,5 +1,6 @@
 use crate::api::{Action, Event};
 use crate::physics::PhysicsDomain;
+use crate::planting::PlantingDomain;
 pub use domains::*;
 pub use model::*;
 use rusqlite::Connection;
@@ -10,13 +11,17 @@ mod model;
 pub mod persistence;
 
 pub struct Game {
+    universe: Universe,
     physics: PhysicsDomain,
+    planting: PlantingDomain,
 }
 
 impl Game {
     pub fn new() -> Self {
         Self {
-            physics: PhysicsDomain::new(),
+            universe: Universe::default(),
+            physics: PhysicsDomain::default(),
+            planting: PlantingDomain::default(),
         }
     }
 
@@ -38,8 +43,13 @@ impl Game {
         let _events = vec![];
         let connection = Connection::open("./assets/database.sqlite").unwrap();
 
+        self.universe.load(&connection);
+
         self.physics.load(&connection);
         self.physics.update(time);
+
+        self.planting.load(&connection);
+        self.planting.update(time);
 
         _events
     }

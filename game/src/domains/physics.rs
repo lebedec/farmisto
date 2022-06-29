@@ -1,40 +1,42 @@
 use crate::persistence::{Collection, Grouping, Id, Knowledge, Persisted, Shared};
 use log::info;
 
+#[derive(Default)]
 pub struct PhysicsDomain {
-    pub spaces: Collection<Space, SpaceKind>,
-    pub body_kinds: Knowledge<BodyKind>,
+    pub known_spaces: Knowledge<SpaceKind>,
+    pub spaces: Collection<Space>,
+    pub known_bodies: Knowledge<BodyKind>,
     pub bodies: Grouping<Body, SpaceId>,
-    pub barrier_kinds: Knowledge<BarrierKind>,
+    pub known_barriers: Knowledge<BarrierKind>,
     pub barriers: Grouping<Barrier, SpaceId>,
 }
 
-#[derive(Debug, Persisted)]
+#[derive(Persisted)]
 pub struct SpaceKind {
     id: usize,
     name: String,
 }
 
-#[derive(Debug, Id, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Id, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct SpaceId(usize);
 
-#[derive(Debug, Persisted)]
+#[derive(Persisted)]
 pub struct Space {
     id: SpaceId,
     kind: Shared<SpaceKind>,
 }
 
-#[derive(Debug, Persisted)]
+#[derive(Persisted)]
 pub struct BodyKind {
     pub id: usize,
     pub name: String,
     pub speed: f32,
 }
 
-#[derive(Debug, Id, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Id, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct BodyId(usize);
 
-#[derive(Debug, Persisted)]
+#[derive(Persisted)]
 pub struct Body {
     pub id: BodyId,
     pub kind: Shared<BodyKind>,
@@ -43,17 +45,17 @@ pub struct Body {
     pub position: [f32; 2],
 }
 
-#[derive(Debug, Persisted)]
+#[derive(Persisted)]
 pub struct BarrierKind {
     pub id: usize,
     pub name: String,
     pub bounds: [f32; 2],
 }
 
-#[derive(Debug, Id, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Id, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct BarrierId(usize);
 
-#[derive(Debug, Persisted)]
+#[derive(Persisted)]
 pub struct Barrier {
     pub id: BarrierId,
     pub kind: Shared<BarrierKind>,
@@ -62,7 +64,6 @@ pub struct Barrier {
     pub position: [f32; 2],
 }
 
-#[derive(Debug, bincode::Encode, bincode::Decode)]
 pub enum Physics {
     BodyPositionChanged {
         id: usize,
@@ -72,22 +73,13 @@ pub enum Physics {
 }
 
 impl PhysicsDomain {
-    pub fn new() -> Self {
-        Self {
-            spaces: Collection::new(),
-            body_kinds: Knowledge::new(),
-            bodies: Grouping::new(),
-            barrier_kinds: Knowledge::new(),
-            barriers: Grouping::new(),
-        }
-    }
-
     pub fn load(&mut self, connection: &rusqlite::Connection) {
-        self.spaces.load(connection);
-        self.body_kinds.load(connection);
-        self.bodies.load(connection, &self.body_kinds);
-        self.barrier_kinds.load(connection);
-        self.barriers.load(connection, &self.barrier_kinds);
+        self.known_spaces.load(connection);
+        self.spaces.load(connection, &self.known_spaces);
+        self.known_bodies.load(connection);
+        self.bodies.load(connection, &self.known_bodies);
+        self.known_barriers.load(connection);
+        self.barriers.load(connection, &self.known_barriers);
     }
 
     pub fn handle_translate(&mut self, space: SpaceId, body: BodyId, position: [f32; 2]) {
@@ -101,7 +93,7 @@ impl PhysicsDomain {
 
     pub fn handle_create_barrier(&mut self, space: SpaceId, kind: usize, position: [f32; 2]) {
         let id = self.barriers.next_id();
-        let kind = self.barrier_kinds.get(kind).unwrap();
+        let kind = self.known_barriers.get(kind).unwrap();
         info!("barrier kind name is {:?}", kind.name);
         self.barriers.insert(
             space,

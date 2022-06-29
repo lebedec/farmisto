@@ -75,3 +75,85 @@ create table Barrier
             references Space,
     position  json    not null
 );
+
+create table LandKind
+(
+    id        integer not null
+        constraint LandKind_pk
+            primary key autoincrement,
+    timestamp integer not null default -1,
+    deleted   bool    not null default false,
+    name      text    not null
+)
+
+create table Land
+(
+    id        integer not null
+        constraint Land_pk
+            primary key autoincrement,
+    timestamp integer not null default -1,
+    deleted   bool    not null default false,
+    kind      integer not null
+        constraint Land_LandKind_id_fk
+            references LandKind
+);
+
+create table PlantKind
+(
+    id        integer not null
+        constraint PlantKind_pk
+            primary key autoincrement,
+    timestamp integer not null default -1,
+    deleted   bool    not null default false,
+    name      text    not null,
+    speed     real    not null
+);
+
+create table Plant
+(
+    id        integer not null
+        constraint PlantKind_pk
+            primary key autoincrement,
+    timestamp integer not null default -1,
+    deleted   bool    not null default false,
+    kind      integer not null
+        constraint Plant_PlantKind_id_fk
+            references PlantKind,
+    land      integer not null
+        constraint Plant_Land_id_fk
+            references Land
+);
+
+create table TreeKind
+(
+    id        integer not null
+        constraint TreeKind_pk
+            primary key autoincrement,
+    timestamp integer not null default -1,
+    deleted   bool    not null default false,
+    name      text    not null,
+    barrier   integer not null
+        constraint Tree_BarrierKind_id_fk
+            references BarrierKind,
+    plant     integer not null
+        constraint Tree_PlantKind_id_fk
+            references PlantKind
+);
+
+create table Tree
+(
+    id        integer not null
+        constraint TreeKind_pk
+            primary key autoincrement,
+    timestamp integer not null default -1,
+    deleted   bool    not null default false,
+    kind      integer not null
+        constraint Tree_TreeKind_id_fk
+            references TreeKind,
+    barrier   integer not null
+        constraint Tree_Barrier_id_fk
+            references Barrier,
+    plant     integer not null
+        constraint Tree_Plant_id_fk
+            references Plant
+);
