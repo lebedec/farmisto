@@ -45,6 +45,9 @@ pub enum Event {
         position: [f32; 2],
         growth: f32,
     },
+    TreeUpdated {
+        id: TreeId,
+    },
     TreeVanished {
         id: TreeId,
     },

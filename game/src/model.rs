@@ -1,6 +1,7 @@
 use crate::persistence::{Collection, Id, Known, Persisted, Shared, Storage};
 use crate::physics::{BarrierId, BarrierKey};
 use crate::planting::{PlantId, PlantKey};
+use crate::Event;
 use log::info;
 
 #[derive(Default)]
@@ -43,14 +44,28 @@ pub struct Tree {
 }
 
 impl Universe {
-    pub fn load(&mut self, storage: &Storage) {
+    pub fn load(&mut self, storage: &Storage) -> Vec<Event> {
+        let mut events = vec![];
+
         self.known_trees.load(storage);
-        self.trees.load(storage, &self.known_trees);
+        let changeset = self.trees.load(storage, &self.known_trees);
+        // todo: reuse game look around
+        for id in changeset.inserts {
+            events.push(Event::TreeUpdated { id: id.into() })
+        }
+        for id in changeset.updates {
+            events.push(Event::TreeUpdated { id: id.into() })
+        }
+        for id in changeset.deletes {
+            events.push(Event::TreeVanished { id: id.into() })
+        }
 
         let next_id = *[self.id, self.trees.last_id()].iter().max().unwrap();
         if next_id != self.id {
             info!("Advance id value from {} to {}", self.id, next_id);
             self.id = next_id;
         }
+
+        events
     }
 }

@@ -57,16 +57,16 @@ impl Game {
     }
 
     pub fn update(&mut self, time: f32) -> Vec<Event> {
-        let _events = vec![];
-
-        self.universe.load(&self.storage);
+        let mut events = vec![];
 
         self.physics.load(&self.storage);
-        self.physics.update(time);
-
         self.planting.load(&self.storage);
+        let changes = self.universe.load(&self.storage);
+        events.extend(changes);
+
+        self.physics.update(time);
         self.planting.update(time);
 
-        _events
+        events
     }
 }

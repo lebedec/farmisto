@@ -43,7 +43,7 @@ where
         &mut self.items
     }
 
-    pub fn load(&mut self, storage: &Storage, knowledge: &Known<K>) {
+    pub fn load(&mut self, storage: &Storage, knowledge: &Known<K>) -> Changeset {
         let connection = storage.connection();
         let table = std::any::type_name::<T>().split("::").last().unwrap();
         let mut statement = connection
@@ -51,9 +51,7 @@ where
             .unwrap();
         let mut rows = statement.query([self.last_timestamp]).unwrap();
 
-        let mut inserts = 0;
-        let mut updates = 0;
-        let mut deletes = 0;
+        let mut changeset = Changeset::new();
         while let Some(row) = rows.next().unwrap() {
             let id: usize = row.get("id").unwrap();
             if id > self.last_id {
@@ -68,7 +66,7 @@ where
                 match group.iter().position(|item| item.entry_id() == id) {
                     Some(index) => {
                         group.remove(index);
-                        deletes += 1;
+                        changeset.delete(id);
                     }
                     None => {
                         warn!(
@@ -82,11 +80,11 @@ where
                     Ok(item) => match group.iter().position(|item| item.entry_id() == id) {
                         None => {
                             group.push(item);
-                            inserts += 1;
+                            changeset.insert(id);
                         }
                         Some(index) => {
                             group[index] = item;
-                            updates += 1;
+                            changeset.update(id);
                         }
                     },
                     Err(error) => {
@@ -97,13 +95,54 @@ where
             }
             self.last_timestamp = timestamp;
         }
-        if inserts + updates + deletes > 0 {
+        if changeset.changes() > 0 {
             info!(
                 "Load {}: {} inserted, {} updated, {} deleted, last timestamp is {}",
-                table, inserts, updates, deletes, self.last_timestamp
+                table,
+                changeset.inserts.len(),
+                changeset.updates.len(),
+                changeset.deletes.len(),
+                self.last_timestamp
             );
         }
+        changeset
     }
 
     pub fn dump() {}
+}
+
+pub struct Changeset {
+    pub inserts: Vec<usize>,
+    pub updates: Vec<usize>,
+    pub deletes: Vec<usize>,
+}
+
+impl Changeset {
+    pub fn new() -> Self {
+        Self {
+            inserts: vec![],
+            updates: vec![],
+            deletes: vec![],
+        }
+    }
+
+    #[inline]
+    pub fn changes(&self) -> usize {
+        self.inserts.len() + self.updates.len() + self.deletes.len()
+    }
+
+    #[inline]
+    pub fn insert(&mut self, id: usize) {
+        self.inserts.push(id);
+    }
+
+    #[inline]
+    pub fn update(&mut self, id: usize) {
+        self.updates.push(id);
+    }
+
+    #[inline]
+    pub fn delete(&mut self, id: usize) {
+        self.deletes.push(id);
+    }
 }

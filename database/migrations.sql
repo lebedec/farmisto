@@ -1,5 +1,8 @@
 select sqlite_version();
 
+PRAGMA foreign_keys = true;
+PRAGMA recursive_triggers = false;
+
 create table SpaceKind
 (
     id        integer not null

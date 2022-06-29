@@ -61,6 +61,9 @@ impl Mode for Gameplay {
                                 info!("Vanish tree {:?}", id);
                                 self.trees.remove(&id);
                             }
+                            Event::TreeUpdated { id } => {
+                                info!("Update tree {:?} [not implemented yet]", id);
+                            }
                         }
                     }
                 }
