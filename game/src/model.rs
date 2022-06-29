@@ -1,35 +1,56 @@
-use crate::persistence::{Collection, Id, Knowledge, Persisted, Shared};
-use crate::physics::BarrierId;
-use crate::planting::PlantId;
+use crate::persistence::{Collection, Id, Known, Persisted, Shared, Storage};
+use crate::physics::{BarrierId, BarrierKey};
+use crate::planting::{PlantId, PlantKey};
+use log::info;
 
 #[derive(Default)]
 pub struct Universe {
-    known_trees: Knowledge<TreeKind>,
-    trees: Collection<Tree>,
+    pub id: usize,
+    pub known_trees: Known<TreeKind>,
+    pub trees: Collection<Tree>,
 }
+
+#[derive(Id, Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
+pub struct TreeKey(usize);
 
 #[derive(Persisted)]
 pub struct TreeKind {
-    pub id: usize,
+    pub id: TreeKey,
     pub name: String,
-    pub barrier: usize,
-    pub plant: usize,
+    pub barrier: BarrierKey,
+    pub plant: PlantKey,
 }
 
-#[derive(Id, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Id, Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
 pub struct TreeId(usize);
+
+impl From<TreeId> for BarrierId {
+    fn from(id: TreeId) -> Self {
+        id.0.into()
+    }
+}
+
+impl From<TreeId> for PlantId {
+    fn from(id: TreeId) -> Self {
+        id.0.into()
+    }
+}
 
 #[derive(Persisted)]
 pub struct Tree {
     pub id: TreeId,
     pub kind: Shared<TreeKind>,
-    pub barrier: BarrierId,
-    pub plant: PlantId,
 }
 
 impl Universe {
-    pub fn load(&mut self, connection: &rusqlite::Connection) {
-        self.known_trees.load(connection);
-        self.trees.load(connection, &self.known_trees);
+    pub fn load(&mut self, storage: &Storage) {
+        self.known_trees.load(storage);
+        self.trees.load(storage, &self.known_trees);
+
+        let next_id = *[self.id, self.trees.last_id()].iter().max().unwrap();
+        if next_id != self.id {
+            info!("Advance id value from {} to {}", self.id, next_id);
+            self.id = next_id;
+        }
     }
 }

@@ -1,19 +1,22 @@
-use crate::persistence::{Collection, Grouping, Id, Knowledge, Persisted, Shared};
+use crate::persistence::{Collection, Grouping, Id, Known, Persisted, Shared, Storage};
 use log::info;
 
 #[derive(Default)]
 pub struct PhysicsDomain {
-    pub known_spaces: Knowledge<SpaceKind>,
+    pub known_spaces: Known<SpaceKind>,
+    pub known_bodies: Known<BodyKind>,
+    pub known_barriers: Known<BarrierKind>,
     pub spaces: Collection<Space>,
-    pub known_bodies: Knowledge<BodyKind>,
     pub bodies: Grouping<Body, SpaceId>,
-    pub known_barriers: Knowledge<BarrierKind>,
     pub barriers: Grouping<Barrier, SpaceId>,
 }
 
+#[derive(Id, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct SpaceKey(usize);
+
 #[derive(Persisted)]
 pub struct SpaceKind {
-    id: usize,
+    id: SpaceKey,
     name: String,
 }
 
@@ -26,9 +29,12 @@ pub struct Space {
     kind: Shared<SpaceKind>,
 }
 
+#[derive(Id, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct BodyKey(usize);
+
 #[derive(Persisted)]
 pub struct BodyKind {
-    pub id: usize,
+    pub id: BodyKey,
     pub name: String,
     pub speed: f32,
 }
@@ -40,14 +46,17 @@ pub struct BodyId(usize);
 pub struct Body {
     pub id: BodyId,
     pub kind: Shared<BodyKind>,
+    pub position: [f32; 2],
     #[group]
     pub space: SpaceId,
-    pub position: [f32; 2],
 }
+
+#[derive(Id, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct BarrierKey(usize);
 
 #[derive(Persisted)]
 pub struct BarrierKind {
-    pub id: usize,
+    pub id: BarrierKey,
     pub name: String,
     pub bounds: [f32; 2],
 }
@@ -59,9 +68,9 @@ pub struct BarrierId(usize);
 pub struct Barrier {
     pub id: BarrierId,
     pub kind: Shared<BarrierKind>,
+    pub position: [f32; 2],
     #[group]
     pub space: SpaceId,
-    pub position: [f32; 2],
 }
 
 pub enum Physics {
@@ -73,17 +82,17 @@ pub enum Physics {
 }
 
 impl PhysicsDomain {
-    pub fn load(&mut self, connection: &rusqlite::Connection) {
-        self.known_spaces.load(connection);
-        self.spaces.load(connection, &self.known_spaces);
-        self.known_bodies.load(connection);
-        self.bodies.load(connection, &self.known_bodies);
-        self.known_barriers.load(connection);
-        self.barriers.load(connection, &self.known_barriers);
+    pub fn load(&mut self, storage: &Storage) {
+        self.known_spaces.load(storage);
+        self.spaces.load(storage, &self.known_spaces);
+        self.known_bodies.load(storage);
+        self.bodies.load(storage, &self.known_bodies);
+        self.known_barriers.load(storage);
+        self.barriers.load(storage, &self.known_barriers);
     }
 
-    pub fn handle_translate(&mut self, space: SpaceId, body: BodyId, position: [f32; 2]) {
-        match self.bodies.get_mut(space, body) {
+    pub fn handle_translate(&mut self, _space: SpaceId, body: BodyId, position: [f32; 2]) {
+        match self.bodies.get_mut(body) {
             None => {}
             Some(body) => {
                 body.position = position;
@@ -91,8 +100,9 @@ impl PhysicsDomain {
         }
     }
 
-    pub fn handle_create_barrier(&mut self, space: SpaceId, kind: usize, position: [f32; 2]) {
-        let id = self.barriers.next_id();
+    pub fn handle_create_barrier(&mut self, space: SpaceId, kind: BarrierKey, position: [f32; 2]) {
+        // let id = self.barriers.next_id();
+        let id = BarrierId(10);
         let kind = self.known_barriers.get(kind).unwrap();
         info!("barrier kind name is {:?}", kind.name);
         self.barriers.insert(

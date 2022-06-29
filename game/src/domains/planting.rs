@@ -1,16 +1,20 @@
-use crate::persistence::{Collection, Grouping, Id, Knowledge, Persisted, Shared};
+use crate::persistence::{Collection, Grouping, Id, Known, Persisted, Shared};
+use crate::Storage;
 
 #[derive(Default)]
 pub struct PlantingDomain {
-    pub lands_knowledge: Knowledge<LandKind>,
+    pub known_lands: Known<LandKind>,
+    pub known_plants: Known<PlantKind>,
     pub lands: Collection<Land>,
-    pub plants_knowledge: Knowledge<PlantKind>,
     pub plants: Grouping<Plant, LandId>,
 }
 
+#[derive(Id, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct LandKey(usize);
+
 #[derive(Persisted)]
 pub struct LandKind {
-    id: usize,
+    id: LandKey,
     name: String,
 }
 
@@ -23,9 +27,12 @@ pub struct Land {
     kind: Shared<LandKind>,
 }
 
+#[derive(Id, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct PlantKey(usize);
+
 #[derive(Persisted)]
 pub struct PlantKind {
-    pub id: usize,
+    pub id: PlantKey,
     pub name: String,
     pub growth: f32,
 }
@@ -44,11 +51,11 @@ pub struct Plant {
 pub enum Planting {}
 
 impl PlantingDomain {
-    pub fn load(&mut self, connection: &rusqlite::Connection) {
-        self.lands_knowledge.load(connection);
-        self.lands.load(connection, &self.lands_knowledge);
-        self.plants_knowledge.load(connection);
-        self.plants.load(connection, &self.plants_knowledge);
+    pub fn load(&mut self, storage: &Storage) {
+        self.known_lands.load(storage);
+        self.lands.load(storage, &self.known_lands);
+        self.known_plants.load(storage);
+        self.plants.load(storage, &self.known_plants);
     }
 
     pub fn update(&mut self, _time: f32) -> Vec<Planting> {

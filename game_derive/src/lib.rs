@@ -36,18 +36,24 @@ fn generate_persisted_trait(ast: &DeriveInput) -> TokenStream {
             let mut columns = vec![];
             let mut mapping = vec![];
             let mut kind = None;
+            let mut id = None;
             let mut group = "undefined!".to_string();
             for (index, field) in data.fields.iter().enumerate() {
                 let field_ident = field.ident.as_ref().unwrap();
                 let field_name = format!("{}", field_ident);
 
+                let field_type_tokens = match &field.ty {
+                    Type::Path(path) => path.to_token_stream(),
+                    _ => quote! { () },
+                };
+
                 if field_name == "kind" {
-                    let kind_type = match &field.ty {
-                        Type::Path(path) => path.to_token_stream(),
-                        _ => quote! { () },
-                    };
-                    kind = Some(kind_type);
+                    kind = Some(field_type_tokens);
                     continue;
+                }
+
+                if field_name == "id" {
+                    id = Some(field_type_tokens);
                 }
 
                 if field
@@ -65,7 +71,7 @@ fn generate_persisted_trait(ast: &DeriveInput) -> TokenStream {
                 let is_sql_type = match &field.ty {
                     Type::Path(path) => {
                         let name = path.to_token_stream().to_string();
-                        SQL_TYPES.contains(&&*name) || name.ends_with("Id")
+                        SQL_TYPES.contains(&&*name) || name.ends_with("Id") || name.ends_with("Key")
                     }
                     _ => false,
                 };
@@ -113,9 +119,11 @@ fn generate_persisted_trait(ast: &DeriveInput) -> TokenStream {
             };
 
             let kind = kind.unwrap_or(quote! { () });
+            let id = id.unwrap_or(quote! { () });
             quote! {
                 impl crate::persistence::Persist for #name {
                     type Kind = #kind;
+                    type Id = #id;
 
                     fn entry_id(&self) -> usize {
                         self.id.into()

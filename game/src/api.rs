@@ -1,3 +1,6 @@
+use crate::model::{TreeId, TreeKey};
+use std::fmt::Debug;
+
 pub const API_VERSION: &str = "0.1";
 
 #[derive(Debug, bincode::Encode, bincode::Decode)]
@@ -14,7 +17,7 @@ pub enum PlayerRequest {
     },
 }
 
-#[derive(Debug, bincode::Encode, bincode::Decode)]
+#[derive(bincode::Encode, bincode::Decode)]
 pub enum GameResponse {
     Heartbeat,
     Events { events: Vec<Event> },
@@ -34,9 +37,15 @@ pub enum Action {
     DoAnything { id: usize, position: [f32; 2] },
 }
 
-#[derive(Debug, bincode::Encode, bincode::Decode)]
+#[derive(bincode::Encode, bincode::Decode)]
 pub enum Event {
-    EntityAppeared { id: usize, kind: usize },
-    EntityVanished { id: usize },
-    EventB,
+    TreeAppeared {
+        id: TreeId,
+        kind: TreeKey,
+        position: [f32; 2],
+        growth: f32,
+    },
+    TreeVanished {
+        id: TreeId,
+    },
 }

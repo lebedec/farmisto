@@ -2,6 +2,7 @@ use rusqlite::{Row, Statement};
 
 pub trait Persist: Sized {
     type Kind;
+    type Id;
 
     fn entry_id(&self) -> usize {
         unimplemented!()

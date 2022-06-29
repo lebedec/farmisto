@@ -1,19 +1,20 @@
 use crate::api::{Action, Event};
+use crate::model::Universe;
+use crate::persistence::Storage;
 use crate::physics::PhysicsDomain;
 use crate::planting::PlantingDomain;
 pub use domains::*;
-pub use model::*;
-use rusqlite::Connection;
 
 pub mod api;
 mod domains;
-mod model;
+pub mod model;
 pub mod persistence;
 
 pub struct Game {
     universe: Universe,
     physics: PhysicsDomain,
     planting: PlantingDomain,
+    storage: Storage,
 }
 
 impl Game {
@@ -22,6 +23,7 @@ impl Game {
             universe: Universe::default(),
             physics: PhysicsDomain::default(),
             planting: PlantingDomain::default(),
+            storage: Storage::open("./assets/database.sqlite").unwrap(),
         }
     }
 
@@ -34,21 +36,35 @@ impl Game {
         _events
     }
 
+    /// # Safety
+    ///
+    /// Relational database as source of data guarantees
+    /// that domain objects exists while exist game model.
+    /// So, we can unwrap references without check.
     pub fn look_around(&self) -> Vec<Event> {
-        let mut _events = vec![];
-        _events
+        let mut events = vec![];
+        for tree in self.universe.trees.iter() {
+            let barrier = self.physics.barriers.get(tree.id).unwrap();
+            let plant_kind = self.planting.known_plants.get(tree.kind.plant).unwrap();
+            events.push(Event::TreeAppeared {
+                id: tree.id,
+                kind: tree.kind.id,
+                position: barrier.position,
+                growth: plant_kind.growth,
+            })
+        }
+        events
     }
 
     pub fn update(&mut self, time: f32) -> Vec<Event> {
         let _events = vec![];
-        let connection = Connection::open("./assets/database.sqlite").unwrap();
 
-        self.universe.load(&connection);
+        self.universe.load(&self.storage);
 
-        self.physics.load(&connection);
+        self.physics.load(&self.storage);
         self.physics.update(time);
 
-        self.planting.load(&connection);
+        self.planting.load(&self.storage);
         self.planting.update(time);
 
         _events

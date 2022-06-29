@@ -1,14 +1,13 @@
-use crate::persistence::{Persist, Shared};
+use crate::persistence::{Persist, Shared, Storage};
 use log::{error, info};
-use rusqlite::Connection;
 use std::collections::HashMap;
 
-pub struct Knowledge<K> {
+pub struct Known<K> {
     knowledge: HashMap<usize, Shared<K>>,
     last_timestamp: i64,
 }
 
-impl<K> Default for Knowledge<K> {
+impl<K> Default for Known<K> {
     fn default() -> Self {
         Self {
             knowledge: Default::default(),
@@ -17,10 +16,14 @@ impl<K> Default for Knowledge<K> {
     }
 }
 
-impl<K: Persist> Knowledge<K> {
+impl<K, J> Known<K>
+where
+    K: Persist<Id = J>,
+    J: Into<usize>,
+{
     #[inline]
-    pub fn get(&self, key: usize) -> Option<Shared<K>> {
-        self.knowledge.get(&key).cloned()
+    pub fn get(&self, key: J) -> Option<Shared<K>> {
+        self.knowledge.get(&key.into()).cloned()
     }
 
     #[inline]
@@ -28,7 +31,8 @@ impl<K: Persist> Knowledge<K> {
         self.knowledge.get(&key).unwrap().clone()
     }
 
-    pub fn load(&mut self, connection: &Connection) {
+    pub fn load(&mut self, storage: &Storage) {
+        let connection = storage.connection();
         let table = std::any::type_name::<K>().split("::").last().unwrap();
         let mut statement = connection
             .prepare(&format!("select * from {} where timestamp > ?", table))

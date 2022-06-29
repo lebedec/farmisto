@@ -1,6 +1,5 @@
-use crate::persistence::{Knowledge, Persist, Shared};
+use crate::persistence::{Known, Persist, Shared, Storage};
 use log::{error, info, warn};
-use rusqlite::Connection;
 
 pub struct Collection<T> {
     items: Vec<T>,
@@ -18,14 +17,14 @@ impl<T> Default for Collection<T> {
     }
 }
 
-impl<T, K> Collection<T>
+impl<T, K, J> Collection<T>
 where
     T: Persist<Kind = Shared<K>>,
-    K: Persist,
+    K: Persist<Id = J>,
+    J: Into<usize>,
 {
     #[inline]
-    pub fn next_id(&mut self) -> usize {
-        self.last_id += 1;
+    pub fn last_id(&self) -> usize {
         self.last_id
     }
 
@@ -44,12 +43,14 @@ where
         &mut self.items
     }
 
-    pub fn load(&mut self, connection: &Connection, knowledge: &Knowledge<K>) {
+    pub fn load(&mut self, storage: &Storage, knowledge: &Known<K>) {
+        let connection = storage.connection();
         let table = std::any::type_name::<T>().split("::").last().unwrap();
         let mut statement = connection
             .prepare(&format!("select * from {} where timestamp > ?", table))
             .unwrap();
         let mut rows = statement.query([self.last_timestamp]).unwrap();
+
         let mut inserts = 0;
         let mut updates = 0;
         let mut deletes = 0;
@@ -96,7 +97,7 @@ where
             }
             self.last_timestamp = timestamp;
         }
-        if updates + deletes > 0 {
+        if inserts + updates + deletes > 0 {
             info!(
                 "Load {}: {} inserted, {} updated, {} deleted, last timestamp is {}",
                 table, inserts, updates, deletes, self.last_timestamp
