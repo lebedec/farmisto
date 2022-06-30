@@ -3,12 +3,44 @@ use crate::physics::{BarrierId, BarrierKey};
 use crate::planting::{PlantId, PlantKey};
 use crate::Event;
 use log::info;
+use std::collections::hash_set::IntoIter;
+use std::collections::HashSet;
 
 #[derive(Default)]
 pub struct Universe {
     pub id: usize,
     pub known_trees: Known<TreeKind>,
     pub trees: Collection<Tree>,
+}
+
+#[derive(Default)]
+pub struct Set<T> {
+    inner: HashSet<T>,
+}
+
+impl<T> Set<T> {
+    pub fn new(inner: HashSet<T>) -> Self {
+        Self { inner }
+    }
+
+    pub fn map(self) -> IntoIter<T> {
+        self.inner.into_iter()
+    }
+}
+
+#[derive(Default)]
+pub struct UniverseSnapshot {
+    pub whole: bool,
+    pub trees: HashSet<TreeId>,
+    pub trees_to_delete: HashSet<TreeId>,
+}
+
+impl UniverseSnapshot {
+    pub fn whole() -> Self {
+        let mut snapshot = UniverseSnapshot::default();
+        snapshot.whole = true;
+        snapshot
+    }
 }
 
 #[derive(Id, Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
@@ -44,20 +76,20 @@ pub struct Tree {
 }
 
 impl Universe {
-    pub fn load(&mut self, storage: &Storage) -> Vec<Event> {
-        let mut events = vec![];
+    pub fn load(&mut self, storage: &Storage) -> UniverseSnapshot {
+        let mut snapshot = UniverseSnapshot::default();
 
         self.known_trees.load(storage);
         let changeset = self.trees.load(storage, &self.known_trees);
-        // todo: reuse game look around
+        // todo: automate changeset conversion to universe snapshot
         for id in changeset.inserts {
-            events.push(Event::TreeUpdated { id: id.into() })
+            snapshot.trees.insert(id.into());
         }
         for id in changeset.updates {
-            events.push(Event::TreeUpdated { id: id.into() })
+            snapshot.trees.insert(id.into());
         }
         for id in changeset.deletes {
-            events.push(Event::TreeVanished { id: id.into() })
+            snapshot.trees_to_delete.insert(id.into());
         }
 
         let next_id = *[self.id, self.trees.last_id()].iter().max().unwrap();
@@ -66,6 +98,6 @@ impl Universe {
             self.id = next_id;
         }
 
-        events
+        snapshot
     }
 }

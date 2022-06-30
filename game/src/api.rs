@@ -48,7 +48,5 @@ pub enum Event {
     TreeUpdated {
         id: TreeId,
     },
-    TreeVanished {
-        id: TreeId,
-    },
+    TreeVanished(TreeId),
 }

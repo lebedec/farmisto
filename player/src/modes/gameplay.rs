@@ -1,6 +1,6 @@
 use crate::{Input, Mode};
 use game::api::{Action, Event, GameResponse, PlayerRequest};
-use game::model::{TreeId, TreeKind};
+use game::model::{TreeId, TreeKind, UniverseSnapshot};
 use game::persistence::{Known, Shared, Storage};
 use game::Game;
 use log::{error, info};
@@ -57,7 +57,7 @@ impl Mode for Gameplay {
                                 );
                                 self.trees.insert(id, TreeBehaviour { id, kind });
                             }
-                            Event::TreeVanished { id } => {
+                            Event::TreeVanished(id) => {
                                 info!("Vanish tree {:?}", id);
                                 self.trees.remove(&id);
                             }
@@ -129,7 +129,7 @@ impl GameThread {
             while running_thread.load(Ordering::Relaxed) {
                 for player in server.accept_players() {
                     info!("Add player '{}' to game", player);
-                    let events = game.look_around();
+                    let events = game.look_around(UniverseSnapshot::whole());
                     server.send(player, GameResponse::Events { events })
                 }
                 for player in server.lost_players() {

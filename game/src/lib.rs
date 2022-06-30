@@ -1,5 +1,5 @@
 use crate::api::{Action, Event};
-use crate::model::Universe;
+use crate::model::{Universe, UniverseSnapshot};
 use crate::persistence::Storage;
 use crate::physics::PhysicsDomain;
 use crate::planting::PlantingDomain;
@@ -41,19 +41,29 @@ impl Game {
     /// Relational database as source of data guarantees
     /// that domain objects exists while exist game model.
     /// So, we can unwrap references without check.
-    pub fn look_around(&self) -> Vec<Event> {
-        let mut events = vec![];
+    pub fn look_around(&self, snapshot: UniverseSnapshot) -> Vec<Event> {
+        let mut stream = vec![];
+
         for tree in self.universe.trees.iter() {
-            let barrier = self.physics.barriers.get(tree.id).unwrap();
-            let plant_kind = self.planting.known_plants.get(tree.kind.plant).unwrap();
-            events.push(Event::TreeAppeared {
-                id: tree.id,
-                kind: tree.kind.id,
-                position: barrier.position,
-                growth: plant_kind.growth,
-            })
+            if snapshot.whole || snapshot.trees.contains(&tree.id) {
+                let barrier = self.physics.barriers.get(tree.id).unwrap();
+                let plant_kind = self.planting.known_plants.get(tree.kind.plant).unwrap();
+                stream.push(Event::TreeAppeared {
+                    id: tree.id,
+                    kind: tree.kind.id,
+                    position: barrier.position,
+                    growth: plant_kind.growth,
+                })
+            }
         }
-        events
+
+        let events = snapshot
+            .trees_to_delete
+            .into_iter()
+            .map(Event::TreeVanished);
+        stream.extend(events);
+
+        stream
     }
 
     pub fn update(&mut self, time: f32) -> Vec<Event> {
@@ -62,7 +72,7 @@ impl Game {
         self.physics.load(&self.storage);
         self.planting.load(&self.storage);
         let changes = self.universe.load(&self.storage);
-        events.extend(changes);
+        events.extend(self.look_around(changes));
 
         self.physics.update(time);
         self.planting.update(time);
