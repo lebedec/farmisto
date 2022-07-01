@@ -144,8 +144,10 @@ pub fn startup<A: App>(title: String) {
         let vertex_buffer =
             VertexBuffer::create(&base.device, &base.device_memory_properties, vertices);
 
-        let mut vertex_spv_file = Cursor::new(&include_bytes!("../../../assets/vert.spv")[..]);
-        let mut frag_spv_file = Cursor::new(&include_bytes!("../../../assets/myfrag.spv")[..]);
+        let mut vertex_spv_file =
+            Cursor::new(&include_bytes!("../../../assets/shaders/triangle.vert.spv")[..]);
+        let mut frag_spv_file =
+            Cursor::new(&include_bytes!("../../../assets/shaders/triangle.frag.spv")[..]);
 
         let vertex_code =
             read_spv(&mut vertex_spv_file).expect("Failed to read vertex shader spv file");

@@ -22,10 +22,12 @@ flowchart LR;
 	database[(<h2>database</h2>&#91SQLite&#93)]:::component
 	game(<h2>game</h2>Module<br/>Provides all of the gameplay<br/> functionality to players.):::component
 	network(<h2>network</h2>Module):::component
+	hosting(<h2>hosting</h2>Module):::component
 	player("<h2>player</h2>[Application]"):::component
+	tools(<h2>tools</h2>Module):::external
 	
 	developer --> database;
-	developer --> assets;
+	developer --> tools --> assets;
 	
 	database --> game;
 	
@@ -36,9 +38,27 @@ flowchart LR;
 
 	player <-- "Views game progress,<br/>and makes actions using" ---> gamer;
 
+    hosting---gamer;
+
 	classDef person fill:#07427b,stroke:#073b6f,color:white
 	classDef component color:white
-	classDef external fill:#999999,stroke:#707070
+	classDef external fill:#999999,stroke:#707070,color:white
 	
 	click database "https://github.com/lebedec/farmisto/tree/main/database"
 ```
+
+## Design Principles
+
+### Minimal Dependencies Count
+
+The code should only contain the necessary pure Rust dependencies.
+Especially if game development aspect relies on well known 3rd party solution,
+then the pre-compiled shared binaries are an effective technique
+to reduce compile-time dependencies and improve maintainability.
+
+Here is table, showing dependencies reduction (about):
+
+| Aspect       | Popular Solution | Alternative / 3d party | Dependencies |
+|--------------|------------------|------------------------|--------------|
+| Windowing    | winint           | rust-sdl2              | -81          |
+| 3D Rendering | vulkano          | ash                    | -32          |
