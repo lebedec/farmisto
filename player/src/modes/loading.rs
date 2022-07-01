@@ -1,5 +1,4 @@
-use crate::modes::{Gameplay, Menu};
-use crate::Mode;
+use crate::modes::{Gameplay, Menu, Mode};
 use hosting::GameHostingThread;
 use network::{Client, Configuration};
 use std::thread;

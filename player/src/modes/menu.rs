@@ -1,5 +1,5 @@
-use crate::modes::Gameplay;
-use crate::{Input, Mode};
+use crate::engine::Input;
+use crate::modes::{Gameplay, Mode};
 use log::info;
 use network::Client;
 use sdl2::keyboard::Keycode;

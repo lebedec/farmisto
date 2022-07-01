@@ -1,4 +1,5 @@
-use crate::{Input, Mode};
+use crate::engine::Input;
+use crate::modes::Mode;
 use game::api::{Action, Event, GameResponse, PlayerRequest};
 use game::model::{TreeId, TreeKind};
 use game::persistence::{Known, Shared, Storage};
