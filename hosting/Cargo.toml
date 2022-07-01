@@ -1,0 +1,9 @@
+[package]
+name = "hosting"
+version = "0.1.0"
+edition = "2021"
+
+[dependencies]
+game = { path = "../game" }
+network = { path = "../network" }
+log = "0.4"

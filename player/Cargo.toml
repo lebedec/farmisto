@@ -6,6 +6,7 @@ edition = "2021"
 [dependencies]
 game = { path = "../game" }
 network = { path = "../network" }
+hosting = { path = "../hosting" }
 log = "0.4"
 env_logger = { version = "0.9", default-features = false, features = ["humantime"] }
 sdl2 = "0.35"

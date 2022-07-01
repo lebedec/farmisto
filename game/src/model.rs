@@ -1,7 +1,6 @@
 use crate::persistence::{Collection, Id, Known, Persisted, Shared, Storage};
 use crate::physics::{BarrierId, BarrierKey};
 use crate::planting::{PlantId, PlantKey};
-use crate::Event;
 use log::info;
 use std::collections::hash_set::IntoIter;
 use std::collections::HashSet;

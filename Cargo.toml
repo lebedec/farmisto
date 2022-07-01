@@ -1,4 +1,4 @@
 [workspace]
 members = [
-    "game", "game_derive", "player", "network"
+    "game", "game_derive", "hosting", "network", "player"
 ]
