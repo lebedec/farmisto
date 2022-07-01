@@ -109,7 +109,7 @@ unsafe extern "system" fn vulkan_debug_callback(
     vk::FALSE
 }
 
-pub fn find_memorytype_index(
+pub fn index_memory_type(
     memory_req: &vk::MemoryRequirements,
     memory_prop: &vk::PhysicalDeviceMemoryProperties,
     flags: vk::MemoryPropertyFlags,
@@ -412,7 +412,7 @@ impl Base {
 
             let depth_image = device.create_image(&depth_image_create_info, None).unwrap();
             let depth_image_memory_req = device.get_image_memory_requirements(depth_image);
-            let depth_image_memory_index = find_memorytype_index(
+            let depth_image_memory_index = index_memory_type(
                 &depth_image_memory_req,
                 &device_memory_properties,
                 vk::MemoryPropertyFlags::DEVICE_LOCAL,

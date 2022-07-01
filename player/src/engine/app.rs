@@ -1,6 +1,6 @@
-use crate::engine::base::{find_memorytype_index, submit_commands, Base};
+use crate::engine::base::{submit_commands, Base};
+use crate::engine::mesh::{IndexBuffer, Vertex, VertexBuffer};
 use crate::engine::Input;
-use crate::offset_of;
 use ash::util::read_spv;
 use ash::vk;
 use log::info;
@@ -122,85 +122,7 @@ pub fn startup<A: App>(title: String) {
             })
             .collect();
 
-        let index_buffer_data = [0u32, 1, 2];
-        let index_buffer_info = vk::BufferCreateInfo::builder()
-            .size(std::mem::size_of_val(&index_buffer_data) as u64)
-            .usage(vk::BufferUsageFlags::INDEX_BUFFER)
-            .sharing_mode(vk::SharingMode::EXCLUSIVE);
-
-        let index_buffer = base.device.create_buffer(&index_buffer_info, None).unwrap();
-        let index_buffer_memory_req = base.device.get_buffer_memory_requirements(index_buffer);
-        let index_buffer_memory_index = find_memorytype_index(
-            &index_buffer_memory_req,
-            &base.device_memory_properties,
-            vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
-        )
-        .expect("Unable to find suitable memorytype for the index buffer.");
-
-        let index_allocate_info = vk::MemoryAllocateInfo {
-            allocation_size: index_buffer_memory_req.size,
-            memory_type_index: index_buffer_memory_index,
-            ..Default::default()
-        };
-        let index_buffer_memory = base
-            .device
-            .allocate_memory(&index_allocate_info, None)
-            .unwrap();
-        let index_ptr = base
-            .device
-            .map_memory(
-                index_buffer_memory,
-                0,
-                index_buffer_memory_req.size,
-                vk::MemoryMapFlags::empty(),
-            )
-            .unwrap();
-        let mut index_slice = ash::util::Align::new(
-            index_ptr,
-            std::mem::align_of::<u32>() as u64,
-            index_buffer_memory_req.size,
-        );
-        index_slice.copy_from_slice(&index_buffer_data);
-        base.device.unmap_memory(index_buffer_memory);
-        base.device
-            .bind_buffer_memory(index_buffer, index_buffer_memory, 0)
-            .unwrap();
-
-        let vertex_input_buffer_info = vk::BufferCreateInfo {
-            size: 3 * std::mem::size_of::<Vertex>() as u64,
-            usage: vk::BufferUsageFlags::VERTEX_BUFFER,
-            sharing_mode: vk::SharingMode::EXCLUSIVE,
-            ..Default::default()
-        };
-
-        let vertex_input_buffer = base
-            .device
-            .create_buffer(&vertex_input_buffer_info, None)
-            .unwrap();
-
-        let vertex_input_buffer_memory_req = base
-            .device
-            .get_buffer_memory_requirements(vertex_input_buffer);
-
-        let vertex_input_buffer_memory_index = find_memorytype_index(
-            &vertex_input_buffer_memory_req,
-            &base.device_memory_properties,
-            vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
-        )
-        .expect("Unable to find suitable memorytype for the vertex buffer.");
-
-        let vertex_buffer_allocate_info = vk::MemoryAllocateInfo {
-            allocation_size: vertex_input_buffer_memory_req.size,
-            memory_type_index: vertex_input_buffer_memory_index,
-            ..Default::default()
-        };
-
-        let vertex_input_buffer_memory = base
-            .device
-            .allocate_memory(&vertex_buffer_allocate_info, None)
-            .unwrap();
-
-        let vertices = [
+        let vertices = vec![
             Vertex {
                 pos: [-1.0, 1.0, 0.0, 1.0],
                 color: [0.0, 1.0, 0.0, 1.0],
@@ -215,26 +137,13 @@ pub fn startup<A: App>(title: String) {
             },
         ];
 
-        let vert_ptr = base
-            .device
-            .map_memory(
-                vertex_input_buffer_memory,
-                0,
-                vertex_input_buffer_memory_req.size,
-                vk::MemoryMapFlags::empty(),
-            )
-            .unwrap();
+        let indices = vec![0, 1, 2];
 
-        let mut vert_align = ash::util::Align::new(
-            vert_ptr,
-            std::mem::align_of::<Vertex>() as u64,
-            vertex_input_buffer_memory_req.size,
-        );
-        vert_align.copy_from_slice(&vertices);
-        base.device.unmap_memory(vertex_input_buffer_memory);
-        base.device
-            .bind_buffer_memory(vertex_input_buffer, vertex_input_buffer_memory, 0)
-            .unwrap();
+        let index_buffer =
+            IndexBuffer::create(&base.device, &base.device_memory_properties, indices);
+        let vertex_buffer =
+            VertexBuffer::create(&base.device, &base.device_memory_properties, vertices);
+
         let mut vertex_spv_file = Cursor::new(&include_bytes!("../../../assets/vert.spv")[..]);
         let mut frag_spv_file = Cursor::new(&include_bytes!("../../../assets/myfrag.spv")[..]);
 
@@ -279,29 +188,9 @@ pub fn startup<A: App>(title: String) {
                 ..Default::default()
             },
         ];
-        let vertex_input_binding_descriptions = [vk::VertexInputBindingDescription {
-            binding: 0,
-            stride: std::mem::size_of::<Vertex>() as u32,
-            input_rate: vk::VertexInputRate::VERTEX,
-        }];
-        let vertex_input_attribute_descriptions = [
-            vk::VertexInputAttributeDescription {
-                location: 0,
-                binding: 0,
-                format: vk::Format::R32G32B32A32_SFLOAT,
-                offset: offset_of!(Vertex, pos) as u32,
-            },
-            vk::VertexInputAttributeDescription {
-                location: 1,
-                binding: 0,
-                format: vk::Format::R32G32B32A32_SFLOAT,
-                offset: offset_of!(Vertex, color) as u32,
-            },
-        ];
 
-        let vertex_input_state_info = vk::PipelineVertexInputStateCreateInfo::builder()
-            .vertex_attribute_descriptions(&vertex_input_attribute_descriptions)
-            .vertex_binding_descriptions(&vertex_input_binding_descriptions);
+        let vertex_input_state_info = Vertex::describe();
+
         let vertex_input_assembly_state_info = vk::PipelineInputAssemblyStateCreateInfo {
             topology: vk::PrimitiveTopology::TRIANGLE_LIST,
             ..Default::default()
@@ -455,23 +344,16 @@ pub fn startup<A: App>(title: String) {
                     device.cmd_bind_vertex_buffers(
                         draw_command_buffer,
                         0,
-                        &[vertex_input_buffer],
+                        &[vertex_buffer.bind()],
                         &[0],
                     );
                     device.cmd_bind_index_buffer(
                         draw_command_buffer,
-                        index_buffer,
+                        index_buffer.bind(),
                         0,
                         vk::IndexType::UINT32,
                     );
-                    device.cmd_draw_indexed(
-                        draw_command_buffer,
-                        index_buffer_data.len() as u32,
-                        1,
-                        0,
-                        0,
-                        1,
-                    );
+                    device.cmd_draw_indexed(draw_command_buffer, index_buffer.count(), 1, 0, 0, 1);
                     // Or draw without the index buffer
                     // device.cmd_draw(draw_command_buffer, 3, 1, 0, 0);
                     device.cmd_end_render_pass(draw_command_buffer);
@@ -493,10 +375,4 @@ pub fn startup<A: App>(title: String) {
             thread::sleep(Duration::from_millis(16));
         }
     }
-}
-
-#[derive(Clone, Debug, Copy)]
-struct Vertex {
-    pos: [f32; 4],
-    color: [f32; 4],
 }
