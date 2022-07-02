@@ -7,3 +7,4 @@ mod assets;
 mod base;
 mod input;
 mod mesh;
+mod uniform;

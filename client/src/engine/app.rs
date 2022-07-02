@@ -1,14 +1,16 @@
 use crate::engine::base::{submit_commands, Base};
-use crate::engine::mesh::{IndexBuffer, Vertex, VertexBuffer};
+use crate::engine::mesh::{create_buffer, IndexBuffer, Vertex, VertexBuffer};
+use crate::engine::uniform::{CameraUniform, UniformBuffer};
 use crate::engine::Input;
 use ash::util::read_spv;
-use ash::vk;
+use ash::{vk, Device};
+use glam::{vec3, Mat4};
 use log::info;
 use std::ffi::{CStr, CString};
 use std::io::Cursor;
 use std::sync::Arc;
-use std::thread;
 use std::time::{Duration, Instant};
+use std::{ptr, thread};
 
 pub trait App {
     fn start() -> Self;
@@ -139,13 +141,33 @@ pub fn startup<A: App>(title: String) {
 
         let indices = vec![0, 1, 2];
 
+        let camera = CameraUniform {
+            model: Mat4::IDENTITY,
+            view: Mat4::look_at_rh(
+                vec3(0.0, 0.0, 10.0),
+                vec3(0.0, 0.0, 0.0),
+                vec3(0.0, 1.0, 0.0),
+            ),
+            proj: Mat4::perspective_rh(
+                45.0_f32.to_radians(),
+                window_size[0] as f32 / window_size[1] as f32,
+                0.1,
+                100.0,
+            ),
+        };
+
         let index_buffer =
             IndexBuffer::create(&base.device, &base.device_memory_properties, indices);
         let vertex_buffer =
             VertexBuffer::create(&base.device, &base.device_memory_properties, vertices);
+        let camera_buffer = UniformBuffer::create::<CameraUniform>(
+            base.device.clone(),
+            &base.device_memory_properties,
+            base.present_images.len(),
+        );
 
         let mut vertex_spv_file =
-            Cursor::new(&include_bytes!("../../../assets/shaders/triangle.vert.spv")[..]);
+            Cursor::new(&include_bytes!("../../../assets/shaders/cameratriangle.vert.spv")[..]);
         let mut frag_spv_file =
             Cursor::new(&include_bytes!("../../../assets/shaders/triangle.frag.spv")[..]);
 
@@ -167,7 +189,19 @@ pub fn startup<A: App>(title: String) {
             .create_shader_module(&frag_shader_info, None)
             .expect("Fragment shader module error");
 
-        let layout_create_info = vk::PipelineLayoutCreateInfo::default();
+        let descriptor_set_layout = UniformBuffer::create_descriptor_set_layout(&base.device);
+        let set_layouts = [descriptor_set_layout];
+        let descriptor_pool =
+            UniformBuffer::create_descriptor_pool(&base.device, base.present_images.len() as u32);
+        let descriptor_sets = UniformBuffer::create_descriptor_sets::<CameraUniform>(
+            &base.device,
+            descriptor_pool,
+            descriptor_set_layout,
+            &camera_buffer.buffers,
+            base.present_images.len(),
+        );
+
+        let layout_create_info = vk::PipelineLayoutCreateInfo::builder().set_layouts(&set_layouts);
 
         let pipeline_layout = base
             .device
@@ -322,6 +356,8 @@ pub fn startup<A: App>(title: String) {
                 .render_area(base.surface_resolution.into())
                 .clear_values(&clear_values);
 
+            camera_buffer.update(present_index as usize, camera.clone());
+
             submit_commands(
                 &base.device,
                 base.draw_command_buffer,
@@ -354,6 +390,14 @@ pub fn startup<A: App>(title: String) {
                         index_buffer.bind(),
                         0,
                         vk::IndexType::UINT32,
+                    );
+                    device.cmd_bind_descriptor_sets(
+                        draw_command_buffer,
+                        vk::PipelineBindPoint::GRAPHICS,
+                        pipeline_layout,
+                        0,
+                        &[descriptor_sets[0]],
+                        &[],
                     );
                     device.cmd_draw_indexed(draw_command_buffer, index_buffer.count(), 1, 0, 0, 1);
                     // Or draw without the index buffer

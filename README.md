@@ -23,7 +23,7 @@ flowchart LR;
 	game(<h2>game</h2>Module<br/>Provides all of the gameplay<br/> functionality to players.):::component
 	network(<h2>network</h2>Module):::component
 	server(<h2>server</h2>Module):::component
-	clien("<h2>client</h2>[Application]"):::component
+	client("<h2>client</h2>[Application]"):::component
 	tools(<h2>tools</h2>Module):::external
 	
 	developer --> database;

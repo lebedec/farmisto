@@ -1,4 +1,4 @@
-use crate::engine::{startup, App, Input};
+use crate::engine::{startup, App, Input, ShaderCompiler};
 use crate::modes::{Loading, Mode};
 use log::info;
 
@@ -8,6 +8,10 @@ pub mod modes;
 fn main() {
     env_logger::init();
     info!("OS: {}", std::env::consts::OS);
+
+    let compiler = ShaderCompiler::new();
+    compiler.compile_file("./assets/shaders/triangle.frag");
+    compiler.compile_file("./assets/shaders/triangle.vert");
     startup::<Appplication>("Farmisto".to_string());
     info!("Bye!");
 }
