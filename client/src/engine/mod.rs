@@ -5,6 +5,8 @@ pub use input::*;
 mod app;
 mod assets;
 mod base;
+mod commands;
 mod input;
 mod mesh;
+mod texture;
 mod uniform;

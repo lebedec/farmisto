@@ -1,4 +1,5 @@
 use crate::engine::mesh::create_buffer;
+use crate::engine::texture::Texture;
 use ash::{vk, Device};
 use glam::Mat4;
 use std::ptr;
@@ -19,10 +20,17 @@ pub struct UniformBuffer {
 
 impl UniformBuffer {
     pub fn create_descriptor_pool(device: &Device, descriptor_count: u32) -> vk::DescriptorPool {
-        let pool_sizes = [vk::DescriptorPoolSize {
-            ty: vk::DescriptorType::UNIFORM_BUFFER,
-            descriptor_count,
-        }];
+        let pool_sizes = [
+            vk::DescriptorPoolSize {
+                ty: vk::DescriptorType::UNIFORM_BUFFER,
+                descriptor_count,
+            },
+            vk::DescriptorPoolSize {
+                // sampler descriptor pool
+                ty: vk::DescriptorType::COMBINED_IMAGE_SAMPLER,
+                descriptor_count,
+            },
+        ];
 
         let info = vk::DescriptorPoolCreateInfo::builder()
             .max_sets(descriptor_count)
@@ -36,6 +44,7 @@ impl UniformBuffer {
         descriptor_pool: vk::DescriptorPool,
         descriptor_set_layout: vk::DescriptorSetLayout,
         uniforms_buffers: &Vec<vk::Buffer>,
+        texture: &Texture,
         swapchain_images_size: usize,
     ) -> Vec<vk::DescriptorSet> {
         let mut layouts: Vec<vk::DescriptorSetLayout> = vec![];
@@ -64,18 +73,39 @@ impl UniformBuffer {
                 range: std::mem::size_of::<T>() as u64,
             }];
 
-            let descriptor_write_sets = [vk::WriteDescriptorSet {
-                s_type: vk::StructureType::WRITE_DESCRIPTOR_SET,
-                p_next: ptr::null(),
-                dst_set: descritptor_set,
-                dst_binding: 0,
-                dst_array_element: 0,
-                descriptor_count: 1,
-                descriptor_type: vk::DescriptorType::UNIFORM_BUFFER,
-                p_image_info: ptr::null(),
-                p_buffer_info: descriptor_buffer_info.as_ptr(),
-                p_texel_buffer_view: ptr::null(),
+            let descriptor_image_infos = [vk::DescriptorImageInfo {
+                sampler: texture.sampler,
+                image_view: texture.view,
+                image_layout: vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
             }];
+
+            let descriptor_write_sets = [
+                vk::WriteDescriptorSet {
+                    s_type: vk::StructureType::WRITE_DESCRIPTOR_SET,
+                    p_next: ptr::null(),
+                    dst_set: descritptor_set,
+                    dst_binding: 0,
+                    dst_array_element: 0,
+                    descriptor_count: 1,
+                    descriptor_type: vk::DescriptorType::UNIFORM_BUFFER,
+                    p_image_info: ptr::null(),
+                    p_buffer_info: descriptor_buffer_info.as_ptr(),
+                    p_texel_buffer_view: ptr::null(),
+                },
+                vk::WriteDescriptorSet {
+                    // sampler uniform
+                    s_type: vk::StructureType::WRITE_DESCRIPTOR_SET,
+                    p_next: ptr::null(),
+                    dst_set: descritptor_set,
+                    dst_binding: 1,
+                    dst_array_element: 0,
+                    descriptor_count: 1,
+                    descriptor_type: vk::DescriptorType::COMBINED_IMAGE_SAMPLER,
+                    p_image_info: descriptor_image_infos.as_ptr(),
+                    p_buffer_info: ptr::null(),
+                    p_texel_buffer_view: ptr::null(),
+                },
+            ];
 
             unsafe {
                 device.update_descriptor_sets(&descriptor_write_sets, &[]);
@@ -86,13 +116,22 @@ impl UniformBuffer {
     }
 
     pub fn create_descriptor_set_layout(device: &Device) -> vk::DescriptorSetLayout {
-        let bindings = [vk::DescriptorSetLayoutBinding {
-            binding: 0,
-            descriptor_type: vk::DescriptorType::UNIFORM_BUFFER,
-            descriptor_count: 1,
-            stage_flags: vk::ShaderStageFlags::VERTEX,
-            p_immutable_samplers: ptr::null(),
-        }];
+        let bindings = [
+            vk::DescriptorSetLayoutBinding {
+                binding: 0,
+                descriptor_type: vk::DescriptorType::UNIFORM_BUFFER,
+                descriptor_count: 1,
+                stage_flags: vk::ShaderStageFlags::VERTEX,
+                p_immutable_samplers: ptr::null(),
+            },
+            vk::DescriptorSetLayoutBinding {
+                binding: 1,
+                descriptor_type: vk::DescriptorType::COMBINED_IMAGE_SAMPLER,
+                descriptor_count: 1,
+                stage_flags: vk::ShaderStageFlags::FRAGMENT,
+                p_immutable_samplers: ptr::null(),
+            },
+        ];
 
         let info = vk::DescriptorSetLayoutCreateInfo::builder().bindings(&bindings);
 

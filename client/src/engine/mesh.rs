@@ -1,5 +1,6 @@
 use crate::engine::base::index_memory_type;
 use ash::{vk, Device};
+use log::info;
 
 pub struct IndexBuffer {
     buffer: vk::Buffer,
@@ -94,6 +95,7 @@ impl VertexBuffer {
 pub struct Vertex {
     pub pos: [f32; 4],
     pub color: [f32; 4],
+    pub uv: [f32; 2],
 }
 
 impl Vertex {
@@ -116,6 +118,12 @@ impl Vertex {
                 binding: 0,
                 format: vk::Format::R32G32B32A32_SFLOAT,
                 offset: 16,
+            },
+            vk::VertexInputAttributeDescription {
+                location: 2,
+                binding: 0,
+                format: vk::Format::R32G32_SFLOAT,
+                offset: 32,
             },
         ];
         vk::PipelineVertexInputStateCreateInfo::builder()

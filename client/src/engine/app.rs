@@ -1,16 +1,17 @@
 use crate::engine::base::{submit_commands, Base};
-use crate::engine::mesh::{create_buffer, IndexBuffer, Vertex, VertexBuffer};
+use crate::engine::mesh::{IndexBuffer, Vertex, VertexBuffer};
+use crate::engine::texture::Texture;
 use crate::engine::uniform::{CameraUniform, UniformBuffer};
 use crate::engine::Input;
 use ash::util::read_spv;
-use ash::{vk, Device};
+use ash::vk;
 use glam::{vec3, Mat4};
 use log::info;
 use std::ffi::{CStr, CString};
 use std::io::Cursor;
 use std::sync::Arc;
+use std::thread;
 use std::time::{Duration, Instant};
-use std::{ptr, thread};
 
 pub trait App {
     fn start() -> Self;
@@ -128,14 +129,17 @@ pub fn startup<A: App>(title: String) {
             Vertex {
                 pos: [-1.0, 1.0, 0.0, 1.0],
                 color: [0.0, 1.0, 0.0, 1.0],
+                uv: [0.0, 0.0],
             },
             Vertex {
                 pos: [1.0, 1.0, 0.0, 1.0],
                 color: [0.0, 0.0, 1.0, 1.0],
+                uv: [1.0, 0.0],
             },
             Vertex {
                 pos: [0.0, -1.0, 0.0, 1.0],
                 color: [1.0, 0.0, 0.0, 1.0],
+                uv: [0.5, 1.0],
             },
         ];
 
@@ -144,7 +148,7 @@ pub fn startup<A: App>(title: String) {
         let camera = CameraUniform {
             model: Mat4::IDENTITY,
             view: Mat4::look_at_rh(
-                vec3(0.0, 0.0, 10.0),
+                vec3(0.0, 0.0, 3.0),
                 vec3(0.0, 0.0, 0.0),
                 vec3(0.0, 1.0, 0.0),
             ),
@@ -165,9 +169,16 @@ pub fn startup<A: App>(title: String) {
             &base.device_memory_properties,
             base.present_images.len(),
         );
+        let texture = Texture::create_and_read_image(
+            &base.device,
+            base.pool,
+            base.present_queue,
+            &base.device_memory_properties,
+            "./assets/mylama.png",
+        );
 
         let mut vertex_spv_file =
-            Cursor::new(&include_bytes!("../../../assets/shaders/cameratriangle.vert.spv")[..]);
+            Cursor::new(&include_bytes!("../../../assets/shaders/triangle.vert.spv")[..]);
         let mut frag_spv_file =
             Cursor::new(&include_bytes!("../../../assets/shaders/triangle.frag.spv")[..]);
 
@@ -198,6 +209,7 @@ pub fn startup<A: App>(title: String) {
             descriptor_pool,
             descriptor_set_layout,
             &camera_buffer.buffers,
+            &texture,
             base.present_images.len(),
         );
 
