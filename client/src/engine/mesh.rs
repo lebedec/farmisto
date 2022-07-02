@@ -1,5 +1,6 @@
 use crate::engine::base::index_memory_type;
 use ash::{vk, Device};
+use glam::Mat4;
 use log::info;
 
 pub struct IndexBuffer {
@@ -47,6 +48,11 @@ impl IndexBuffer {
             count: indices.len() as u32,
         }
     }
+}
+
+#[repr(C)]
+pub struct Transform {
+    pub matrix: Mat4,
 }
 
 pub struct VertexBuffer {

@@ -1,10 +1,11 @@
 use crate::engine::base::{submit_commands, Base};
-use crate::engine::mesh::{IndexBuffer, Vertex, VertexBuffer};
+use crate::engine::mesh::{IndexBuffer, Transform, Vertex, VertexBuffer};
 use crate::engine::texture::Texture;
 use crate::engine::uniform::{CameraUniform, UniformBuffer};
 use crate::engine::Input;
 use ash::util::read_spv;
 use ash::vk;
+use ash::vk::ShaderStageFlags;
 use glam::{vec3, Mat4};
 use log::info;
 use std::ffi::{CStr, CString};
@@ -213,7 +214,15 @@ pub fn startup<A: App>(title: String) {
             base.present_images.len(),
         );
 
-        let layout_create_info = vk::PipelineLayoutCreateInfo::builder().set_layouts(&set_layouts);
+        let push_constant_ranges = [vk::PushConstantRange {
+            stage_flags: ShaderStageFlags::VERTEX,
+            offset: 0,
+            size: std::mem::size_of::<Transform>() as u32,
+        }];
+
+        let layout_create_info = vk::PipelineLayoutCreateInfo::builder()
+            .set_layouts(&set_layouts)
+            .push_constant_ranges(&push_constant_ranges);
 
         let pipeline_layout = base
             .device
@@ -410,6 +419,17 @@ pub fn startup<A: App>(title: String) {
                         0,
                         &[descriptor_sets[0]],
                         &[],
+                    );
+                    let transform = Transform {
+                        matrix: Mat4::from_translation(vec3(0.5, 0.0, 0.0))
+                            * Mat4::from_rotation_y(45.0_f32.to_radians()),
+                    };
+                    device.cmd_push_constants(
+                        draw_command_buffer,
+                        pipeline_layout,
+                        vk::ShaderStageFlags::VERTEX,
+                        0,
+                        bytemuck::cast_slice(&transform.matrix.to_cols_array()),
                     );
                     device.cmd_draw_indexed(draw_command_buffer, index_buffer.count(), 1, 0, 0, 1);
                     // Or draw without the index buffer
