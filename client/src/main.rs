@@ -8,15 +8,15 @@ pub mod modes;
 fn main() {
     env_logger::init();
     info!("OS: {}", std::env::consts::OS);
-    startup::<Player>("Farmisto".to_string());
+    startup::<Appplication>("Farmisto".to_string());
     info!("Bye!");
 }
 
-struct Player {
+struct Appplication {
     mode: Box<dyn Mode>,
 }
 
-impl App for Player {
+impl App for Appplication {
     fn start() -> Self {
         let editor = option_env!("FARMISTO_EDITOR").is_some();
         info!("Editor mode: {}", editor);

@@ -6,12 +6,12 @@ use std::sync::mpsc::{channel, Receiver, RecvTimeoutError, Sender, TryIter};
 use std::thread;
 use std::time::Duration;
 
-pub struct Client {
+pub struct TcpClient {
     requests: Sender<PlayerRequest>,
     responses: Receiver<GameResponse>,
 }
 
-impl Client {
+impl TcpClient {
     pub fn connect(
         address: &str,
         player: String,
@@ -74,7 +74,7 @@ impl Client {
             info!("Stop client requests thread");
         });
 
-        let client = Client {
+        let client = TcpClient {
             requests,
             responses,
         };

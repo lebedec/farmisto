@@ -3,15 +3,15 @@ use crate::modes::Mode;
 use game::api::{Action, Event, GameResponse, PlayerRequest};
 use game::model::{TreeId, TreeKind};
 use game::persistence::{Known, Shared, Storage};
-use hosting::GameHostingThread;
 use log::{error, info};
-use network::Client;
+use network::TcpClient;
 use sdl2::keyboard::Keycode;
+use server::LocalServerThread;
 use std::collections::HashMap;
 
 pub struct Gameplay {
-    game: Option<GameHostingThread>,
-    client: Client,
+    server: Option<LocalServerThread>,
+    client: TcpClient,
     action_id: usize,
     storage: Storage,
     knowledge: KnowledgeBase,
@@ -19,9 +19,9 @@ pub struct Gameplay {
 }
 
 impl Gameplay {
-    pub fn new(game: Option<GameHostingThread>, client: Client) -> Box<Self> {
+    pub fn new(server: Option<LocalServerThread>, client: TcpClient) -> Box<Self> {
         Box::new(Self {
-            game,
+            server,
             client,
             action_id: 0,
             storage: Storage::open("./assets/database.sqlite").unwrap(),
@@ -84,7 +84,7 @@ impl Mode for Gameplay {
         }
 
         if input.pressed(Keycode::O) {
-            if let Some(thread) = self.game.as_mut() {
+            if let Some(thread) = self.server.as_mut() {
                 thread.terminate();
             }
         }

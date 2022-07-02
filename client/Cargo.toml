@@ -1,12 +1,12 @@
 [package]
-name = "player"
+name = "client"
 version = "0.1.0"
 edition = "2021"
 
 [dependencies]
 game = { path = "../game" }
 network = { path = "../network" }
-hosting = { path = "../hosting" }
+server = { path = "../server" }
 log = "0.4"
 env_logger = { version = "0.9", default-features = false, features = ["humantime"] }
 sdl2 = "0.35"

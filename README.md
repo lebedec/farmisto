@@ -22,8 +22,8 @@ flowchart LR;
 	database[(<h2>database</h2>&#91SQLite&#93)]:::component
 	game(<h2>game</h2>Module<br/>Provides all of the gameplay<br/> functionality to players.):::component
 	network(<h2>network</h2>Module):::component
-	hosting(<h2>hosting</h2>Module):::component
-	player("<h2>player</h2>[Application]"):::component
+	server(<h2>server</h2>Module):::component
+	clien("<h2>client</h2>[Application]"):::component
 	tools(<h2>tools</h2>Module):::external
 	
 	developer --> database;
@@ -32,13 +32,13 @@ flowchart LR;
 	database --> game;
 	
 	
-	game-->network-->player;
-		assets --> player;
+	game-->network-->client;
+		assets --> client;
 	
 
-	player <-- "Views game progress,<br/>and makes actions using" ---> gamer;
+	client <-- "Views game progress,<br/>and makes actions using" ---> gamer;
 
-    hosting---gamer;
+    server---gamer;
 
 	classDef person fill:#07427b,stroke:#073b6f,color:white
 	classDef component color:white

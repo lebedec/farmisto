@@ -1,4 +1,4 @@
-pub use server::*;
+pub use self::server::*;
 pub use shader::*;
 
 mod server;

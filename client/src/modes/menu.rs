@@ -1,7 +1,7 @@
 use crate::engine::Input;
 use crate::modes::{Gameplay, Mode};
 use log::info;
-use network::Client;
+use network::TcpClient;
 use sdl2::keyboard::Keycode;
 
 pub struct Menu {
@@ -27,7 +27,7 @@ impl Mode for Menu {
 
     fn transition(&self) -> Option<Box<dyn Mode>> {
         if let Some(player) = self.join.as_ref() {
-            let client = Client::connect("127.0.0.1:8080", player.to_string(), None).unwrap();
+            let client = TcpClient::connect("127.0.0.1:8080", player.to_string(), None).unwrap();
             return Some(Gameplay::new(None, client));
         }
         None

@@ -1,6 +1,6 @@
 use crate::modes::{Gameplay, Menu, Mode};
-use hosting::GameHostingThread;
-use network::{Client, Configuration};
+use network::{Configuration, TcpClient};
+use server::LocalServerThread;
 use std::thread;
 use std::time::Duration;
 
@@ -23,11 +23,11 @@ impl Mode for Loading {
                 host: player.clone(),
                 password: None,
             };
-            let game = GameHostingThread::spawn(config);
+            let server = LocalServerThread::spawn(config);
             // await server start
             thread::sleep(Duration::from_millis(100));
-            let client = Client::connect("127.0.0.1:8080", player, None).unwrap();
-            Some(Gameplay::new(Some(game), client))
+            let client = TcpClient::connect("127.0.0.1:8080", player, None).unwrap();
+            Some(Gameplay::new(Some(server), client))
         } else {
             Some(Menu::new())
         }

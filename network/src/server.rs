@@ -21,7 +21,7 @@ pub struct TrustedPlayerRequest {
     pub request: PlayerRequest,
 }
 
-pub struct Server {
+pub struct TcpServer {
     running: Arc<AtomicBool>,
     address: String,
     authorization: Receiver<Player>,
@@ -34,7 +34,7 @@ pub struct Configuration {
     pub password: Option<String>,
 }
 
-impl Server {
+impl TcpServer {
     pub fn startup(config: Configuration) -> Self {
         let address = detect_server_address();
         info!("Start server {}", address);

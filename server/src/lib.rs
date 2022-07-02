@@ -2,24 +2,24 @@ use game::api::{GameResponse, PlayerRequest};
 use game::model::UniverseSnapshot;
 use game::Game;
 use log::info;
-use network::{Configuration, Server};
+use network::{Configuration, TcpServer};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, Instant};
 
-pub struct GameHostingThread {
+pub struct LocalServerThread {
     running: Arc<AtomicBool>,
 }
 
-impl GameHostingThread {
+impl LocalServerThread {
     pub fn spawn(config: Configuration) -> Self {
         let running = Arc::new(AtomicBool::new(true));
         let running_thread = running.clone();
         thread::spawn(move || {
             info!("Start game server thread");
             let mut game = Game::new();
-            let mut server = Server::startup(config);
+            let mut server = TcpServer::startup(config);
             let mut tick = Instant::now();
             while running_thread.load(Ordering::Relaxed) {
                 for player in server.accept_players() {
