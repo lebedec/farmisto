@@ -1,21 +1,21 @@
 use crate::engine::base::{submit_commands, Base};
 use crate::engine::mesh::{IndexBuffer, Transform, Vertex, VertexBuffer};
+use crate::engine::my::MyRenderer;
 use crate::engine::texture::Texture;
 use crate::engine::uniform::{CameraUniform, UniformBuffer};
-use crate::engine::Input;
+use crate::engine::{AssetServer, Input};
 use ash::util::read_spv;
 use ash::vk;
-use ash::vk::ShaderStageFlags;
 use glam::{vec3, Mat4};
 use log::info;
-use std::ffi::{CStr, CString};
+use std::ffi::CString;
 use std::io::Cursor;
 use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, Instant};
 
 pub trait App {
-    fn start() -> Self;
+    fn start(assets: &mut AssetServer) -> Self;
     fn update(&mut self, input: Input);
 }
 
@@ -201,9 +201,55 @@ pub fn startup<A: App>(title: String) {
             .create_shader_module(&frag_shader_info, None)
             .expect("Fragment shader module error");
 
-        let material = Material::create();
+        let viewports = [vk::Viewport {
+            x: 0.0,
+            y: 0.0,
+            width: base.surface_resolution.width as f32,
+            height: base.surface_resolution.height as f32,
+            min_depth: 0.0,
+            max_depth: 1.0,
+        }];
+        let scissors = [base.surface_resolution.into()];
 
-        let mut app = A::start();
+        let mut my_renderer = MyRenderer::create(
+            &base.device,
+            &scissors,
+            &viewports,
+            base.present_images.len(),
+            fragment_shader_module,
+            vertex_shader_module,
+            &camera_buffer,
+            &texture,
+            renderpass,
+        );
+
+        my_renderer.draw(
+            vertex_buffer,
+            index_buffer,
+            Transform {
+                matrix: Mat4::from_translation(vec3(0.0, 0.0, -1.0))
+                    * Mat4::from_rotation_y(45.0_f32.to_radians()),
+            },
+        );
+        my_renderer.draw(
+            vertex_buffer,
+            index_buffer,
+            Transform {
+                matrix: Mat4::from_translation(vec3(0.5, 0.0, 0.0))
+                    * Mat4::from_rotation_y(45.0_f32.to_radians()),
+            },
+        );
+        my_renderer.draw(
+            vertex_buffer,
+            index_buffer,
+            Transform {
+                matrix: Mat4::from_translation(vec3(-0.5, 0.0, 0.0))
+                    * Mat4::from_rotation_y(45.0_f32.to_radians()),
+            },
+        );
+
+        let mut assets = AssetServer::new();
+        let mut app = A::start(&mut assets);
 
         let mut time = Instant::now();
         let mut input = Input::new();
@@ -244,7 +290,7 @@ pub fn startup<A: App>(title: String) {
                 },
             ];
 
-            let render_pass_begin_info = vk::RenderPassBeginInfo::builder()
+            let render_begin = vk::RenderPassBeginInfo::builder()
                 .render_pass(renderpass)
                 .framebuffer(framebuffers[present_index as usize])
                 .render_area(base.surface_resolution.into())
@@ -260,54 +306,19 @@ pub fn startup<A: App>(title: String) {
                 &[vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT],
                 &[base.present_complete_semaphore],
                 &[base.rendering_complete_semaphore],
-                |device, draw_command_buffer| {
+                |device, buffer| {
                     device.cmd_begin_render_pass(
-                        draw_command_buffer,
-                        &render_pass_begin_info,
+                        buffer,
+                        &render_begin,
                         vk::SubpassContents::INLINE,
                     );
-                    device.cmd_bind_pipeline(
-                        draw_command_buffer,
-                        vk::PipelineBindPoint::GRAPHICS,
-                        graphic_pipeline,
-                    );
-                    device.cmd_set_viewport(draw_command_buffer, 0, &viewports);
-                    device.cmd_set_scissor(draw_command_buffer, 0, &scissors);
-                    device.cmd_bind_vertex_buffers(
-                        draw_command_buffer,
-                        0,
-                        &[vertex_buffer.bind()],
-                        &[0],
-                    );
-                    device.cmd_bind_index_buffer(
-                        draw_command_buffer,
-                        index_buffer.bind(),
-                        0,
-                        vk::IndexType::UINT32,
-                    );
-                    device.cmd_bind_descriptor_sets(
-                        draw_command_buffer,
-                        vk::PipelineBindPoint::GRAPHICS,
-                        pipeline_layout,
-                        0,
-                        &[descriptor_sets[0]],
-                        &[],
-                    );
-                    let transform = Transform {
-                        matrix: Mat4::from_translation(vec3(0.5, 0.0, 0.0))
-                            * Mat4::from_rotation_y(45.0_f32.to_radians()),
-                    };
-                    device.cmd_push_constants(
-                        draw_command_buffer,
-                        pipeline_layout,
-                        vk::ShaderStageFlags::VERTEX,
-                        0,
-                        bytemuck::cast_slice(&transform.matrix.to_cols_array()),
-                    );
-                    device.cmd_draw_indexed(draw_command_buffer, index_buffer.count(), 1, 0, 0, 1);
-                    // Or draw without the index buffer
-                    // device.cmd_draw(draw_command_buffer, 3, 1, 0, 0);
-                    device.cmd_end_render_pass(draw_command_buffer);
+
+                    device.cmd_set_viewport(buffer, 0, &viewports);
+                    device.cmd_set_scissor(buffer, 0, &scissors);
+
+                    my_renderer.render(device, buffer);
+
+                    device.cmd_end_render_pass(buffer);
                 },
             );
             //let mut present_info_err = mem::zeroed();

@@ -3,6 +3,7 @@ use ash::{vk, Device};
 use glam::Mat4;
 use log::info;
 
+#[derive(Clone, Copy)]
 pub struct IndexBuffer {
     buffer: vk::Buffer,
     count: u32,
@@ -55,6 +56,7 @@ pub struct Transform {
     pub matrix: Mat4,
 }
 
+#[derive(Clone, Copy)]
 pub struct VertexBuffer {
     buffer: vk::Buffer,
 }

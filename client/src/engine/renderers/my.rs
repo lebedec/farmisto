@@ -1,27 +1,77 @@
-use crate::engine::mesh::{Transform, Vertex};
+use crate::engine::mesh::{IndexBuffer, Transform, Vertex, VertexBuffer};
+use crate::engine::texture::Texture;
 use crate::engine::uniform::{CameraUniform, UniformBuffer};
-use ash::vk;
+use ash::vk::CommandBuffer;
+use ash::{vk, Device};
 use std::ffi::CStr;
 
-pub struct Material {
-    pipeline_layout: vk::PipelineLayout,
-    pipeline: vk::Pipeline,
+pub struct Material {}
+
+pub struct MyRenderObject {
+    vertex: VertexBuffer,
+    index: IndexBuffer,
+    transform: Transform,
 }
 
-impl Material {
-    pub fn create() -> Self {
-        let descriptor_set_layout = UniformBuffer::create_descriptor_set_layout(&base.device);
+pub struct MyRenderer {
+    objects: Vec<MyRenderObject>,
+    layout: vk::PipelineLayout,
+    pipeline: vk::Pipeline,
+    pub descriptor_sets: Vec<vk::DescriptorSet>,
+}
+
+impl MyRenderer {
+    pub fn draw(&mut self, vertex: VertexBuffer, index: IndexBuffer, transform: Transform) {
+        self.objects.push(MyRenderObject {
+            vertex,
+            index,
+            transform,
+        })
+    }
+
+    pub unsafe fn render(&self, device: &Device, buffer: CommandBuffer) {
+        device.cmd_bind_pipeline(buffer, vk::PipelineBindPoint::GRAPHICS, self.pipeline);
+
+        for object in self.objects.iter() {
+            device.cmd_bind_vertex_buffers(buffer, 0, &[object.vertex.bind()], &[0]);
+            device.cmd_bind_index_buffer(buffer, object.index.bind(), 0, vk::IndexType::UINT32);
+            let bind_point = vk::PipelineBindPoint::GRAPHICS;
+            let sets = &[self.descriptor_sets[0]];
+            device.cmd_bind_descriptor_sets(buffer, bind_point, self.layout, 0, sets, &[]);
+            device.cmd_push_constants(
+                buffer,
+                self.layout,
+                vk::ShaderStageFlags::VERTEX,
+                0,
+                bytemuck::cast_slice(&object.transform.matrix.to_cols_array()),
+            );
+            device.cmd_draw_indexed(buffer, object.index.count(), 1, 0, 0, 1);
+        }
+    }
+
+    pub fn create<'a>(
+        device: &Device,
+        scissors: &'a [vk::Rect2D],
+        viewports: &'a [vk::Viewport],
+        swapchain: usize,
+        fragment_shader_module: vk::ShaderModule,
+        vertex_shader_module: vk::ShaderModule,
+        camera_buffer: &UniformBuffer,
+        texture: &Texture,
+        renderpass: vk::RenderPass,
+    ) -> Self {
+        let descriptor_set_layout = UniformBuffer::create_descriptor_set_layout(device);
         let set_layouts = [descriptor_set_layout];
-        let descriptor_pool =
-            UniformBuffer::create_descriptor_pool(&base.device, base.present_images.len() as u32);
+        let descriptor_pool = UniformBuffer::create_descriptor_pool(device, swapchain as u32);
         let descriptor_sets = UniformBuffer::create_descriptor_sets::<CameraUniform>(
-            &base.device,
+            device,
             descriptor_pool,
             descriptor_set_layout,
             &camera_buffer.buffers,
             &texture,
-            base.present_images.len(),
+            swapchain,
         );
+        // ^
 
         let push_constant_ranges = [vk::PushConstantRange {
             stage_flags: vk::ShaderStageFlags::VERTEX,
@@ -33,10 +83,11 @@ impl Material {
             .set_layouts(&set_layouts)
             .push_constant_ranges(&push_constant_ranges);
 
-        let pipeline_layout = base
-            .device
-            .create_pipeline_layout(&layout_create_info, None)
-            .unwrap();
+        let pipeline_layout = unsafe {
+            device
+                .create_pipeline_layout(&layout_create_info, None)
+                .unwrap()
+        };
 
         let shader_entry_name = unsafe { CStr::from_bytes_with_nul_unchecked(b"main\0") };
         let shader_stage_create_infos = [
@@ -61,18 +112,10 @@ impl Material {
             topology: vk::PrimitiveTopology::TRIANGLE_LIST,
             ..Default::default()
         };
-        let viewports = [vk::Viewport {
-            x: 0.0,
-            y: 0.0,
-            width: base.surface_resolution.width as f32,
-            height: base.surface_resolution.height as f32,
-            min_depth: 0.0,
-            max_depth: 1.0,
-        }];
-        let scissors = [base.surface_resolution.into()];
+
         let viewport_state_info = vk::PipelineViewportStateCreateInfo::builder()
-            .scissors(&scissors)
-            .viewports(&viewports);
+            .scissors(scissors)
+            .viewports(viewports);
 
         let rasterization_info = vk::PipelineRasterizationStateCreateInfo {
             front_face: vk::FrontFace::COUNTER_CLOCKWISE,
@@ -132,20 +175,27 @@ impl Material {
             .render_pass(renderpass)
             .build();
 
-        let graphics_pipelines = base
-            .device
-            .create_graphics_pipelines(vk::PipelineCache::null(), &[graphic_pipeline_info], None)
-            .expect("Unable to create graphics pipeline");
+        let graphics_pipelines = unsafe {
+            device
+                .create_graphics_pipelines(
+                    vk::PipelineCache::null(),
+                    &[graphic_pipeline_info],
+                    None,
+                )
+                .expect("Unable to create graphics pipeline")
+        };
 
         let pipeline = graphics_pipelines[0];
         Self {
-            pipeline_layout,
+            objects: vec![],
+            layout: pipeline_layout,
             pipeline,
+            descriptor_sets,
         }
     }
 
     pub fn pipeline_layout(&self) -> vk::PipelineLayout {
-        self.pipeline_layout
+        self.layout
     }
 
     pub fn pipeline(&self) -> vk::Pipeline {

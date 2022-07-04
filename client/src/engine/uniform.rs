@@ -26,7 +26,6 @@ impl UniformBuffer {
                 descriptor_count,
             },
             vk::DescriptorPoolSize {
-                // sampler descriptor pool
                 ty: vk::DescriptorType::COMBINED_IMAGE_SAMPLER,
                 descriptor_count,
             },

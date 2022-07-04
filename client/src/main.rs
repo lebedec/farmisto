@@ -1,4 +1,4 @@
-use crate::engine::{startup, App, Input, ShaderCompiler};
+use crate::engine::{startup, App, AssetServer, Input, ShaderCompiler};
 use crate::modes::{Loading, Mode};
 use log::info;
 
@@ -21,7 +21,7 @@ struct Appplication {
 }
 
 impl App for Appplication {
-    fn start() -> Self {
+    fn start(assets: &mut AssetServer) -> Self {
         let editor = option_env!("FARMISTO_EDITOR").is_some();
         info!("Editor mode: {}", editor);
         let mut mode = Loading::new(editor);
