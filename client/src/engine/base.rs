@@ -12,7 +12,7 @@ use std::default::Default;
 use std::ffi::{CStr, CString};
 use std::ops::Drop;
 use std::os::raw::c_char;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 
 use ash::vk::{DebugUtilsMessageSeverityFlagsEXT, Handle};
 #[cfg(any(target_os = "macos", target_os = "ios"))]
@@ -124,6 +124,13 @@ pub fn index_memory_type(
         .map(|(index, _memory_type)| index as _)
 }
 
+pub struct Queue {
+    pub device: Device,
+    pub device_memory: vk::PhysicalDeviceMemoryProperties,
+    pub handle: Mutex<vk::Queue>,
+    pub family: u32,
+}
+
 pub struct Base {
     pub entry: Entry,
     pub instance: Instance,
@@ -134,9 +141,8 @@ pub struct Base {
     pub debug_call_back: vk::DebugUtilsMessengerEXT,
 
     pub physical_device: vk::PhysicalDevice,
-    pub device_memory_properties: vk::PhysicalDeviceMemoryProperties,
-    pub queue_family_index: u32,
-    pub present_queue: vk::Queue,
+
+    pub queue: Arc<Queue>,
 
     pub surface: vk::SurfaceKHR,
     pub surface_format: vk::SurfaceFormatKHR,
@@ -249,7 +255,7 @@ impl Base {
                 .enumerate_physical_devices()
                 .expect("Physical device error");
             let surface_loader = Surface::new(&entry, &instance);
-            let (pdevice, queue_family_index) = pdevices
+            let (physical_device, queue_family_index) = pdevices
                 .iter()
                 .find_map(|pdevice| {
                     instance
@@ -297,17 +303,17 @@ impl Base {
                 .enabled_features(&features);
 
             let device: Device = instance
-                .create_device(pdevice, &device_create_info, None)
+                .create_device(physical_device, &device_create_info, None)
                 .unwrap();
 
             let present_queue = device.get_device_queue(queue_family_index as u32, 0);
 
             let surface_format = surface_loader
-                .get_physical_device_surface_formats(pdevice, surface)
+                .get_physical_device_surface_formats(physical_device, surface)
                 .unwrap()[0];
 
             let surface_capabilities = surface_loader
-                .get_physical_device_surface_capabilities(pdevice, surface)
+                .get_physical_device_surface_capabilities(physical_device, surface)
                 .unwrap();
             let mut desired_image_count = surface_capabilities.min_image_count + 1;
             if surface_capabilities.max_image_count > 0
@@ -331,7 +337,7 @@ impl Base {
                 surface_capabilities.current_transform
             };
             let present_modes = surface_loader
-                .get_physical_device_surface_present_modes(pdevice, surface)
+                .get_physical_device_surface_present_modes(physical_device, surface)
                 .unwrap();
             let present_mode = present_modes
                 .iter()
@@ -399,7 +405,8 @@ impl Base {
                     device.create_image_view(&create_view_info, None).unwrap()
                 })
                 .collect();
-            let device_memory_properties = instance.get_physical_device_memory_properties(pdevice);
+            let device_memory_properties =
+                instance.get_physical_device_memory_properties(physical_device);
             let depth_image_create_info = vk::ImageCreateInfo::builder()
                 .image_type(vk::ImageType::TYPE_2D)
                 .format(vk::Format::D16_UNORM)
@@ -505,16 +512,20 @@ impl Base {
                 .create_semaphore(&semaphore_create_info, None)
                 .unwrap();
 
+            let queue = Arc::new(Queue {
+                device: device.clone(),
+                device_memory: device_memory_properties,
+                handle: Mutex::new(present_queue),
+                family: queue_family_index,
+            });
+
             Base {
                 entry,
                 instance,
                 device,
-                queue_family_index,
-                physical_device: pdevice,
-                device_memory_properties,
+                physical_device,
                 surface_loader,
                 surface_format,
-                present_queue,
                 surface_resolution,
                 swapchain_loader,
                 swapchain,
@@ -533,6 +544,7 @@ impl Base {
                 debug_call_back,
                 debug_utils_loader,
                 depth_image_memory,
+                queue,
             }
         }
     }

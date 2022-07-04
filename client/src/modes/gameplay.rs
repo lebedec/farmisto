@@ -1,8 +1,11 @@
-use crate::engine::Input;
+use crate::engine::mesh::{IndexBuffer, Transform, VertexBuffer};
+use crate::engine::{Input, TextureAsset};
 use crate::modes::Mode;
+use crate::{AssetManager, MyRenderer};
 use game::api::{Action, Event, GameResponse, PlayerRequest};
 use game::model::{TreeId, TreeKind};
 use game::persistence::{Known, Shared, Storage};
+use glam::{vec3, Mat4};
 use log::{error, info};
 use network::TcpClient;
 use sdl2::keyboard::Keycode;
@@ -16,6 +19,7 @@ pub struct Gameplay {
     storage: Storage,
     knowledge: KnowledgeBase,
     trees: HashMap<TreeId, TreeBehaviour>,
+    tree_tex: Option<(IndexBuffer, VertexBuffer, TextureAsset)>,
 }
 
 impl Gameplay {
@@ -27,12 +31,21 @@ impl Gameplay {
             storage: Storage::open("./assets/database.sqlite").unwrap(),
             knowledge: KnowledgeBase::default(),
             trees: HashMap::new(),
+            tree_tex: None,
         })
     }
 }
 
 impl Mode for Gameplay {
-    fn update(&mut self, input: &Input) {
+    fn start(&mut self, assets: &mut AssetManager) {
+        self.tree_tex = Some((
+            assets.index_buffer.clone(),
+            assets.vertex_buffer.clone(),
+            assets.texture("./assets/mylama.png", assets.texture_set_layout),
+        ));
+    }
+
+    fn update(&mut self, input: &Input, renderer: &mut MyRenderer) {
         self.knowledge.load(&self.storage);
 
         for response in self.client.responses() {
@@ -52,6 +65,26 @@ impl Mode for Gameplay {
                                     "Appear tree {:?} kind='{}' at {:?} (g {})",
                                     id, kind.name, position, growth
                                 );
+
+                                if let Some((index_buffer, vertex_buffer, texture)) =
+                                    self.tree_tex.as_ref()
+                                {
+                                    renderer.draw(
+                                        vertex_buffer.clone(),
+                                        index_buffer.clone(),
+                                        Transform {
+                                            matrix: Mat4::from_translation(vec3(
+                                                position[0],
+                                                0.0,
+                                                -position[1],
+                                            )) * Mat4::from_rotation_y(
+                                                45.0_f32.to_radians(),
+                                            ),
+                                        },
+                                        texture.clone(),
+                                    );
+                                }
+
                                 self.trees.insert(id, TreeBehaviour { id, kind });
                             }
                             Event::TreeVanished(id) => {

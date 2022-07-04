@@ -16,4 +16,3 @@ glam = "0.20"
 ash = "0.37"
 image = { version = "0.24", default-features = false, features = ["png"] }
 serde = { version = "1.0" }
-serde_yaml = { version = "0.8" }

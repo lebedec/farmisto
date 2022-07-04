@@ -1,4 +1,5 @@
 use crate::engine::Input;
+use crate::{AssetManager, MyRenderer};
 pub use gameplay::*;
 pub use loading::*;
 pub use menu::*;
@@ -12,10 +13,11 @@ pub trait Mode {
         std::any::type_name::<Self>()
     }
 
-    fn start(&mut self) {}
+    #[allow(unused_variables)]
+    fn start(&mut self, manager: &mut AssetManager) {}
 
     #[allow(unused_variables)]
-    fn update(&mut self, input: &Input) {}
+    fn update(&mut self, input: &Input, renderer: &mut MyRenderer) {}
 
     fn transition(&self) -> Option<Box<dyn Mode>> {
         None

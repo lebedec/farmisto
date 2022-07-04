@@ -1,29 +1,42 @@
-use crate::engine::base::index_memory_type;
+use crate::engine::base::{index_memory_type, Queue};
 use crate::engine::commands::Single;
 use crate::engine::mesh::create_buffer;
-use ash::vk::DescriptorSet;
+
 use ash::{vk, Device};
 use image::DynamicImage;
+use log::info;
 use std::cell::RefCell;
-use std::path::Path;
 use std::ptr;
 use std::sync::Arc;
+use std::time::Instant;
 
 #[derive(Clone)]
 pub struct TextureAsset {
     data: Arc<RefCell<TextureAssetData>>,
 }
 
+#[derive(Clone)]
 pub struct TextureAssetData {
     image: vk::Image,
     memory: vk::DeviceMemory,
     view: vk::ImageView,
     sampler: vk::Sampler,
+    descriptor_set: vk::DescriptorSet,
 }
 
 impl TextureAsset {
+    pub fn update(&mut self, data: TextureAssetData) {
+        let mut this = self.data.borrow_mut();
+        *this = data;
+    }
+
     pub fn from_data(data: Arc<RefCell<TextureAssetData>>) -> Self {
         Self { data }
+    }
+
+    #[inline]
+    pub fn descriptor(&self) -> vk::DescriptorSet {
+        self.data.borrow().descriptor_set
     }
 
     #[inline]
@@ -47,6 +60,7 @@ impl TextureAssetData {
         usage: vk::ImageUsageFlags,
         memory_flags: vk::MemoryPropertyFlags,
         memory_properties: &vk::PhysicalDeviceMemoryProperties,
+        descriptor_set_layout: vk::DescriptorSetLayout,
     ) -> Self {
         let image_create_info = vk::ImageCreateInfo {
             s_type: vk::StructureType::IMAGE_CREATE_INFO,
@@ -92,21 +106,76 @@ impl TextureAssetData {
         let view = Self::create_image_view(device, image, vk::Format::R8G8B8A8_UNORM);
         let sampler = Self::create_texture_sampler(device);
 
+        // DESCRIPTORS
+        let descriptor_count = 2;
+        let pool_sizes = [vk::DescriptorPoolSize {
+            ty: vk::DescriptorType::COMBINED_IMAGE_SAMPLER,
+            descriptor_count,
+        }];
+        let info = vk::DescriptorPoolCreateInfo::builder()
+            .max_sets(descriptor_count)
+            .pool_sizes(&pool_sizes);
+        let descriptor_pool = unsafe { device.create_descriptor_pool(&info, None).unwrap() };
+
+        let mut layouts: Vec<vk::DescriptorSetLayout> = vec![];
+        for _ in 0..1 {
+            layouts.push(descriptor_set_layout);
+        }
+        let descriptor_set_allocate_info = vk::DescriptorSetAllocateInfo {
+            s_type: vk::StructureType::DESCRIPTOR_SET_ALLOCATE_INFO,
+            p_next: ptr::null(),
+            descriptor_pool,
+            descriptor_set_count: 1,
+            p_set_layouts: layouts.as_ptr(),
+        };
+        let texture_descriptor_sets = unsafe {
+            device
+                .allocate_descriptor_sets(&descriptor_set_allocate_info)
+                .expect("Failed to allocate descriptor sets!")
+        };
+        let descriptor_set = texture_descriptor_sets[0];
+
+        let descriptor_image_infos = [vk::DescriptorImageInfo {
+            sampler,
+            image_view: view,
+            image_layout: vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
+        }];
+        let descriptor_write_sets = [vk::WriteDescriptorSet {
+            // sampler uniform
+            s_type: vk::StructureType::WRITE_DESCRIPTOR_SET,
+            p_next: ptr::null(),
+            dst_set: descriptor_set,
+            dst_binding: 0,
+            dst_array_element: 0,
+            descriptor_count: 1,
+            descriptor_type: vk::DescriptorType::COMBINED_IMAGE_SAMPLER,
+            p_image_info: descriptor_image_infos.as_ptr(),
+            p_buffer_info: ptr::null(),
+            p_texel_buffer_view: ptr::null(),
+        }];
+        unsafe {
+            device.update_descriptor_sets(&descriptor_write_sets, &[]);
+        }
+        //
+
         Self {
             image,
             memory,
             view,
             sampler,
+            descriptor_set,
         }
     }
 
     pub fn create_and_read_image(
         device: &Device,
         command_pool: vk::CommandPool,
-        submit_queue: vk::Queue,
-        device_memory_properties: &vk::PhysicalDeviceMemoryProperties,
+        queue: Arc<Queue>,
         image_object: DynamicImage,
+        descriptor_set_layout: vk::DescriptorSetLayout,
     ) -> Self {
+        let t1 = Instant::now();
+
         let mut image_object = image_object.flipv();
         let (image_width, image_height) = (image_object.width(), image_object.height());
         let image_size =
@@ -118,7 +187,7 @@ impl TextureAssetData {
             image_size,
             vk::BufferUsageFlags::TRANSFER_SRC,
             vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
-            device_memory_properties,
+            &queue.device_memory,
         );
 
         unsafe {
@@ -144,13 +213,24 @@ impl TextureAssetData {
             vk::ImageTiling::OPTIMAL,
             vk::ImageUsageFlags::TRANSFER_DST | vk::ImageUsageFlags::SAMPLED,
             vk::MemoryPropertyFlags::DEVICE_LOCAL,
-            device_memory_properties,
+            &queue.device_memory,
+            descriptor_set_layout,
         );
 
+        info!(
+            "Image {}x{} created at {:?} {:?}",
+            image_width,
+            image_height,
+            image.descriptor_set,
+            t1.elapsed()
+        );
+
+        let t1 = Instant::now();
+        let submit_queue = queue.handle.lock().unwrap();
         Self::transition_image_layout(
             device,
             command_pool,
-            submit_queue,
+            *submit_queue,
             image.image,
             vk::Format::R8G8B8A8_UNORM,
             vk::ImageLayout::UNDEFINED,
@@ -160,7 +240,7 @@ impl TextureAssetData {
         Self::copy_buffer_to_image(
             device,
             command_pool,
-            submit_queue,
+            *submit_queue,
             staging_buffer,
             image.image,
             image_width,
@@ -170,7 +250,7 @@ impl TextureAssetData {
         Self::transition_image_layout(
             device,
             command_pool,
-            submit_queue,
+            *submit_queue,
             image.image,
             vk::Format::R8G8B8A8_UNORM,
             vk::ImageLayout::TRANSFER_DST_OPTIMAL,
@@ -181,6 +261,8 @@ impl TextureAssetData {
             device.destroy_buffer(staging_buffer, None);
             device.free_memory(staging_buffer_memory, None);
         }
+
+        info!("SUBMIT IMAGE QUEUE: {:?}", t1.elapsed());
 
         image
     }
@@ -330,8 +412,8 @@ impl TextureAssetData {
             s_type: vk::StructureType::SAMPLER_CREATE_INFO,
             p_next: ptr::null(),
             flags: vk::SamplerCreateFlags::empty(),
-            mag_filter: vk::Filter::LINEAR,
-            min_filter: vk::Filter::LINEAR,
+            mag_filter: vk::Filter::NEAREST,
+            min_filter: vk::Filter::NEAREST,
             mipmap_mode: vk::SamplerMipmapMode::LINEAR,
             address_mode_u: vk::SamplerAddressMode::REPEAT,
             address_mode_v: vk::SamplerAddressMode::REPEAT,

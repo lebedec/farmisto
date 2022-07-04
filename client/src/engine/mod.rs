@@ -8,6 +8,6 @@ mod assets;
 mod base;
 mod commands;
 mod input;
-mod mesh;
+pub mod mesh;
 mod renderers;
 mod uniform;

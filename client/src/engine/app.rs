@@ -2,7 +2,7 @@ use crate::engine::base::{submit_commands, Base};
 use crate::engine::mesh::{IndexBuffer, Transform, Vertex, VertexBuffer};
 use crate::engine::my::MyRenderer;
 use crate::engine::uniform::{CameraUniform, UniformBuffer};
-use crate::engine::{AssetServer, Input};
+use crate::engine::{AssetManager, Input};
 use ash::util::read_spv;
 use ash::vk;
 use glam::{vec3, Mat4};
@@ -14,8 +14,8 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 pub trait App {
-    fn start(assets: &mut AssetServer) -> Self;
-    fn update(&mut self, input: Input);
+    fn start(assets: &mut AssetManager) -> Self;
+    fn update(&mut self, input: Input, renderer: &mut MyRenderer, assets: &mut AssetManager);
 }
 
 pub fn startup<A: App>(title: String) {
@@ -125,13 +125,6 @@ pub fn startup<A: App>(title: String) {
             })
             .collect();
 
-        let mut assets = AssetServer::new(
-            base.device.clone(),
-            base.pool,
-            base.present_queue,
-            &base.device_memory_properties,
-        );
-
         let vertices = vec![
             Vertex {
                 pos: [-1.0, 1.0, 0.0, 1.0],
@@ -149,7 +142,6 @@ pub fn startup<A: App>(title: String) {
                 uv: [0.5, 1.0],
             },
         ];
-        let texture = assets.texture("./assets/mylama.png");
 
         let indices = vec![0, 1, 2];
 
@@ -168,13 +160,11 @@ pub fn startup<A: App>(title: String) {
             ),
         };
 
-        let index_buffer =
-            IndexBuffer::create(&base.device, &base.device_memory_properties, indices);
-        let vertex_buffer =
-            VertexBuffer::create(&base.device, &base.device_memory_properties, vertices);
+        let index_buffer = IndexBuffer::create(&base.device, &base.queue.device_memory, indices);
+        let vertex_buffer = VertexBuffer::create(&base.device, &base.queue.device_memory, vertices);
         let camera_buffer = UniformBuffer::create::<CameraUniform>(
             base.device.clone(),
-            &base.device_memory_properties,
+            &base.queue.device_memory,
             base.present_images.len(),
         );
 
@@ -222,34 +212,13 @@ pub fn startup<A: App>(title: String) {
             renderpass,
         );
 
-        let t = Instant::now();
-        my_renderer.draw(
-            vertex_buffer,
-            index_buffer,
-            Transform {
-                matrix: Mat4::from_translation(vec3(0.0, 0.0, -1.0))
-                    * Mat4::from_rotation_y(45.0_f32.to_radians()),
-            },
-            texture.clone(),
-        );
-        info!("DRAAaaaaaaaaaaaa {:?}", t.elapsed());
-        my_renderer.draw(
-            vertex_buffer,
-            index_buffer,
-            Transform {
-                matrix: Mat4::from_translation(vec3(0.5, 0.0, 0.0))
-                    * Mat4::from_rotation_y(45.0_f32.to_radians()),
-            },
-            texture.clone(),
-        );
-        my_renderer.draw(
-            vertex_buffer,
-            index_buffer,
-            Transform {
-                matrix: Mat4::from_translation(vec3(-0.5, 0.0, 0.0))
-                    * Mat4::from_rotation_y(45.0_f32.to_radians()),
-            },
-            texture.clone(),
+        let mut assets = AssetManager::new(
+            base.device.clone(),
+            base.pool,
+            base.queue.clone(),
+            my_renderer.texture_set_layout,
+            index_buffer.clone(),
+            vertex_buffer.clone(),
         );
 
         let mut app = A::start(&mut assets);
@@ -257,6 +226,8 @@ pub fn startup<A: App>(title: String) {
         let mut time = Instant::now();
         let mut input = Input::new();
         loop {
+            assets.update();
+
             input.reset();
             input.time = time.elapsed().as_secs_f32();
             time = Instant::now();
@@ -268,7 +239,7 @@ pub fn startup<A: App>(title: String) {
                 break;
             }
 
-            app.update(input.clone());
+            app.update(input.clone(), &mut my_renderer, &mut assets);
 
             let (present_index, _) = base
                 .swapchain_loader
@@ -301,41 +272,45 @@ pub fn startup<A: App>(title: String) {
 
             camera_buffer.update(present_index as usize, camera.clone());
 
-            submit_commands(
-                &base.device,
-                base.draw_command_buffer,
-                base.draw_commands_reuse_fence,
-                base.present_queue,
-                &[vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT],
-                &[base.present_complete_semaphore],
-                &[base.rendering_complete_semaphore],
-                |device, buffer| {
-                    device.cmd_begin_render_pass(
-                        buffer,
-                        &render_begin,
-                        vk::SubpassContents::INLINE,
-                    );
+            {
+                let present_queue = base.queue.handle.lock().unwrap();
 
-                    device.cmd_set_viewport(buffer, 0, &viewports);
-                    device.cmd_set_scissor(buffer, 0, &scissors);
+                submit_commands(
+                    &base.device,
+                    base.draw_command_buffer,
+                    base.draw_commands_reuse_fence,
+                    *present_queue,
+                    &[vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT],
+                    &[base.present_complete_semaphore],
+                    &[base.rendering_complete_semaphore],
+                    |device, buffer| {
+                        device.cmd_begin_render_pass(
+                            buffer,
+                            &render_begin,
+                            vk::SubpassContents::INLINE,
+                        );
 
-                    my_renderer.render(device, buffer);
+                        device.cmd_set_viewport(buffer, 0, &viewports);
+                        device.cmd_set_scissor(buffer, 0, &scissors);
 
-                    device.cmd_end_render_pass(buffer);
-                },
-            );
-            //let mut present_info_err = mem::zeroed();
-            let wait_semaphors = [base.rendering_complete_semaphore];
-            let swapchains = [base.swapchain];
-            let image_indices = [present_index];
-            let present_info = vk::PresentInfoKHR::builder()
-                .wait_semaphores(&wait_semaphors) // &base.rendering_complete_semaphore)
-                .swapchains(&swapchains)
-                .image_indices(&image_indices);
+                        my_renderer.render(device, buffer);
 
-            base.swapchain_loader
-                .queue_present(base.present_queue, &present_info)
-                .unwrap();
+                        device.cmd_end_render_pass(buffer);
+                    },
+                );
+                //let mut present_info_err = mem::zeroed();
+                let wait_semaphors = [base.rendering_complete_semaphore];
+                let swapchains = [base.swapchain];
+                let image_indices = [present_index];
+                let present_info = vk::PresentInfoKHR::builder()
+                    .wait_semaphores(&wait_semaphors) // &base.rendering_complete_semaphore)
+                    .swapchains(&swapchains)
+                    .image_indices(&image_indices);
+
+                base.swapchain_loader
+                    .queue_present(*present_queue, &present_info)
+                    .unwrap();
+            }
 
             thread::sleep(Duration::from_millis(16));
         }
