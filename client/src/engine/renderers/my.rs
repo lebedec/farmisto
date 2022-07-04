@@ -1,9 +1,10 @@
 use crate::engine::mesh::{IndexBuffer, Transform, Vertex, VertexBuffer};
-use crate::engine::texture::Texture;
 use crate::engine::uniform::{CameraUniform, UniformBuffer};
-use ash::vk::CommandBuffer;
+use crate::engine::TextureAsset;
+use ash::vk::{CommandBuffer, DescriptorSetLayout};
 use ash::{vk, Device};
 use std::ffi::CStr;
+use std::ptr;
 
 pub struct Material {}
 
@@ -11,21 +12,78 @@ pub struct MyRenderObject {
     vertex: VertexBuffer,
     index: IndexBuffer,
     transform: Transform,
+    texture: TextureAsset,
+    texture_descriptor: vk::DescriptorSet,
 }
 
 pub struct MyRenderer {
+    device: Device,
+    swapchain: usize,
     objects: Vec<MyRenderObject>,
     layout: vk::PipelineLayout,
     pipeline: vk::Pipeline,
     pub descriptor_sets: Vec<vk::DescriptorSet>,
+    texture_set_layout: DescriptorSetLayout,
 }
 
 impl MyRenderer {
-    pub fn draw(&mut self, vertex: VertexBuffer, index: IndexBuffer, transform: Transform) {
+    pub fn draw(
+        &mut self,
+        vertex: VertexBuffer,
+        index: IndexBuffer,
+        transform: Transform,
+        texture: TextureAsset,
+    ) {
+        let descriptor_pool =
+            UniformBuffer::create_descriptor_pool(&self.device, self.swapchain as u32);
+
+        let mut layouts: Vec<vk::DescriptorSetLayout> = vec![];
+        for _ in 0..self.swapchain {
+            layouts.push(self.texture_set_layout);
+        }
+        let descriptor_set_allocate_info = vk::DescriptorSetAllocateInfo {
+            s_type: vk::StructureType::DESCRIPTOR_SET_ALLOCATE_INFO,
+            p_next: ptr::null(),
+            descriptor_pool,
+            descriptor_set_count: self.swapchain as u32,
+            p_set_layouts: layouts.as_ptr(),
+        };
+        let texture_descriptor_sets = unsafe {
+            self.device
+                .allocate_descriptor_sets(&descriptor_set_allocate_info)
+                .expect("Failed to allocate descriptor sets!")
+        };
+        let texture_descriptor = texture_descriptor_sets[0];
+
+        let descriptor_image_infos = [vk::DescriptorImageInfo {
+            sampler: texture.sampler(),
+            image_view: texture.view(),
+            image_layout: vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
+        }];
+        let descriptor_write_sets = [vk::WriteDescriptorSet {
+            // sampler uniform
+            s_type: vk::StructureType::WRITE_DESCRIPTOR_SET,
+            p_next: ptr::null(),
+            dst_set: texture_descriptor,
+            dst_binding: 0,
+            dst_array_element: 0,
+            descriptor_count: 1,
+            descriptor_type: vk::DescriptorType::COMBINED_IMAGE_SAMPLER,
+            p_image_info: descriptor_image_infos.as_ptr(),
+            p_buffer_info: ptr::null(),
+            p_texel_buffer_view: ptr::null(),
+        }];
+        unsafe {
+            self.device
+                .update_descriptor_sets(&descriptor_write_sets, &[]);
+        }
+
         self.objects.push(MyRenderObject {
             vertex,
             index,
             transform,
+            texture,
+            texture_descriptor,
         })
     }
 
@@ -33,11 +91,34 @@ impl MyRenderer {
         device.cmd_bind_pipeline(buffer, vk::PipelineBindPoint::GRAPHICS, self.pipeline);
 
         for object in self.objects.iter() {
-            device.cmd_bind_vertex_buffers(buffer, 0, &[object.vertex.bind()], &[0]);
-            device.cmd_bind_index_buffer(buffer, object.index.bind(), 0, vk::IndexType::UINT32);
+            // todo: if last != object.mesh
+            {
+                device.cmd_bind_vertex_buffers(buffer, 0, &[object.vertex.bind()], &[0]);
+                device.cmd_bind_index_buffer(buffer, object.index.bind(), 0, vk::IndexType::UINT32);
+            }
             let bind_point = vk::PipelineBindPoint::GRAPHICS;
-            let sets = &[self.descriptor_sets[0]];
-            device.cmd_bind_descriptor_sets(buffer, bind_point, self.layout, 0, sets, &[]);
+            let descriptor_set = &[self.descriptor_sets[0]];
+
+            // todo: if last != object.texture
+            {
+                device.cmd_bind_descriptor_sets(
+                    buffer,
+                    bind_point,
+                    self.layout,
+                    1,
+                    &[object.texture_descriptor],
+                    &[],
+                );
+            }
+
+            device.cmd_bind_descriptor_sets(
+                buffer,
+                bind_point,
+                self.layout,
+                0,
+                descriptor_set,
+                &[],
+            );
             device.cmd_push_constants(
                 buffer,
                 self.layout,
@@ -57,21 +138,31 @@ impl MyRenderer {
         fragment_shader_module: vk::ShaderModule,
         vertex_shader_module: vk::ShaderModule,
         camera_buffer: &UniformBuffer,
-        texture: &Texture,
         renderpass: vk::RenderPass,
     ) -> Self {
-        let descriptor_set_layout = UniformBuffer::create_descriptor_set_layout(device);
-        let set_layouts = [descriptor_set_layout];
         let descriptor_pool = UniformBuffer::create_descriptor_pool(device, swapchain as u32);
+        let descriptor_set_layout = UniformBuffer::create_descriptor_set_layout(device);
         let descriptor_sets = UniformBuffer::create_descriptor_sets::<CameraUniform>(
             device,
             descriptor_pool,
             descriptor_set_layout,
             &camera_buffer.buffers,
-            &texture,
             swapchain,
         );
         // ^
+        let bindings = [vk::DescriptorSetLayoutBinding {
+            binding: 0,
+            descriptor_type: vk::DescriptorType::COMBINED_IMAGE_SAMPLER,
+            descriptor_count: 1,
+            stage_flags: vk::ShaderStageFlags::FRAGMENT,
+            p_immutable_samplers: ptr::null(),
+        }];
+        let info = vk::DescriptorSetLayoutCreateInfo::builder().bindings(&bindings);
+        let texture_set_layout =
+            unsafe { device.create_descriptor_set_layout(&info, None).unwrap() };
+        //
+
+        let set_layouts = [descriptor_set_layout, texture_set_layout];
 
         let push_constant_ranges = [vk::PushConstantRange {
             stage_flags: vk::ShaderStageFlags::VERTEX,
@@ -187,10 +278,13 @@ impl MyRenderer {
 
         let pipeline = graphics_pipelines[0];
         Self {
+            device: device.clone(),
+            swapchain,
             objects: vec![],
             layout: pipeline_layout,
             pipeline,
             descriptor_sets,
+            texture_set_layout,
         }
     }
 

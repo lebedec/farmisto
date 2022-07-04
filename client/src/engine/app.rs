@@ -1,7 +1,6 @@
 use crate::engine::base::{submit_commands, Base};
 use crate::engine::mesh::{IndexBuffer, Transform, Vertex, VertexBuffer};
 use crate::engine::my::MyRenderer;
-use crate::engine::texture::Texture;
 use crate::engine::uniform::{CameraUniform, UniformBuffer};
 use crate::engine::{AssetServer, Input};
 use ash::util::read_spv;
@@ -126,6 +125,13 @@ pub fn startup<A: App>(title: String) {
             })
             .collect();
 
+        let mut assets = AssetServer::new(
+            base.device.clone(),
+            base.pool,
+            base.present_queue,
+            &base.device_memory_properties,
+        );
+
         let vertices = vec![
             Vertex {
                 pos: [-1.0, 1.0, 0.0, 1.0],
@@ -143,6 +149,7 @@ pub fn startup<A: App>(title: String) {
                 uv: [0.5, 1.0],
             },
         ];
+        let texture = assets.texture("./assets/mylama.png");
 
         let indices = vec![0, 1, 2];
 
@@ -169,13 +176,6 @@ pub fn startup<A: App>(title: String) {
             base.device.clone(),
             &base.device_memory_properties,
             base.present_images.len(),
-        );
-        let texture = Texture::create_and_read_image(
-            &base.device,
-            base.pool,
-            base.present_queue,
-            &base.device_memory_properties,
-            "./assets/mylama.png",
         );
 
         let mut vertex_spv_file =
@@ -219,10 +219,10 @@ pub fn startup<A: App>(title: String) {
             fragment_shader_module,
             vertex_shader_module,
             &camera_buffer,
-            &texture,
             renderpass,
         );
 
+        let t = Instant::now();
         my_renderer.draw(
             vertex_buffer,
             index_buffer,
@@ -230,7 +230,9 @@ pub fn startup<A: App>(title: String) {
                 matrix: Mat4::from_translation(vec3(0.0, 0.0, -1.0))
                     * Mat4::from_rotation_y(45.0_f32.to_radians()),
             },
+            texture.clone(),
         );
+        info!("DRAAaaaaaaaaaaaa {:?}", t.elapsed());
         my_renderer.draw(
             vertex_buffer,
             index_buffer,
@@ -238,6 +240,7 @@ pub fn startup<A: App>(title: String) {
                 matrix: Mat4::from_translation(vec3(0.5, 0.0, 0.0))
                     * Mat4::from_rotation_y(45.0_f32.to_radians()),
             },
+            texture.clone(),
         );
         my_renderer.draw(
             vertex_buffer,
@@ -246,9 +249,9 @@ pub fn startup<A: App>(title: String) {
                 matrix: Mat4::from_translation(vec3(-0.5, 0.0, 0.0))
                     * Mat4::from_rotation_y(45.0_f32.to_radians()),
             },
+            texture.clone(),
         );
 
-        let mut assets = AssetServer::new();
         let mut app = A::start(&mut assets);
 
         let mut time = Instant::now();

@@ -1,20 +1,43 @@
 use crate::engine::base::index_memory_type;
 use crate::engine::commands::Single;
 use crate::engine::mesh::create_buffer;
+use ash::vk::DescriptorSet;
 use ash::{vk, Device};
-use log::info;
+use image::DynamicImage;
+use std::cell::RefCell;
 use std::path::Path;
 use std::ptr;
-use std::time::Instant;
+use std::sync::Arc;
 
-pub struct Texture {
-    image: vk::Image,
-    memory: vk::DeviceMemory,
-    pub view: vk::ImageView,
-    pub sampler: vk::Sampler,
+#[derive(Clone)]
+pub struct TextureAsset {
+    data: Arc<RefCell<TextureAssetData>>,
 }
 
-impl Texture {
+pub struct TextureAssetData {
+    image: vk::Image,
+    memory: vk::DeviceMemory,
+    view: vk::ImageView,
+    sampler: vk::Sampler,
+}
+
+impl TextureAsset {
+    pub fn from_data(data: Arc<RefCell<TextureAssetData>>) -> Self {
+        Self { data }
+    }
+
+    #[inline]
+    pub fn sampler(&self) -> vk::Sampler {
+        self.data.borrow().sampler
+    }
+
+    #[inline]
+    pub fn view(&self) -> vk::ImageView {
+        self.data.borrow().view
+    }
+}
+
+impl TextureAssetData {
     fn create(
         device: &Device,
         width: u32,
@@ -77,32 +100,18 @@ impl Texture {
         }
     }
 
-    pub fn create_and_read_image<P: AsRef<Path>>(
+    pub fn create_and_read_image(
         device: &Device,
         command_pool: vk::CommandPool,
         submit_queue: vk::Queue,
         device_memory_properties: &vk::PhysicalDeviceMemoryProperties,
-        image_path: P,
+        image_object: DynamicImage,
     ) -> Self {
-        let t = Instant::now();
-        let mut image_object = image::open(image_path.as_ref()).unwrap(); // this function is slow in debug mode.
-        image_object = image_object.flipv();
+        let mut image_object = image_object.flipv();
         let (image_width, image_height) = (image_object.width(), image_object.height());
         let image_size =
             (std::mem::size_of::<u8>() as u32 * image_width * image_height * 4) as vk::DeviceSize;
-        let image_data = match &image_object {
-            image::DynamicImage::ImageLuma8(_) | image::DynamicImage::ImageRgb8(_) => {
-                image_object.to_rgb8().into_raw()
-            }
-            image::DynamicImage::ImageLumaA8(_) | image::DynamicImage::ImageRgba8(_) => {
-                image_object.to_rgba8().into_raw()
-            }
-            _ => unimplemented!(),
-        };
-
-        if image_size <= 0 {
-            panic!("Failed to load texture image!")
-        }
+        let image_data = image_object.to_rgba8();
 
         let (staging_buffer, staging_buffer_memory, size) = create_buffer(
             device,
@@ -172,12 +181,6 @@ impl Texture {
             device.destroy_buffer(staging_buffer, None);
             device.free_memory(staging_buffer_memory, None);
         }
-
-        info!(
-            "Load texture {:?}: {:?}",
-            image_path.as_ref().to_str(),
-            t.elapsed()
-        );
 
         image
     }

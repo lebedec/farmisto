@@ -10,5 +10,4 @@ mod commands;
 mod input;
 mod mesh;
 mod renderers;
-mod texture;
 mod uniform;
