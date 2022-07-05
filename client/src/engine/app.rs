@@ -1,7 +1,7 @@
 use crate::engine::base::{submit_commands, Base};
 use crate::engine::my::MyRenderer;
 use crate::engine::uniform::{CameraUniform, UniformBuffer};
-use crate::engine::{AssetManager, Input};
+use crate::engine::{Assets, Input};
 use ash::util::read_spv;
 use ash::vk;
 use glam::{vec3, Mat4};
@@ -13,8 +13,8 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 pub trait App {
-    fn start(assets: &mut AssetManager) -> Self;
-    fn update(&mut self, input: Input, renderer: &mut MyRenderer, assets: &mut AssetManager);
+    fn start(assets: &mut Assets) -> Self;
+    fn update(&mut self, input: Input, renderer: &mut MyRenderer, assets: &mut Assets);
 }
 
 pub fn startup<A: App>(title: String) {
@@ -189,7 +189,7 @@ pub fn startup<A: App>(title: String) {
             renderpass,
         );
 
-        let mut assets = AssetManager::new(
+        let mut assets = Assets::new(
             base.device.clone(),
             base.pool,
             base.queue.clone(),

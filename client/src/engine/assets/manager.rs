@@ -1,3 +1,4 @@
+use crate::engine::assets::fs::{FileEvent, FileSystem};
 use crate::engine::base::Queue;
 use crate::engine::{MeshAsset, MeshAssetData, TextureAsset, TextureAssetData};
 use ash::{vk, Device};
@@ -8,12 +9,13 @@ use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{channel, Receiver};
 use std::sync::{Arc, RwLock};
-use std::thread;
 use std::time::Duration;
+use std::{fs, thread};
 
-pub struct AssetManager {
+pub struct Assets {
     loading_requests: Arc<RwLock<Vec<AssetRequest>>>,
     loading_result: Receiver<AssetPayload>,
+    file_events: Arc<RwLock<HashMap<PathBuf, FileEvent>>>,
 
     textures_default: TextureAssetData,
     textures: HashMap<PathBuf, TextureAsset>,
@@ -42,12 +44,12 @@ pub enum AssetPayload {
 
 #[derive(Debug)]
 pub enum AssetKind {
-    Texture(vk::DescriptorSetLayout),
+    Texture,
     Shader,
     Mesh,
 }
 
-impl AssetManager {
+impl Assets {
     pub fn new(
         device: Device,
         pool: vk::CommandPool,
@@ -74,7 +76,6 @@ impl AssetManager {
             let loaders_requests = loading_requests.clone();
             let loader_queue = queue.clone();
             let loader_result = loading.clone();
-
             let loader_device = device.clone();
             thread::spawn(move || {
                 info!("[loader-{}] Start", loader);
@@ -89,7 +90,7 @@ impl AssetManager {
                         );
                         let path = request.path.clone();
                         match request.kind {
-                            AssetKind::Texture(descriptor_set_layout) => {
+                            AssetKind::Texture => {
                                 loader_result
                                     .send(AssetPayload::Texture {
                                         path: request.path.clone(),
@@ -98,7 +99,7 @@ impl AssetManager {
                                             pool,
                                             loader_queue.clone(),
                                             image::open(request.path).unwrap(),
-                                            descriptor_set_layout,
+                                            tex_descriptor_set_layout,
                                         ),
                                     })
                                     .unwrap();
@@ -107,7 +108,9 @@ impl AssetManager {
                             AssetKind::Mesh => {
                                 match MeshAssetData::from_json_file(&loader_queue, &path) {
                                     Ok(data) => {
-                                        loader_result.send(AssetPayload::Mesh { path, data });
+                                        loader_result
+                                            .send(AssetPayload::Mesh { path, data })
+                                            .unwrap();
                                     }
                                     Err(error) => {
                                         info!(
@@ -128,6 +131,8 @@ impl AssetManager {
             });
         }
 
+        let file_events = FileSystem::watch();
+
         Self {
             textures_default,
             textures,
@@ -136,27 +141,24 @@ impl AssetManager {
             loading_result,
             texture_set_layout: tex_descriptor_set_layout,
             meshes,
+            file_events,
         }
     }
 
-    pub fn texture<P: AsRef<Path>>(
-        &mut self,
-        path: P,
-        descriptor_set_layout: vk::DescriptorSetLayout,
-    ) -> TextureAsset {
-        let path = path.as_ref().to_path_buf();
+    pub fn texture<P: AsRef<Path>>(&mut self, path: P) -> TextureAsset {
+        let path = fs::canonicalize(path).unwrap();
         if let Some(texture) = self.textures.get(&path) {
             return texture.clone();
         }
         let texture =
             TextureAsset::from_data(Arc::new(RefCell::new(self.textures_default.clone())));
         self.textures.insert(path.clone(), texture.clone());
-        self.require_update(AssetKind::Texture(descriptor_set_layout), path);
+        self.require_update(AssetKind::Texture, path);
         texture
     }
 
     pub fn mesh<P: AsRef<Path>>(&mut self, path: P) -> MeshAsset {
-        let path = path.as_ref().to_path_buf();
+        let path = fs::canonicalize(path).unwrap();
         if let Some(mesh) = self.meshes.get(&path) {
             return mesh.clone();
         }
@@ -173,6 +175,20 @@ impl AssetManager {
     }
 
     pub fn update(&mut self) {
+        for (path, event) in self.observe_file_events() {
+            info!("Observed {:?} {:?}", event, path.to_str());
+            match event {
+                FileEvent::Created | FileEvent::Changed => {
+                    if self.textures.contains_key(&path) {
+                        self.require_update(AssetKind::Texture, path);
+                    } else if self.meshes.contains_key(&path) {
+                        self.require_update(AssetKind::Mesh, path);
+                    }
+                }
+                FileEvent::Deleted => {}
+            }
+        }
+
         for payload in self.loading_result.try_iter() {
             match payload {
                 AssetPayload::Texture { path, data } => match self.textures.get_mut(&path) {
@@ -198,5 +214,18 @@ impl AssetManager {
                 },
             }
         }
+    }
+
+    fn observe_file_events(&mut self) -> Vec<(PathBuf, FileEvent)> {
+        let mut events = match self.file_events.write() {
+            Ok(events) => events,
+            Err(error) => {
+                error!("Unable to observe file events, {:?}", error);
+                return vec![];
+            }
+        };
+        std::mem::replace(&mut *events, HashMap::new())
+            .into_iter()
+            .collect()
     }
 }

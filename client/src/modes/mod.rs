@@ -1,5 +1,5 @@
 use crate::engine::Input;
-use crate::{AssetManager, MyRenderer};
+use crate::{Assets, MyRenderer};
 pub use gameplay::*;
 pub use loading::*;
 pub use menu::*;
@@ -14,7 +14,7 @@ pub trait Mode {
     }
 
     #[allow(unused_variables)]
-    fn start(&mut self, manager: &mut AssetManager) {}
+    fn start(&mut self, manager: &mut Assets) {}
 
     #[allow(unused_variables)]
     fn update(&mut self, input: &Input, renderer: &mut MyRenderer) {}

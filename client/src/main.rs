@@ -1,5 +1,5 @@
 use crate::engine::my::MyRenderer;
-use crate::engine::{startup, App, AssetManager, Input, ShaderCompiler};
+use crate::engine::{startup, App, Assets, Input, ShaderCompiler};
 use crate::modes::{Loading, Mode};
 use log::info;
 
@@ -21,7 +21,7 @@ struct Appplication {
 }
 
 impl App for Appplication {
-    fn start(assets: &mut AssetManager) -> Self {
+    fn start(assets: &mut Assets) -> Self {
         let editor = option_env!("FARMISTO_EDITOR").is_some();
         info!("Editor mode: {}", editor);
         let mut mode = Loading::new(editor);
@@ -31,7 +31,7 @@ impl App for Appplication {
         Self { mode }
     }
 
-    fn update(&mut self, input: Input, renderer: &mut MyRenderer, assets: &mut AssetManager) {
+    fn update(&mut self, input: Input, renderer: &mut MyRenderer, assets: &mut Assets) {
         self.mode.update(&input, renderer);
         if let Some(next) = self.mode.transition() {
             info!("Finish {:?}", self.mode.name());

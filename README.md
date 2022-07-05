@@ -58,7 +58,8 @@ to reduce compile-time dependencies and improve maintainability.
 
 Here is table, showing dependencies reduction (about):
 
-| Aspect       | Popular Solution | Alternative / 3d party | Dependencies |
-|--------------|------------------|------------------------|--------------|
-| Windowing    | winint           | rust-sdl2              | -81          |
-| 3D Rendering | vulkano          | ash                    | -32          |
+| Aspect       | Popular Solution | Alternative | Dependencies |
+|--------------|------------------|-------------|--------------|
+| Windowing    | winint           | rust-sdl2   | -81          |
+| 3D Rendering | vulkano          | ash         | -32          |
+| File Changes | notify           | OS Shell    | -20          | 

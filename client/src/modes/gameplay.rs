@@ -1,6 +1,6 @@
 use crate::engine::{Input, MeshAsset, TextureAsset, Transform};
 use crate::modes::Mode;
-use crate::{AssetManager, MyRenderer};
+use crate::{Assets, MyRenderer};
 use game::api::{Action, Event, GameResponse, PlayerRequest};
 use game::model::{TreeId, TreeKind};
 use game::persistence::{Known, Shared, Storage};
@@ -36,10 +36,10 @@ impl Gameplay {
 }
 
 impl Mode for Gameplay {
-    fn start(&mut self, assets: &mut AssetManager) {
+    fn start(&mut self, assets: &mut Assets) {
         self.tree_tex = Some((
             assets.mesh("./assets/tree.mesh.json"),
-            assets.texture("./assets/mylama.png", assets.texture_set_layout),
+            assets.texture("./assets/mylama.png"),
         ));
     }
 
