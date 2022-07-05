@@ -124,19 +124,22 @@ pub fn startup<A: App>(title: String) {
             })
             .collect();
 
-        let camera = CameraUniform {
+        let mut camera = CameraUniform {
             model: Mat4::IDENTITY,
             view: Mat4::look_at_rh(
-                vec3(0.0, 0.0, 5.0),
+                vec3(0.0, -2.0, -3.0), // Vulkan Z: inside screen
                 vec3(0.0, 0.0, 0.0),
-                vec3(0.0, 1.0, 0.0),
+                vec3(0.0, -1.0, 0.0), // Vulkan Y: bottom screen
             ),
             proj: Mat4::perspective_rh(
                 45.0_f32.to_radians(),
                 window_size[0] as f32 / window_size[1] as f32,
                 0.1,
                 100.0,
-            ),
+            )
+                // GLM was originally designed for OpenGL,
+                // where the Y coordinate of the clip coordinates is inverted
+                * Mat4::from_scale(vec3(1.0, -1.0, 1.0)),
         };
 
         let camera_buffer = UniformBuffer::create::<CameraUniform>(
@@ -228,7 +231,7 @@ pub fn startup<A: App>(title: String) {
             let clear_values = [
                 vk::ClearValue {
                     color: vk::ClearColorValue {
-                        float32: [1.0, 0.0, 1.0, 0.0],
+                        float32: [0.2, 0.2, 0.2, 0.0],
                     },
                 },
                 vk::ClearValue {

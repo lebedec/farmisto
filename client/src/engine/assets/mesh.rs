@@ -96,19 +96,23 @@ impl MeshAssetData {
             vertices: mesh
                 .vertices
                 .into_iter()
-                .map(|vertex| Vertex {
-                    pos: [
-                        vertex.position[0],
-                        vertex.position[1],
-                        vertex.position[2],
-                        1.0,
-                    ],
-                    color: [1.0; 4],
-                    uv: vertex.uv,
+                .map(|vertex| {
+                    let vertex = Vertex {
+                        pos: [
+                            vertex.position[0],
+                            vertex.position[1],
+                            vertex.position[2],
+                            1.0,
+                        ],
+                        color: [1.0; 4],
+                        uv: vertex.uv,
+                    };
+                    vertex
                 })
                 .collect(),
             indices: mesh.triangles,
         };
+
         Self::from_json(queue, json)
     }
 }

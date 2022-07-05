@@ -22,7 +22,7 @@ import zlib
 bl_info = {
     "name": "Space3 format",
     "author": "Lebedev Games Team",
-    "version": (1, 0, 0),
+    "version": (1, 0, 7),
     "blender": (3, 0, 0),
     "location": "File > Import-Export",
     "description": "Space3 IO meshes, UV's, vertex colors, materials, textures, cameras, lamps and actions",
@@ -107,9 +107,9 @@ class Writer:
     def write_vertex(self, value: S3Vertex):
         self.buffer.write(struct.pack(
             '3f3f2f4b4f',
-            value.position[0],
-            value.position[1],
-            value.position[2],
+            value.position[0], # axis orientation (coordinate system mapping):
+            -value.position[2], # Blender Z = Vulkan -Y
+            value.position[1], # Blender Y = Vulkan Z
             value.normal[0],
             value.normal[1],
             value.normal[2],
@@ -292,9 +292,9 @@ def main(context: Context, report, output_path: str):
     report(f'Data length: {data_length} bytes, Export time: {time() - t} seconds')
 
 
-@orientation_helper(axis_forward='-Z', axis_up='Y')
+
 class Space3Export(bpy.types.Operator, ExportHelper):
-    bl_idname = "export_scene.spece3"
+    bl_idname = "export_scene.space3"
     bl_label = "Export Space3"
     bl_options = {'UNDO', 'PRESET'}
 

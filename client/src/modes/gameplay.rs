@@ -38,8 +38,8 @@ impl Gameplay {
 impl Mode for Gameplay {
     fn start(&mut self, assets: &mut Assets) {
         self.tree_tex = Some((
-            assets.mesh("./assets/cube.space3"),
-            assets.texture("./assets/tex64.png"),
+            assets.mesh("./assets/viking_room.space3"),
+            assets.texture("./assets/viking_room.png"),
         ));
     }
 
@@ -67,13 +67,8 @@ impl Mode for Gameplay {
                                 if let Some((mesh, texture)) = self.tree_tex.as_ref() {
                                     renderer.draw(
                                         Transform {
-                                            matrix: Mat4::from_translation(vec3(
-                                                position[0],
-                                                0.0,
-                                                -position[1],
-                                            )) * Mat4::from_rotation_y(
-                                                30.0_f32.to_radians(),
-                                            ),
+                                            matrix: Mat4::from_translation(vec3(0.0, 0.0, 0.0))
+                                                * Mat4::from_rotation_y(10.0_f32.to_radians()),
                                         },
                                         mesh.clone(),
                                         texture.clone(),
