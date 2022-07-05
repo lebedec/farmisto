@@ -127,7 +127,7 @@ pub fn startup<A: App>(title: String) {
         let camera = CameraUniform {
             model: Mat4::IDENTITY,
             view: Mat4::look_at_rh(
-                vec3(0.0, 0.0, 3.0),
+                vec3(0.0, 0.0, 5.0),
                 vec3(0.0, 0.0, 0.0),
                 vec3(0.0, 1.0, 0.0),
             ),

@@ -106,7 +106,12 @@ impl Assets {
                             }
                             AssetKind::Shader => {}
                             AssetKind::Mesh => {
-                                match MeshAssetData::from_json_file(&loader_queue, &path) {
+                                let data = if path.extension().unwrap() == "space3" {
+                                    MeshAssetData::from_space3(&loader_queue, &path)
+                                } else {
+                                    MeshAssetData::from_json_file(&loader_queue, &path)
+                                };
+                                match data {
                                     Ok(data) => {
                                         loader_result
                                             .send(AssetPayload::Mesh { path, data })

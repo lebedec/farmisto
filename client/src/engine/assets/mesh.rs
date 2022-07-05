@@ -1,6 +1,9 @@
+use crate::engine::assets::space3;
+use crate::engine::assets::space3::S3Mesh;
 use crate::engine::base::{create_buffer, Queue};
 use ash::{vk, Device};
 use glam::Mat4;
+use log::{error, info};
 use std::cell::RefCell;
 use std::fs::File;
 use std::io;
@@ -81,6 +84,33 @@ impl MeshAssetData {
         let vertex = VertexBuffer::create(&queue.device, &queue.device_memory, mesh.vertices);
         Ok(Self { index, vertex })
     }
+
+    pub fn from_space3<P: AsRef<Path>>(queue: &Queue, path: P) -> Result<Self, MeshAssetError> {
+        let mut scene = space3::read_scene_from_file(path).map_err(MeshAssetError::Space3)?;
+        if scene.meshes.len() != 1 {
+            return Err(MeshAssetError::Space3Content);
+        }
+        // todo: optimize struct, remove translation and collect
+        let mesh = std::mem::replace(&mut scene.meshes[0], S3Mesh::default());
+        let json = JsonMesh {
+            vertices: mesh
+                .vertices
+                .into_iter()
+                .map(|vertex| Vertex {
+                    pos: [
+                        vertex.position[0],
+                        vertex.position[1],
+                        vertex.position[2],
+                        1.0,
+                    ],
+                    color: [1.0; 4],
+                    uv: vertex.uv,
+                })
+                .collect(),
+            indices: mesh.triangles,
+        };
+        Self::from_json(queue, json)
+    }
 }
 
 #[derive(serde::Deserialize)]
@@ -93,6 +123,8 @@ pub struct JsonMesh {
 pub enum MeshAssetError {
     Io(io::Error),
     Serde(serde_json::Error),
+    Space3(space3::S3SceneError),
+    Space3Content,
 }
 
 #[derive(Clone, Copy)]
@@ -115,9 +147,11 @@ impl IndexBuffer {
         device_memory_properties: &vk::PhysicalDeviceMemoryProperties,
         indices: Vec<u32>,
     ) -> Self {
+        let size = (4 * indices.len()) as u64;
+
         let (buffer, device_memory, memory_size) = create_buffer(
             device,
-            std::mem::size_of_val(&indices) as u64,
+            size,
             vk::BufferUsageFlags::INDEX_BUFFER,
             vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
             device_memory_properties,

@@ -7,4 +7,5 @@ mod fs;
 mod manager;
 mod mesh;
 mod shader;
+mod space3;
 mod texture;

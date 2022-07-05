@@ -38,8 +38,8 @@ impl Gameplay {
 impl Mode for Gameplay {
     fn start(&mut self, assets: &mut Assets) {
         self.tree_tex = Some((
-            assets.mesh("./assets/tree.mesh.json"),
-            assets.texture("./assets/mylama.png"),
+            assets.mesh("./assets/cube.space3"),
+            assets.texture("./assets/tex64.png"),
         ));
     }
 
@@ -72,7 +72,7 @@ impl Mode for Gameplay {
                                                 0.0,
                                                 -position[1],
                                             )) * Mat4::from_rotation_y(
-                                                45.0_f32.to_radians(),
+                                                30.0_f32.to_radians(),
                                             ),
                                         },
                                         mesh.clone(),
