@@ -580,14 +580,36 @@ impl Drop for Base {
     }
 }
 
-// Simple offset_of macro akin to C++ offsetof
-#[macro_export]
-macro_rules! offset_of {
-    ($base:path, $field:ident) => {{
-        #[allow(unused_unsafe)]
-        unsafe {
-            let b: $base = std::mem::zeroed();
-            (&b.$field as *const _ as isize) - (&b as *const _ as isize)
-        }
-    }};
+pub fn create_buffer(
+    device: &Device,
+    size: vk::DeviceSize,
+    usage: vk::BufferUsageFlags,
+    memory_flags: vk::MemoryPropertyFlags,
+    memory_properties: &vk::PhysicalDeviceMemoryProperties,
+) -> (vk::Buffer, vk::DeviceMemory, vk::DeviceSize) {
+    let info = vk::BufferCreateInfo {
+        size,
+        usage,
+        sharing_mode: vk::SharingMode::EXCLUSIVE,
+        ..Default::default()
+    };
+
+    let buffer = unsafe { device.create_buffer(&info, None).unwrap() };
+    let memory = unsafe { device.get_buffer_memory_requirements(buffer) };
+
+    let memory_type_index = index_memory_type(&memory, memory_properties, memory_flags).unwrap();
+
+    let allocation = vk::MemoryAllocateInfo {
+        allocation_size: memory.size,
+        memory_type_index,
+        ..Default::default()
+    };
+
+    let device_memory = unsafe { device.allocate_memory(&allocation, None).unwrap() };
+
+    unsafe {
+        device.bind_buffer_memory(buffer, device_memory, 0).unwrap();
+    }
+
+    (buffer, device_memory, memory.size)
 }

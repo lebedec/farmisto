@@ -1,5 +1,4 @@
 use crate::engine::base::{submit_commands, Base};
-use crate::engine::mesh::{IndexBuffer, Transform, Vertex, VertexBuffer};
 use crate::engine::my::MyRenderer;
 use crate::engine::uniform::{CameraUniform, UniformBuffer};
 use crate::engine::{AssetManager, Input};
@@ -125,26 +124,6 @@ pub fn startup<A: App>(title: String) {
             })
             .collect();
 
-        let vertices = vec![
-            Vertex {
-                pos: [-1.0, 1.0, 0.0, 1.0],
-                color: [0.0, 1.0, 0.0, 1.0],
-                uv: [0.0, 0.0],
-            },
-            Vertex {
-                pos: [1.0, 1.0, 0.0, 1.0],
-                color: [0.0, 0.0, 1.0, 1.0],
-                uv: [1.0, 0.0],
-            },
-            Vertex {
-                pos: [0.0, -1.0, 0.0, 1.0],
-                color: [1.0, 0.0, 0.0, 1.0],
-                uv: [0.5, 1.0],
-            },
-        ];
-
-        let indices = vec![0, 1, 2];
-
         let camera = CameraUniform {
             model: Mat4::IDENTITY,
             view: Mat4::look_at_rh(
@@ -160,8 +139,6 @@ pub fn startup<A: App>(title: String) {
             ),
         };
 
-        let index_buffer = IndexBuffer::create(&base.device, &base.queue.device_memory, indices);
-        let vertex_buffer = VertexBuffer::create(&base.device, &base.queue.device_memory, vertices);
         let camera_buffer = UniformBuffer::create::<CameraUniform>(
             base.device.clone(),
             &base.queue.device_memory,
@@ -217,8 +194,6 @@ pub fn startup<A: App>(title: String) {
             base.pool,
             base.queue.clone(),
             my_renderer.texture_set_layout,
-            index_buffer.clone(),
-            vertex_buffer.clone(),
         );
 
         let mut app = A::start(&mut assets);

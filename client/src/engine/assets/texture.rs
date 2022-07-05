@@ -1,6 +1,5 @@
-use crate::engine::base::{index_memory_type, Queue};
+use crate::engine::base::{create_buffer, index_memory_type, Queue};
 use crate::engine::commands::Single;
-use crate::engine::mesh::create_buffer;
 
 use ash::{vk, Device};
 use image::DynamicImage;
@@ -25,15 +24,6 @@ pub struct TextureAssetData {
 }
 
 impl TextureAsset {
-    pub fn update(&mut self, data: TextureAssetData) {
-        let mut this = self.data.borrow_mut();
-        *this = data;
-    }
-
-    pub fn from_data(data: Arc<RefCell<TextureAssetData>>) -> Self {
-        Self { data }
-    }
-
     #[inline]
     pub fn descriptor(&self) -> vk::DescriptorSet {
         self.data.borrow().descriptor_set
@@ -47,6 +37,16 @@ impl TextureAsset {
     #[inline]
     pub fn view(&self) -> vk::ImageView {
         self.data.borrow().view
+    }
+
+    #[inline]
+    pub fn update(&mut self, data: TextureAssetData) {
+        let mut this = self.data.borrow_mut();
+        *this = data;
+    }
+
+    pub fn from_data(data: Arc<RefCell<TextureAssetData>>) -> Self {
+        Self { data }
     }
 }
 

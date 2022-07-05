@@ -1,7 +1,99 @@
-use crate::engine::base::index_memory_type;
+use crate::engine::base::{create_buffer, Queue};
 use ash::{vk, Device};
 use glam::Mat4;
-use log::info;
+use std::cell::RefCell;
+use std::fs::File;
+use std::io;
+use std::path::Path;
+use std::sync::Arc;
+
+#[derive(Clone)]
+pub struct MeshAsset {
+    data: Arc<RefCell<MeshAssetData>>,
+}
+
+impl MeshAsset {
+    #[inline]
+    pub fn index(&self) -> vk::Buffer {
+        self.data.borrow().index.bind()
+    }
+
+    #[inline]
+    pub fn vertex(&self) -> vk::Buffer {
+        self.data.borrow().vertex.bind()
+    }
+
+    #[inline]
+    pub fn vertices(&self) -> u32 {
+        self.data.borrow().index.count()
+    }
+
+    #[inline]
+    pub fn update(&mut self, data: MeshAssetData) {
+        let mut this = self.data.borrow_mut();
+        *this = data;
+    }
+
+    pub fn from_data(data: Arc<RefCell<MeshAssetData>>) -> Self {
+        Self { data }
+    }
+}
+
+#[derive(Clone)]
+pub struct MeshAssetData {
+    index: IndexBuffer,
+    vertex: VertexBuffer,
+}
+
+impl MeshAssetData {
+    pub fn fallback(queue: &Queue) -> Result<Self, MeshAssetError> {
+        let json = JsonMesh {
+            vertices: vec![
+                Vertex {
+                    pos: [-1.0, 1.0, 0.0, 1.0],
+                    color: [0.0, 1.0, 0.0, 1.0],
+                    uv: [0.0, 0.0],
+                },
+                Vertex {
+                    pos: [1.0, 1.0, 0.0, 1.0],
+                    color: [0.0, 0.0, 1.0, 1.0],
+                    uv: [1.0, 0.0],
+                },
+                Vertex {
+                    pos: [0.0, -1.0, 0.0, 1.0],
+                    color: [1.0, 0.0, 0.0, 1.0],
+                    uv: [0.5, 1.0],
+                },
+            ],
+            indices: vec![0, 1, 2],
+        };
+        Self::from_json(queue, json)
+    }
+
+    pub fn from_json_file<P: AsRef<Path>>(queue: &Queue, path: P) -> Result<Self, MeshAssetError> {
+        let file = File::open(path).map_err(MeshAssetError::Io)?;
+        let json = serde_json::from_reader(file).map_err(MeshAssetError::Serde)?;
+        Self::from_json(queue, json)
+    }
+
+    pub fn from_json(queue: &Queue, mesh: JsonMesh) -> Result<Self, MeshAssetError> {
+        let index = IndexBuffer::create(&queue.device, &queue.device_memory, mesh.indices);
+        let vertex = VertexBuffer::create(&queue.device, &queue.device_memory, mesh.vertices);
+        Ok(Self { index, vertex })
+    }
+}
+
+#[derive(serde::Deserialize)]
+pub struct JsonMesh {
+    vertices: Vec<Vertex>,
+    indices: Vec<u32>,
+}
+
+#[derive(Debug)]
+pub enum MeshAssetError {
+    Io(io::Error),
+    Serde(serde_json::Error),
+}
 
 #[derive(Clone, Copy)]
 pub struct IndexBuffer {
@@ -98,7 +190,7 @@ impl VertexBuffer {
     }
 }
 
-#[derive(Default, Clone, Debug, Copy, bytemuck::Pod, bytemuck::Zeroable)]
+#[derive(Default, Clone, Debug, Copy, bytemuck::Pod, bytemuck::Zeroable, serde::Deserialize)]
 #[repr(C)]
 pub struct Vertex {
     pub pos: [f32; 4],
@@ -139,38 +231,4 @@ impl Vertex {
             .vertex_binding_descriptions(&bindings)
             .build()
     }
-}
-
-pub fn create_buffer(
-    device: &Device,
-    size: vk::DeviceSize,
-    usage: vk::BufferUsageFlags,
-    memory_flags: vk::MemoryPropertyFlags,
-    memory_properties: &vk::PhysicalDeviceMemoryProperties,
-) -> (vk::Buffer, vk::DeviceMemory, vk::DeviceSize) {
-    let info = vk::BufferCreateInfo {
-        size,
-        usage,
-        sharing_mode: vk::SharingMode::EXCLUSIVE,
-        ..Default::default()
-    };
-
-    let buffer = unsafe { device.create_buffer(&info, None).unwrap() };
-    let memory = unsafe { device.get_buffer_memory_requirements(buffer) };
-
-    let memory_type_index = index_memory_type(&memory, memory_properties, memory_flags).unwrap();
-
-    let allocation = vk::MemoryAllocateInfo {
-        allocation_size: memory.size,
-        memory_type_index,
-        ..Default::default()
-    };
-
-    let device_memory = unsafe { device.allocate_memory(&allocation, None).unwrap() };
-
-    unsafe {
-        device.bind_buffer_memory(buffer, device_memory, 0).unwrap();
-    }
-
-    (buffer, device_memory, memory.size)
 }

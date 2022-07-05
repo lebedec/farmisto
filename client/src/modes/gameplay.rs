@@ -1,5 +1,4 @@
-use crate::engine::mesh::{IndexBuffer, Transform, VertexBuffer};
-use crate::engine::{Input, TextureAsset};
+use crate::engine::{Input, MeshAsset, TextureAsset, Transform};
 use crate::modes::Mode;
 use crate::{AssetManager, MyRenderer};
 use game::api::{Action, Event, GameResponse, PlayerRequest};
@@ -19,7 +18,7 @@ pub struct Gameplay {
     storage: Storage,
     knowledge: KnowledgeBase,
     trees: HashMap<TreeId, TreeBehaviour>,
-    tree_tex: Option<(IndexBuffer, VertexBuffer, TextureAsset)>,
+    tree_tex: Option<(MeshAsset, TextureAsset)>,
 }
 
 impl Gameplay {
@@ -39,8 +38,7 @@ impl Gameplay {
 impl Mode for Gameplay {
     fn start(&mut self, assets: &mut AssetManager) {
         self.tree_tex = Some((
-            assets.index_buffer.clone(),
-            assets.vertex_buffer.clone(),
+            assets.mesh("./assets/tree.mesh.json"),
             assets.texture("./assets/mylama.png", assets.texture_set_layout),
         ));
     }
@@ -66,12 +64,8 @@ impl Mode for Gameplay {
                                     id, kind.name, position, growth
                                 );
 
-                                if let Some((index_buffer, vertex_buffer, texture)) =
-                                    self.tree_tex.as_ref()
-                                {
+                                if let Some((mesh, texture)) = self.tree_tex.as_ref() {
                                     renderer.draw(
-                                        vertex_buffer.clone(),
-                                        index_buffer.clone(),
                                         Transform {
                                             matrix: Mat4::from_translation(vec3(
                                                 position[0],
@@ -81,6 +75,7 @@ impl Mode for Gameplay {
                                                 45.0_f32.to_radians(),
                                             ),
                                         },
+                                        mesh.clone(),
                                         texture.clone(),
                                     );
                                 }

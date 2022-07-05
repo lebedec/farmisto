@@ -1,18 +1,15 @@
-use crate::engine::mesh::{IndexBuffer, Transform, Vertex, VertexBuffer};
 use crate::engine::uniform::{CameraUniform, UniformBuffer};
-use crate::engine::TextureAsset;
+use crate::engine::{MeshAsset, TextureAsset, Transform, Vertex};
 use ash::vk::{CommandBuffer, DescriptorSetLayout};
 use ash::{vk, Device};
-use log::info;
 use std::ffi::CStr;
 use std::ptr;
 
 pub struct Material {}
 
 pub struct MyRenderObject {
-    vertex: VertexBuffer,
-    index: IndexBuffer,
     transform: Transform,
+    mesh: MeshAsset,
     texture: TextureAsset,
 }
 
@@ -27,17 +24,10 @@ pub struct MyRenderer {
 }
 
 impl MyRenderer {
-    pub fn draw(
-        &mut self,
-        vertex: VertexBuffer,
-        index: IndexBuffer,
-        transform: Transform,
-        texture: TextureAsset,
-    ) {
+    pub fn draw(&mut self, transform: Transform, mesh: MeshAsset, texture: TextureAsset) {
         self.objects.push(MyRenderObject {
-            vertex,
-            index,
             transform,
+            mesh,
             texture,
         })
     }
@@ -48,8 +38,8 @@ impl MyRenderer {
         for (index, object) in self.objects.iter().enumerate() {
             // todo: if last != object.mesh
             {
-                device.cmd_bind_vertex_buffers(buffer, 0, &[object.vertex.bind()], &[0]);
-                device.cmd_bind_index_buffer(buffer, object.index.bind(), 0, vk::IndexType::UINT32);
+                device.cmd_bind_vertex_buffers(buffer, 0, &[object.mesh.vertex()], &[0]);
+                device.cmd_bind_index_buffer(buffer, object.mesh.index(), 0, vk::IndexType::UINT32);
             }
             let bind_point = vk::PipelineBindPoint::GRAPHICS;
             let descriptor_set = &[self.descriptor_sets[0]];
@@ -81,7 +71,7 @@ impl MyRenderer {
                 0,
                 bytemuck::cast_slice(&object.transform.matrix.to_cols_array()),
             );
-            device.cmd_draw_indexed(buffer, object.index.count(), 1, 0, 0, 1);
+            device.cmd_draw_indexed(buffer, object.mesh.vertices(), 1, 0, 0, 1);
         }
     }
 
