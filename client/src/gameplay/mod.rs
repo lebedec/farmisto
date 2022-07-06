@@ -1,4 +1,5 @@
 use crate::engine::{Input, MeshAsset, TextureAsset, Transform};
+use crate::gameplay::camera::Camera;
 use crate::{Assets, Mode, MyRenderer};
 use game::api::{Action, Event, GameResponse, PlayerRequest};
 use game::model::{TreeId, TreeKind};
@@ -10,6 +11,8 @@ use sdl2::keyboard::Keycode;
 use server::LocalServerThread;
 use std::collections::HashMap;
 
+mod camera;
+
 pub struct Gameplay {
     server: Option<LocalServerThread>,
     client: TcpClient,
@@ -18,10 +21,15 @@ pub struct Gameplay {
     knowledge: KnowledgeBase,
     trees: HashMap<TreeId, TreeBehaviour>,
     tree_tex: Option<(MeshAsset, TextureAsset)>,
+    camera: Camera,
 }
 
 impl Gameplay {
-    pub fn new(server: Option<LocalServerThread>, client: TcpClient) -> Box<Self> {
+    pub fn new(
+        server: Option<LocalServerThread>,
+        client: TcpClient,
+        viewport: [f32; 2],
+    ) -> Box<Self> {
         Box::new(Self {
             server,
             client,
@@ -30,6 +38,7 @@ impl Gameplay {
             knowledge: KnowledgeBase::default(),
             trees: HashMap::new(),
             tree_tex: None,
+            camera: Camera::new(viewport),
         })
     }
 }
@@ -92,7 +101,9 @@ impl Mode for Gameplay {
             }
         }
 
-        if input.pressed(Keycode::A) {
+        self.camera.update(input);
+
+        if input.pressed(Keycode::Kp1) {
             self.action_id += 1;
             let action = Action::DoSomething;
             self.client.send(PlayerRequest::Perform {
@@ -113,6 +124,8 @@ impl Mode for Gameplay {
 
         // RENDER
         for _tree in self.trees.values() {}
+
+        renderer.look_at(self.camera.uniform());
     }
 }
 

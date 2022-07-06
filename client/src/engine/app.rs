@@ -124,30 +124,6 @@ pub fn startup<A: App>(title: String) {
             })
             .collect();
 
-        let mut camera = CameraUniform {
-            model: Mat4::IDENTITY,
-            view: Mat4::look_at_rh(
-                vec3(0.0, -2.0, -3.0), // Vulkan Z: inside screen
-                vec3(0.0, 0.0, 0.0),
-                vec3(0.0, -1.0, 0.0), // Vulkan Y: bottom screen
-            ),
-            proj: Mat4::perspective_rh(
-                45.0_f32.to_radians(),
-                window_size[0] as f32 / window_size[1] as f32,
-                0.1,
-                100.0,
-            )
-                // GLM was originally designed for OpenGL,
-                // where the Y coordinate of the clip coordinates is inverted
-                * Mat4::from_scale(vec3(1.0, -1.0, 1.0)),
-        };
-
-        let camera_buffer = UniformBuffer::create::<CameraUniform>(
-            base.device.clone(),
-            &base.queue.device_memory,
-            base.present_images.len(),
-        );
-
         let mut vertex_spv_file =
             Cursor::new(&include_bytes!("../../../assets/shaders/triangle.vert.spv")[..]);
         let mut frag_spv_file =
@@ -183,12 +159,12 @@ pub fn startup<A: App>(title: String) {
 
         let mut my_renderer = MyRenderer::create(
             &base.device,
+            &base.queue.device_memory,
             &scissors,
             &viewports,
             base.present_images.len(),
             fragment_shader_module,
             vertex_shader_module,
-            &camera_buffer,
             renderpass,
         );
 
@@ -217,8 +193,6 @@ pub fn startup<A: App>(title: String) {
                 break;
             }
 
-            app.update(input.clone(), &mut my_renderer, &mut assets);
-
             let (present_index, _) = base
                 .swapchain_loader
                 .acquire_next_image(
@@ -228,6 +202,10 @@ pub fn startup<A: App>(title: String) {
                     vk::Fence::null(),
                 )
                 .unwrap();
+
+            my_renderer.present_index = present_index;
+            app.update(input.clone(), &mut my_renderer, &mut assets);
+
             let clear_values = [
                 vk::ClearValue {
                     color: vk::ClearColorValue {
@@ -247,8 +225,6 @@ pub fn startup<A: App>(title: String) {
                 .framebuffer(framebuffers[present_index as usize])
                 .render_area(base.surface_resolution.into())
                 .clear_values(&clear_values);
-
-            camera_buffer.update(present_index as usize, camera.clone());
 
             {
                 let present_queue = base.queue.handle.lock().unwrap();
@@ -290,7 +266,7 @@ pub fn startup<A: App>(title: String) {
                     .unwrap();
             }
 
-            thread::sleep(Duration::from_millis(16));
+            thread::sleep(Duration::from_millis(10));
         }
     }
 }

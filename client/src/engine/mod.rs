@@ -9,4 +9,4 @@ mod base;
 mod commands;
 mod input;
 mod renderers;
-mod uniform;
+pub mod uniform;

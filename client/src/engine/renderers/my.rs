@@ -2,6 +2,7 @@ use crate::engine::uniform::{CameraUniform, UniformBuffer};
 use crate::engine::{MeshAsset, TextureAsset, Transform, Vertex};
 use ash::vk::{CommandBuffer, DescriptorSetLayout};
 use ash::{vk, Device};
+use log::info;
 use std::ffi::CStr;
 use std::ptr;
 
@@ -21,9 +22,17 @@ pub struct MyRenderer {
     pipeline: vk::Pipeline,
     pub descriptor_sets: Vec<vk::DescriptorSet>,
     pub texture_set_layout: DescriptorSetLayout,
+    camera_buffer: UniformBuffer,
+    pub present_index: u32,
+    pub viewport: [f32; 2],
 }
 
 impl MyRenderer {
+    pub fn look_at(&mut self, uniform: CameraUniform) {
+        self.camera_buffer
+            .update(self.present_index as usize, uniform);
+    }
+
     pub fn draw(&mut self, transform: Transform, mesh: MeshAsset, texture: TextureAsset) {
         self.objects.push(MyRenderObject {
             transform,
@@ -77,14 +86,18 @@ impl MyRenderer {
 
     pub fn create<'a>(
         device: &Device,
+        device_memory: &vk::PhysicalDeviceMemoryProperties,
         scissors: &'a [vk::Rect2D],
         viewports: &'a [vk::Viewport],
         swapchain: usize,
         fragment_shader_module: vk::ShaderModule,
         vertex_shader_module: vk::ShaderModule,
-        camera_buffer: &UniformBuffer,
         renderpass: vk::RenderPass,
     ) -> Self {
+        let camera_buffer =
+            UniformBuffer::create::<CameraUniform>(device.clone(), device_memory, swapchain);
+
+        //
         let descriptor_pool = UniformBuffer::create_descriptor_pool(device, swapchain as u32);
         let descriptor_set_layout = UniformBuffer::create_descriptor_set_layout(device);
         let descriptor_sets = UniformBuffer::create_descriptor_sets::<CameraUniform>(
@@ -230,6 +243,9 @@ impl MyRenderer {
             pipeline,
             descriptor_sets,
             texture_set_layout,
+            camera_buffer,
+            present_index: 0,
+            viewport: [viewports[0].width, viewports[0].height],
         }
     }
 

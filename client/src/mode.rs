@@ -11,7 +11,8 @@ pub trait Mode {
     #[allow(unused_variables)]
     fn update(&mut self, input: &Input, renderer: &mut MyRenderer) {}
 
-    fn transition(&self) -> Option<Box<dyn Mode>> {
+    #[allow(unused_variables)]
+    fn transition(&self, renderer: &mut MyRenderer) -> Option<Box<dyn Mode>> {
         None
     }
 

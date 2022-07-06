@@ -1,6 +1,6 @@
 use crate::gameplay::Gameplay;
 use crate::menu::Menu;
-use crate::Mode;
+use crate::{Mode, MyRenderer};
 use network::{Configuration, TcpClient};
 use server::LocalServerThread;
 use std::thread;
@@ -17,7 +17,7 @@ impl Intro {
 }
 
 impl Mode for Intro {
-    fn transition(&self) -> Option<Box<dyn Mode>> {
+    fn transition(&self, renderer: &mut MyRenderer) -> Option<Box<dyn Mode>> {
         if self.is_editor {
             // development mode startup
             let player = "dev".to_string();
@@ -29,7 +29,7 @@ impl Mode for Intro {
             // await server start
             thread::sleep(Duration::from_millis(100));
             let client = TcpClient::connect("127.0.0.1:8080", player, None).unwrap();
-            Some(Gameplay::new(Some(server), client))
+            Some(Gameplay::new(Some(server), client, renderer.viewport))
         } else {
             Some(Menu::new())
         }
