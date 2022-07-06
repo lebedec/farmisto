@@ -9,7 +9,7 @@ network = { path = "../network" }
 server = { path = "../server" }
 log = "0.4"
 env_logger = { version = "0.9", default-features = false, features = ["humantime"] }
-sdl2 = "0.35"
+sdl2 = { version = "0.35", features = ["bundled"] }
 winapi = { version = "0.3.9", features = ["shellscalingapi"] }
 bytemuck = { version = "1.9", features = ["derive"] }
 glam = "0.20"

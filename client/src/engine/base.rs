@@ -174,17 +174,17 @@ impl Base {
         window: Arc<Window>,
         sdl_extension_names: Vec<CString>,
     ) -> Self {
-        let mut extension_names: Vec<*const c_char> = sdl_extension_names
-            .into_iter()
-            .map(|value| value.as_c_str().as_ptr())
-            .collect();
-
         unsafe {
             // TODO: fix CString pointer drop to provide extension names from SDL
-            #[cfg(target_os = "macos")]
+            #[cfg(macos)]
             let mut extension_names = vec![
                 CStr::from_bytes_with_nul_unchecked(b"VK_KHR_surface\0").as_ptr(),
                 CStr::from_bytes_with_nul_unchecked(b"VK_MVK_macos_surface\0").as_ptr(),
+            ];
+            #[cfg(windows)]
+            let mut extension_names = vec![
+                CStr::from_bytes_with_nul_unchecked(b"VK_KHR_surface\0").as_ptr(),
+                CStr::from_bytes_with_nul_unchecked(b"VK_KHR_win32_surface\0").as_ptr(),
             ];
 
             let entry = Entry::load().unwrap();
@@ -200,7 +200,7 @@ impl Base {
 
             extension_names.push(DebugUtils::name().as_ptr());
 
-            #[cfg(any(target_os = "macos", target_os = "ios"))]
+            #[cfg(macos)]
             {
                 extension_names.push(KhrPortabilityEnumerationFn::name().as_ptr());
                 extension_names.push(KhrGetPhysicalDeviceProperties2Fn::name().as_ptr());

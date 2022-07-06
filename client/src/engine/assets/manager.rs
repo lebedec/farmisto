@@ -246,17 +246,17 @@ impl Assets {
 
     pub fn update(&mut self) {
         for (path, event) in self.observe_file_events() {
-            debug!(
+            info!(
                 "Observed {:?} {:?}, {:?}",
                 event,
                 path.to_str(),
-                path.extension().unwrap()
+                path.extension()
             );
 
             if event == FileEvent::Changed || event == FileEvent::Created {
                 // PREPROCESSING
-                match path.extension().unwrap().to_str().unwrap() {
-                    "vert" | "frag" => {
+                match path.extension().and_then(|ext| ext.to_str()) {
+                    Some("vert") | Some("frag") => {
                         self.require_update(AssetKind::ShaderSrc, path);
                         continue;
                     }

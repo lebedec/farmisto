@@ -5,7 +5,7 @@ edition = "2021"
 
 [dependencies]
 log = "0.4"
-rusqlite = { version = "0.27", default-features = false, features = ["serde_json"] }
+rusqlite = { version = "0.27", default-features = false, features = ["serde_json", "bundled"] }
 game_derive = { path = "../game_derive" }
 serde = { version = "1.0" }
 serde_json = { version = "1.0" }

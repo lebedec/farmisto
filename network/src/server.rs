@@ -304,3 +304,29 @@ fn detect_server_address() -> String {
         }
     }
 }
+
+#[cfg(windows)]
+fn detect_server_address() -> String {
+    match Command::new("netsh")
+        .args(["interface", "ip", "show", "config", "name=\"Ethernet\""])
+        .output()
+        .map_err(|err| err.to_string())
+        .and_then(|output| String::from_utf8(output.stdout).map_err(|err| err.to_string()))
+    {
+        Ok(configuration) => {
+            let mut ip = "127.0.0.1".to_string();
+            for line in configuration.split("\n") {
+                let line = line.trim();
+                if line.starts_with("IP Address:") {
+                    ip = line.split_whitespace().last().unwrap().to_string();
+                    break;
+                }
+            }
+            ip
+        },
+        Err(error) => {
+            error!("Unable to detect server local IP, {}", error);
+            "127.0.0.1".to_string()
+        }
+    }
+}
