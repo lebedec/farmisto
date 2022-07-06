@@ -1,9 +1,7 @@
 use crate::engine::uniform::CameraUniform;
 use crate::Input;
 use glam::{vec3, Mat4, Vec3};
-use log::info;
 use sdl2::keyboard::Keycode;
-use sdl2::libc::printf;
 
 pub struct Camera {
     viewport: [f32; 2],

@@ -1,6 +1,7 @@
 use crate::engine::base::{create_buffer, index_memory_type, Queue};
 use crate::engine::commands::Single;
 
+use ash::vk::Handle;
 use ash::{vk, Device};
 use image::DynamicImage;
 use log::info;
@@ -20,13 +21,12 @@ pub struct TextureAssetData {
     memory: vk::DeviceMemory,
     view: vk::ImageView,
     sampler: vk::Sampler,
-    descriptor_set: vk::DescriptorSet,
 }
 
 impl TextureAsset {
     #[inline]
-    pub fn descriptor(&self) -> vk::DescriptorSet {
-        self.data.borrow().descriptor_set
+    pub fn id(&self) -> u64 {
+        self.data.borrow().view.as_raw()
     }
 
     #[inline]
@@ -40,7 +40,7 @@ impl TextureAsset {
     }
 
     #[inline]
-    pub fn update(&mut self, data: TextureAssetData) {
+    pub fn update(&self, data: TextureAssetData) {
         let mut this = self.data.borrow_mut();
         *this = data;
     }
@@ -60,7 +60,6 @@ impl TextureAssetData {
         usage: vk::ImageUsageFlags,
         memory_flags: vk::MemoryPropertyFlags,
         memory_properties: &vk::PhysicalDeviceMemoryProperties,
-        descriptor_set_layout: vk::DescriptorSetLayout,
     ) -> Self {
         let image_create_info = vk::ImageCreateInfo {
             s_type: vk::StructureType::IMAGE_CREATE_INFO,
@@ -106,64 +105,11 @@ impl TextureAssetData {
         let view = Self::create_image_view(device, image, vk::Format::R8G8B8A8_UNORM);
         let sampler = Self::create_texture_sampler(device);
 
-        // DESCRIPTORS
-        let descriptor_count = 2;
-        let pool_sizes = [vk::DescriptorPoolSize {
-            ty: vk::DescriptorType::COMBINED_IMAGE_SAMPLER,
-            descriptor_count,
-        }];
-        let info = vk::DescriptorPoolCreateInfo::builder()
-            .max_sets(descriptor_count)
-            .pool_sizes(&pool_sizes);
-        let descriptor_pool = unsafe { device.create_descriptor_pool(&info, None).unwrap() };
-
-        let mut layouts: Vec<vk::DescriptorSetLayout> = vec![];
-        for _ in 0..1 {
-            layouts.push(descriptor_set_layout);
-        }
-        let descriptor_set_allocate_info = vk::DescriptorSetAllocateInfo {
-            s_type: vk::StructureType::DESCRIPTOR_SET_ALLOCATE_INFO,
-            p_next: ptr::null(),
-            descriptor_pool,
-            descriptor_set_count: 1,
-            p_set_layouts: layouts.as_ptr(),
-        };
-        let texture_descriptor_sets = unsafe {
-            device
-                .allocate_descriptor_sets(&descriptor_set_allocate_info)
-                .expect("Failed to allocate descriptor sets!")
-        };
-        let descriptor_set = texture_descriptor_sets[0];
-
-        let descriptor_image_infos = [vk::DescriptorImageInfo {
-            sampler,
-            image_view: view,
-            image_layout: vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
-        }];
-        let descriptor_write_sets = [vk::WriteDescriptorSet {
-            // sampler uniform
-            s_type: vk::StructureType::WRITE_DESCRIPTOR_SET,
-            p_next: ptr::null(),
-            dst_set: descriptor_set,
-            dst_binding: 0,
-            dst_array_element: 0,
-            descriptor_count: 1,
-            descriptor_type: vk::DescriptorType::COMBINED_IMAGE_SAMPLER,
-            p_image_info: descriptor_image_infos.as_ptr(),
-            p_buffer_info: ptr::null(),
-            p_texel_buffer_view: ptr::null(),
-        }];
-        unsafe {
-            device.update_descriptor_sets(&descriptor_write_sets, &[]);
-        }
-        //
-
         Self {
             image,
             memory,
             view,
             sampler,
-            descriptor_set,
         }
     }
 
@@ -172,7 +118,6 @@ impl TextureAssetData {
         command_pool: vk::CommandPool,
         queue: Arc<Queue>,
         image_object: DynamicImage,
-        descriptor_set_layout: vk::DescriptorSetLayout,
     ) -> Self {
         let t1 = Instant::now();
 
@@ -214,14 +159,12 @@ impl TextureAssetData {
             vk::ImageUsageFlags::TRANSFER_DST | vk::ImageUsageFlags::SAMPLED,
             vk::MemoryPropertyFlags::DEVICE_LOCAL,
             &queue.device_memory,
-            descriptor_set_layout,
         );
 
         info!(
-            "Image {}x{} created at {:?} {:?}",
+            "Image {}x{} created at {:?}",
             image_width,
             image_height,
-            image.descriptor_set,
             t1.elapsed()
         );
 

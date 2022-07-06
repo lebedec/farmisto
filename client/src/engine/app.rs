@@ -1,13 +1,9 @@
 use crate::engine::base::{submit_commands, Base};
 use crate::engine::my::MyRenderer;
-use crate::engine::uniform::{CameraUniform, UniformBuffer};
 use crate::engine::{Assets, Input};
-use ash::util::read_spv;
 use ash::vk;
-use glam::{vec3, Mat4};
 use log::info;
 use std::ffi::CString;
-use std::io::Cursor;
 use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, Instant};
@@ -124,30 +120,7 @@ pub fn startup<A: App>(title: String) {
             })
             .collect();
 
-        let mut vertex_spv_file =
-            Cursor::new(&include_bytes!("../../../assets/shaders/triangle.vert.spv")[..]);
-        let mut frag_spv_file =
-            Cursor::new(&include_bytes!("../../../assets/shaders/triangle.frag.spv")[..]);
-
-        let vertex_code =
-            read_spv(&mut vertex_spv_file).expect("Failed to read vertex shader spv file");
-        let vertex_shader_info = vk::ShaderModuleCreateInfo::builder().code(&vertex_code);
-
-        let frag_code =
-            read_spv(&mut frag_spv_file).expect("Failed to read fragment shader spv file");
-        let frag_shader_info = vk::ShaderModuleCreateInfo::builder().code(&frag_code);
-
-        let vertex_shader_module = base
-            .device
-            .create_shader_module(&vertex_shader_info, None)
-            .expect("Vertex shader module error");
-
-        let fragment_shader_module = base
-            .device
-            .create_shader_module(&frag_shader_info, None)
-            .expect("Fragment shader module error");
-
-        let viewports = [vk::Viewport {
+        let viewports = vec![vk::Viewport {
             x: 0.0,
             y: 0.0,
             width: base.surface_resolution.width as f32,
@@ -155,24 +128,18 @@ pub fn startup<A: App>(title: String) {
             min_depth: 0.0,
             max_depth: 1.0,
         }];
-        let scissors = [base.surface_resolution.into()];
+        let scissors = vec![base.surface_resolution.into()];
+
+        let mut assets = Assets::new(base.device.clone(), base.pool, base.queue.clone());
 
         let mut my_renderer = MyRenderer::create(
             &base.device,
             &base.queue.device_memory,
-            &scissors,
-            &viewports,
+            scissors,
+            viewports,
             base.present_images.len(),
-            fragment_shader_module,
-            vertex_shader_module,
             renderpass,
-        );
-
-        let mut assets = Assets::new(
-            base.device.clone(),
-            base.pool,
-            base.queue.clone(),
-            my_renderer.texture_set_layout,
+            &mut assets,
         );
 
         let mut app = A::start(&mut assets);
@@ -193,6 +160,7 @@ pub fn startup<A: App>(title: String) {
                 break;
             }
 
+            my_renderer.update();
             let (present_index, _) = base
                 .swapchain_loader
                 .acquire_next_image(
@@ -219,7 +187,6 @@ pub fn startup<A: App>(title: String) {
                     },
                 },
             ];
-
             let render_begin = vk::RenderPassBeginInfo::builder()
                 .render_pass(renderpass)
                 .framebuffer(framebuffers[present_index as usize])
@@ -243,9 +210,6 @@ pub fn startup<A: App>(title: String) {
                             &render_begin,
                             vk::SubpassContents::INLINE,
                         );
-
-                        device.cmd_set_viewport(buffer, 0, &viewports);
-                        device.cmd_set_scissor(buffer, 0, &scissors);
 
                         my_renderer.render(device, buffer);
 

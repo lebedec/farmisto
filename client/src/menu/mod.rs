@@ -16,7 +16,7 @@ impl Menu {
 }
 
 impl Mode for Menu {
-    fn update(&mut self, input: &Input, renderer: &mut MyRenderer) {
+    fn update(&mut self, input: &Input, _renderer: &mut MyRenderer) {
         if input.pressed(Keycode::E) {
             info!("Run editor mode")
         }

@@ -1,13 +1,14 @@
 use crate::engine::assets::fs::{FileEvent, FileSystem};
 use crate::engine::base::Queue;
-use crate::engine::{MeshAsset, MeshAssetData, TextureAsset, TextureAssetData};
+use crate::engine::{
+    MeshAsset, MeshAssetData, ShaderAsset, ShaderAssetData, TextureAsset, TextureAssetData,
+};
 use crate::ShaderCompiler;
 use ash::{vk, Device};
 use image::load_from_memory;
 use log::{debug, error, info};
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::ffi::{OsStr, OsString};
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{channel, Receiver};
 use std::sync::{Arc, RwLock};
@@ -25,7 +26,9 @@ pub struct Assets {
     meshes_default: MeshAssetData,
     meshes: HashMap<PathBuf, MeshAsset>,
 
-    pub texture_set_layout: vk::DescriptorSetLayout,
+    shaders: HashMap<PathBuf, ShaderAsset>,
+
+    queue: Arc<Queue>,
 }
 
 pub struct AssetRequest {
@@ -37,6 +40,10 @@ pub enum AssetPayload {
     Texture {
         path: PathBuf,
         data: TextureAssetData,
+    },
+    Shader {
+        path: PathBuf,
+        data: ShaderAssetData,
     },
     Mesh {
         path: PathBuf,
@@ -53,12 +60,7 @@ pub enum AssetKind {
 }
 
 impl Assets {
-    pub fn new(
-        device: Device,
-        pool: vk::CommandPool,
-        queue: Arc<Queue>,
-        tex_descriptor_set_layout: vk::DescriptorSetLayout,
-    ) -> Self {
+    pub fn new(device: Device, pool: vk::CommandPool, queue: Arc<Queue>) -> Self {
         info!(
             "Shader compiler version: {}",
             ShaderCompiler::new().version()
@@ -69,12 +71,13 @@ impl Assets {
             pool,
             queue.clone(),
             load_from_memory(include_bytes!("./fallback/texture.png")).unwrap(),
-            tex_descriptor_set_layout,
         );
         let textures = HashMap::new();
 
         let meshes_default = MeshAssetData::fallback(&queue).unwrap();
         let meshes = HashMap::new();
+
+        let shaders = HashMap::new();
 
         let loading_requests = Arc::new(RwLock::new(Vec::<AssetRequest>::new()));
         let (loading, loading_result) = channel();
@@ -107,12 +110,29 @@ impl Assets {
                                             pool,
                                             loader_queue.clone(),
                                             image::open(request.path).unwrap(),
-                                            tex_descriptor_set_layout,
                                         ),
                                     })
                                     .unwrap();
                             }
-                            AssetKind::Shader => {}
+                            AssetKind::Shader => {
+                                let data = ShaderAssetData::from_spirv_file(&loader_queue, &path);
+                                match data {
+                                    Ok(data) => {
+                                        loader_result
+                                            .send(AssetPayload::Shader { path, data })
+                                            .unwrap();
+                                    }
+                                    Err(error) => {
+                                        error!(
+                                            "[loader-{}] Unable to load {:?} {:?}, {:?}",
+                                            loader,
+                                            request.kind,
+                                            path.to_str(),
+                                            error
+                                        );
+                                    }
+                                }
+                            }
                             AssetKind::Mesh => {
                                 let data = if path.extension().unwrap() == "space3" {
                                     MeshAssetData::from_space3(&loader_queue, &path)
@@ -157,10 +177,22 @@ impl Assets {
             meshes_default,
             loading_requests,
             loading_result,
-            texture_set_layout: tex_descriptor_set_layout,
             meshes,
+            shaders,
             file_events,
+            queue,
         }
+    }
+
+    pub fn shader<P: AsRef<Path>>(&mut self, path: P) -> ShaderAsset {
+        let path = fs::canonicalize(path).unwrap();
+        if let Some(shader) = self.shaders.get(&path) {
+            return shader.clone();
+        }
+        let data = ShaderAssetData::from_spirv_file(&self.queue, &path).unwrap();
+        let shader = ShaderAsset::from_data(Arc::new(RefCell::new(data)));
+        self.shaders.insert(path.clone(), shader.clone());
+        shader
     }
 
     pub fn texture<P: AsRef<Path>>(&mut self, path: P) -> TextureAsset {
@@ -218,6 +250,8 @@ impl Assets {
                         self.require_update(AssetKind::Texture, path);
                     } else if self.meshes.contains_key(&path) {
                         self.require_update(AssetKind::Mesh, path);
+                    } else if self.shaders.contains_key(&path) {
+                        self.require_update(AssetKind::Shader, path);
                     }
                 }
                 FileEvent::Deleted => {}
@@ -236,6 +270,18 @@ impl Assets {
                     Some(texture) => {
                         info!("Update texture {:?}", path.to_str());
                         texture.update(data);
+                    }
+                },
+                AssetPayload::Shader { path, data } => match self.shaders.get_mut(&path) {
+                    None => {
+                        error!(
+                            "Unable to update shader {:?}, not registered",
+                            path.to_str()
+                        );
+                    }
+                    Some(shader) => {
+                        info!("Update shader {:?}", path.to_str());
+                        shader.update(data);
                     }
                 },
                 AssetPayload::Mesh { path, data } => match self.meshes.get_mut(&path) {

@@ -1,7 +1,67 @@
-use log::{error, info};
-use std::fs;
+use crate::engine::base::Queue;
+use ash::util::read_spv;
+use ash::vk;
+use ash::vk::ShaderModule;
+use log::error;
+use std::cell::RefCell;
+use std::fs::File;
+use std::io;
 use std::path::Path;
 use std::process::Command;
+use std::sync::Arc;
+
+#[derive(Clone)]
+pub struct ShaderAsset {
+    data: Arc<RefCell<ShaderAssetData>>,
+}
+
+impl ShaderAsset {
+    #[inline]
+    pub fn module(&self) -> ShaderModule {
+        self.data.borrow().module
+    }
+
+    #[inline]
+    pub fn update(&self, data: ShaderAssetData) {
+        let mut this = self.data.borrow_mut();
+        *this = data;
+    }
+
+    pub fn from_data(data: Arc<RefCell<ShaderAssetData>>) -> Self {
+        Self { data }
+    }
+}
+
+#[derive(Clone)]
+pub struct ShaderAssetData {
+    module: ShaderModule,
+}
+
+impl ShaderAssetData {
+    pub fn from_spirv_file<P: AsRef<Path>>(
+        queue: &Arc<Queue>,
+        path: P,
+    ) -> Result<Self, ShaderAssetError> {
+        let mut file = File::open(path).map_err(ShaderAssetError::Io)?;
+        let code = read_spv(&mut file).map_err(ShaderAssetError::Io)?;
+        let info = vk::ShaderModuleCreateInfo::builder().code(&code);
+
+        let module = unsafe {
+            queue
+                .device
+                .create_shader_module(&info, None)
+                .map_err(ShaderAssetError::Vulkan)?
+        };
+
+        Ok(Self { module })
+    }
+}
+
+#[derive(Debug)]
+pub enum ShaderAssetError {
+    Io(io::Error),
+    Vulkan(vk::Result),
+}
 
 pub struct ShaderCompiler {
     program: String,
