@@ -1,4 +1,5 @@
 use crate::engine::assets::fs::{FileEvent, FileSystem};
+use crate::engine::assets::prefabs::{TreePrefab, TreePrefabConfig, TreePrefabData};
 use crate::engine::base::Queue;
 use crate::engine::{
     MeshAsset, MeshAssetData, ShaderAsset, ShaderAssetData, TextureAsset, TextureAssetData,
@@ -27,6 +28,8 @@ pub struct Assets {
     meshes: HashMap<PathBuf, MeshAsset>,
 
     shaders: HashMap<PathBuf, ShaderAsset>,
+
+    trees: HashMap<PathBuf, TreePrefab>,
 
     queue: Arc<Queue>,
 }
@@ -181,6 +184,7 @@ impl Assets {
             shaders,
             file_events,
             queue,
+            trees: Default::default(),
         }
     }
 
@@ -218,6 +222,22 @@ impl Assets {
         mesh
     }
 
+    pub fn tree<P: AsRef<Path>>(&mut self, path: P) -> TreePrefab {
+        let path = fs::canonicalize(path).unwrap();
+        if let Some(prefab) = self.trees.get(&path) {
+            return prefab.clone();
+        }
+        let source = path.parent().unwrap();
+        let config = TreePrefabConfig::from_file(&path).unwrap();
+        let data = TreePrefabData {
+            texture: self.texture(config.texture.resolve(&source)),
+            mesh: self.mesh(config.mesh.resolve(&source)),
+        };
+        let prefab = TreePrefab::from_data(Arc::new(RefCell::new(data)));
+        self.trees.insert(path, prefab.clone());
+        prefab
+    }
+
     fn require_update(&mut self, kind: AssetKind, path: PathBuf) {
         info!("Require update {:?} {:?}", kind, path.to_str());
         let mut requests = self.loading_requests.write().unwrap();
@@ -234,7 +254,7 @@ impl Assets {
             );
 
             if event == FileEvent::Changed || event == FileEvent::Created {
-                // preprocessing
+                // PREPROCESSING
                 match path.extension().unwrap().to_str().unwrap() {
                     "vert" | "frag" => {
                         self.require_update(AssetKind::ShaderSrc, path);
@@ -252,6 +272,17 @@ impl Assets {
                         self.require_update(AssetKind::Mesh, path);
                     } else if self.shaders.contains_key(&path) {
                         self.require_update(AssetKind::Shader, path);
+                    } else if self.trees.contains_key(&path) {
+                        // INSTANT RELOAD
+                        let source = path.parent().unwrap();
+                        let config = TreePrefabConfig::from_file(&path).unwrap();
+                        let data = TreePrefabData {
+                            texture: self.texture(config.texture.resolve(&source)),
+                            mesh: self.mesh(config.mesh.resolve(&source)),
+                        };
+
+                        let prefab = self.trees.get_mut(&path).unwrap();
+                        prefab.update(data);
                     }
                 }
                 FileEvent::Deleted => {}

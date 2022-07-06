@@ -10,6 +10,7 @@ use network::TcpClient;
 use sdl2::keyboard::Keycode;
 use server::LocalServerThread;
 use std::collections::HashMap;
+use std::path::PathBuf;
 
 mod camera;
 
@@ -20,7 +21,6 @@ pub struct Gameplay {
     storage: Storage,
     knowledge: KnowledgeBase,
     trees: HashMap<TreeId, TreeBehaviour>,
-    tree_tex: Option<(MeshAsset, TextureAsset)>,
     camera: Camera,
 }
 
@@ -37,21 +37,20 @@ impl Gameplay {
             storage: Storage::open("./assets/database.sqlite").unwrap(),
             knowledge: KnowledgeBase::default(),
             trees: HashMap::new(),
-            tree_tex: None,
             camera: Camera::new(viewport),
         })
     }
 }
 
 impl Mode for Gameplay {
-    fn start(&mut self, assets: &mut Assets) {
-        self.tree_tex = Some((
-            assets.mesh("./assets/viking_room.space3"),
-            assets.texture("./assets/viking_room.png"),
-        ));
-    }
+    // fn start(&mut self, assets: &mut Assets) {
+    //     self.tree_tex = Some((
+    //         assets.mesh("./assets/viking_room.space3"),
+    //         assets.texture("./assets/viking_room.png"),
+    //     ));
+    // }
 
-    fn update(&mut self, input: &Input, renderer: &mut MyRenderer) {
+    fn update(&mut self, input: &Input, renderer: &mut MyRenderer, assets: &mut Assets) {
         self.knowledge.load(&self.storage);
 
         for response in self.client.responses() {
@@ -72,16 +71,18 @@ impl Mode for Gameplay {
                                     id, kind.name, position, growth
                                 );
 
-                                if let Some((mesh, texture)) = self.tree_tex.as_ref() {
-                                    renderer.draw(
-                                        Transform {
-                                            matrix: Mat4::from_translation(vec3(0.0, 0.0, 0.0))
-                                                * Mat4::from_rotation_y(10.0_f32.to_radians()),
-                                        },
-                                        mesh.clone(),
-                                        texture.clone(),
-                                    );
-                                }
+                                let path = PathBuf::from(&kind.name).with_extension("yaml");
+                                let path = PathBuf::from("./assets/trees").join(path);
+                                let prefab = assets.tree(path);
+
+                                renderer.draw(
+                                    Transform {
+                                        matrix: Mat4::from_translation(vec3(0.0, 0.0, 0.0))
+                                            * Mat4::from_rotation_y(10.0_f32.to_radians()),
+                                    },
+                                    prefab.mesh(),
+                                    prefab.texture(),
+                                );
 
                                 self.trees.insert(id, TreeBehaviour { id, kind });
                             }

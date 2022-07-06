@@ -9,7 +9,7 @@ pub trait Mode {
     fn start(&mut self, manager: &mut Assets) {}
 
     #[allow(unused_variables)]
-    fn update(&mut self, input: &Input, renderer: &mut MyRenderer) {}
+    fn update(&mut self, input: &Input, renderer: &mut MyRenderer, assets: &mut Assets) {}
 
     #[allow(unused_variables)]
     fn transition(&self, renderer: &mut MyRenderer) -> Option<Box<dyn Mode>> {

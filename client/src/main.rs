@@ -33,7 +33,7 @@ impl App for Appplication {
     }
 
     fn update(&mut self, input: Input, renderer: &mut MyRenderer, assets: &mut Assets) {
-        self.mode.update(&input, renderer);
+        self.mode.update(&input, renderer, assets);
         if let Some(next) = self.mode.transition(renderer) {
             info!("Finish {:?}", self.mode.name());
             self.mode.finish();

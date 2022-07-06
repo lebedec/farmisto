@@ -1,6 +1,6 @@
 use crate::engine::Input;
 use crate::gameplay::Gameplay;
-use crate::{Mode, MyRenderer};
+use crate::{Assets, Mode, MyRenderer};
 use log::info;
 use network::TcpClient;
 use sdl2::keyboard::Keycode;
@@ -16,7 +16,7 @@ impl Menu {
 }
 
 impl Mode for Menu {
-    fn update(&mut self, input: &Input, _renderer: &mut MyRenderer) {
+    fn update(&mut self, input: &Input, _renderer: &mut MyRenderer, _assets: &mut Assets) {
         if input.pressed(Keycode::E) {
             info!("Run editor mode")
         }
