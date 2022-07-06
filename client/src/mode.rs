@@ -1,12 +1,4 @@
-use crate::engine::Input;
-use crate::{Assets, MyRenderer};
-pub use gameplay::*;
-pub use loading::*;
-pub use menu::*;
-
-mod gameplay;
-mod loading;
-mod menu;
+use crate::{Assets, Input, MyRenderer};
 
 pub trait Mode {
     fn name(&self) -> &str {

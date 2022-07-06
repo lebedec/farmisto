@@ -1,6 +1,5 @@
 use crate::engine::{Input, MeshAsset, TextureAsset, Transform};
-use crate::modes::Mode;
-use crate::{Assets, MyRenderer};
+use crate::{Assets, Mode, MyRenderer};
 use game::api::{Action, Event, GameResponse, PlayerRequest};
 use game::model::{TreeId, TreeKind};
 use game::persistence::{Known, Shared, Storage};

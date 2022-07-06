@@ -1,20 +1,22 @@
-use crate::modes::{Gameplay, Menu, Mode};
+use crate::gameplay::Gameplay;
+use crate::menu::Menu;
+use crate::Mode;
 use network::{Configuration, TcpClient};
 use server::LocalServerThread;
 use std::thread;
 use std::time::Duration;
 
-pub struct Loading {
+pub struct Intro {
     is_editor: bool,
 }
 
-impl Loading {
+impl Intro {
     pub fn new(is_editor: bool) -> Box<Self> {
         Box::new(Self { is_editor })
     }
 }
 
-impl Mode for Loading {
+impl Mode for Intro {
     fn transition(&self) -> Option<Box<dyn Mode>> {
         if self.is_editor {
             // development mode startup

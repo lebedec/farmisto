@@ -1,6 +1,6 @@
 use crate::engine::Input;
-use crate::modes::{Gameplay, Mode};
-use crate::MyRenderer;
+use crate::gameplay::Gameplay;
+use crate::{Mode, MyRenderer};
 use log::info;
 use network::TcpClient;
 use sdl2::keyboard::Keycode;

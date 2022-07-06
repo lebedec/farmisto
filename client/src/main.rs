@@ -1,10 +1,14 @@
 use crate::engine::my::MyRenderer;
 use crate::engine::{startup, App, Assets, Input, ShaderCompiler};
-use crate::modes::{Loading, Mode};
+use crate::intro::Intro;
+use crate::mode::Mode;
 use log::info;
 
 pub mod engine;
-pub mod modes;
+pub mod gameplay;
+pub mod intro;
+pub mod menu;
+pub mod mode;
 
 fn main() {
     env_logger::init();
@@ -24,7 +28,7 @@ impl App for Appplication {
     fn start(assets: &mut Assets) -> Self {
         let editor = option_env!("FARMISTO_EDITOR").is_some();
         info!("Editor mode: {}", editor);
-        let mut mode = Loading::new(editor);
+        let mut mode = Intro::new(editor);
         info!("Start {:?}", mode.name());
         mode.start(assets);
 
