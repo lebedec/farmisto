@@ -6,7 +6,6 @@ use crate::engine::{
 };
 use crate::ShaderCompiler;
 use ash::{vk, Device};
-use image::load_from_memory;
 use log::{debug, error, info};
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -73,7 +72,7 @@ impl Assets {
             &device,
             pool,
             queue.clone(),
-            load_from_memory(include_bytes!("./fallback/texture.png")).unwrap(),
+            include_bytes!("./fallback/texture.png"),
         );
         let textures = HashMap::new();
 
@@ -112,7 +111,7 @@ impl Assets {
                                             &loader_device,
                                             pool,
                                             loader_queue.clone(),
-                                            image::open(request.path).unwrap(),
+                                            &fs::read(request.path).unwrap(),
                                         ),
                                     })
                                     .unwrap();

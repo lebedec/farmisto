@@ -6,7 +6,8 @@ use ash::{vk, Device};
 use image::DynamicImage;
 use log::info;
 use std::cell::RefCell;
-use std::ptr;
+use std::io::Read;
+use std::{io, ptr};
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -117,15 +118,28 @@ impl TextureAssetData {
         device: &Device,
         command_pool: vk::CommandPool,
         queue: Arc<Queue>,
-        image_object: DynamicImage,
+        data: &[u8],
     ) -> Self {
         let t1 = Instant::now();
 
+        // let mut decoder = png::Decoder::new(io::Cursor::new(data));
+        // decoder.set_transformations(png::Transformations::normalize_to_color8());
+        // let mut reader = decoder.read_info().unwrap();
+        // let mut buf = vec![0; reader.output_buffer_size()];
+        // let info = reader.next_frame(&mut buf).unwrap();
+        // let (image_width, image_height) = (info.width, info.height);
+        // let image_data_len = info.buffer_size();
+        // let image_data = buf.as_ptr();
+
+        let image_object = image::load_from_memory(data).unwrap();
         let mut image_object = image_object.flipv();
         let (image_width, image_height) = (image_object.width(), image_object.height());
+        let image_data = image_object.to_rgba8();
+        let image_data_len = image_data.len();
+        let image_data = image_data.as_ptr();
+
         let image_size =
             (std::mem::size_of::<u8>() as u32 * image_width * image_height * 4) as vk::DeviceSize;
-        let image_data = image_object.to_rgba8();
 
         let (staging_buffer, staging_buffer_memory, size) = create_buffer(
             device,
@@ -145,7 +159,7 @@ impl TextureAssetData {
                 )
                 .expect("Failed to Map Memory") as *mut u8;
 
-            data_ptr.copy_from_nonoverlapping(image_data.as_ptr(), image_data.len());
+            data_ptr.copy_from_nonoverlapping(image_data, image_data_len);
 
             device.unmap_memory(staging_buffer_memory);
         }

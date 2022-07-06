@@ -152,6 +152,7 @@ pub fn startup<A: App>(title: String) {
             input.reset();
             input.time = time.elapsed().as_secs_f32();
             time = Instant::now();
+            // info!("et: {}", input.time);
             for event in event_pump.poll_iter() {
                 input.handle(event);
             }

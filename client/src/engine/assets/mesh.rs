@@ -8,6 +8,8 @@ use std::fs::File;
 use std::io;
 use std::path::Path;
 use std::sync::Arc;
+use ash::vk::Handle;
+use log::info;
 
 #[derive(Clone)]
 pub struct MeshAsset {
@@ -15,6 +17,11 @@ pub struct MeshAsset {
 }
 
 impl MeshAsset {
+    #[inline]
+    pub fn id(&self) -> u64 {
+        self.index().as_raw()
+    }
+
     #[inline]
     pub fn index(&self) -> vk::Buffer {
         self.data.borrow().index.bind()
@@ -55,16 +62,19 @@ impl MeshAssetData {
                     pos: [-1.0, 1.0, 0.0, 1.0],
                     color: [0.0, 1.0, 0.0, 1.0],
                     uv: [0.0, 0.0],
+                    padding: [0;8]
                 },
                 Vertex {
                     pos: [1.0, 1.0, 0.0, 1.0],
                     color: [0.0, 0.0, 1.0, 1.0],
                     uv: [1.0, 0.0],
+                    padding: [0;8]
                 },
                 Vertex {
                     pos: [0.0, -1.0, 0.0, 1.0],
                     color: [1.0, 0.0, 0.0, 1.0],
                     uv: [0.5, 1.0],
+                    padding: [0;8]
                 },
             ],
             indices: vec![0, 1, 2],
@@ -105,6 +115,7 @@ impl MeshAssetData {
                         ],
                         color: [1.0; 4],
                         uv: vertex.uv,
+                        padding: [0;8]
                     };
                     vertex
                 })
@@ -233,39 +244,34 @@ pub struct Vertex {
     pub pos: [f32; 4],
     pub color: [f32; 4],
     pub uv: [f32; 2],
+    pub padding: [u8; 8]
 }
 
 impl Vertex {
-    #[inline(always)]
-    pub fn describe() -> vk::PipelineVertexInputStateCreateInfo {
-        let bindings = [vk::VertexInputBindingDescription {
+    pub const BINDINGS: [vk::VertexInputBindingDescription; 1] = [vk::VertexInputBindingDescription {
+        binding: 0,
+        stride: std::mem::size_of::<Vertex>() as u32,
+        input_rate: vk::VertexInputRate::VERTEX,
+    }];
+
+    pub const ATTRIBUTES: [vk::VertexInputAttributeDescription; 3] = [
+        vk::VertexInputAttributeDescription {
+            location: 0,
             binding: 0,
-            stride: std::mem::size_of::<Vertex>() as u32,
-            input_rate: vk::VertexInputRate::VERTEX,
-        }];
-        let attributes = [
-            vk::VertexInputAttributeDescription {
-                location: 0,
-                binding: 0,
-                format: vk::Format::R32G32B32A32_SFLOAT,
-                offset: 0,
-            },
-            vk::VertexInputAttributeDescription {
-                location: 1,
-                binding: 0,
-                format: vk::Format::R32G32B32A32_SFLOAT,
-                offset: 16,
-            },
-            vk::VertexInputAttributeDescription {
-                location: 2,
-                binding: 0,
-                format: vk::Format::R32G32_SFLOAT,
-                offset: 32,
-            },
-        ];
-        vk::PipelineVertexInputStateCreateInfo::builder()
-            .vertex_attribute_descriptions(&attributes)
-            .vertex_binding_descriptions(&bindings)
-            .build()
-    }
+            format: vk::Format::R32G32B32A32_SFLOAT,
+            offset: 0,
+        },
+        vk::VertexInputAttributeDescription {
+            location: 1,
+            binding: 0,
+            format: vk::Format::R32G32B32A32_SFLOAT,
+            offset: 16,
+        },
+        vk::VertexInputAttributeDescription {
+            location: 2,
+            binding: 0,
+            format: vk::Format::R32G32_SFLOAT,
+            offset: 32,
+        },
+    ];
 }

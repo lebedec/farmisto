@@ -126,17 +126,32 @@ impl MyRenderer {
 
         device.cmd_bind_pipeline(buffer, vk::PipelineBindPoint::GRAPHICS, self.pipeline);
 
+
+        let bind_point = vk::PipelineBindPoint::GRAPHICS;
+        let descriptor_set = &[self.descriptor_sets[0]];
+        device.cmd_bind_descriptor_sets(
+            buffer,
+            bind_point,
+            self.layout,
+            0,
+            descriptor_set,
+            &[],
+        );
+
+        let mut previous_mesh = 0;
+        let mut previous_texture = 0;
+
         for object in self.objects.iter() {
-            // todo: if last != object.mesh
+            if previous_mesh != object.mesh.id()
             {
+                previous_mesh = object.mesh.id();
                 device.cmd_bind_vertex_buffers(buffer, 0, &[object.mesh.vertex()], &[0]);
                 device.cmd_bind_index_buffer(buffer, object.mesh.index(), 0, vk::IndexType::UINT32);
             }
-            let bind_point = vk::PipelineBindPoint::GRAPHICS;
-            let descriptor_set = &[self.descriptor_sets[0]];
 
-            // todo: if last != object.texture
+            if previous_texture != object.texture.id()
             {
+                previous_texture = object.texture.id();
                 device.cmd_bind_descriptor_sets(
                     buffer,
                     bind_point,
@@ -148,14 +163,6 @@ impl MyRenderer {
                 );
             }
 
-            device.cmd_bind_descriptor_sets(
-                buffer,
-                bind_point,
-                self.layout,
-                0,
-                descriptor_set,
-                &[],
-            );
             device.cmd_push_constants(
                 buffer,
                 self.layout,
@@ -197,7 +204,9 @@ impl MyRenderer {
             },
         ];
 
-        let vertex_input_state_info = Vertex::describe();
+        let vertex_input_state_info = vk::PipelineVertexInputStateCreateInfo::builder()
+            .vertex_attribute_descriptions(&Vertex::ATTRIBUTES)
+            .vertex_binding_descriptions(&Vertex::BINDINGS);
 
         let vertex_input_assembly_state_info = vk::PipelineInputAssemblyStateCreateInfo {
             topology: vk::PrimitiveTopology::TRIANGLE_LIST,

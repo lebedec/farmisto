@@ -126,6 +126,20 @@ impl Mode for Gameplay {
                 tree.prefab.mesh(),
                 tree.prefab.texture(),
             );
+            // for x in 0..1000 {
+            //     let x1 = x % 100;
+            //     let y1 = x / 100;
+            //     let x1 = x1 as f32;
+            //     let y1 = y1 as f32;
+            //     renderer.draw(
+            //         Transform {
+            //             matrix: Mat4::from_translation(vec3(x1, 0.0, y1))
+            //                 * Mat4::from_rotation_y(10.0_f32.to_radians()),
+            //         },
+            //         tree.prefab.mesh(),
+            //         tree.prefab.texture(),
+            //     );
+            // }
         }
     }
 }
