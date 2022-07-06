@@ -38,26 +38,7 @@ impl FileSystem {
                 }
             };
             let path = PathBuf::from(path.trim());
-
-            let mut events = thread_events.write().unwrap();
-            match events.get_mut(&path) {
-                Some(entry) => {
-                    *entry = match (&entry, event) {
-                        (FileEvent::Created, FileEvent::Created) => FileEvent::Created,
-                        (FileEvent::Created, FileEvent::Changed) => FileEvent::Changed,
-                        (FileEvent::Created, FileEvent::Deleted) => FileEvent::Deleted,
-                        (FileEvent::Changed, FileEvent::Created) => FileEvent::Changed,
-                        (FileEvent::Changed, FileEvent::Changed) => FileEvent::Changed,
-                        (FileEvent::Changed, FileEvent::Deleted) => FileEvent::Deleted,
-                        (FileEvent::Deleted, FileEvent::Created) => FileEvent::Changed,
-                        (FileEvent::Deleted, FileEvent::Changed) => FileEvent::Changed,
-                        (FileEvent::Deleted, FileEvent::Deleted) => FileEvent::Deleted,
-                    };
-                }
-                None => {
-                    events.insert(path, event);
-                }
-            }
+            debounce_event(thread_events.clone(), path, event);
         });
         shared_events
     }
@@ -91,16 +72,18 @@ impl FileSystem {
                 }
             };
             let path = fs::canonicalize(".").unwrap().join(path.trim());
-            info!("Try!!! [{:?}]", path.to_str());
-
             debounce_event(thread_events.clone(), path, event);
         });
         shared_events
     }
 }
 
-#[inline(always)]
-fn debounce_event(events: Arc<RwLock<HashMap<PathBuf, FileEvent>>>, path: PathBuf, event: FileEvent) {
+#[inline]
+fn debounce_event(
+    events: Arc<RwLock<HashMap<PathBuf, FileEvent>>>,
+    path: PathBuf,
+    event: FileEvent,
+) {
     let mut events = events.write().unwrap();
     match events.get_mut(&path) {
         Some(entry) => {

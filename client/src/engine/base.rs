@@ -176,7 +176,7 @@ impl Base {
     ) -> Self {
         unsafe {
             // TODO: fix CString pointer drop to provide extension names from SDL
-            #[cfg(macos)]
+            #[cfg(unix)]
             let mut extension_names = vec![
                 CStr::from_bytes_with_nul_unchecked(b"VK_KHR_surface\0").as_ptr(),
                 CStr::from_bytes_with_nul_unchecked(b"VK_MVK_macos_surface\0").as_ptr(),

@@ -20,7 +20,10 @@ pub fn startup<A: App>(title: String) {
     }
     let system = sdl2::init().unwrap();
     let video = system.video().unwrap();
+    #[cfg(windows)]
     let window_size = [1920, 1080];
+    #[cfg(unix)]
+    let window_size = [960, 540];
     let window = video
         .window(&title, window_size[0], window_size[1])
         .allow_highdpi()
