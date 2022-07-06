@@ -2,7 +2,7 @@ use crate::engine::base::{submit_commands, Base};
 use crate::engine::my::MyRenderer;
 use crate::engine::{Assets, Input};
 use ash::vk;
-use log::info;
+use log::{info, warn};
 use std::ffi::CString;
 use std::sync::Arc;
 use std::thread;
@@ -228,9 +228,12 @@ pub fn startup<A: App>(title: String) {
                 base.swapchain_loader
                     .queue_present(*present_queue, &present_info)
                     .unwrap();
-            }
 
-            thread::sleep(Duration::from_millis(10));
+                // let frame_time = time.elapsed();
+                // if frame_time.as_millis() > 0 {
+                //     warn!("Frame time: {:?}s", frame_time)
+                // }
+            }
         }
     }
 }

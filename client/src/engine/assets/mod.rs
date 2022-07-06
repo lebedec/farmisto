@@ -1,5 +1,6 @@
 pub use manager::*;
 pub use mesh::*;
+pub use prefabs::*;
 pub use shader::*;
 pub use texture::*;
 

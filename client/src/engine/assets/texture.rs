@@ -12,7 +12,7 @@ use std::time::Instant;
 
 #[derive(Clone)]
 pub struct TextureAsset {
-    data: Arc<RefCell<TextureAssetData>>,
+    pub data: Arc<RefCell<TextureAssetData>>,
 }
 
 #[derive(Clone)]

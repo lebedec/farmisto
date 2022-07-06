@@ -47,6 +47,10 @@ impl MyRenderer {
             .update(self.present_index as usize, uniform);
     }
 
+    pub fn clear(&mut self) {
+        self.objects.clear();
+    }
+
     pub fn draw(&mut self, transform: Transform, mesh: MeshAsset, texture: TextureAsset) {
         self.objects.push(MyRenderObject {
             transform,

@@ -11,7 +11,7 @@ use std::sync::Arc;
 
 #[derive(Clone)]
 pub struct MeshAsset {
-    data: Arc<RefCell<MeshAssetData>>,
+    pub data: Arc<RefCell<MeshAssetData>>,
 }
 
 impl MeshAsset {

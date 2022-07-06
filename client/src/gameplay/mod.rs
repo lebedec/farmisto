@@ -1,4 +1,4 @@
-use crate::engine::{Input, MeshAsset, TextureAsset, Transform};
+use crate::engine::{Input, MeshAsset, TextureAsset, Transform, TreePrefab};
 use crate::gameplay::camera::Camera;
 use crate::{Assets, Mode, MyRenderer};
 use game::api::{Action, Event, GameResponse, PlayerRequest};
@@ -75,16 +75,7 @@ impl Mode for Gameplay {
                                 let path = PathBuf::from("./assets/trees").join(path);
                                 let prefab = assets.tree(path);
 
-                                renderer.draw(
-                                    Transform {
-                                        matrix: Mat4::from_translation(vec3(0.0, 0.0, 0.0))
-                                            * Mat4::from_rotation_y(10.0_f32.to_radians()),
-                                    },
-                                    prefab.mesh(),
-                                    prefab.texture(),
-                                );
-
-                                self.trees.insert(id, TreeBehaviour { id, kind });
+                                self.trees.insert(id, TreeBehaviour { id, kind, prefab });
                             }
                             Event::TreeVanished(id) => {
                                 info!("Vanish tree {:?}", id);
@@ -124,15 +115,25 @@ impl Mode for Gameplay {
         }
 
         // RENDER
-        for _tree in self.trees.values() {}
-
+        renderer.clear();
         renderer.look_at(self.camera.uniform());
+        for tree in self.trees.values() {
+            renderer.draw(
+                Transform {
+                    matrix: Mat4::from_translation(vec3(0.0, 0.0, 0.0))
+                        * Mat4::from_rotation_y(10.0_f32.to_radians()),
+                },
+                tree.prefab.mesh(),
+                tree.prefab.texture(),
+            );
+        }
     }
 }
 
 pub struct TreeBehaviour {
     id: TreeId,
     kind: Shared<TreeKind>,
+    prefab: TreePrefab,
 }
 
 #[derive(Default)]
