@@ -37,3 +37,19 @@ begin
     update Barrier set deleted = true where id = new.id;
     update Plant set deleted = true where id = new.id;
 end;
+
+
+drop table if exists sql_sp_clean;
+create table sql_sp_clean
+(
+    id       integer not null
+);
+
+create trigger sql_sp_clean_trigger
+    after insert
+    on sql_sp_clean
+begin
+    delete from Tree where deleted = true;
+    delete from Barrier where deleted = true;
+    delete from Plant where deleted = true;
+end;

@@ -22,7 +22,7 @@ import zlib
 bl_info = {
     "name": "Space3 format",
     "author": "Lebedev Games Team",
-    "version": (1, 0, 7),
+    "version": (1, 0, 10),
     "blender": (3, 0, 0),
     "location": "File > Import-Export",
     "description": "Space3 IO meshes, UV's, vertex colors, materials, textures, cameras, lamps and actions",
@@ -198,10 +198,15 @@ def pack_scene(scene: S3Scene) -> BytesIO:
     return writer.buffer
 
 
-def main(context: Context, report, output_path: str):
+def main(context: Context, report, output_path: str, use_selection: bool):
     scene = S3Scene([], S3Animation('', []))
 
-    for ob in context.scene.objects:
+    if use_selection:
+        objects = context.selected_objects
+    else:
+        objects = context.scene.objects
+
+    for ob in objects:
         report(f'!!! ob {type(ob)}, {ob}, name: {ob.name}, {ob.type}: {ob.data}')
 
         if isinstance(ob.data, Armature):
@@ -301,7 +306,17 @@ class Space3Export(bpy.types.Operator, ExportHelper):
     filename_ext = ".space3"
     filter_glob: StringProperty(default="*.space3", options={'HIDDEN'})
 
-    debug = BoolProperty(name="Debug", default=False)
+    debug_process: BoolProperty(
+        name="Debug",
+        description="Log export process to console",
+        default=False,
+    )
+
+    use_selection: BoolProperty(
+        name="Selection Only",
+        description="Export selected objects only",
+        default=True,
+    )
 
     batch_mode: EnumProperty(
         name="Batch Mode",
@@ -330,14 +345,14 @@ class Space3Export(bpy.types.Operator, ExportHelper):
         return self.batch_mode == 'OFF'
 
     def execute(self, context):
-        if self.debug:
+        if self.debug_process:
             def report(message: str, level='INFO'):
                 self.report({level}, message)
         else:
             def report(message: str, level='INFO'):
                 pass
 
-        main(context, report, self.filepath)
+        main(context, report, self.filepath, self.use_selection)
         return {'FINISHED'}
 
 
@@ -369,6 +384,10 @@ class Space3ExportPanel(bpy.types.Panel):
 
         row = layout.row(align=True)
         row.prop(operator, "batch_mode")
+
+        layout.prop(operator, 'use_selection')
+        layout.prop(operator, 'debug_process')
+
 
 
 def register():

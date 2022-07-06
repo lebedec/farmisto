@@ -1,15 +1,15 @@
 use crate::engine::assets::space3;
 use crate::engine::assets::space3::S3Mesh;
 use crate::engine::base::{create_buffer, Queue};
+use ash::vk::Handle;
 use ash::{vk, Device};
 use glam::Mat4;
+use log::info;
 use std::cell::RefCell;
 use std::fs::File;
 use std::io;
 use std::path::Path;
 use std::sync::Arc;
-use ash::vk::Handle;
-use log::info;
 
 #[derive(Clone)]
 pub struct MeshAsset {
@@ -62,19 +62,16 @@ impl MeshAssetData {
                     pos: [-1.0, 1.0, 0.0, 1.0],
                     color: [0.0, 1.0, 0.0, 1.0],
                     uv: [0.0, 0.0],
-                    padding: [0;8]
                 },
                 Vertex {
                     pos: [1.0, 1.0, 0.0, 1.0],
                     color: [0.0, 0.0, 1.0, 1.0],
                     uv: [1.0, 0.0],
-                    padding: [0;8]
                 },
                 Vertex {
                     pos: [0.0, -1.0, 0.0, 1.0],
                     color: [1.0, 0.0, 0.0, 1.0],
                     uv: [0.5, 1.0],
-                    padding: [0;8]
                 },
             ],
             indices: vec![0, 1, 2],
@@ -115,7 +112,6 @@ impl MeshAssetData {
                         ],
                         color: [1.0; 4],
                         uv: vertex.uv,
-                        padding: [0;8]
                     };
                     vertex
                 })
@@ -244,15 +240,15 @@ pub struct Vertex {
     pub pos: [f32; 4],
     pub color: [f32; 4],
     pub uv: [f32; 2],
-    pub padding: [u8; 8]
 }
 
 impl Vertex {
-    pub const BINDINGS: [vk::VertexInputBindingDescription; 1] = [vk::VertexInputBindingDescription {
-        binding: 0,
-        stride: std::mem::size_of::<Vertex>() as u32,
-        input_rate: vk::VertexInputRate::VERTEX,
-    }];
+    pub const BINDINGS: [vk::VertexInputBindingDescription; 1] =
+        [vk::VertexInputBindingDescription {
+            binding: 0,
+            stride: std::mem::size_of::<Vertex>() as u32,
+            input_rate: vk::VertexInputRate::VERTEX,
+        }];
 
     pub const ATTRIBUTES: [vk::VertexInputAttributeDescription; 3] = [
         vk::VertexInputAttributeDescription {
