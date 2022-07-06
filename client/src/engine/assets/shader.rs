@@ -15,19 +15,17 @@ impl ShaderCompiler {
         #[cfg(target_os = "windows")]
         let path = "tools/bin/glslangValidator.exe";
 
-        info!("current: {:?}", fs::canonicalize("./assets"));
-
-        let version = Command::new(path)
-            .arg("-v")
-            .output()
-            .map(|output| String::from_utf8(output.stdout).unwrap())
-            .unwrap();
-
-        info!("Shader compiler version: {}", version);
-
         Self {
             program: path.to_string(),
         }
+    }
+
+    pub fn version(&self) -> String {
+        Command::new(&self.program)
+            .arg("-v")
+            .output()
+            .map(|output| String::from_utf8(output.stdout).unwrap())
+            .unwrap()
     }
 
     pub fn compile_file<P: AsRef<Path>>(&self, path: P) {

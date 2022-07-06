@@ -13,9 +13,6 @@ pub mod mode;
 fn main() {
     env_logger::init();
     info!("OS: {}", std::env::consts::OS);
-    let compiler = ShaderCompiler::new();
-    compiler.compile_file("./assets/shaders/triangle.frag");
-    compiler.compile_file("./assets/shaders/triangle.vert");
     startup::<Appplication>("Farmisto".to_string());
     info!("Bye!");
 }

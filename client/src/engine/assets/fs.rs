@@ -113,7 +113,7 @@ impl FileSystem {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, PartialEq)]
 pub enum FileEvent {
     Created,
     Changed,

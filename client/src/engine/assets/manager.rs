@@ -1,11 +1,13 @@
 use crate::engine::assets::fs::{FileEvent, FileSystem};
 use crate::engine::base::Queue;
 use crate::engine::{MeshAsset, MeshAssetData, TextureAsset, TextureAssetData};
+use crate::ShaderCompiler;
 use ash::{vk, Device};
 use image::load_from_memory;
-use log::{error, info};
+use log::{debug, error, info};
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::ffi::{OsStr, OsString};
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{channel, Receiver};
 use std::sync::{Arc, RwLock};
@@ -47,6 +49,7 @@ pub enum AssetKind {
     Texture,
     Shader,
     Mesh,
+    ShaderSrc,
 }
 
 impl Assets {
@@ -56,6 +59,11 @@ impl Assets {
         queue: Arc<Queue>,
         tex_descriptor_set_layout: vk::DescriptorSetLayout,
     ) -> Self {
+        info!(
+            "Shader compiler version: {}",
+            ShaderCompiler::new().version()
+        );
+
         let textures_default = TextureAssetData::create_and_read_image(
             &device,
             pool,
@@ -118,7 +126,7 @@ impl Assets {
                                             .unwrap();
                                     }
                                     Err(error) => {
-                                        info!(
+                                        error!(
                                             "[loader-{}] Unable to load {:?} {:?}, {:?}",
                                             loader,
                                             request.kind,
@@ -128,9 +136,14 @@ impl Assets {
                                     }
                                 }
                             }
+                            AssetKind::ShaderSrc => {
+                                info!("[loader-{}] Compile shader {:?}", loader, path.to_str());
+                                let compiler = ShaderCompiler::new();
+                                compiler.compile_file(path);
+                            }
                         }
                     } else {
-                        thread::sleep(Duration::from_millis(150))
+                        thread::sleep(Duration::from_millis(15))
                     }
                 }
             });
@@ -181,7 +194,24 @@ impl Assets {
 
     pub fn update(&mut self) {
         for (path, event) in self.observe_file_events() {
-            info!("Observed {:?} {:?}", event, path.to_str());
+            debug!(
+                "Observed {:?} {:?}, {:?}",
+                event,
+                path.to_str(),
+                path.extension().unwrap()
+            );
+
+            if event == FileEvent::Changed || event == FileEvent::Created {
+                // preprocessing
+                match path.extension().unwrap().to_str().unwrap() {
+                    "vert" | "frag" => {
+                        self.require_update(AssetKind::ShaderSrc, path);
+                        continue;
+                    }
+                    _ => {}
+                }
+            }
+
             match event {
                 FileEvent::Created | FileEvent::Changed => {
                     if self.textures.contains_key(&path) {
