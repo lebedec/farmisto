@@ -121,6 +121,10 @@ impl Mode for Gameplay {
 
         self.camera.update(input);
 
+        if input.click() {
+            self.camera.test_ray(input.mouse_position());
+        }
+
         if input.pressed(Keycode::Kp1) {
             self.action_id += 1;
             let action = Action::DoSomething;
@@ -146,12 +150,12 @@ impl Mode for Gameplay {
             }
         }
         for tree in self.trees.values() {
-            renderer.draw(
-                Mat4::from_translation(vec3(0.0, 0.0, 0.0))
-                    * Mat4::from_rotation_y(10.0_f32.to_radians()),
-                tree.prefab.mesh(),
-                tree.prefab.texture(),
-            );
+            // renderer.draw(
+            //     Mat4::from_translation(vec3(0.0, 0.0, 0.0))
+            //         * Mat4::from_rotation_y(10.0_f32.to_radians()),
+            //     tree.prefab.mesh(),
+            //     tree.prefab.texture(),
+            // );
             // for x in 0..1000 {
             //     let x1 = x % 100;
             //     let y1 = x / 100;

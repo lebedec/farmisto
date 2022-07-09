@@ -149,7 +149,7 @@ pub fn startup<A: App>(title: String) {
         let mut app = A::start(&mut assets);
 
         let mut time = Instant::now();
-        let mut input = Input::new();
+        let mut input = Input::new(window_size);
         loop {
             assets.update();
 

@@ -1,3 +1,4 @@
+use log::info;
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
 use sdl2::mouse::MouseButton;
@@ -7,26 +8,31 @@ use std::collections::HashSet;
 pub struct Input {
     pub time: f32,
     mouse_position: [f32; 2],
+    mouse_viewport: [f32; 2],
     mouse_button_click: bool,
     key_pressed: HashSet<Keycode>,
     key_down: HashSet<Keycode>,
     pub terminating: bool,
+    pub window: [f32; 2],
 }
 
 #[derive(Clone, Copy, Default)]
 pub struct Cursor {
     pub position: [f32; 2],
+    pub viewport: [f32; 2],
 }
 
 impl Input {
-    pub fn new() -> Self {
+    pub fn new(window: [u32; 2]) -> Self {
         Self {
             mouse_position: [0.0, 0.0],
+            mouse_viewport: [0.0, 0.0],
             time: Default::default(),
             mouse_button_click: false,
             key_pressed: Default::default(),
             key_down: Default::default(),
             terminating: false,
+            window: window.map(|value| value as f32),
         }
     }
 
@@ -57,6 +63,10 @@ impl Input {
             Event::TextEditing { .. } => {}
             Event::TextInput { .. } => {}
             Event::MouseMotion { x, y, .. } => {
+                self.mouse_viewport = [
+                    (2.0 * x as f32) / self.window[0] - 1.0,
+                    1.0 - (2.0 * y as f32) / self.window[1],
+                ];
                 self.mouse_position = [x as f32, y as f32];
             }
             Event::MouseButtonDown { .. } => {}
@@ -107,6 +117,7 @@ impl Input {
     pub fn mouse_position(&self) -> Cursor {
         Cursor {
             position: self.mouse_position,
+            viewport: self.mouse_viewport,
         }
     }
 

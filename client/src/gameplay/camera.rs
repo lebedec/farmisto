@@ -1,19 +1,48 @@
 use crate::engine::uniform::CameraUniform;
+use crate::engine::Cursor;
 use crate::Input;
-use glam::{vec3, Mat4, Vec3};
+use glam::{vec3, Mat4, Vec3, Vec4, Vec4Swizzles};
+use log::info;
 use sdl2::keyboard::Keycode;
 
 pub struct Camera {
     viewport: [f32; 2],
     eye: Vec3,
+    z_near: f32,
+    z_far: f32,
 }
 
 impl Camera {
     pub fn new(viewport: [f32; 2]) -> Self {
         Self {
             viewport,
-            eye: vec3(0.0, -2.0, -3.0),
+            eye: vec3(0.0, -2.0, -4.0),
+            z_near: 0.1,
+            z_far: 10000.0,
         }
+    }
+
+    pub fn test_ray(&self, mouse: Cursor) {
+        let uniform = self.uniform();
+        let inverted = (uniform.proj * uniform.view).inverse();
+
+        // todo: dramatic accuracy error on low z_far values
+        let point =
+            inverted.transform_point3(Vec3::new(mouse.viewport[0], -mouse.viewport[1], 1.0));
+        let mut ray_dir = point.normalize_or_zero();
+        let ray_origin = self.eye;
+
+        let normal = Vec3::new(0.0, 1.0, 0.0);
+        let denom = normal.dot(ray_dir);
+        let mut hit = Vec3::ZERO;
+        if denom.abs() > 0.0001 {
+            let t = (-ray_origin).dot(normal) / denom;
+            if t >= 0.0 {
+                hit = ray_origin + ray_dir * t;
+            }
+        }
+
+        info!("Mouse {:?} HIT {}", mouse.viewport, hit);
     }
 
     pub fn update(&mut self, input: &Input) {
@@ -56,8 +85,8 @@ impl Camera {
             proj: Mat4::perspective_rh(
                 45.0_f32.to_radians(),
                 self.viewport[0] / self.viewport[1] as f32,
-                0.1,
-                100.0,
+                self.z_near,
+                self.z_far,
             ) * inverted,
         }
     }
