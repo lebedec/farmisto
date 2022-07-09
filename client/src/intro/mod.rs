@@ -1,3 +1,4 @@
+use crate::editor::Editor;
 use crate::gameplay::Gameplay;
 use crate::menu::Menu;
 use crate::{Mode, MyRenderer};
@@ -29,7 +30,17 @@ impl Mode for Intro {
             // await server start
             thread::sleep(Duration::from_millis(100));
             let client = TcpClient::connect("127.0.0.1:8080", player, None).unwrap();
-            Some(Gameplay::new(Some(server), client, renderer.viewport))
+            let editor = if self.is_editor {
+                Some(Editor::new())
+            } else {
+                None
+            };
+            Some(Gameplay::new(
+                Some(server),
+                editor,
+                client,
+                renderer.viewport,
+            ))
         } else {
             Some(Menu::new())
         }

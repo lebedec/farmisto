@@ -4,6 +4,7 @@ use crate::intro::Intro;
 use crate::mode::Mode;
 use log::info;
 
+pub mod editor;
 pub mod engine;
 pub mod gameplay;
 pub mod intro;

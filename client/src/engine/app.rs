@@ -138,6 +138,7 @@ pub fn startup<A: App>(title: String) {
         let mut my_renderer = MyRenderer::create(
             &base.device,
             &base.queue.device_memory,
+            base.queue.clone(),
             scissors,
             viewports,
             base.present_images.len(),

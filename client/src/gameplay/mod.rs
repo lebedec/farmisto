@@ -1,3 +1,4 @@
+use crate::editor::Editor;
 use crate::engine::{FarmlandPrefab, Input, TreePrefab};
 use crate::gameplay::camera::Camera;
 use crate::{Assets, Mode, MyRenderer};
@@ -17,6 +18,7 @@ mod camera;
 
 pub struct Gameplay {
     server: Option<LocalServerThread>,
+    editor: Option<Editor>,
     client: TcpClient,
     action_id: usize,
     storage: Storage,
@@ -29,11 +31,13 @@ pub struct Gameplay {
 impl Gameplay {
     pub fn new(
         server: Option<LocalServerThread>,
+        editor: Option<Editor>,
         client: TcpClient,
         viewport: [f32; 2],
     ) -> Box<Self> {
         Box::new(Self {
             server,
+            editor,
             client,
             action_id: 0,
             storage: Storage::open("./assets/database.sqlite").unwrap(),
@@ -55,6 +59,10 @@ impl Mode for Gameplay {
 
     fn update(&mut self, input: &Input, renderer: &mut MyRenderer, assets: &mut Assets) {
         self.knowledge.load(&self.storage);
+
+        if let Some(editor) = self.editor.as_mut() {
+            editor.update(input, renderer, assets);
+        }
 
         for response in self.client.responses() {
             match response {
@@ -122,26 +130,19 @@ impl Mode for Gameplay {
             })
         }
 
-        if input.pressed(Keycode::P) {
-            self.client.disconnect();
-        }
-
-        if input.pressed(Keycode::O) {
-            if let Some(thread) = self.server.as_mut() {
-                thread.terminate();
-            }
-        }
-
         // RENDER
         renderer.clear();
         renderer.look_at(self.camera.uniform());
         for farmland in self.farmlands.values() {
             for transform in farmland.prefab.props() {
-                renderer.draw(
-                    Mat4::from_translation(transform.position) * Mat4::from_scale(transform.scale),
-                    transform.entity.mesh(),
-                    transform.entity.texture(),
-                );
+                let matrix = Mat4::from_translation(transform.position)
+                    * Mat4::from_scale(transform.scale)
+                    // todo: rework rotation
+                    * Mat4::from_rotation_x(transform.rotation[0].to_radians())
+                    * Mat4::from_rotation_y(transform.rotation[1].to_radians())
+                    * Mat4::from_rotation_z(transform.rotation[2].to_radians());
+                renderer.draw(matrix, transform.entity.mesh(), transform.entity.texture());
+                renderer.bounds(matrix, transform.entity.mesh().bounds());
             }
         }
         for tree in self.trees.values() {

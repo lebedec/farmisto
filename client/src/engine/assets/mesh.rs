@@ -38,6 +38,11 @@ impl MeshAsset {
     }
 
     #[inline]
+    pub fn bounds(&self) -> MeshBounds {
+        self.data.borrow().bounds
+    }
+
+    #[inline]
     pub fn update(&mut self, data: MeshAssetData) {
         let mut this = self.data.borrow_mut();
         *this = data;
@@ -48,13 +53,92 @@ impl MeshAsset {
     }
 }
 
+#[repr(C)]
+#[derive(Clone, Copy, Default)]
+pub struct MeshBounds {
+    pub x: [f32; 2],
+    pub y: [f32; 2],
+    pub z: [f32; 2],
+}
+
+impl MeshBounds {
+    pub fn length(&self) -> [f32; 3] {
+        [
+            self.x[0].abs() + self.x[1].abs(),
+            self.y[0].abs() + self.y[1].abs(),
+            self.z[0].abs() + self.z[1].abs(),
+        ]
+    }
+
+    pub fn offset(&self) -> [f32; 3] {
+        [
+            (self.x[0] + self.x[1]) / 2.0,
+            (self.y[0] + self.y[1]) / 2.0 + 0.5, // todo: bounds:cube and mesh pivot match
+            (self.z[0] + self.z[1]) / 2.0,
+        ]
+    }
+}
+
 #[derive(Clone)]
 pub struct MeshAssetData {
     index: IndexBuffer,
     vertex: VertexBuffer,
+    bounds: MeshBounds,
 }
 
 impl MeshAssetData {
+    pub fn cube(queue: &Queue) -> Result<Self, MeshAssetError> {
+        let json = JsonMesh {
+            vertices: vec![
+                Vertex {
+                    pos: [0.5, 0.5, 0.5, 1.0],
+                    uv: [0.625, 0.5],
+                    color: [1.0; 4],
+                },
+                Vertex {
+                    pos: [0.5, 0.5, -0.5, 1.0],
+                    uv: [0.375, 0.5],
+                    color: [1.0; 4],
+                },
+                Vertex {
+                    pos: [0.5, -0.5, 0.5, 1.0],
+                    uv: [0.625, 0.75],
+                    color: [1.0; 4],
+                },
+                Vertex {
+                    pos: [0.5, -0.5, -0.5, 1.0],
+                    uv: [0.375, 0.75],
+                    color: [1.0; 4],
+                },
+                Vertex {
+                    pos: [-0.5, 0.5, 0.5, 1.0],
+                    uv: [0.625, 0.25],
+                    color: [1.0; 4],
+                },
+                Vertex {
+                    pos: [-0.5, 0.5, -0.5, 1.0],
+                    uv: [0.375, 0.25],
+                    color: [1.0; 4],
+                },
+                Vertex {
+                    pos: [-0.5, -0.5, 0.5, 1.0],
+                    uv: [0.625, 0.0],
+                    color: [1.0; 4],
+                },
+                Vertex {
+                    pos: [-0.5, -0.5, -0.5, 1.0],
+                    uv: [0.125, 0.75],
+                    color: [1.0; 4],
+                },
+            ],
+            indices: vec![
+                0, 4, 6, 0, 6, 2, 3, 2, 6, 3, 6, 7, 7, 6, 4, 7, 4, 5, 5, 1, 3, 5, 3, 7, 1, 0, 2, 1,
+                2, 3, 5, 4, 0, 5, 0, 1,
+            ],
+        };
+        Self::from_json(queue, json)
+    }
+
     pub fn fallback(queue: &Queue) -> Result<Self, MeshAssetError> {
         let json = JsonMesh {
             vertices: vec![
@@ -87,8 +171,37 @@ impl MeshAssetData {
 
     pub fn from_json(queue: &Queue, mesh: JsonMesh) -> Result<Self, MeshAssetError> {
         let index = IndexBuffer::create(&queue.device, &queue.device_memory, mesh.indices);
+        let mut bounds = MeshBounds::default();
+        for vertex in &mesh.vertices {
+            let vertex = vertex.pos;
+            // x
+            if vertex[0] < bounds.x[0] {
+                bounds.x[0] = vertex[0];
+            }
+            if vertex[0] > bounds.x[1] {
+                bounds.x[1] = vertex[0];
+            }
+            // y
+            if vertex[1] < bounds.y[0] {
+                bounds.y[0] = vertex[1];
+            }
+            if vertex[1] > bounds.y[1] {
+                bounds.y[1] = vertex[1];
+            }
+            // z
+            if vertex[2] < bounds.z[0] {
+                bounds.z[0] = vertex[2];
+            }
+            if vertex[2] > bounds.z[1] {
+                bounds.z[1] = vertex[2];
+            }
+        }
         let vertex = VertexBuffer::create(&queue.device, &queue.device_memory, mesh.vertices);
-        Ok(Self { index, vertex })
+        Ok(Self {
+            index,
+            vertex,
+            bounds,
+        })
     }
 
     pub fn from_space3<P: AsRef<Path>>(queue: &Queue, path: P) -> Result<Self, MeshAssetError> {

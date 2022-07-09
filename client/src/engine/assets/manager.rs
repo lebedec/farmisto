@@ -24,9 +24,11 @@ pub struct Assets {
     file_events: Arc<RwLock<HashMap<PathBuf, FileEvent>>>,
 
     textures_default: TextureAssetData,
+    textures_white: TextureAsset,
     textures: HashMap<PathBuf, TextureAsset>,
 
     meshes_default: MeshAssetData,
+    meshes_cube: MeshAsset,
     meshes: HashMap<PathBuf, MeshAsset>,
 
     shaders: HashMap<PathBuf, ShaderAsset>,
@@ -79,8 +81,18 @@ impl Assets {
             queue.clone(),
             include_bytes!("./fallback/texture.png"),
         );
+        let textures_white = TextureAsset::from_data(Arc::new(RefCell::new(
+            TextureAssetData::create_and_read_image(
+                &device,
+                pool,
+                queue.clone(),
+                include_bytes!("./fallback/white.png"),
+            ),
+        )));
         let textures = HashMap::new();
 
+        let meshes_cube =
+            MeshAsset::from_data(Arc::new(RefCell::new(MeshAssetData::cube(&queue).unwrap())));
         let meshes_default = MeshAssetData::fallback(&queue).unwrap();
         let meshes = HashMap::new();
 
@@ -180,7 +192,9 @@ impl Assets {
 
         Self {
             textures_default,
+            textures_white,
             textures,
+            meshes_cube,
             meshes_default,
             loading_requests,
             loading_result,
@@ -215,6 +229,14 @@ impl Assets {
         self.textures.insert(path.clone(), texture.clone());
         self.require_update(AssetKind::Texture, path);
         texture
+    }
+
+    pub fn texture_white(&self) -> TextureAsset {
+        self.textures_white.clone()
+    }
+
+    pub fn cube(&self) -> MeshAsset {
+        self.meshes_cube.clone()
     }
 
     pub fn mesh<P: AsRef<Path>>(&mut self, path: P) -> MeshAsset {
@@ -260,7 +282,10 @@ impl Assets {
                         .position
                         .map(|values| Vec3::from(values))
                         .unwrap_or(Vec3::ZERO),
-                    rotation: Default::default(),
+                    rotation: config
+                        .rotation
+                        .map(|values| Vec3::from(values))
+                        .unwrap_or(Vec3::ZERO),
                     scale: config
                         .scale
                         .map(|values| Vec3::from(values))
