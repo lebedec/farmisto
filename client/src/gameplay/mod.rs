@@ -1,8 +1,8 @@
-use crate::engine::{Input, MeshAsset, TextureAsset, Transform, TreePrefab};
+use crate::engine::{FarmlandPrefab, Input, TreePrefab};
 use crate::gameplay::camera::Camera;
 use crate::{Assets, Mode, MyRenderer};
 use game::api::{Action, Event, GameResponse, PlayerRequest};
-use game::model::{TreeId, TreeKind};
+use game::model::{FarmlandId, FarmlandKind, TreeId, TreeKind};
 use game::persistence::{Known, Shared, Storage};
 use glam::{vec3, Mat4};
 use log::{error, info};
@@ -10,6 +10,7 @@ use network::TcpClient;
 use sdl2::keyboard::Keycode;
 use server::LocalServerThread;
 use std::collections::HashMap;
+use std::hash::Hash;
 use std::path::PathBuf;
 
 mod camera;
@@ -20,6 +21,7 @@ pub struct Gameplay {
     action_id: usize,
     storage: Storage,
     knowledge: KnowledgeBase,
+    farmlands: HashMap<FarmlandId, FarmlandBehaviour>,
     trees: HashMap<TreeId, TreeBehaviour>,
     camera: Camera,
 }
@@ -36,6 +38,7 @@ impl Gameplay {
             action_id: 0,
             storage: Storage::open("./assets/database.sqlite").unwrap(),
             knowledge: KnowledgeBase::default(),
+            farmlands: Default::default(),
             trees: HashMap::new(),
             camera: Camera::new(viewport),
         })
@@ -84,6 +87,21 @@ impl Mode for Gameplay {
                             Event::TreeUpdated { id } => {
                                 info!("Update tree {:?} [not implemented yet]", id);
                             }
+                            Event::FarmlandAppeared { id, kind } => {
+                                let kind = self.knowledge.farmlands.get(kind).unwrap();
+                                info!("Appear farmland {:?} kind='{}'", id, kind.name);
+
+                                let path = PathBuf::from(&kind.name).with_extension("yaml");
+                                let path = PathBuf::from("./assets/farmlands").join(path);
+                                let prefab = assets.farmland(path);
+
+                                self.farmlands
+                                    .insert(id, FarmlandBehaviour { id, kind, prefab });
+                            }
+                            Event::FarmlandVanished(id) => {
+                                info!("Vanish farmland {:?}", id);
+                                self.farmlands.remove(&id);
+                            }
                         }
                     }
                 }
@@ -117,12 +135,19 @@ impl Mode for Gameplay {
         // RENDER
         renderer.clear();
         renderer.look_at(self.camera.uniform());
+        for farmland in self.farmlands.values() {
+            for transform in farmland.prefab.props() {
+                renderer.draw(
+                    Mat4::from_translation(transform.position) * Mat4::from_scale(transform.scale),
+                    transform.entity.mesh(),
+                    transform.entity.texture(),
+                );
+            }
+        }
         for tree in self.trees.values() {
             renderer.draw(
-                Transform {
-                    matrix: Mat4::from_translation(vec3(0.0, 0.0, 0.0))
-                        * Mat4::from_rotation_y(10.0_f32.to_radians()),
-                },
+                Mat4::from_translation(vec3(0.0, 0.0, 0.0))
+                    * Mat4::from_rotation_y(10.0_f32.to_radians()),
                 tree.prefab.mesh(),
                 tree.prefab.texture(),
             );
@@ -144,6 +169,12 @@ impl Mode for Gameplay {
     }
 }
 
+pub struct FarmlandBehaviour {
+    id: FarmlandId,
+    kind: Shared<FarmlandKind>,
+    prefab: FarmlandPrefab,
+}
+
 pub struct TreeBehaviour {
     id: TreeId,
     kind: Shared<TreeKind>,
@@ -153,10 +184,12 @@ pub struct TreeBehaviour {
 #[derive(Default)]
 pub struct KnowledgeBase {
     trees: Known<TreeKind>,
+    farmlands: Known<FarmlandKind>,
 }
 
 impl KnowledgeBase {
     pub fn load(&mut self, storage: &Storage) {
         self.trees.load(storage);
+        self.farmlands.load(storage);
     }
 }

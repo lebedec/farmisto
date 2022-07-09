@@ -2,10 +2,13 @@ use crate::engine::assets::fs::{FileEvent, FileSystem};
 use crate::engine::assets::prefabs::{TreePrefab, TreePrefabConfig, TreePrefabData};
 use crate::engine::base::Queue;
 use crate::engine::{
-    MeshAsset, MeshAssetData, ShaderAsset, ShaderAssetData, TextureAsset, TextureAssetData,
+    FarmlandPrefab, FarmlandPrefabConfig, FarmlandPrefabData, MeshAsset, MeshAssetData, PropsAsset,
+    PropsAssetConfig, PropsAssetData, ShaderAsset, ShaderAssetData, TextureAsset, TextureAssetData,
+    Transform,
 };
 use crate::ShaderCompiler;
 use ash::{vk, Device};
+use glam::Vec3;
 use log::{debug, error, info};
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -28,7 +31,9 @@ pub struct Assets {
 
     shaders: HashMap<PathBuf, ShaderAsset>,
 
+    farmlands: HashMap<PathBuf, FarmlandPrefab>,
     trees: HashMap<PathBuf, TreePrefab>,
+    props: HashMap<PathBuf, PropsAsset>,
 
     queue: Arc<Queue>,
 }
@@ -183,7 +188,9 @@ impl Assets {
             shaders,
             file_events,
             queue,
+            farmlands: Default::default(),
             trees: Default::default(),
+            props: Default::default(),
         }
     }
 
@@ -237,6 +244,52 @@ impl Assets {
         prefab
     }
 
+    pub fn farmland<P: AsRef<Path>>(&mut self, path: P) -> FarmlandPrefab {
+        let path = fs::canonicalize(path).unwrap();
+        if let Some(prefab) = self.farmlands.get(&path) {
+            return prefab.clone();
+        }
+        let source = path.parent().unwrap();
+        let config = FarmlandPrefabConfig::from_file(&path).unwrap();
+        let data = FarmlandPrefabData {
+            props: config
+                .props
+                .iter()
+                .map(|config| Transform {
+                    position: config
+                        .position
+                        .map(|values| Vec3::from(values))
+                        .unwrap_or(Vec3::ZERO),
+                    rotation: Default::default(),
+                    scale: config
+                        .scale
+                        .map(|values| Vec3::from(values))
+                        .unwrap_or(Vec3::ONE),
+                    entity: self.props(config.asset.resolve(&source)),
+                })
+                .collect(),
+        };
+        let asset = FarmlandPrefab::from_data(Arc::new(RefCell::new(data)));
+        self.farmlands.insert(path, asset.clone());
+        asset
+    }
+
+    pub fn props<P: AsRef<Path>>(&mut self, path: P) -> PropsAsset {
+        let path = fs::canonicalize(path).unwrap();
+        if let Some(asset) = self.props.get(&path) {
+            return asset.clone();
+        }
+        let source = path.parent().unwrap();
+        let config = PropsAssetConfig::from_file(&path).unwrap();
+        let data = PropsAssetData {
+            texture: self.texture(config.texture.resolve(&source)),
+            mesh: self.mesh(config.mesh.resolve(&source)),
+        };
+        let asset = PropsAsset::from_data(Arc::new(RefCell::new(data)));
+        self.props.insert(path, asset.clone());
+        asset
+    }
+
     fn require_update(&mut self, kind: AssetKind, path: PathBuf) {
         info!("Require update {:?} {:?}", kind, path.to_str());
         let mut requests = self.loading_requests.write().unwrap();
@@ -272,16 +325,47 @@ impl Assets {
                     } else if self.shaders.contains_key(&path) {
                         self.require_update(AssetKind::Shader, path);
                     } else if self.trees.contains_key(&path) {
-                        // INSTANT RELOAD
+                        // INSTANT RELOAD vvv
                         let source = path.parent().unwrap();
                         let config = TreePrefabConfig::from_file(&path).unwrap();
                         let data = TreePrefabData {
                             texture: self.texture(config.texture.resolve(&source)),
                             mesh: self.mesh(config.mesh.resolve(&source)),
                         };
-
                         let prefab = self.trees.get_mut(&path).unwrap();
                         prefab.update(data);
+                    } else if self.props.contains_key(&path) {
+                        let source = path.parent().unwrap();
+                        let config = PropsAssetConfig::from_file(&path).unwrap();
+                        let data = PropsAssetData {
+                            texture: self.texture(config.texture.resolve(&source)),
+                            mesh: self.mesh(config.mesh.resolve(&source)),
+                        };
+                        let asset = self.props.get_mut(&path).unwrap();
+                        asset.update(data);
+                    } else if self.farmlands.contains_key(&path) {
+                        let source = path.parent().unwrap();
+                        let config = FarmlandPrefabConfig::from_file(&path).unwrap();
+                        let data = FarmlandPrefabData {
+                            props: config
+                                .props
+                                .iter()
+                                .map(|config| Transform {
+                                    position: config
+                                        .position
+                                        .map(|values| Vec3::from(values))
+                                        .unwrap_or(Vec3::ZERO),
+                                    rotation: Default::default(),
+                                    scale: config
+                                        .scale
+                                        .map(|values| Vec3::from(values))
+                                        .unwrap_or(Vec3::ONE),
+                                    entity: self.props(config.asset.resolve(&source)),
+                                })
+                                .collect(),
+                        };
+                        let asset = self.farmlands.get_mut(&path).unwrap();
+                        asset.update(data);
                     }
                 }
                 FileEvent::Deleted => {}

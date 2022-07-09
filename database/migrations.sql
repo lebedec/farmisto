@@ -158,3 +158,35 @@ create table Tree
         constraint Tree_TreeKind_id_fk
             references TreeKind
 );
+
+create table FarmlandKind
+(
+    id        integer not null
+        constraint FarmlandKind_pk
+            primary key autoincrement,
+    timestamp integer not null default (cast(strftime('%s') as integer)),
+    deleted   bool    not null default false,
+    name      text    not null,
+    space   integer not null
+        constraint Farmland_SpaceKind_id_fk
+            references SpaceKind,
+    land     integer not null
+        constraint Farmland_LandKind_id_fk
+            references LandKind
+);
+
+create table Farmland
+(
+    id        integer not null
+        constraint FarmlandKind_pk
+            primary key
+        constraint Farmland_Space_id_fk
+            references Space
+        constraint Farmland_Land_id_fk
+            references Land,
+    timestamp integer not null default (cast(strftime('%s') as integer)),
+    deleted   bool    not null default false,
+    kind      integer not null
+        constraint Farmland_FarmlandKind_id_fk
+            references FarmlandKind
+);

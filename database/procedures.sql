@@ -1,3 +1,23 @@
+drop table if exists sql_sp_clean;
+create table sql_sp_clean
+(
+    id       integer not null
+);
+create trigger sql_sp_clean_trigger
+    after insert
+    on sql_sp_clean
+begin
+    delete from Tree where deleted = true;
+    delete from Farmland where deleted = true;
+
+    delete from Barrier where deleted = true;
+    delete from Body where deleted = true;
+    delete from Space where deleted = true;
+
+    delete from Plant where deleted = true;
+    delete from Land where deleted = true;
+end;
+
 drop table if exists sql_sp_create_tree;
 create table sql_sp_create_tree
 (
@@ -5,7 +25,6 @@ create table sql_sp_create_tree
     kind     integer not null,
     position json    not null
 );
-
 create trigger sql_sp_create_tree_trigger
     after insert
     on sql_sp_create_tree
@@ -28,7 +47,6 @@ create table sql_sp_delete_tree
 (
     id       integer not null
 );
-
 create trigger sql_sp_delete_tree_trigger
     after insert
     on sql_sp_delete_tree
@@ -38,18 +56,3 @@ begin
     update Plant set deleted = true where id = new.id;
 end;
 
-
-drop table if exists sql_sp_clean;
-create table sql_sp_clean
-(
-    id       integer not null
-);
-
-create trigger sql_sp_clean_trigger
-    after insert
-    on sql_sp_clean
-begin
-    delete from Tree where deleted = true;
-    delete from Barrier where deleted = true;
-    delete from Plant where deleted = true;
-end;

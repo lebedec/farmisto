@@ -44,6 +44,20 @@ impl Game {
     pub fn look_around(&self, snapshot: UniverseSnapshot) -> Vec<Event> {
         let mut stream = vec![];
 
+        for farmland in self.universe.farmlands.iter() {
+            if snapshot.whole || snapshot.farmlands.contains(&farmland.id) {
+                stream.push(Event::FarmlandAppeared {
+                    id: farmland.id,
+                    kind: farmland.kind.id,
+                })
+            }
+        }
+        let events = snapshot
+            .farmlands_to_delete
+            .into_iter()
+            .map(Event::FarmlandVanished);
+        stream.extend(events);
+
         for tree in self.universe.trees.iter() {
             if snapshot.whole || snapshot.trees.contains(&tree.id) {
                 let barrier = self.physics.barriers.get(tree.id).unwrap();
@@ -56,7 +70,6 @@ impl Game {
                 })
             }
         }
-
         let events = snapshot
             .trees_to_delete
             .into_iter()

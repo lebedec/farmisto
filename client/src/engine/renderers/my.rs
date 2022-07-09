@@ -1,8 +1,9 @@
 use crate::engine::uniform::{CameraUniform, UniformBuffer};
-use crate::engine::{MeshAsset, ShaderAsset, TextureAsset, Transform, Vertex};
+use crate::engine::{MeshAsset, ShaderAsset, TextureAsset, Vertex};
 use crate::Assets;
 use ash::vk::Handle;
 use ash::{vk, Device};
+use glam::Mat4;
 use log::info;
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -14,7 +15,7 @@ use std::time::Instant;
 pub struct Material {}
 
 pub struct MyRenderObject {
-    transform: Transform,
+    transform: Mat4,
     mesh: MeshAsset,
     texture: TextureAsset,
 }
@@ -51,7 +52,7 @@ impl MyRenderer {
         self.objects.clear();
     }
 
-    pub fn draw(&mut self, transform: Transform, mesh: MeshAsset, texture: TextureAsset) {
+    pub fn draw(&mut self, transform: Mat4, mesh: MeshAsset, texture: TextureAsset) {
         self.objects.push(MyRenderObject {
             transform,
             mesh,
@@ -126,31 +127,21 @@ impl MyRenderer {
 
         device.cmd_bind_pipeline(buffer, vk::PipelineBindPoint::GRAPHICS, self.pipeline);
 
-
         let bind_point = vk::PipelineBindPoint::GRAPHICS;
         let descriptor_set = &[self.descriptor_sets[0]];
-        device.cmd_bind_descriptor_sets(
-            buffer,
-            bind_point,
-            self.layout,
-            0,
-            descriptor_set,
-            &[],
-        );
+        device.cmd_bind_descriptor_sets(buffer, bind_point, self.layout, 0, descriptor_set, &[]);
 
         let mut previous_mesh = 0;
         let mut previous_texture = 0;
 
         for object in self.objects.iter() {
-            if previous_mesh != object.mesh.id()
-            {
+            if previous_mesh != object.mesh.id() {
                 previous_mesh = object.mesh.id();
                 device.cmd_bind_vertex_buffers(buffer, 0, &[object.mesh.vertex()], &[0]);
                 device.cmd_bind_index_buffer(buffer, object.mesh.index(), 0, vk::IndexType::UINT32);
             }
 
-            if previous_texture != object.texture.id()
-            {
+            if previous_texture != object.texture.id() {
                 previous_texture = object.texture.id();
                 device.cmd_bind_descriptor_sets(
                     buffer,
@@ -168,7 +159,7 @@ impl MyRenderer {
                 self.layout,
                 vk::ShaderStageFlags::VERTEX,
                 0,
-                bytemuck::cast_slice(&object.transform.matrix.to_cols_array()),
+                bytemuck::cast_slice(&object.transform.to_cols_array()),
             );
             device.cmd_draw_indexed(buffer, object.mesh.vertices(), 1, 0, 0, 1);
         }
@@ -330,7 +321,7 @@ impl MyRenderer {
         let push_constant_ranges = [vk::PushConstantRange {
             stage_flags: vk::ShaderStageFlags::VERTEX,
             offset: 0,
-            size: std::mem::size_of::<Transform>() as u32,
+            size: std::mem::size_of::<Mat4>() as u32,
         }];
 
         let layout_create_info = vk::PipelineLayoutCreateInfo::builder()

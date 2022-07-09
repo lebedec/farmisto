@@ -187,11 +187,6 @@ impl IndexBuffer {
     }
 }
 
-#[repr(C)]
-pub struct Transform {
-    pub matrix: Mat4,
-}
-
 #[derive(Clone, Copy)]
 pub struct VertexBuffer {
     buffer: vk::Buffer,

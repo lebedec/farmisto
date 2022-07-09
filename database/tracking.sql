@@ -4,6 +4,8 @@ create trigger sql_tracking_Space
     on Space
 begin
     update Space set timestamp = (cast(strftime('%s') as integer)) where id = new.id;
+
+    update Farmland set timestamp = (cast(strftime('%s') as integer)) where id = new.id;
 end;
 
 drop trigger if exists sql_tracking_Body;
@@ -30,6 +32,8 @@ create trigger sql_tracking_Land
     on Land
 begin
     update Land set timestamp = (cast(strftime('%s') as integer)) where id = new.id;
+
+    update Farmland set timestamp = (cast(strftime('%s') as integer)) where id = new.id;
 end;
 
 drop trigger if exists sql_tracking_Plant;
