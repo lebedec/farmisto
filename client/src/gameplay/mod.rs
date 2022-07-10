@@ -5,7 +5,7 @@ use crate::{Assets, Mode, MyRenderer};
 use game::api::{Action, Event, GameResponse, PlayerRequest};
 use game::model::{FarmlandId, FarmlandKind, TreeId, TreeKind};
 use game::persistence::{Known, Shared, Storage};
-use glam::{vec3, Mat4};
+use glam::{vec3, Mat4, Vec3};
 use log::{error, info};
 use network::TcpClient;
 use sdl2::keyboard::Keycode;
@@ -122,7 +122,22 @@ impl Mode for Gameplay {
         self.camera.update(input);
 
         if input.click() {
-            self.camera.test_ray(input.mouse_position());
+            let (_, pos) = self.camera.cast_ray(input.mouse_position());
+
+            if let Some(pos) = pos {
+                let mut best = f32::INFINITY;
+                let mut best_position = Vec3::ZERO;
+                for farmland in self.farmlands.values() {
+                    for transform in farmland.prefab.props() {
+                        let distance = transform.position.distance(pos);
+                        if distance < best {
+                            best = distance;
+                            best_position = transform.position;
+                        }
+                    }
+                }
+                info!("SELECTION: {}", best_position);
+            }
         }
 
         if input.pressed(Keycode::Kp1) {
@@ -150,12 +165,12 @@ impl Mode for Gameplay {
             }
         }
         for tree in self.trees.values() {
-            // renderer.draw(
-            //     Mat4::from_translation(vec3(0.0, 0.0, 0.0))
-            //         * Mat4::from_rotation_y(10.0_f32.to_radians()),
-            //     tree.prefab.mesh(),
-            //     tree.prefab.texture(),
-            // );
+            renderer.draw(
+                Mat4::from_translation(vec3(0.0, 0.0, 0.0))
+                    * Mat4::from_rotation_y(10.0_f32.to_radians()),
+                tree.prefab.mesh(),
+                tree.prefab.texture(),
+            );
             // for x in 0..1000 {
             //     let x1 = x % 100;
             //     let y1 = x / 100;

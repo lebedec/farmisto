@@ -1,13 +1,12 @@
 use crate::engine::uniform::CameraUniform;
 use crate::engine::Cursor;
 use crate::Input;
-use glam::{vec3, Mat4, Vec3, Vec4, Vec4Swizzles};
-use log::info;
+use glam::{vec3, Mat4, Vec3};
 use sdl2::keyboard::Keycode;
 
 pub struct Camera {
     viewport: [f32; 2],
-    eye: Vec3,
+    pub eye: Vec3,
     z_near: f32,
     z_far: f32,
 }
@@ -22,7 +21,7 @@ impl Camera {
         }
     }
 
-    pub fn test_ray(&self, mouse: Cursor) {
+    pub fn cast_ray(&self, mouse: Cursor) -> (Vec3, Option<Vec3>) {
         let uniform = self.uniform();
         let inverted = (uniform.proj * uniform.view).inverse();
 
@@ -34,15 +33,16 @@ impl Camera {
 
         let normal = Vec3::new(0.0, 1.0, 0.0);
         let denom = normal.dot(ray_dir);
-        let mut hit = Vec3::ZERO;
+        let mut hit = None;
         if denom.abs() > 0.0001 {
             let t = (-ray_origin).dot(normal) / denom;
             if t >= 0.0 {
-                hit = ray_origin + ray_dir * t;
+                hit = Some(ray_origin + ray_dir * t);
             }
         }
 
-        info!("Mouse {:?} HIT {}", mouse.viewport, hit);
+        // info!("Mouse {:?} HIT {:?}", mouse.viewport, hit);
+        (ray_dir, hit)
     }
 
     pub fn update(&mut self, input: &Input) {

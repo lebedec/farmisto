@@ -6,7 +6,7 @@ use std::io;
 use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-#[derive(serde::Deserialize)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct PathRef {
     #[serde(rename = "$ref")]
     path: PathBuf,
@@ -52,9 +52,10 @@ pub struct Transform<T> {
 
 pub struct FarmlandPrefabData {
     pub props: Vec<Transform<PropsAsset>>,
+    pub config: FarmlandPrefabConfig,
 }
 
-#[derive(serde::Deserialize)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct PropsConfig {
     pub position: Option<[f32; 3]>,
     pub rotation: Option<[f32; 3]>,
@@ -62,7 +63,7 @@ pub struct PropsConfig {
     pub asset: PathRef,
 }
 
-#[derive(serde::Deserialize)]
+#[derive(serde::Deserialize, serde::Serialize)]
 pub struct FarmlandPrefabConfig {
     pub props: Vec<PropsConfig>,
 }
@@ -71,6 +72,11 @@ impl FarmlandPrefabConfig {
     pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self, PrefabError> {
         let file = File::open(path).map_err(PrefabError::Io)?;
         serde_yaml::from_reader(file).map_err(PrefabError::Yaml)
+    }
+
+    pub fn to_file<P: AsRef<Path>>(&self, path: P) -> Result<(), PrefabError> {
+        let file = File::open(path).map_err(PrefabError::Io)?;
+        serde_yaml::to_writer(file, self).map_err(PrefabError::Yaml)
     }
 }
 

@@ -3,11 +3,9 @@ use crate::engine::commands::Single;
 
 use ash::vk::Handle;
 use ash::{vk, Device};
-use image::DynamicImage;
 use log::info;
 use std::cell::RefCell;
-use std::io::Read;
-use std::{io, ptr};
+use std::ptr;
 use std::sync::Arc;
 use std::time::Instant;
 

@@ -9,7 +9,7 @@ use crate::engine::{
 use crate::ShaderCompiler;
 use ash::{vk, Device};
 use glam::Vec3;
-use log::{debug, error, info};
+use log::{error, info};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -293,6 +293,7 @@ impl Assets {
                     entity: self.props(config.asset.resolve(&source)),
                 })
                 .collect(),
+            config,
         };
         let asset = FarmlandPrefab::from_data(Arc::new(RefCell::new(data)));
         self.farmlands.insert(path, asset.clone());
@@ -380,7 +381,10 @@ impl Assets {
                                         .position
                                         .map(|values| Vec3::from(values))
                                         .unwrap_or(Vec3::ZERO),
-                                    rotation: Default::default(),
+                                    rotation: config
+                                        .rotation
+                                        .map(|values| Vec3::from(values))
+                                        .unwrap_or(Vec3::ZERO),
                                     scale: config
                                         .scale
                                         .map(|values| Vec3::from(values))
@@ -388,6 +392,7 @@ impl Assets {
                                     entity: self.props(config.asset.resolve(&source)),
                                 })
                                 .collect(),
+                            config,
                         };
                         let asset = self.farmlands.get_mut(&path).unwrap();
                         asset.update(data);

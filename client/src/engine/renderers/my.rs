@@ -1,6 +1,6 @@
 use crate::engine::base::Queue;
 use crate::engine::uniform::{CameraUniform, UniformBuffer};
-use crate::engine::{MeshAsset, MeshAssetData, MeshBounds, ShaderAsset, TextureAsset, Vertex};
+use crate::engine::{MeshAsset, MeshBounds, ShaderAsset, TextureAsset, Vertex};
 use crate::Assets;
 use ash::vk::Handle;
 use ash::{vk, Device};

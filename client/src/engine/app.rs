@@ -2,11 +2,10 @@ use crate::engine::base::{submit_commands, Base};
 use crate::engine::my::MyRenderer;
 use crate::engine::{Assets, Input};
 use ash::vk;
-use log::{info, warn};
+use log::info;
 use std::ffi::CString;
 use std::sync::Arc;
-use std::thread;
-use std::time::{Duration, Instant};
+use std::time::Instant;
 
 pub trait App {
     fn start(assets: &mut Assets) -> Self;

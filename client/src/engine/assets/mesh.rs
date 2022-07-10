@@ -3,8 +3,6 @@ use crate::engine::assets::space3::S3Mesh;
 use crate::engine::base::{create_buffer, Queue};
 use ash::vk::Handle;
 use ash::{vk, Device};
-use glam::Mat4;
-use log::info;
 use std::cell::RefCell;
 use std::fs::File;
 use std::io;
@@ -68,6 +66,10 @@ impl MeshBounds {
             self.y[0].abs() + self.y[1].abs(),
             self.z[0].abs() + self.z[1].abs(),
         ]
+    }
+
+    pub fn radius(&self) -> f32 {
+        self.length()[0]
     }
 
     pub fn offset(&self) -> [f32; 3] {

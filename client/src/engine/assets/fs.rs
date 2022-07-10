@@ -1,10 +1,10 @@
-use log::{error, info};
+use log::error;
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use std::sync::{Arc, RwLock};
-use std::{fs, thread};
+use std::thread;
 
 pub struct FileSystem {}
 

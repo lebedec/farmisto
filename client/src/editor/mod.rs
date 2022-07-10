@@ -1,5 +1,5 @@
 use crate::engine::FarmlandPrefab;
-use crate::{Assets, Input, Mode, MyRenderer};
+use crate::{Assets, Input, MyRenderer};
 use sdl2::keyboard::Keycode;
 
 pub struct Editor {
@@ -27,7 +27,7 @@ pub enum Selection {
 }
 
 impl Editor {
-    pub fn update(&mut self, input: &Input, renderer: &mut MyRenderer, assets: &mut Assets) {
+    pub fn update(&mut self, input: &Input, _renderer: &mut MyRenderer, _assets: &mut Assets) {
         if input.pressed(Keycode::Tab) {
             self.capture = !self.capture;
         }
