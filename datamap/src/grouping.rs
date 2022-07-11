@@ -1,4 +1,4 @@
-use crate::persistence::{Known, Persist, Shared, Storage};
+use crate::{Known, Persist, Shared, Storage};
 use log::{error, info, warn};
 use rusqlite::types::FromSql;
 use std::collections::HashMap;

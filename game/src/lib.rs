@@ -1,14 +1,13 @@
 use crate::api::{Action, Event};
 use crate::model::{Universe, UniverseSnapshot};
-use crate::persistence::Storage;
 use crate::physics::PhysicsDomain;
 use crate::planting::PlantingDomain;
+use datamap::Storage;
 pub use domains::*;
 
 pub mod api;
 mod domains;
 pub mod model;
-pub mod persistence;
 
 pub struct Game {
     universe: Universe,

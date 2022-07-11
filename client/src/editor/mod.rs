@@ -3,27 +3,57 @@ use crate::{Assets, Input, MyRenderer};
 use sdl2::keyboard::Keycode;
 
 pub struct Editor {
-    pub lock_x: bool,
-    pub lock_y: bool,
-    pub lock_z: bool,
     pub selection: Option<Selection>,
     pub capture: bool,
+    pub edit: Option<Box<dyn Edit>>,
 }
 
 impl Editor {
     pub fn new() -> Self {
         Self {
-            lock_x: false,
-            lock_y: false,
-            lock_z: false,
             selection: None,
             capture: false,
+            edit: None,
         }
     }
 }
 
 pub enum Selection {
     FarmlandProp { asset: FarmlandPrefab, prop: usize },
+}
+
+trait Edit {
+    fn handle(&mut self, input: &Input);
+    fn reset(&self);
+}
+
+struct Move {
+    lock_x: bool,
+    lock_y: bool,
+    lock_z: bool,
+    origin: [f32; 2],
+}
+
+impl Edit for Move {
+    fn handle(&mut self, input: &Input) {
+        if input.pressed(Keycode::X) {
+            self.lock_x = !self.lock_x;
+        }
+
+        if input.pressed(Keycode::Y) {
+            self.lock_y = !self.lock_y;
+        }
+
+        if input.pressed(Keycode::Z) {
+            self.lock_z = !self.lock_z;
+        }
+
+        // update translations set x = ?, y =? z =? where id = id
+    }
+
+    fn reset(&self) {
+        todo!()
+    }
 }
 
 impl Editor {
@@ -53,7 +83,7 @@ impl Editor {
                     // delete
                 }
                 if input.pressed(Keycode::G) {
-                    // go
+                    //
                 }
                 if input.pressed(Keycode::R) {
                     // rotate
@@ -64,4 +94,6 @@ impl Editor {
             }
         }
     }
+
+    fn handle_move(&mut self, input: &Input) {}
 }

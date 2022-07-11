@@ -1,5 +1,5 @@
-use crate::persistence::{Collection, Grouping, Id, Known, Persisted, Shared};
 use crate::Storage;
+use datamap::{Collection, Grouping, Id, Known, Persisted, Shared};
 
 #[derive(Default)]
 pub struct PlantingDomain {

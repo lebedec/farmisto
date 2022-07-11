@@ -16,10 +16,11 @@
   }}
 }%%
 flowchart LR;
-	gamer(("<h2>&nbsp Gamer &nbsp</h2>[Person]")):::person
+	player(("<h2>&nbsp Player &nbsp</h2>[Person]")):::person
 	developer(("<h2>Developer</h2>[Person]")):::person
 	assets[(<h2>&nbsp assets  &nbsp</h2>&#91Files&#93)]:::component
 	database[(<h2>database</h2>&#91SQLite&#93)]:::component
+	datamap[(<h2>datamap</h2>)]:::component
 	game(<h2>game</h2>Module<br/>Provides all of the gameplay<br/> functionality to players.):::component
 	network(<h2>network</h2>Module):::component
 	server(<h2>server</h2>Module):::component
@@ -36,9 +37,9 @@ flowchart LR;
 		assets --> client;
 	
 
-	client <-- "Views game progress,<br/>and makes actions using" ---> gamer;
+	client <-- "Views game progress,<br/>and makes actions using" ---> player;
 
-    server---gamer;
+    server---player;
 
 	classDef person fill:#07427b,stroke:#073b6f,color:white
 	classDef component color:white
@@ -49,7 +50,25 @@ flowchart LR;
 
 ## Design Principles
 
-### Minimal Dependencies Count
+### Database as Single Source of Data
+
+One of the trickiest parts of developing games is managing data.
+Using configuration files works well in many simple cases, 
+populating game object properties or pre-fabricating assets.
+
+But if you want to combine datasets from a whole range of domains, 
+for example, to change a balance of game object properties 
+or build a context for editor mode the separated file reads turn out to be far more painful.
+The bigger the game model gets, the more data becomes fragmented,
+and the harder these challenges become. 
+
+Traditional SQL database help with this:
+
+- Bringing together and manipulating datasets from different domains
+- Guarantee that game data will be consistent
+- Data format standardization, use of third-party tools
+
+### Minimal Dependence
 
 The code should only contain the necessary pure Rust dependencies.
 Especially if game development aspect relies on well known 3rd party solution,

@@ -1,4 +1,4 @@
-use crate::persistence::{Collection, Grouping, Id, Known, Persisted, Shared, Storage};
+use datamap::{Collection, Grouping, Id, Known, Persisted, Shared, Storage};
 use log::info;
 
 #[derive(Default)]

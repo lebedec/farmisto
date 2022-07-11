@@ -1,4 +1,4 @@
-use crate::persistence::{Known, Persist, Shared, Storage};
+use crate::{Known, Persist, Shared, Storage};
 use log::{error, info, warn};
 
 pub struct Collection<T> {

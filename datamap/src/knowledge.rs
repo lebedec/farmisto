@@ -1,4 +1,4 @@
-use crate::persistence::{Persist, Shared, Storage};
+use crate::{Persist, Shared, Storage};
 use log::{error, info};
 use std::collections::HashMap;
 

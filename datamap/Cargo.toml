@@ -1,10 +1,12 @@
 [package]
-name = "game"
+name = "datamap"
 version = "0.1.0"
 edition = "2021"
 
+
 [dependencies]
-datamap = {path = "../datamap"}
 rusqlite = { version = "0.27", default-features = false, features = ["serde_json", "bundled"] }
 log = "0.4"
-bincode = "2.0.0-rc.1"
+serde_json = { version = "1.0" }
+serde = { version = "1.0" }
+datamap_derive = { path = "../datamap_derive" }

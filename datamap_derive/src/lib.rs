@@ -79,13 +79,13 @@ fn generate_persisted_trait(ast: &DeriveInput) -> TokenStream {
                 let bind_value = if is_sql_type {
                     quote! { &self.#field_ident }
                 } else {
-                    quote! { crate::persistence::to_json_value(&self.#field_ident) }
+                    quote! { datamap::to_json_value(&self.#field_ident) }
                 };
 
                 let map_value = if is_sql_type {
                     quote! { row.get(#field_name)? }
                 } else {
-                    quote! { crate::persistence::parse_json_value(row.get(#field_name)?) }
+                    quote! { datamap::parse_json_value(row.get(#field_name)?) }
                 };
 
                 binders.push(quote! {
@@ -121,7 +121,7 @@ fn generate_persisted_trait(ast: &DeriveInput) -> TokenStream {
             let kind = kind.unwrap_or(quote! { () });
             let id = id.unwrap_or(quote! { () });
             quote! {
-                impl crate::persistence::Persist for #name {
+                impl datamap::Persist for #name {
                     type Kind = #kind;
                     type Id = #id;
 
