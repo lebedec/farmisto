@@ -1,4 +1,3 @@
-use crate::engine::FarmlandPrefab;
 use crate::{Assets, Input, MyRenderer};
 use sdl2::keyboard::Keycode;
 
@@ -19,7 +18,7 @@ impl Editor {
 }
 
 pub enum Selection {
-    FarmlandProp { asset: FarmlandPrefab, prop: usize },
+    FarmlandProp { asset: usize, prop: usize },
 }
 
 trait Edit {

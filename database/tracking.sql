@@ -54,4 +54,3 @@ create trigger sql_tracking_Tree
 begin
     update Tree set timestamp = (cast(strftime('%s') as integer)) where id = new.id;
 end;
-

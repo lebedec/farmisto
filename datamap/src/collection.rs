@@ -1,5 +1,95 @@
 use crate::{Known, Persist, Shared, Storage};
 use log::{error, info, warn};
+use std::cell::{Ref, RefCell};
+use std::collections::HashMap;
+use std::sync::Arc;
+
+pub struct Dictionary<T> {
+    items: HashMap<String, Arc<RefCell<T>>>,
+    last_timestamp: i64,
+}
+
+impl<T> Default for Dictionary<T> {
+    fn default() -> Self {
+        Self {
+            items: HashMap::new(),
+            last_timestamp: -1,
+        }
+    }
+}
+
+pub trait WithContext: Sized {
+    type Context;
+
+    fn prefetch(
+        parent: usize,
+        context: &mut Self::Context,
+        connection: &rusqlite::Connection,
+    ) -> Result<Vec<Self>, rusqlite::Error> {
+        unimplemented!()
+    }
+
+    fn parse(
+        row: &rusqlite::Row,
+        id: usize,
+        context: &mut Self::Context,
+        connection: &rusqlite::Connection,
+    ) -> Result<Self, rusqlite::Error>;
+}
+
+impl<T> Dictionary<T>
+where
+    T: WithContext,
+{
+    #[inline]
+    pub fn get<A>(&self, name: &str) -> Option<A>
+    where
+        A: From<Arc<RefCell<T>>>,
+    {
+        match self.items.get(name) {
+            None => None,
+            Some(data) => Some(A::from(data.clone())),
+        }
+    }
+
+    pub fn load(&mut self, storage: &Storage, context: &mut T::Context) {
+        let connection = storage.connection();
+        let table = std::any::type_name::<T>().split("::").last().unwrap();
+        let mut statement = connection
+            .prepare(&format!("select * from {} where timestamp > ?", table))
+            .unwrap();
+        let mut rows = statement.query([self.last_timestamp]).unwrap();
+
+        while let Some(row) = rows.next().unwrap() {
+            let id: usize = row.get("id").unwrap();
+            let name: String = row.get("name").unwrap();
+            let timestamp: i64 = row.get("timestamp").unwrap();
+            let deleted: bool = row.get("deleted").unwrap();
+            if deleted {
+                info!("DELETE: {}", name);
+                self.items.remove(&name);
+            } else {
+                match T::parse(row, id, context, connection) {
+                    Ok(data) => match self.items.get_mut(&name) {
+                        Some(reference) => {
+                            info!("UPDAte: {}", name);
+                            *reference.borrow_mut() = data;
+                        }
+                        None => {
+                            info!("INSert: {}", name);
+                            self.items.insert(name, Arc::new(RefCell::new(data)));
+                        }
+                    },
+                    Err(error) => {
+                        error!("Unable to parse {} row id={}, {}", table, id, error);
+                        break;
+                    }
+                }
+            }
+            self.last_timestamp = timestamp;
+        }
+    }
+}
 
 pub struct Collection<T> {
     items: Vec<T>,

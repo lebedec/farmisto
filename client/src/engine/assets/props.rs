@@ -1,12 +1,17 @@
-use crate::engine::{MeshAsset, PathRef, PrefabError, TextureAsset};
+use crate::engine::{MeshAsset, TextureAsset};
+use crate::Assets;
+use datamap::WithContext;
 use std::cell::RefCell;
-use std::fs::File;
-use std::path::Path;
 use std::sync::Arc;
 
 #[derive(Clone)]
 pub struct PropsAsset {
     data: Arc<RefCell<PropsAssetData>>,
+}
+
+pub struct PropsAssetData {
+    pub texture: TextureAsset,
+    pub mesh: MeshAsset,
 }
 
 impl PropsAsset {
@@ -19,32 +24,30 @@ impl PropsAsset {
     pub fn mesh(&self) -> MeshAsset {
         self.data.borrow().mesh.clone()
     }
+}
 
-    #[inline]
-    pub fn update(&mut self, data: PropsAssetData) {
-        let mut this = self.data.borrow_mut();
-        *this = data;
+// TODO: autogenerate
+impl WithContext for PropsAssetData {
+    type Context = Assets;
+
+    fn parse(
+        row: &rusqlite::Row,
+        id: usize,
+        context: &mut Self::Context,
+        connection: &rusqlite::Connection,
+    ) -> Result<Self, rusqlite::Error> {
+        let texture: String = row.get("texture")?;
+        let mesh: String = row.get("mesh")?;
+        Ok(Self {
+            texture: context.texture(texture),
+            mesh: context.mesh(mesh),
+        })
     }
+}
 
-    pub fn from_data(data: Arc<RefCell<PropsAssetData>>) -> Self {
+// TODO: autogenerate
+impl From<Arc<RefCell<PropsAssetData>>> for PropsAsset {
+    fn from(data: Arc<RefCell<PropsAssetData>>) -> Self {
         Self { data }
-    }
-}
-
-pub struct PropsAssetData {
-    pub texture: TextureAsset,
-    pub mesh: MeshAsset,
-}
-
-#[derive(serde::Deserialize)]
-pub struct PropsAssetConfig {
-    pub texture: PathRef,
-    pub mesh: PathRef,
-}
-
-impl PropsAssetConfig {
-    pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self, PrefabError> {
-        let file = File::open(path).map_err(PrefabError::Io)?;
-        serde_yaml::from_reader(file).map_err(PrefabError::Yaml)
     }
 }

@@ -1,91 +1,112 @@
 use crate::engine::{MeshAsset, PropsAsset, TextureAsset};
+use crate::Assets;
+use datamap::WithContext;
 use glam::Vec3;
+use rusqlite::Connection;
 use std::cell::RefCell;
-use std::fs::File;
-use std::io;
-use std::path::{Path, PathBuf};
 use std::sync::Arc;
 
-#[derive(serde::Deserialize, serde::Serialize)]
-pub struct PathRef {
-    #[serde(rename = "$ref")]
-    path: PathBuf,
+pub struct FarmlandAsset {
+    pub data: Arc<RefCell<FarmlandAssetData>>,
 }
 
-impl PathRef {
-    #[inline]
-    pub fn resolve<P: AsRef<Path>>(&self, source: P) -> PathBuf {
-        source.as_ref().to_path_buf().join(&self.path)
+pub struct FarmlandAssetData {
+    pub props: Vec<FarmlandAssetPropItem>,
+}
+
+// TODO: autogenerate
+impl WithContext for FarmlandAssetData {
+    type Context = Assets;
+
+    fn parse(
+        row: &rusqlite::Row,
+        id: usize,
+        context: &mut Self::Context,
+        connection: &rusqlite::Connection,
+    ) -> Result<Self, rusqlite::Error> {
+        Ok(Self {
+            props: FarmlandAssetPropItem::prefetch(id, context, connection)?,
+        })
     }
 }
 
-#[derive(Clone)]
-pub struct FarmlandPrefab {
-    data: Arc<RefCell<FarmlandPrefabData>>,
-}
-
-impl FarmlandPrefab {
-    #[inline]
-    pub fn props(&self) -> Vec<Transform<PropsAsset>> {
-        // todo: remove clone
-        self.data.borrow().props.clone()
-    }
-
-    #[inline]
-    pub fn update(&mut self, data: FarmlandPrefabData) {
-        let mut this = self.data.borrow_mut();
-        *this = data;
-    }
-
-    pub fn from_data(data: Arc<RefCell<FarmlandPrefabData>>) -> Self {
+// TODO: autogenerate
+impl From<Arc<RefCell<FarmlandAssetData>>> for FarmlandAsset {
+    fn from(data: Arc<RefCell<FarmlandAssetData>>) -> Self {
         Self { data }
     }
 }
 
-#[derive(Clone)]
-pub struct Transform<T> {
-    pub position: Vec3,
-    pub rotation: Vec3,
-    pub scale: Vec3,
-    pub entity: T,
+pub struct FarmlandAssetPropItem {
+    pub id: usize,
+    pub farmland: usize,
+    pub position: [f32; 3],
+    pub rotation: [f32; 3],
+    pub scale: [f32; 3],
+    pub asset: PropsAsset,
 }
 
-pub struct FarmlandPrefabData {
-    pub props: Vec<Transform<PropsAsset>>,
-    pub config: FarmlandPrefabConfig,
-}
-
-#[derive(serde::Deserialize, serde::Serialize)]
-pub struct PropsConfig {
-    pub position: Option<[f32; 3]>,
-    pub rotation: Option<[f32; 3]>,
-    pub scale: Option<[f32; 3]>,
-    pub asset: PathRef,
-}
-
-#[derive(serde::Deserialize, serde::Serialize)]
-pub struct FarmlandPrefabConfig {
-    pub props: Vec<PropsConfig>,
-}
-
-impl FarmlandPrefabConfig {
-    pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self, PrefabError> {
-        let file = File::open(path).map_err(PrefabError::Io)?;
-        serde_yaml::from_reader(file).map_err(PrefabError::Yaml)
-    }
-
-    pub fn to_file<P: AsRef<Path>>(&self, path: P) -> Result<(), PrefabError> {
-        let file = File::open(path).map_err(PrefabError::Io)?;
-        serde_yaml::to_writer(file, self).map_err(PrefabError::Yaml)
+impl FarmlandAssetPropItem {
+    #[inline]
+    pub fn position(&self) -> Vec3 {
+        Vec3::from(self.position)
     }
 }
 
-#[derive(Clone)]
-pub struct TreePrefab {
-    data: Arc<RefCell<TreePrefabData>>,
+// TODO: autogenerate
+impl WithContext for FarmlandAssetPropItem {
+    type Context = Assets;
+
+    fn prefetch(
+        parent: usize,
+        context: &mut Self::Context,
+        connection: &Connection,
+    ) -> Result<Vec<Self>, rusqlite::Error> {
+        let table = std::any::type_name::<Self>().split("::").last().unwrap();
+        let key = "farmland";
+        let mut statement = connection
+            .prepare(&format!("select * from {} where {} = ?", table, key))
+            .unwrap();
+        let mut rows = statement.query([parent]).unwrap();
+        let mut prefetch = vec![];
+        while let Some(row) = rows.next()? {
+            let id: usize = row.get("id")?;
+            let value = Self::parse(row, id, context, connection)?;
+            prefetch.push(value);
+        }
+        Ok(prefetch)
+    }
+
+    fn parse(
+        row: &rusqlite::Row,
+        id: usize,
+        context: &mut Self::Context,
+        connection: &rusqlite::Connection,
+    ) -> Result<Self, rusqlite::Error> {
+        let asset: String = row.get("asset")?;
+
+        Ok(Self {
+            id,
+            farmland: row.get("farmland")?,
+            position: datamap::parse_json_value(row.get("position")?),
+            rotation: datamap::parse_json_value(row.get("rotation")?),
+            scale: datamap::parse_json_value(row.get("scale")?),
+            asset: context.props(&asset),
+        })
+    }
 }
 
-impl TreePrefab {
+#[derive(Clone)]
+pub struct TreeAsset {
+    data: Arc<RefCell<TreeAssetData>>,
+}
+
+pub struct TreeAssetData {
+    pub texture: TextureAsset,
+    pub mesh: MeshAsset,
+}
+
+impl TreeAsset {
     #[inline]
     pub fn texture(&self) -> TextureAsset {
         self.data.borrow().texture.clone()
@@ -95,38 +116,30 @@ impl TreePrefab {
     pub fn mesh(&self) -> MeshAsset {
         self.data.borrow().mesh.clone()
     }
+}
 
-    #[inline]
-    pub fn update(&mut self, data: TreePrefabData) {
-        let mut this = self.data.borrow_mut();
-        *this = data;
+// TODO: autogenerate
+impl WithContext for TreeAssetData {
+    type Context = Assets;
+
+    fn parse(
+        row: &rusqlite::Row,
+        id: usize,
+        context: &mut Self::Context,
+        connection: &rusqlite::Connection,
+    ) -> Result<Self, rusqlite::Error> {
+        let texture: String = row.get("texture")?;
+        let mesh: String = row.get("mesh")?;
+        Ok(Self {
+            texture: context.texture(texture),
+            mesh: context.mesh(mesh),
+        })
     }
+}
 
-    pub fn from_data(data: Arc<RefCell<TreePrefabData>>) -> Self {
+// TODO: autogenerate
+impl From<Arc<RefCell<TreeAssetData>>> for TreeAsset {
+    fn from(data: Arc<RefCell<TreeAssetData>>) -> Self {
         Self { data }
     }
-}
-
-pub struct TreePrefabData {
-    pub texture: TextureAsset,
-    pub mesh: MeshAsset,
-}
-
-#[derive(serde::Deserialize)]
-pub struct TreePrefabConfig {
-    pub texture: PathRef,
-    pub mesh: PathRef,
-}
-
-impl TreePrefabConfig {
-    pub fn from_file<P: AsRef<Path>>(path: P) -> Result<Self, PrefabError> {
-        let file = File::open(path).map_err(PrefabError::Io)?;
-        serde_yaml::from_reader(file).map_err(PrefabError::Yaml)
-    }
-}
-
-#[derive(Debug)]
-pub enum PrefabError {
-    Io(io::Error),
-    Yaml(serde_yaml::Error),
 }

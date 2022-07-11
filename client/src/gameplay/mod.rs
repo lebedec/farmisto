@@ -1,5 +1,5 @@
 use crate::editor::Editor;
-use crate::engine::{FarmlandPrefab, Input, TreePrefab};
+use crate::engine::{FarmlandAsset, Input, TreeAsset};
 use crate::gameplay::camera::Camera;
 use crate::{Assets, Mode, MyRenderer};
 use datamap::{Known, Shared, Storage};
@@ -12,7 +12,6 @@ use sdl2::keyboard::Keycode;
 use server::LocalServerThread;
 use std::collections::HashMap;
 use std::hash::Hash;
-use std::path::PathBuf;
 
 mod camera;
 
@@ -82,11 +81,16 @@ impl Mode for Gameplay {
                                     id, kind.name, position, growth
                                 );
 
-                                let path = PathBuf::from(&kind.name).with_extension("yaml");
-                                let path = PathBuf::from("./assets/trees").join(path);
-                                let prefab = assets.tree(path);
+                                let prefab = assets.tree(&kind.name);
 
-                                self.trees.insert(id, TreeBehaviour { id, kind, prefab });
+                                self.trees.insert(
+                                    id,
+                                    TreeBehaviour {
+                                        id,
+                                        kind,
+                                        asset: prefab,
+                                    },
+                                );
                             }
                             Event::TreeVanished(id) => {
                                 info!("Vanish tree {:?}", id);
@@ -99,12 +103,10 @@ impl Mode for Gameplay {
                                 let kind = self.knowledge.farmlands.get(kind).unwrap();
                                 info!("Appear farmland {:?} kind='{}'", id, kind.name);
 
-                                let path = PathBuf::from(&kind.name).with_extension("yaml");
-                                let path = PathBuf::from("./assets/farmlands").join(path);
-                                let prefab = assets.farmland(path);
+                                let asset = assets.farmland(&kind.name);
 
                                 self.farmlands
-                                    .insert(id, FarmlandBehaviour { id, kind, prefab });
+                                    .insert(id, FarmlandBehaviour { id, kind, asset });
                             }
                             Event::FarmlandVanished(id) => {
                                 info!("Vanish farmland {:?}", id);
@@ -128,11 +130,11 @@ impl Mode for Gameplay {
                 let mut best = f32::INFINITY;
                 let mut best_position = Vec3::ZERO;
                 for farmland in self.farmlands.values() {
-                    for transform in farmland.prefab.props() {
-                        let distance = transform.position.distance(pos);
+                    for transform in &farmland.asset.data.borrow().props {
+                        let distance = transform.position().distance(pos);
                         if distance < best {
                             best = distance;
-                            best_position = transform.position;
+                            best_position = transform.position();
                         }
                     }
                 }
@@ -153,23 +155,23 @@ impl Mode for Gameplay {
         renderer.clear();
         renderer.look_at(self.camera.uniform());
         for farmland in self.farmlands.values() {
-            for transform in farmland.prefab.props() {
-                let matrix = Mat4::from_translation(transform.position)
-                    * Mat4::from_scale(transform.scale)
+            for props in &farmland.asset.data.borrow().props {
+                let matrix = Mat4::from_translation(props.position.into())
+                    * Mat4::from_scale(props.scale.into())
                     // todo: rework rotation
-                    * Mat4::from_rotation_x(transform.rotation[0].to_radians())
-                    * Mat4::from_rotation_y(transform.rotation[1].to_radians())
-                    * Mat4::from_rotation_z(transform.rotation[2].to_radians());
-                renderer.draw(matrix, transform.entity.mesh(), transform.entity.texture());
-                renderer.bounds(matrix, transform.entity.mesh().bounds());
+                    * Mat4::from_rotation_x(props.rotation[0].to_radians())
+                    * Mat4::from_rotation_y(props.rotation[1].to_radians())
+                    * Mat4::from_rotation_z(props.rotation[2].to_radians());
+                renderer.draw(matrix, props.asset.mesh(), props.asset.texture());
+                renderer.bounds(matrix, props.asset.mesh().bounds());
             }
         }
         for tree in self.trees.values() {
             renderer.draw(
                 Mat4::from_translation(vec3(0.0, 0.0, 0.0))
                     * Mat4::from_rotation_y(10.0_f32.to_radians()),
-                tree.prefab.mesh(),
-                tree.prefab.texture(),
+                tree.asset.mesh(),
+                tree.asset.texture(),
             );
             // for x in 0..1000 {
             //     let x1 = x % 100;
@@ -192,13 +194,13 @@ impl Mode for Gameplay {
 pub struct FarmlandBehaviour {
     id: FarmlandId,
     kind: Shared<FarmlandKind>,
-    prefab: FarmlandPrefab,
+    asset: FarmlandAsset,
 }
 
 pub struct TreeBehaviour {
     id: TreeId,
     kind: Shared<TreeKind>,
-    prefab: TreePrefab,
+    asset: TreeAsset,
 }
 
 #[derive(Default)]

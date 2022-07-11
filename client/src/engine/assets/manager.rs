@@ -1,14 +1,13 @@
 use crate::engine::assets::fs::{FileEvent, FileSystem};
-use crate::engine::assets::prefabs::{TreePrefab, TreePrefabConfig, TreePrefabData};
+use crate::engine::assets::prefabs::{TreeAsset, TreeAssetData};
 use crate::engine::base::Queue;
 use crate::engine::{
-    FarmlandPrefab, FarmlandPrefabConfig, FarmlandPrefabData, MeshAsset, MeshAssetData, PropsAsset,
-    PropsAssetConfig, PropsAssetData, ShaderAsset, ShaderAssetData, TextureAsset, TextureAssetData,
-    Transform,
+    FarmlandAsset, FarmlandAssetData, MeshAsset, MeshAssetData, PropsAsset, PropsAssetData,
+    ShaderAsset, ShaderAssetData, TextureAsset, TextureAssetData,
 };
 use crate::ShaderCompiler;
 use ash::{vk, Device};
-use glam::Vec3;
+use datamap::{Dictionary, Storage};
 use log::{error, info};
 use std::cell::RefCell;
 use std::collections::HashMap;
@@ -33,9 +32,9 @@ pub struct Assets {
 
     shaders: HashMap<PathBuf, ShaderAsset>,
 
-    farmlands: HashMap<PathBuf, FarmlandPrefab>,
-    trees: HashMap<PathBuf, TreePrefab>,
-    props: HashMap<PathBuf, PropsAsset>,
+    farmlands: Dictionary<FarmlandAssetData>,
+    trees: Dictionary<TreeAssetData>,
+    props: Dictionary<PropsAssetData>,
 
     queue: Arc<Queue>,
 }
@@ -250,70 +249,16 @@ impl Assets {
         mesh
     }
 
-    pub fn tree<P: AsRef<Path>>(&mut self, path: P) -> TreePrefab {
-        let path = fs::canonicalize(path).unwrap();
-        if let Some(prefab) = self.trees.get(&path) {
-            return prefab.clone();
-        }
-        let source = path.parent().unwrap();
-        let config = TreePrefabConfig::from_file(&path).unwrap();
-        let data = TreePrefabData {
-            texture: self.texture(config.texture.resolve(&source)),
-            mesh: self.mesh(config.mesh.resolve(&source)),
-        };
-        let prefab = TreePrefab::from_data(Arc::new(RefCell::new(data)));
-        self.trees.insert(path, prefab.clone());
-        prefab
+    pub fn tree(&mut self, name: &str) -> TreeAsset {
+        self.trees.get(name).unwrap()
     }
 
-    pub fn farmland<P: AsRef<Path>>(&mut self, path: P) -> FarmlandPrefab {
-        let path = fs::canonicalize(path).unwrap();
-        if let Some(prefab) = self.farmlands.get(&path) {
-            return prefab.clone();
-        }
-        let source = path.parent().unwrap();
-        let config = FarmlandPrefabConfig::from_file(&path).unwrap();
-        let data = FarmlandPrefabData {
-            props: config
-                .props
-                .iter()
-                .map(|config| Transform {
-                    position: config
-                        .position
-                        .map(|values| Vec3::from(values))
-                        .unwrap_or(Vec3::ZERO),
-                    rotation: config
-                        .rotation
-                        .map(|values| Vec3::from(values))
-                        .unwrap_or(Vec3::ZERO),
-                    scale: config
-                        .scale
-                        .map(|values| Vec3::from(values))
-                        .unwrap_or(Vec3::ONE),
-                    entity: self.props(config.asset.resolve(&source)),
-                })
-                .collect(),
-            config,
-        };
-        let asset = FarmlandPrefab::from_data(Arc::new(RefCell::new(data)));
-        self.farmlands.insert(path, asset.clone());
-        asset
+    pub fn farmland(&mut self, name: &str) -> FarmlandAsset {
+        self.farmlands.get(name).unwrap()
     }
 
-    pub fn props<P: AsRef<Path>>(&mut self, path: P) -> PropsAsset {
-        let path = fs::canonicalize(path).unwrap();
-        if let Some(asset) = self.props.get(&path) {
-            return asset.clone();
-        }
-        let source = path.parent().unwrap();
-        let config = PropsAssetConfig::from_file(&path).unwrap();
-        let data = PropsAssetData {
-            texture: self.texture(config.texture.resolve(&source)),
-            mesh: self.mesh(config.mesh.resolve(&source)),
-        };
-        let asset = PropsAsset::from_data(Arc::new(RefCell::new(data)));
-        self.props.insert(path, asset.clone());
-        asset
+    pub fn props(&mut self, name: &str) -> PropsAsset {
+        self.props.get(name).unwrap()
     }
 
     fn require_update(&mut self, kind: AssetKind, path: PathBuf) {
@@ -322,7 +267,17 @@ impl Assets {
         requests.push(AssetRequest { path, kind });
     }
 
-    pub fn update(&mut self) {
+    pub fn update(&mut self, storage: &Storage) {
+        let ptr = self as *mut Assets;
+        unsafe {
+            // database collections changes by himself,
+            // *ptr change only non-database assets
+            // TODO: remove unsafe (move to separate boxed struct?)
+            self.props.load(storage, &mut *ptr);
+            self.trees.load(storage, &mut *ptr);
+            self.farmlands.load(storage, &mut *ptr);
+        }
+
         for (path, event) in self.observe_file_events() {
             info!(
                 "Observed {:?} {:?}, {:?}",
@@ -350,52 +305,6 @@ impl Assets {
                         self.require_update(AssetKind::Mesh, path);
                     } else if self.shaders.contains_key(&path) {
                         self.require_update(AssetKind::Shader, path);
-                    } else if self.trees.contains_key(&path) {
-                        // INSTANT RELOAD vvv
-                        let source = path.parent().unwrap();
-                        let config = TreePrefabConfig::from_file(&path).unwrap();
-                        let data = TreePrefabData {
-                            texture: self.texture(config.texture.resolve(&source)),
-                            mesh: self.mesh(config.mesh.resolve(&source)),
-                        };
-                        let prefab = self.trees.get_mut(&path).unwrap();
-                        prefab.update(data);
-                    } else if self.props.contains_key(&path) {
-                        let source = path.parent().unwrap();
-                        let config = PropsAssetConfig::from_file(&path).unwrap();
-                        let data = PropsAssetData {
-                            texture: self.texture(config.texture.resolve(&source)),
-                            mesh: self.mesh(config.mesh.resolve(&source)),
-                        };
-                        let asset = self.props.get_mut(&path).unwrap();
-                        asset.update(data);
-                    } else if self.farmlands.contains_key(&path) {
-                        let source = path.parent().unwrap();
-                        let config = FarmlandPrefabConfig::from_file(&path).unwrap();
-                        let data = FarmlandPrefabData {
-                            props: config
-                                .props
-                                .iter()
-                                .map(|config| Transform {
-                                    position: config
-                                        .position
-                                        .map(|values| Vec3::from(values))
-                                        .unwrap_or(Vec3::ZERO),
-                                    rotation: config
-                                        .rotation
-                                        .map(|values| Vec3::from(values))
-                                        .unwrap_or(Vec3::ZERO),
-                                    scale: config
-                                        .scale
-                                        .map(|values| Vec3::from(values))
-                                        .unwrap_or(Vec3::ONE),
-                                    entity: self.props(config.asset.resolve(&source)),
-                                })
-                                .collect(),
-                            config,
-                        };
-                        let asset = self.farmlands.get_mut(&path).unwrap();
-                        asset.update(data);
                     }
                 }
                 FileEvent::Deleted => {}

@@ -2,6 +2,7 @@ use crate::engine::base::{submit_commands, Base};
 use crate::engine::my::MyRenderer;
 use crate::engine::{Assets, Input};
 use ash::vk;
+use datamap::Storage;
 use log::info;
 use std::ffi::CString;
 use std::sync::Arc;
@@ -132,6 +133,7 @@ pub fn startup<A: App>(title: String) {
         }];
         let scissors = vec![base.surface_resolution.into()];
 
+        let storage = Storage::open("./assets/assets.sqlite").unwrap();
         let mut assets = Assets::new(base.device.clone(), base.pool, base.queue.clone());
 
         let mut my_renderer = MyRenderer::create(
@@ -150,7 +152,7 @@ pub fn startup<A: App>(title: String) {
         let mut time = Instant::now();
         let mut input = Input::new(window_size);
         loop {
-            assets.update();
+            assets.update(&storage);
 
             input.reset();
             input.time = time.elapsed().as_secs_f32();
