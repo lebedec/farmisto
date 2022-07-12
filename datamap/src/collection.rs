@@ -1,6 +1,6 @@
 use crate::{Known, Persist, Shared, Storage};
 use log::{error, info, warn};
-use std::cell::{Ref, RefCell};
+use std::cell::{Ref, RefCell, RefMut};
 use std::collections::HashMap;
 use std::sync::Arc;
 
@@ -49,6 +49,14 @@ where
         match self.items.get(name) {
             None => None,
             Some(data) => Some(A::from(data.clone())),
+        }
+    }
+
+    #[inline]
+    pub fn edit(&mut self, name: &str) -> Option<RefMut<T>> {
+        match self.items.get_mut(name) {
+            Some(reference) => Some(reference.borrow_mut()),
+            None => None,
         }
     }
 

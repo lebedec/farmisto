@@ -32,7 +32,7 @@ pub struct Assets {
 
     shaders: HashMap<PathBuf, ShaderAsset>,
 
-    farmlands: Dictionary<FarmlandAssetData>,
+    pub farmlands: Dictionary<FarmlandAssetData>,
     trees: Dictionary<TreeAssetData>,
     props: Dictionary<PropsAssetData>,
 

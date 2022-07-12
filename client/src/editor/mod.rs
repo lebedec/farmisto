@@ -1,4 +1,10 @@
+use crate::gameplay::Gameplay;
 use crate::{Assets, Input, MyRenderer};
+use datamap::Storage;
+use game::model::FarmlandId;
+use glam::{Mat4, Vec2, Vec3};
+use log::info;
+use rusqlite::params;
 use sdl2::keyboard::Keycode;
 
 pub struct Editor {
@@ -17,37 +23,74 @@ impl Editor {
     }
 }
 
+#[derive(Debug, Clone, PartialEq)]
 pub enum Selection {
-    FarmlandProp { asset: usize, prop: usize },
+    FarmlandProp {
+        id: usize,
+        farmland: FarmlandId,
+        kind: String,
+    },
 }
 
 trait Edit {
-    fn handle(&mut self, input: &Input);
+    fn handle(&mut self, input: &Input, assets: &mut Assets, storage: &Storage) -> bool;
     fn reset(&self);
 }
 
 struct Move {
-    lock_x: bool,
-    lock_y: bool,
-    lock_z: bool,
-    origin: [f32; 2],
+    selection: Selection,
+    lock: Vec3,
+    mouse_origin: Vec2,
+    position: Option<Vec3>,
+    translation: Vec3,
 }
 
 impl Edit for Move {
-    fn handle(&mut self, input: &Input) {
+    fn handle(&mut self, input: &Input, assets: &mut Assets, storage: &Storage) -> bool {
         if input.pressed(Keycode::X) {
-            self.lock_x = !self.lock_x;
+            self.lock = Vec3::X;
         }
 
         if input.pressed(Keycode::Y) {
-            self.lock_y = !self.lock_y;
+            self.lock = Vec3::Y;
         }
 
         if input.pressed(Keycode::Z) {
-            self.lock_z = !self.lock_z;
+            self.lock = Vec3::Z;
         }
 
-        // update translations set x = ?, y =? z =? where id = id
+        let direction = self.lock.normalize_or_zero();
+        let delta = Vec2::from(input.mouse_position().viewport) - self.mouse_origin;
+        let delta = delta.x;
+
+        self.translation = direction * delta;
+
+        match &self.selection {
+            Selection::FarmlandProp { farmland, id, kind } => {
+                let mut asset = assets.farmlands.edit(&kind).unwrap();
+                let prop = asset.props.iter_mut().find(|prop| &prop.id == id).unwrap();
+
+                if self.position.is_none() {
+                    self.position = Some(prop.position());
+                }
+
+                let position = self.position.unwrap();
+                prop.position = (position + self.translation).into();
+
+                if input.click() {
+                    storage
+                        .connection()
+                        .execute(
+                            "update FarmlandAssetPropItem set position = ? where id = ?",
+                            params![datamap::to_json_value(prop.position.as_ref()), *id],
+                        )
+                        .unwrap();
+                    return true;
+                }
+            }
+        }
+
+        false
     }
 
     fn reset(&self) {
@@ -55,21 +98,70 @@ impl Edit for Move {
     }
 }
 
-impl Editor {
-    pub fn update(&mut self, input: &Input, _renderer: &mut MyRenderer, _assets: &mut Assets) {
+impl Gameplay {
+    pub fn update_editor(&mut self, input: &Input, renderer: &mut MyRenderer, assets: &mut Assets) {
+        let editor = self.editor.as_mut().unwrap();
+
         if input.pressed(Keycode::Tab) {
-            self.capture = !self.capture;
+            editor.capture = !editor.capture;
         }
 
-        if !self.capture {
+        if !editor.capture {
             return;
         }
 
-        self.handle_selection_command(input);
+        if let Some(edit) = editor.edit.as_mut() {
+            if edit.handle(input, assets, &self.assets_storage) {
+                editor.edit = None;
+            }
+        } else {
+            if input.click() {
+                let (_, pos) = self.camera.cast_ray(input.mouse_position());
+
+                if let Some(pos) = pos {
+                    let mut best = f32::INFINITY;
+                    let mut best_position = Vec3::ZERO;
+                    for farmland in self.farmlands.values() {
+                        for prop in &farmland.asset.data.borrow().props {
+                            let distance = prop.position().distance(pos);
+                            if distance < best {
+                                best = distance;
+                                editor.selection = Some(Selection::FarmlandProp {
+                                    id: prop.id,
+                                    farmland: farmland.id,
+                                    kind: farmland.kind.name.clone(),
+                                })
+                            }
+                        }
+                    }
+                    info!("SELECTION: {:?}", editor.selection);
+                }
+            }
+
+            self.handle_selection_command(input);
+        }
+
+        let editor = self.editor.as_mut().unwrap();
+        match editor.selection.as_ref() {
+            None => {}
+            Some(Selection::FarmlandProp { farmland, id, .. }) => {
+                let farmland = self.farmlands.get(farmland).unwrap();
+                let data = farmland.asset.data.borrow();
+                let props = data.props.iter().find(|p| p.id == *id).unwrap();
+                let matrix = Mat4::from_translation(props.position.into())
+                    * Mat4::from_scale(props.scale.into())
+                    // todo: rework rotation
+                    * Mat4::from_rotation_x(props.rotation[0].to_radians())
+                    * Mat4::from_rotation_y(props.rotation[1].to_radians())
+                    * Mat4::from_rotation_z(props.rotation[2].to_radians());
+                renderer.bounds(matrix, props.asset.mesh().bounds());
+            }
+        }
     }
 
     fn handle_selection_command(&mut self, input: &Input) {
-        let selection = match self.selection.as_ref() {
+        let editor = self.editor.as_mut().unwrap();
+        let selection = match editor.selection.as_ref() {
             None => return,
             Some(selection) => selection,
         };
@@ -82,7 +174,13 @@ impl Editor {
                     // delete
                 }
                 if input.pressed(Keycode::G) {
-                    //
+                    editor.edit = Some(Box::new(Move {
+                        selection: selection.clone(),
+                        lock: Vec3::ZERO,
+                        mouse_origin: Vec2::from(input.mouse_position().viewport),
+                        position: None,
+                        translation: Vec3::ZERO,
+                    }));
                 }
                 if input.pressed(Keycode::R) {
                     // rotate

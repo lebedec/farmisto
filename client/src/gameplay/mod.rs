@@ -1,4 +1,4 @@
-use crate::editor::Editor;
+use crate::editor::{Editor, Selection};
 use crate::engine::{FarmlandAsset, Input, TreeAsset};
 use crate::gameplay::camera::Camera;
 use crate::{Assets, Mode, MyRenderer};
@@ -17,14 +17,15 @@ mod camera;
 
 pub struct Gameplay {
     server: Option<LocalServerThread>,
-    editor: Option<Editor>,
+    pub editor: Option<Editor>,
     client: TcpClient,
     action_id: usize,
     storage: Storage,
+    pub assets_storage: Storage,
     knowledge: KnowledgeBase,
-    farmlands: HashMap<FarmlandId, FarmlandBehaviour>,
+    pub farmlands: HashMap<FarmlandId, FarmlandBehaviour>,
     trees: HashMap<TreeId, TreeBehaviour>,
-    camera: Camera,
+    pub camera: Camera,
 }
 
 impl Gameplay {
@@ -40,6 +41,7 @@ impl Gameplay {
             client,
             action_id: 0,
             storage: Storage::open("./assets/database.sqlite").unwrap(),
+            assets_storage: Storage::open("./assets/assets.sqlite").unwrap(),
             knowledge: KnowledgeBase::default(),
             farmlands: Default::default(),
             trees: HashMap::new(),
@@ -49,19 +51,8 @@ impl Gameplay {
 }
 
 impl Mode for Gameplay {
-    // fn start(&mut self, assets: &mut Assets) {
-    //     self.tree_tex = Some((
-    //         assets.mesh("./assets/viking_room.space3"),
-    //         assets.texture("./assets/viking_room.png"),
-    //     ));
-    // }
-
     fn update(&mut self, input: &Input, renderer: &mut MyRenderer, assets: &mut Assets) {
         self.knowledge.load(&self.storage);
-
-        if let Some(editor) = self.editor.as_mut() {
-            editor.update(input, renderer, assets);
-        }
 
         for response in self.client.responses() {
             match response {
@@ -123,25 +114,6 @@ impl Mode for Gameplay {
 
         self.camera.update(input);
 
-        if input.click() {
-            let (_, pos) = self.camera.cast_ray(input.mouse_position());
-
-            if let Some(pos) = pos {
-                let mut best = f32::INFINITY;
-                let mut best_position = Vec3::ZERO;
-                for farmland in self.farmlands.values() {
-                    for transform in &farmland.asset.data.borrow().props {
-                        let distance = transform.position().distance(pos);
-                        if distance < best {
-                            best = distance;
-                            best_position = transform.position();
-                        }
-                    }
-                }
-                info!("SELECTION: {}", best_position);
-            }
-        }
-
         if input.pressed(Keycode::Kp1) {
             self.action_id += 1;
             let action = Action::DoSomething;
@@ -154,6 +126,11 @@ impl Mode for Gameplay {
         // RENDER
         renderer.clear();
         renderer.look_at(self.camera.uniform());
+
+        if let Some(editor) = self.editor.as_mut() {
+            self.update_editor(input, renderer, assets);
+        }
+
         for farmland in self.farmlands.values() {
             for props in &farmland.asset.data.borrow().props {
                 let matrix = Mat4::from_translation(props.position.into())
@@ -163,7 +140,6 @@ impl Mode for Gameplay {
                     * Mat4::from_rotation_y(props.rotation[1].to_radians())
                     * Mat4::from_rotation_z(props.rotation[2].to_radians());
                 renderer.draw(matrix, props.asset.mesh(), props.asset.texture());
-                renderer.bounds(matrix, props.asset.mesh().bounds());
             }
         }
         for tree in self.trees.values() {
@@ -173,28 +149,14 @@ impl Mode for Gameplay {
                 tree.asset.mesh(),
                 tree.asset.texture(),
             );
-            // for x in 0..1000 {
-            //     let x1 = x % 100;
-            //     let y1 = x / 100;
-            //     let x1 = x1 as f32;
-            //     let y1 = y1 as f32;
-            //     renderer.draw(
-            //         Transform {
-            //             matrix: Mat4::from_translation(vec3(x1, 0.0, y1))
-            //                 * Mat4::from_rotation_y(10.0_f32.to_radians()),
-            //         },
-            //         tree.prefab.mesh(),
-            //         tree.prefab.texture(),
-            //     );
-            // }
         }
     }
 }
 
 pub struct FarmlandBehaviour {
-    id: FarmlandId,
-    kind: Shared<FarmlandKind>,
-    asset: FarmlandAsset,
+    pub id: FarmlandId,
+    pub kind: Shared<FarmlandKind>,
+    pub asset: FarmlandAsset,
 }
 
 pub struct TreeBehaviour {
