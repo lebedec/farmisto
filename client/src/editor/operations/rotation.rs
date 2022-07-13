@@ -55,7 +55,7 @@ impl Operation for Rotation {
         self.angle = delta * 180.0;
 
         match &self.selection {
-            Selection::FarmlandProp { farmland, id, kind } => {
+            Selection::FarmlandProp { id, kind, .. } => {
                 // self.farmlands
 
                 let mut asset = assets.farmlands.edit(&kind).unwrap();
@@ -80,7 +80,7 @@ impl Operation for Rotation {
                     return true;
                 }
             }
-            Selection::Tree { id } => {}
+            Selection::Tree { .. } => {}
         }
 
         false

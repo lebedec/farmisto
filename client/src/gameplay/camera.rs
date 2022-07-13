@@ -28,7 +28,7 @@ impl Camera {
         // todo: dramatic accuracy error on low z_far values
         let point =
             inverted.transform_point3(Vec3::new(mouse.viewport[0], -mouse.viewport[1], 1.0));
-        let mut ray_dir = point.normalize_or_zero();
+        let ray_dir = point.normalize_or_zero();
         let ray_origin = self.eye;
 
         let normal = Vec3::new(0.0, 1.0, 0.0);

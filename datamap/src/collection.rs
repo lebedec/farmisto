@@ -1,6 +1,6 @@
 use crate::{Known, Persist, Shared, Storage};
 use log::{error, info, warn};
-use std::cell::{Ref, RefCell, RefMut};
+use std::cell::{RefCell, RefMut};
 use std::collections::HashMap;
 use std::sync::Arc;
 

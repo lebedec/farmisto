@@ -247,14 +247,13 @@ fn generate_asset_data_trait(ast: &DeriveInput) -> TokenStream {
         Data::Struct(data) => {
             let mut mapping = vec![];
             let mut parent = quote! { "id" };
-            for (index, field) in data.fields.iter().enumerate() {
+            for (_index, field) in data.fields.iter().enumerate() {
                 let field_ident = field.ident.as_ref().unwrap();
                 let field_name = format!("{}", field_ident);
                 let field_type_tokens = match &field.ty {
                     Type::Path(path) => path.to_token_stream(),
                     _ => quote! { () },
                 };
-                let field_type = field_type_tokens.to_string();
 
                 if field
                     .attrs

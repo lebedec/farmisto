@@ -14,7 +14,6 @@ pub struct UniformBuffer {
     device: Device,
     pub buffers: Vec<vk::Buffer>,
     memory: Vec<vk::DeviceMemory>,
-    memory_size: Vec<vk::DeviceSize>,
 }
 
 impl UniformBuffer {
@@ -132,7 +131,6 @@ impl UniformBuffer {
         Self {
             buffers,
             memory,
-            memory_size,
             device,
         }
     }

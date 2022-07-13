@@ -27,7 +27,6 @@ pub struct TcpServer {
     authorization: Receiver<Player>,
     disconnection: Receiver<String>,
     players: HashMap<String, Player>,
-    ready: Arc<AtomicBool>,
 }
 
 pub struct Configuration {
@@ -40,7 +39,6 @@ impl TcpServer {
         let address = detect_server_address();
         info!("Start server {}", address);
         let running = Arc::new(AtomicBool::new(true));
-        let ready = Arc::new(AtomicBool::new(false));
         let (listener_authorization, authorization) = channel();
         let (listener_disconnection, disconnection) = channel();
         spawn_listener(
@@ -55,7 +53,6 @@ impl TcpServer {
             authorization,
             disconnection,
             players: HashMap::new(),
-            ready,
         }
     }
 

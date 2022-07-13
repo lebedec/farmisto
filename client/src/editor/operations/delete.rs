@@ -3,7 +3,6 @@ use crate::editor::selection::Selection;
 use crate::gameplay::Gameplay;
 use crate::{Assets, Input};
 use datamap::Storage;
-use glam::{Vec2, Vec3};
 use rusqlite::params;
 
 pub struct Delete {}
@@ -17,10 +16,10 @@ impl Delete {
 impl Operation for Delete {
     fn handle(
         &mut self,
-        input: &Input,
+        _input: &Input,
         assets: &mut Assets,
-        storage: &Storage,
-        gameplay: &mut Gameplay,
+        _storage: &Storage,
+        _gameplay: &mut Gameplay,
         selection: &mut Option<Selection>,
     ) -> bool {
         let current = match selection.as_ref() {
