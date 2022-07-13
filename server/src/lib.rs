@@ -16,10 +16,11 @@ impl LocalServerThread {
     pub fn spawn(config: Configuration) -> Self {
         let running = Arc::new(AtomicBool::new(true));
         let running_thread = running.clone();
+        let mut server = TcpServer::startup(config);
         thread::spawn(move || {
             info!("Start game server thread");
             let mut game = Game::new();
-            let mut server = TcpServer::startup(config);
+
             let mut tick = Instant::now();
             while running_thread.load(Ordering::Relaxed) {
                 for player in server.accept_players() {

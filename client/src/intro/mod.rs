@@ -28,8 +28,7 @@ impl Mode for Intro {
                 password: None,
             };
             let server = LocalServerThread::spawn(config);
-            // await server start
-            thread::sleep(Duration::from_millis(100));
+            thread::sleep(Duration::from_millis(10));
             let client = TcpClient::connect("127.0.0.1:8080", player, None).unwrap();
             let gameplay = Gameplay::new(Some(server), client, renderer.viewport);
 
