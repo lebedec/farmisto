@@ -2,6 +2,7 @@ use crate::editor::Editor;
 use crate::gameplay::Gameplay;
 use crate::menu::Menu;
 use crate::{Mode, MyRenderer};
+use datamap::Storage;
 use network::{Configuration, TcpClient};
 use server::LocalServerThread;
 use std::thread;
@@ -30,17 +31,19 @@ impl Mode for Intro {
             // await server start
             thread::sleep(Duration::from_millis(100));
             let client = TcpClient::connect("127.0.0.1:8080", player, None).unwrap();
-            let editor = if self.is_editor {
-                Some(Editor::new())
+            let gameplay = Gameplay::new(Some(server), client, renderer.viewport);
+
+            if self.is_editor {
+                Some(Box::new(Editor {
+                    selection: None,
+                    capture: false,
+                    edit: None,
+                    gameplay,
+                    storage: Storage::open("./assets/database.sqlite").unwrap(),
+                }))
             } else {
-                None
-            };
-            Some(Gameplay::new(
-                Some(server),
-                editor,
-                client,
-                renderer.viewport,
-            ))
+                Some(Box::new(gameplay))
+            }
         } else {
             Some(Menu::new())
         }

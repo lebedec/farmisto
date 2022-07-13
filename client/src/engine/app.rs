@@ -152,7 +152,7 @@ pub fn startup<A: App>(title: String) {
         let mut time = Instant::now();
         let mut input = Input::new(window_size);
         loop {
-            assets.update(&storage);
+            assets.update();
 
             input.reset();
             input.time = time.elapsed().as_secs_f32();

@@ -6,7 +6,7 @@ pub trait Mode {
     }
 
     #[allow(unused_variables)]
-    fn start(&mut self, manager: &mut Assets) {}
+    fn start(&mut self, assets: &mut Assets) {}
 
     #[allow(unused_variables)]
     fn update(&mut self, input: &Input, renderer: &mut MyRenderer, assets: &mut Assets) {}

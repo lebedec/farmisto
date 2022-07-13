@@ -18,6 +18,8 @@ use std::time::Duration;
 use std::{fs, thread};
 
 pub struct Assets {
+    pub storage: Storage,
+
     loading_requests: Arc<RwLock<Vec<AssetRequest>>>,
     loading_result: Receiver<AssetPayload>,
     file_events: Arc<RwLock<HashMap<PathBuf, FileEvent>>>,
@@ -69,6 +71,8 @@ pub enum AssetKind {
 
 impl Assets {
     pub fn new(device: Device, pool: vk::CommandPool, queue: Arc<Queue>) -> Self {
+        let storage = Storage::open("./assets/assets.sqlite").unwrap();
+
         info!(
             "Shader compiler version: {}",
             ShaderCompiler::new().version()
@@ -190,6 +194,7 @@ impl Assets {
         let file_events = FileSystem::watch();
 
         Self {
+            storage,
             textures_default,
             textures_white,
             textures,
@@ -267,8 +272,9 @@ impl Assets {
         requests.push(AssetRequest { path, kind });
     }
 
-    pub fn update(&mut self, storage: &Storage) {
+    pub fn update(&mut self) {
         let ptr = self as *mut Assets;
+        let storage = &self.storage;
         unsafe {
             // database collections changes by himself,
             // *ptr change only non-database assets

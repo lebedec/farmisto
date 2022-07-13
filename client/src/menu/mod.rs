@@ -29,7 +29,7 @@ impl Mode for Menu {
     fn transition(&self, renderer: &mut MyRenderer) -> Option<Box<dyn Mode>> {
         if let Some(player) = self.join.as_ref() {
             let client = TcpClient::connect("127.0.0.1:8080", player.to_string(), None).unwrap();
-            return Some(Gameplay::new(None, None, client, renderer.viewport));
+            return Some(Box::new(Gameplay::new(None, client, renderer.viewport)));
         }
         None
     }
