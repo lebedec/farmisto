@@ -1,7 +1,15 @@
-use crate::engine::{FarmlandAsset, TreeAsset};
+use crate::engine::{FarmerAsset, FarmlandAsset, TreeAsset};
 use datamap::{Known, Shared, Storage};
-use game::model::{FarmlandId, FarmlandKind, TreeId, TreeKind};
-use glam::Vec3;
+use game::model::{FarmerId, FarmerKind, FarmlandId, FarmlandKind, TreeId, TreeKind};
+use glam::{Vec2, Vec3};
+
+pub struct FarmerBehaviour {
+    pub id: FarmerId,
+    pub kind: Shared<FarmerKind>,
+    pub asset: FarmerAsset,
+    pub considered_position: Vec2,
+    pub position: Vec3,
+}
 
 pub struct FarmlandBehaviour {
     pub id: FarmlandId,

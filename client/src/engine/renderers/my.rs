@@ -68,11 +68,11 @@ impl MyRenderer {
         })
     }
 
-    pub fn draw(&mut self, transform: Mat4, mesh: MeshAsset, texture: TextureAsset) {
+    pub fn draw(&mut self, transform: Mat4, mesh: &MeshAsset, texture: &TextureAsset) {
         self.objects.push(MyRenderObject {
             transform,
-            mesh,
-            texture,
+            mesh: mesh.clone(),
+            texture: texture.clone(),
         })
     }
 

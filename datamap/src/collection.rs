@@ -20,13 +20,29 @@ impl<T> Default for Dictionary<T> {
 
 pub trait WithContext: Sized {
     type Context;
+    const PREFETCH_PARENT: &'static str = "id";
 
     fn prefetch(
         parent: usize,
         context: &mut Self::Context,
         connection: &rusqlite::Connection,
     ) -> Result<Vec<Self>, rusqlite::Error> {
-        unimplemented!()
+        let table = std::any::type_name::<Self>().split("::").last().unwrap();
+        let mut statement = connection
+            .prepare(&format!(
+                "select * from {} where {} = ?",
+                table,
+                Self::PREFETCH_PARENT
+            ))
+            .unwrap();
+        let mut rows = statement.query([parent]).unwrap();
+        let mut prefetch = vec![];
+        while let Some(row) = rows.next()? {
+            let id: usize = row.get("id")?;
+            let value = Self::parse(row, id, context, connection)?;
+            prefetch.push(value);
+        }
+        Ok(prefetch)
     }
 
     fn parse(

@@ -82,3 +82,12 @@ Here is table, showing dependencies reduction (about):
 | Windowing    | winint           | rust-sdl2   | -81          |
 | 3D Rendering | vulkano          | ash         | -32          |
 | File Changes | notify           | OS Shell    | -20          | 
+
+### Marcos as Lesser Evil
+
+It is better to use the amazing features of Rust: traits, generics, const expressions.
+There are only a few "legal" reasons to use macros:
+
+- Data structure introspection to eliminate mapping code 
+- The variation of arguments to simplify non-game aspects, logging and stuff like that
+

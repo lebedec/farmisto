@@ -45,7 +45,7 @@ impl Editor {
                 let mut best = f32::INFINITY;
                 let mut best_position = Vec3::ZERO;
                 for farmland in self.gameplay.farmlands.values() {
-                    for prop in &farmland.asset.data.borrow().props {
+                    for prop in &farmland.asset.props {
                         let distance = prop.position().distance(pos);
                         if distance < best {
                             best = distance;
@@ -114,20 +114,19 @@ impl Editor {
             None => {}
             Some(Selection::FarmlandProp { farmland, id, kind }) => {
                 let farmland = self.gameplay.farmlands.get(farmland).unwrap();
-                let data = farmland.asset.data.borrow();
-                let props = data.props.iter().find(|p| p.id == *id).unwrap();
+                let props = farmland.asset.props.iter().find(|p| p.id == *id).unwrap();
                 let matrix = Mat4::from_translation(props.position.into())
                     * Mat4::from_scale(props.scale.into())
                     // todo: rework rotation
                     * Mat4::from_rotation_x(props.rotation[0].to_radians())
                     * Mat4::from_rotation_y(props.rotation[1].to_radians())
                     * Mat4::from_rotation_z(props.rotation[2].to_radians());
-                renderer.bounds(matrix, props.asset.mesh().bounds());
+                renderer.bounds(matrix, props.asset.mesh.bounds());
             }
             Some(Selection::Tree { id }) => {
                 let tree = self.gameplay.trees.get(id).unwrap();
                 let matrix = Mat4::from_translation(tree.position);
-                renderer.bounds(matrix, tree.asset.mesh().bounds());
+                renderer.bounds(matrix, tree.asset.mesh.bounds());
             }
         }
     }

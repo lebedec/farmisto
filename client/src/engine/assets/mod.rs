@@ -6,6 +6,7 @@ pub use shader::*;
 pub use texture::*;
 
 mod fs;
+mod generic;
 mod manager;
 mod mesh;
 mod prefabs;

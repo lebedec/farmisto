@@ -1,8 +1,7 @@
-use crate::physics::{BarrierId, BarrierKey, SpaceId, SpaceKey};
+use crate::physics::{BarrierId, BarrierKey, BodyId, BodyKey, SpaceId, SpaceKey};
 use crate::planting::{LandId, LandKey, PlantId, PlantKey};
 use datamap::{Collection, Id, Known, Persisted, Shared, Storage};
 use log::info;
-use std::collections::hash_set::IntoIter;
 use std::collections::HashSet;
 
 #[derive(Default)]
@@ -12,21 +11,7 @@ pub struct Universe {
     pub known_farmlands: Known<FarmlandKind>,
     pub farmlands: Collection<Farmland>,
     pub trees: Collection<Tree>,
-}
-
-#[derive(Default)]
-pub struct Set<T> {
-    inner: HashSet<T>,
-}
-
-impl<T> Set<T> {
-    pub fn new(inner: HashSet<T>) -> Self {
-        Self { inner }
-    }
-
-    pub fn map(self) -> IntoIter<T> {
-        self.inner.into_iter()
-    }
+    pub farmers: Collection<Farmer>,
 }
 
 #[derive(Default)]
@@ -44,6 +29,32 @@ impl UniverseSnapshot {
         snapshot.whole = true;
         snapshot
     }
+}
+
+#[derive(Id, Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
+pub struct FarmerKey(usize);
+
+#[derive(Persisted)]
+pub struct FarmerKind {
+    pub id: FarmerKey,
+    pub name: String,
+    pub body: BodyKey,
+}
+
+#[derive(Id, Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
+pub struct FarmerId(usize);
+
+impl From<FarmerId> for BodyId {
+    fn from(id: FarmerId) -> Self {
+        id.0.into()
+    }
+}
+
+#[derive(Persisted)]
+pub struct Farmer {
+    pub id: FarmerId,
+    pub kind: Shared<FarmerKind>,
+    pub player: String,
 }
 
 #[derive(Id, Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]

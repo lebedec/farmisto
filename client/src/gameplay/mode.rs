@@ -113,21 +113,21 @@ impl Gameplay {
         renderer.clear();
         renderer.look_at(self.camera.uniform());
         for farmland in self.farmlands.values() {
-            for props in &farmland.asset.data.borrow().props {
+            for props in &farmland.asset.props {
                 let matrix = Mat4::from_translation(props.position.into())
                     * Mat4::from_scale(props.scale.into())
                     // todo: rework rotation
                     * Mat4::from_rotation_x(props.rotation[0].to_radians())
                     * Mat4::from_rotation_y(props.rotation[1].to_radians())
                     * Mat4::from_rotation_z(props.rotation[2].to_radians());
-                renderer.draw(matrix, props.asset.mesh(), props.asset.texture());
+                renderer.draw(matrix, &props.asset.mesh, &props.asset.texture);
             }
         }
         for tree in self.trees.values() {
             renderer.draw(
                 Mat4::from_translation(tree.position),
-                tree.asset.mesh(),
-                tree.asset.texture(),
+                &tree.asset.mesh,
+                &tree.asset.texture,
             );
         }
     }
