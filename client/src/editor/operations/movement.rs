@@ -4,8 +4,10 @@ use crate::gameplay::Gameplay;
 use crate::{Assets, Input};
 use datamap::Storage;
 use glam::{Vec2, Vec3};
+use log::info;
 use rusqlite::params;
 use sdl2::keyboard::Keycode;
+use std::ops::Index;
 
 pub struct Move {
     pub selection: Selection,
@@ -13,6 +15,18 @@ pub struct Move {
     pub mouse_origin: Vec2,
     pub position: Option<Vec3>,
     pub translation: Vec3,
+}
+
+impl Move {
+    pub fn new(selection: Selection, mouse_origin: Vec2) -> Option<Box<dyn Operation>> {
+        Some(Box::new(Self {
+            selection,
+            lock: Vec3::X + Vec3::Z,
+            mouse_origin,
+            position: None,
+            translation: Vec3::ZERO,
+        }))
+    }
 }
 
 impl Operation for Move {
@@ -39,7 +53,9 @@ impl Operation for Move {
         let delta = Vec2::from(input.mouse_position().viewport) - self.mouse_origin;
         let delta = delta.x;
 
-        self.translation = direction * delta;
+        let (ray, hit) = gameplay.camera.cast_ray(input.mouse_position());
+
+        self.translation = hit.unwrap_or(Vec3::ZERO);
 
         match &self.selection {
             Selection::FarmlandProp { farmland, id, kind } => {
@@ -53,7 +69,8 @@ impl Operation for Move {
                 }
                 let position = self.position.unwrap();
 
-                prop.position = (position + self.translation).into();
+                // prop.position = (position + self.translation).into();
+                prop.position = self.translation.into();
 
                 if input.click() {
                     assets
@@ -75,7 +92,8 @@ impl Operation for Move {
                 }
                 let position = self.position.unwrap();
 
-                tree.position = position + self.translation;
+                // tree.position = position + self.translation;
+                tree.position = self.translation;
 
                 if input.click() {
                     let bp = [tree.position.x, tree.position.z];

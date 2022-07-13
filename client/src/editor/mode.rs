@@ -52,7 +52,7 @@ impl Editor {
                     }
                 }
                 for tree in self.gameplay.trees.values() {
-                    let distance = Vec3::ZERO.distance(pos);
+                    let distance = tree.position.distance(pos);
                     if distance < best {
                         best = distance;
                         self.selection = Some(Selection::Tree { id: tree.id })
@@ -79,13 +79,10 @@ impl Editor {
                     // delete
                 }
                 if input.pressed(Keycode::G) {
-                    self.edit = Some(Box::new(Move {
-                        selection: selection.clone(),
-                        lock: Vec3::ZERO,
-                        mouse_origin: Vec2::from(input.mouse_position().viewport),
-                        position: None,
-                        translation: Vec3::ZERO,
-                    }));
+                    self.edit = Move::new(
+                        selection.clone(),
+                        Vec2::from(input.mouse_position().viewport),
+                    );
                 }
                 if input.pressed(Keycode::R) {
                     // rotate

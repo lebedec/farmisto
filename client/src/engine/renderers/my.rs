@@ -360,7 +360,7 @@ impl MyRenderer {
         let rasterization_info = vk::PipelineRasterizationStateCreateInfo::builder()
             .front_face(vk::FrontFace::COUNTER_CLOCKWISE)
             .line_width(1.0)
-            .polygon_mode(vk::PolygonMode::LINE); // wireframe
+            .polygon_mode(vk::PolygonMode::LINE);
 
         let multisample_state_info = vk::PipelineMultisampleStateCreateInfo {
             rasterization_samples: vk::SampleCountFlags::TYPE_1,
