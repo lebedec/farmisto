@@ -83,3 +83,10 @@ create trigger sql_tracking_FarmlandAssetPropDataDelete
 begin
     update FarmlandAssetData set timestamp = (cast(strftime('%s') as integer)) where id = old.farmland;
 end;
+drop trigger if exists sql_tracking_FarmlandAssetPropDataInsert;
+create trigger sql_tracking_FarmlandAssetPropDataInsert
+    after insert
+    on FarmlandAssetPropItem
+begin
+    update FarmlandAssetData set timestamp = (cast(strftime('%s') as integer)) where id = new.farmland;
+end;

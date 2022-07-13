@@ -1,4 +1,4 @@
-use crate::editor::operations::{Move, Operation};
+use crate::editor::operations::{Delete, Duplicate, Move, Operation, Rotation, Scale};
 use crate::editor::selection::Selection;
 use crate::gameplay::Gameplay;
 use crate::{Assets, Input, Mode, MyRenderer};
@@ -9,8 +9,8 @@ use sdl2::keyboard::Keycode;
 
 pub struct Editor {
     pub selection: Option<Selection>,
-    pub capture: bool,
-    pub edit: Option<Box<dyn Operation>>,
+    pub active: bool,
+    pub operation: Option<Box<dyn Operation>>,
     pub gameplay: Gameplay,
     pub storage: Storage,
 }
@@ -18,16 +18,22 @@ pub struct Editor {
 impl Editor {
     fn handle_edit_operations(&mut self, input: &Input, assets: &mut Assets) {
         if input.pressed(Keycode::Tab) {
-            self.capture = !self.capture;
+            self.active = !self.active;
         }
 
-        if !self.capture {
+        if !self.active {
             return;
         }
 
-        if let Some(operation) = self.edit.as_mut() {
-            if operation.handle(input, assets, &self.storage, &mut self.gameplay) {
-                self.edit = None;
+        if let Some(operation) = self.operation.as_mut() {
+            if operation.handle(
+                input,
+                assets,
+                &self.storage,
+                &mut self.gameplay,
+                &mut self.selection,
+            ) {
+                self.operation = None;
             }
             return;
         }
@@ -73,22 +79,31 @@ impl Editor {
         match selection {
             Selection::Tree { .. } | Selection::FarmlandProp { .. } => {
                 if input.pressed(Keycode::D) {
-                    // duplicate
+                    self.operation = Duplicate::new(
+                        selection.clone(),
+                        Vec2::from(input.mouse_position().viewport),
+                    )
                 }
                 if input.pressed(Keycode::X) {
-                    // delete
+                    self.operation = Delete::new();
                 }
                 if input.pressed(Keycode::G) {
-                    self.edit = Move::new(
+                    self.operation = Move::new(
                         selection.clone(),
                         Vec2::from(input.mouse_position().viewport),
                     );
                 }
                 if input.pressed(Keycode::R) {
-                    // rotate
+                    self.operation = Rotation::new(
+                        selection.clone(),
+                        Vec2::from(input.mouse_position().viewport),
+                    )
                 }
                 if input.pressed(Keycode::S) {
-                    // scale
+                    self.operation = Scale::new(
+                        selection.clone(),
+                        Vec2::from(input.mouse_position().viewport),
+                    )
                 }
             }
         }
@@ -123,8 +138,12 @@ impl Mode for Editor {
         self.gameplay.knowledge.reload();
         self.gameplay.handle_server_responses(assets);
         self.handle_edit_operations(input, assets);
-        self.gameplay.handle_user_input(input);
+        if !self.active {
+            self.gameplay.handle_user_input(input);
+        }
         self.gameplay.render(renderer);
-        self.render(renderer);
+        if self.active {
+            self.render(renderer);
+        }
     }
 }

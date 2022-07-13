@@ -51,6 +51,16 @@ impl FarmlandAssetPropItem {
     pub fn position(&self) -> Vec3 {
         Vec3::from(self.position)
     }
+
+    #[inline]
+    pub fn rotation(&self) -> Vec3 {
+        Vec3::from(self.rotation)
+    }
+
+    #[inline]
+    pub fn scale(&self) -> Vec3 {
+        Vec3::from(self.scale)
+    }
 }
 
 // TODO: autogenerate

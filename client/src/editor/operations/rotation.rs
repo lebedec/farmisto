@@ -7,27 +7,27 @@ use glam::{Vec2, Vec3};
 use rusqlite::params;
 use sdl2::keyboard::Keycode;
 
-pub struct Move {
+pub struct Rotation {
     pub selection: Selection,
     pub lock: Vec3,
     pub mouse_origin: Vec2,
-    pub position: Option<Vec3>,
-    pub translation: Vec3,
+    pub rotation: Option<Vec3>,
+    pub angle: f32,
 }
 
-impl Move {
+impl Rotation {
     pub fn new(selection: Selection, mouse_origin: Vec2) -> Option<Box<dyn Operation>> {
         Some(Box::new(Self {
             selection,
-            lock: Vec3::X + Vec3::Z,
+            lock: Vec3::Y,
             mouse_origin,
-            position: None,
-            translation: Vec3::ZERO,
+            rotation: None,
+            angle: 0.0,
         }))
     }
 }
 
-impl Operation for Move {
+impl Operation for Rotation {
     fn handle(
         &mut self,
         input: &Input,
@@ -52,9 +52,7 @@ impl Operation for Move {
         let delta = Vec2::from(input.mouse_position().viewport) - self.mouse_origin;
         let delta = delta.x;
 
-        let (ray, hit) = gameplay.camera.cast_ray(input.mouse_position());
-
-        self.translation = hit.unwrap_or(Vec3::ZERO);
+        self.angle = delta * 180.0;
 
         match &self.selection {
             Selection::FarmlandProp { farmland, id, kind } => {
@@ -63,50 +61,26 @@ impl Operation for Move {
                 let mut asset = assets.farmlands.edit(&kind).unwrap();
                 let prop = asset.props.iter_mut().find(|prop| &prop.id == id).unwrap();
 
-                if self.position.is_none() {
-                    self.position = Some(prop.position());
+                if self.rotation.is_none() {
+                    self.rotation = Some(prop.rotation());
                 }
-                let position = self.position.unwrap();
+                let rotation = self.rotation.unwrap();
 
-                // prop.position = (position + self.translation).into();
-                prop.position = self.translation.into();
+                prop.rotation = (rotation + self.angle * direction).into();
 
                 if input.click() {
                     assets
                         .storage
                         .connection()
                         .execute(
-                            "update FarmlandAssetPropItem set position = ? where id = ?",
-                            params![datamap::to_json_value(prop.position.as_ref()), *id],
+                            "update FarmlandAssetPropItem set rotation = ? where id = ?",
+                            params![datamap::to_json_value(prop.rotation.as_ref()), *id],
                         )
                         .unwrap();
                     return true;
                 }
             }
-            Selection::Tree { id } => {
-                let tree = gameplay.trees.get_mut(id).unwrap();
-
-                if self.position.is_none() {
-                    self.position = Some(tree.position);
-                }
-                let position = self.position.unwrap();
-
-                // tree.position = position + self.translation;
-                tree.position = self.translation;
-
-                if input.click() {
-                    let bp = [tree.position.x, tree.position.z];
-                    let id: usize = tree.id.into();
-                    storage
-                        .connection()
-                        .execute(
-                            "update Barrier set position = ? where id = ?",
-                            params![datamap::to_json_value(bp), id],
-                        )
-                        .unwrap();
-                    return true;
-                }
-            }
+            Selection::Tree { id } => {}
         }
 
         false

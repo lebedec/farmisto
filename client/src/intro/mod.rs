@@ -36,8 +36,8 @@ impl Mode for Intro {
             if self.is_editor {
                 Some(Box::new(Editor {
                     selection: None,
-                    capture: false,
-                    edit: None,
+                    active: false,
+                    operation: None,
                     gameplay,
                     storage: Storage::open("./assets/database.sqlite").unwrap(),
                 }))
