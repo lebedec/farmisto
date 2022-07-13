@@ -1,6 +1,28 @@
 # Farmisto
 
-## Solution Overview
+Farmisto is a game about farming within are different planets of
+the solar system. Use your imagination to design farm,
+harvest crops, tend to animals, manage productions and finally 
+take on planet environment challenges.
+
+## Project Overview
+
+- [game](game) 
+
+  Module handles mechanics and gameplay in general.
+
+- [client](client)
+  
+  Is a game engine primarily designed 
+  for game development with "hot reload" experience for editing game scenes.
+  Includes a rendering for 2D or 3D graphics, sound, animation,
+  AI configuration tools, networking, localization support.
+
+- [server](server)
+- [network](network)
+- [database](database)
+- [assets](assets)
+- [tools](tools)
 
 ```mermaid
 %%{init: {'theme': 'base', 'themeVariables': {
