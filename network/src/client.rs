@@ -7,6 +7,7 @@ use std::thread;
 use std::time::Duration;
 
 pub struct TcpClient {
+    pub player: String,
     requests: Sender<PlayerRequest>,
     responses: Receiver<GameResponse>,
 }
@@ -23,6 +24,7 @@ impl TcpClient {
         let (requests, requests_receiver) = channel::<PlayerRequest>();
         let (responses_sender, responses) = channel::<GameResponse>();
 
+        let thread_player = player.clone();
         thread::spawn(move || {
             let stream = TcpStream::connect(address).unwrap();
             let heartbeat = Duration::from_secs(2);
@@ -34,7 +36,7 @@ impl TcpClient {
             };
             let authorization = PlayerRequest::Login {
                 version: API_VERSION.to_string(),
-                player,
+                player: thread_player,
                 password,
             };
             sender.send(&authorization).unwrap();
@@ -80,6 +82,7 @@ impl TcpClient {
         });
 
         let client = TcpClient {
+            player,
             requests,
             responses,
         };

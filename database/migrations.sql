@@ -51,7 +51,8 @@ create table Body
     space     integer not null
         constraint Body_Space_id_fk
             references Space,
-    position  json    not null
+    position  json    not null,
+    direction  json    not null
 );
 
 create table BarrierKind

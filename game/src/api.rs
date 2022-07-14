@@ -35,6 +35,7 @@ pub enum LoginResult {
 pub enum Action {
     DoSomething,
     DoAnything { id: usize, position: [f32; 2] },
+    MoveFarmer { destination: [f32; 2] },
 }
 
 #[derive(bincode::Encode, bincode::Decode)]
@@ -57,6 +58,7 @@ pub enum Event {
     FarmerAppeared {
         id: FarmerId,
         kind: FarmerKey,
+        player: String,
         position: [f32; 2],
     },
     FarmerVanished(FarmerId),

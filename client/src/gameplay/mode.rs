@@ -5,8 +5,8 @@ use crate::{Assets, Mode, MyRenderer};
 use datamap::Storage;
 use game::api::{Action, Event, GameResponse, PlayerRequest};
 use game::model::{FarmerId, FarmlandId, TreeId};
-use glam::{Mat4, Vec3};
-use log::{error, info};
+use glam::{Mat4, Vec2, Vec3};
+use log::{error, info, warn};
 use network::TcpClient;
 use sdl2::keyboard::Keycode;
 use server::LocalServerThread;
@@ -66,6 +66,7 @@ impl Gameplay {
                                         kind,
                                         asset: prefab,
                                         position: Vec3::new(position[0], 0.0, position[1]),
+                                        direction: Vec2::ZERO,
                                     },
                                 );
                             }
@@ -89,11 +90,16 @@ impl Gameplay {
                                 info!("Vanish farmland {:?}", id);
                                 self.farmlands.remove(&id);
                             }
-                            Event::FarmerAppeared { id, kind, position } => {
+                            Event::FarmerAppeared {
+                                id,
+                                kind,
+                                position,
+                                player,
+                            } => {
                                 let kind = self.knowledge.farmers.get(kind).unwrap();
                                 info!(
-                                    "Appear farmer {:?} kind='{}' at {:?}",
-                                    id, kind.name, position
+                                    "Appear farmer {:?}({}) kind='{}' at {:?}",
+                                    id, player, kind.name, position
                                 );
 
                                 let asset = assets.farmer(&kind.name);
@@ -103,9 +109,16 @@ impl Gameplay {
                                     FarmerBehaviour {
                                         id,
                                         kind,
+                                        player,
                                         asset,
-                                        considered_position: position.into(),
-                                        position: Vec3::new(position[0], 0.0, position[1]),
+                                        estimated_position: position.into(),
+                                        rendering_position: Vec3::new(
+                                            position[0],
+                                            0.0,
+                                            position[1],
+                                        ),
+                                        last_sync_position: position.into(),
+                                        direction: Vec2::ZERO,
                                     },
                                 );
                             }
@@ -116,7 +129,22 @@ impl Gameplay {
                             Event::FarmerMoved { id, position } => {
                                 match self.farmers.get_mut(&id) {
                                     None => {}
-                                    Some(farmer) => farmer.considered_position = position.into(),
+                                    Some(farmer) => {
+                                        let position = Vec2::from(position);
+                                        let rendering = Vec2::new(
+                                            farmer.rendering_position.x,
+                                            farmer.rendering_position.z,
+                                        );
+                                        // des
+                                        farmer.last_sync_position = position.into();
+                                        let error = position.distance(rendering);
+                                        if error > 0.25 {
+                                            // info!(
+                                            //     "Correct farmer {:?} position (error {}) {} -> {}",
+                                            //     id, error, farmer.estimated_position, position
+                                            // );
+                                        };
+                                    }
                                 }
                             }
                         }
@@ -139,9 +167,41 @@ impl Gameplay {
                 action_id: self.action_id,
             })
         }
+        if let Some(farmer) = self
+            .farmers
+            .values_mut()
+            .find(|farmer| farmer.player == self.client.player)
+        {
+            let mut direction = Vec2::ZERO;
+            if input.down(Keycode::Left) {
+                direction.x -= 1.0;
+            }
+            if input.down(Keycode::Right) {
+                direction.x += 1.0;
+            }
+            if input.down(Keycode::Up) {
+                direction.y += 1.0;
+            }
+            if input.down(Keycode::Down) {
+                direction.y -= 1.0;
+            }
+            let delta = direction.normalize_or_zero() * input.time * 7.0;
+            let destination =
+                delta + Vec2::new(farmer.rendering_position.x, farmer.rendering_position.z);
+
+            farmer.estimated_position = destination;
+            if delta.length() > 0.0 {
+                self.client.send(PlayerRequest::Perform {
+                    action_id: 0,
+                    action: Action::MoveFarmer {
+                        destination: destination.into(),
+                    },
+                })
+            }
+        }
     }
 
-    pub fn render(&self, renderer: &mut MyRenderer) {
+    pub fn render(&mut self, renderer: &mut MyRenderer) {
         renderer.clear();
         renderer.look_at(self.camera.uniform());
         for farmland in self.farmlands.values() {
@@ -162,12 +222,26 @@ impl Gameplay {
                 &tree.asset.texture,
             );
         }
-        for farmer in self.farmers.values() {
+        for farmer in self.farmers.values_mut() {
+            farmer.rendering_position = Vec3::new(
+                farmer.estimated_position.x,
+                0.0,
+                farmer.estimated_position.y,
+            );
+
             renderer.draw(
-                Mat4::from_translation(farmer.position),
+                Mat4::from_translation(farmer.rendering_position),
                 &farmer.asset.mesh,
                 &farmer.asset.texture,
-            )
+            );
+            renderer.bounds(
+                Mat4::from_translation(Vec3::new(
+                    farmer.last_sync_position.x,
+                    0.5,
+                    farmer.last_sync_position.y,
+                )),
+                farmer.asset.mesh.bounds(),
+            );
         }
     }
 }

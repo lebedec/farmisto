@@ -1,12 +1,14 @@
 use crate::api::{Action, Event};
 use crate::model::{Universe, UniverseSnapshot};
-use crate::physics::PhysicsDomain;
+use crate::physics::{Physics, PhysicsDomain};
 use crate::planting::PlantingDomain;
 use datamap::Storage;
 pub use domains::*;
+pub use math::*;
 
 pub mod api;
 mod domains;
+mod math;
 pub mod model;
 
 pub struct Game {
@@ -26,11 +28,32 @@ impl Game {
         }
     }
 
-    pub fn perform_action(&mut self, _action_id: usize, action: Action) -> Vec<Event> {
+    pub fn perform_action(
+        &mut self,
+        player: &String,
+        _action_id: usize,
+        action: Action,
+    ) -> Vec<Event> {
         let mut _events = vec![];
         match action {
             Action::DoSomething => {}
             Action::DoAnything { .. } => {}
+            Action::MoveFarmer { destination } => {
+                match self
+                    .universe
+                    .farmers
+                    .iter()
+                    .iter()
+                    .find(|farmer| &farmer.player == player)
+                {
+                    Some(farmer) => {
+                        self.physics.move_body2(farmer.id.into(), destination);
+                    }
+                    None => {
+                        // error framer not found, action_id error
+                    }
+                }
+            }
         }
         _events
     }
@@ -81,6 +104,7 @@ impl Game {
                 stream.push(Event::FarmerAppeared {
                     id: farmer.id,
                     kind: farmer.kind.id,
+                    player: farmer.player.clone(),
                     position: body.position,
                 })
             }
@@ -102,7 +126,24 @@ impl Game {
         let changes = self.universe.load(&self.storage);
         events.extend(self.look_around(changes));
 
-        self.physics.update(time);
+        for event in self.physics.update(time) {
+            match event {
+                Physics::BodyPositionChanged { id, position, .. } => {
+                    if let Some(farmer) = self
+                        .universe
+                        .farmers
+                        .iter()
+                        .iter()
+                        .find(|farmer| id == farmer.id.into())
+                    {
+                        events.push(Event::FarmerMoved {
+                            id: farmer.id,
+                            position,
+                        })
+                    }
+                }
+            }
+        }
         self.planting.update(time);
 
         events

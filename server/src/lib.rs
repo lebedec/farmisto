@@ -36,7 +36,7 @@ impl LocalServerThread {
                     match request.request {
                         PlayerRequest::Heartbeat => {}
                         PlayerRequest::Perform { action, action_id } => {
-                            let events = game.perform_action(action_id, action);
+                            let events = game.perform_action(&request.player, action_id, action);
                             server.broadcast(GameResponse::Events { events });
                         }
                         _ => {

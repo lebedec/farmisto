@@ -1,5 +1,6 @@
+use crate::VectorMath;
 use datamap::{Collection, Grouping, Id, Known, Persisted, Shared, Storage};
-use log::info;
+use log::{error, info};
 
 #[derive(Default)]
 pub struct PhysicsDomain {
@@ -39,7 +40,7 @@ pub struct BodyKind {
     pub speed: f32,
 }
 
-#[derive(Id, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Id, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct BodyId(usize);
 
 #[derive(Persisted)]
@@ -47,6 +48,7 @@ pub struct Body {
     pub id: BodyId,
     pub kind: Shared<BodyKind>,
     pub position: [f32; 2],
+    pub direction: [f32; 2],
     #[group]
     pub space: SpaceId,
 }
@@ -75,8 +77,8 @@ pub struct Barrier {
 
 pub enum Physics {
     BodyPositionChanged {
-        id: usize,
-        space: usize,
+        id: BodyId,
+        space: SpaceId,
         position: [f32; 2],
     },
 }
@@ -116,6 +118,28 @@ impl PhysicsDomain {
         )
     }
 
+    pub fn move_body(&mut self, id: BodyId, direction: [f32; 2]) {
+        match self.bodies.get_mut(id) {
+            Some(body) => {
+                body.direction = direction;
+            }
+            None => {
+                error!("Unable to move body {:?}, not found", id);
+            }
+        }
+    }
+
+    pub fn move_body2(&mut self, id: BodyId, direction: [f32; 2]) {
+        match self.bodies.get_mut(id) {
+            Some(body) => {
+                body.direction = direction;
+            }
+            None => {
+                error!("Unable to move body {:?}, not found", id);
+            }
+        }
+    }
+
     pub fn update(&mut self, time: f32) -> Vec<Physics> {
         let mut events = vec![];
 
@@ -123,10 +147,32 @@ impl PhysicsDomain {
             let mut empty = vec![];
             let bodies = self.bodies.iter_mut(space.id).unwrap_or(&mut empty);
             let mut empty = vec![];
-            let barriers = self.barriers.iter_mut(space.id).unwrap_or(&mut empty);
+            let _barriers = self.barriers.iter_mut(space.id).unwrap_or(&mut empty);
             for index in 0..bodies.len() {
-                let id = bodies[index].id;
+                let _id = bodies[index].id;
 
+                let body = &mut bodies[index];
+                let delta = body.kind.speed * time;
+
+                let destination = body.direction;
+
+                let distance = body.position.distance(destination);
+
+                if distance > 0.00001 {
+                    if delta > distance {
+                        body.position = destination;
+                    } else {
+                        let movement = body.position.direction(destination).mul(delta);
+                        body.position = body.position.add(movement);
+                    }
+                    events.push(Physics::BodyPositionChanged {
+                        id: body.id.into(),
+                        space: body.space.into(),
+                        position: body.position,
+                    })
+                }
+
+                /*
                 // crowd control
                 let mut sum = 0.0;
                 for other in bodies.iter() {
@@ -150,7 +196,7 @@ impl PhysicsDomain {
                         space: body.space.into(),
                         position: body.position,
                     })
-                }
+                }*/
             }
         }
 

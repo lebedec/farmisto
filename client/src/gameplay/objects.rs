@@ -6,9 +6,12 @@ use glam::{Vec2, Vec3};
 pub struct FarmerBehaviour {
     pub id: FarmerId,
     pub kind: Shared<FarmerKind>,
+    pub player: String,
     pub asset: FarmerAsset,
-    pub considered_position: Vec2,
-    pub position: Vec3,
+    pub estimated_position: Vec2,
+    pub rendering_position: Vec3,
+    pub last_sync_position: Vec2,
+    pub direction: Vec2,
 }
 
 pub struct FarmlandBehaviour {
@@ -22,6 +25,7 @@ pub struct TreeBehaviour {
     pub kind: Shared<TreeKind>,
     pub asset: TreeAsset,
     pub position: Vec3,
+    pub direction: Vec2,
 }
 
 pub struct KnowledgeBase {
