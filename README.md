@@ -7,23 +7,6 @@ take on planet environment challenges.
 
 ## Project Overview
 
-- [game](game) 
-
-  Module handles mechanics and gameplay in general.
-
-- [client](client)
-  
-  Is a game engine primarily designed 
-  for game development with "hot reload" experience for editing game scenes.
-  Includes a rendering for 2D or 3D graphics, sound, animation,
-  AI configuration tools, networking, localization support.
-
-- [server](server)
-- [network](network)
-- [database](database)
-- [assets](assets)
-- [tools](tools)
-
 ```mermaid
 %%{init: {'theme': 'base', 'themeVariables': {
   'primaryColor': '#428cd5',
@@ -79,6 +62,24 @@ flowchart LR
     click client "https://github.com/lebedec/farmisto/tree/main/client"
     click tools "https://github.com/lebedec/farmisto/tree/main/tools"
 ```
+
+- [game](game) 
+
+  Module handles mechanics and gameplay in general.
+
+- [client](client)
+  
+  Is a game engine primarily designed 
+  for game development with "hot reload" experience for editing game scenes.
+  Includes a rendering for 2D or 3D graphics, sound, animation,
+  AI configuration tools, networking, localization support.
+
+- [server](server)
+- [network](network)
+- [database](database)
+- [assets](assets)
+- [tools](tools)
+
 
 ## Design Principles
 

@@ -90,3 +90,22 @@ create trigger sql_tracking_FarmlandAssetPropDataInsert
 begin
     update FarmlandAssetData set timestamp = (cast(strftime('%s') as integer)) where id = new.farmland;
 end;
+
+create table FarmerAssetData
+(
+    id        integer not null
+        constraint FarmerAssetData_pk
+            primary key autoincrement,
+    timestamp integer not null default (cast(strftime('%s') as integer)),
+    deleted   bool    not null default false,
+    name      text    not null unique,
+    texture   text    not null,
+    mesh      text    not null
+);
+drop trigger if exists sql_tracking_FarmerAssetData;
+create trigger sql_tracking_FarmerAssetData
+    after update
+    on FarmerAssetData
+begin
+    update FarmerAssetData set timestamp = (cast(strftime('%s') as integer)) where id = new.id;
+end;

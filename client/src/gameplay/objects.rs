@@ -28,6 +28,7 @@ pub struct KnowledgeBase {
     storage: Storage,
     pub trees: Known<TreeKind>,
     pub farmlands: Known<FarmlandKind>,
+    pub farmers: Known<FarmerKind>,
 }
 
 impl KnowledgeBase {
@@ -37,6 +38,7 @@ impl KnowledgeBase {
             storage,
             trees: Default::default(),
             farmlands: Default::default(),
+            farmers: Default::default(),
         }
     }
 
@@ -44,5 +46,6 @@ impl KnowledgeBase {
         let storage = &self.storage;
         self.trees.load(storage);
         self.farmlands.load(storage);
+        self.farmers.load(storage);
     }
 }

@@ -1,7 +1,9 @@
 select sqlite_version();
 
-PRAGMA foreign_keys = true;
-PRAGMA recursive_triggers = false;
+PRAGMA
+foreign_keys = true;
+PRAGMA
+recursive_triggers = false;
 
 create table SpaceKind
 (
@@ -167,10 +169,10 @@ create table FarmlandKind
     timestamp integer not null default (cast(strftime('%s') as integer)),
     deleted   bool    not null default false,
     name      text    not null,
-    space   integer not null
+    space     integer not null
         constraint Farmland_SpaceKind_id_fk
             references SpaceKind,
-    land     integer not null
+    land      integer not null
         constraint Farmland_LandKind_id_fk
             references LandKind
 );
@@ -189,4 +191,32 @@ create table Farmland
     kind      integer not null
         constraint Farmland_FarmlandKind_id_fk
             references FarmlandKind
+);
+
+create table FarmerKind
+(
+    id        integer not null
+        constraint FarmerKind_pk
+            primary key autoincrement,
+    timestamp integer not null default (cast(strftime('%s') as integer)),
+    deleted   bool    not null default false,
+    name      text    not null,
+    body      integer not null
+        constraint Farmer_BodyKind_id_fk
+            references BodyKind
+);
+
+create table Farmer
+(
+    id        integer not null
+        constraint FarmerKind_pk
+            primary key
+        constraint Farmer_Body_id_fk
+            references Body,
+    timestamp integer not null default (cast(strftime('%s') as integer)),
+    deleted   bool    not null default false,
+    kind      integer not null
+        constraint Farmer_FarmerKind_id_fk
+            references FarmerKind,
+    player    text    not null
 );

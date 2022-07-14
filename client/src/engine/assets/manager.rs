@@ -2,8 +2,8 @@ use crate::engine::assets::fs::{FileEvent, FileSystem};
 use crate::engine::assets::prefabs::{TreeAsset, TreeAssetData};
 use crate::engine::base::Queue;
 use crate::engine::{
-    FarmlandAsset, FarmlandAssetData, MeshAsset, MeshAssetData, PropsAsset, PropsAssetData,
-    ShaderAsset, ShaderAssetData, TextureAsset, TextureAssetData,
+    FarmerAsset, FarmerAssetData, FarmlandAsset, FarmlandAssetData, MeshAsset, MeshAssetData,
+    PropsAsset, PropsAssetData, ShaderAsset, ShaderAssetData, TextureAsset, TextureAssetData,
 };
 use crate::ShaderCompiler;
 use ash::{vk, Device};
@@ -37,6 +37,7 @@ pub struct Assets {
     pub farmlands: Dictionary<FarmlandAssetData>,
     trees: Dictionary<TreeAssetData>,
     props: Dictionary<PropsAssetData>,
+    farmers: Dictionary<FarmerAssetData>,
 
     queue: Arc<Queue>,
 }
@@ -209,6 +210,7 @@ impl Assets {
             farmlands: Default::default(),
             trees: Default::default(),
             props: Default::default(),
+            farmers: Default::default(),
         }
     }
 
@@ -258,6 +260,10 @@ impl Assets {
         self.trees.get(name).unwrap()
     }
 
+    pub fn farmer(&mut self, name: &str) -> FarmerAsset {
+        self.farmers.get(name).unwrap()
+    }
+
     pub fn farmland(&mut self, name: &str) -> FarmlandAsset {
         self.farmlands.get(name).unwrap()
     }
@@ -272,16 +278,24 @@ impl Assets {
         requests.push(AssetRequest { path, kind });
     }
 
-    pub fn update(&mut self) {
+    fn reload_dictionaries(&mut self) -> Result<(), rusqlite::Error> {
         let ptr = self as *mut Assets;
         let storage = &self.storage;
         unsafe {
             // database collections changes by himself,
             // *ptr change only non-database assets
             // TODO: remove unsafe (move to separate boxed struct?)
-            self.props.load(storage, &mut *ptr);
-            self.trees.load(storage, &mut *ptr);
-            self.farmlands.load(storage, &mut *ptr);
+            self.props.load(storage, &mut *ptr)?;
+            self.trees.load(storage, &mut *ptr)?;
+            self.farmers.load(storage, &mut *ptr)?;
+            self.farmlands.load(storage, &mut *ptr)?;
+        };
+        Ok(())
+    }
+
+    pub fn update(&mut self) {
+        if let Err(error) = self.reload_dictionaries() {
+            error!("Unable to reload dictionaries, {:?}", error);
         }
 
         for (path, event) in self.observe_file_events() {

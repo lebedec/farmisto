@@ -1,10 +1,10 @@
 use crate::engine::Input;
 use crate::gameplay::camera::Camera;
-use crate::gameplay::objects::{FarmlandBehaviour, KnowledgeBase, TreeBehaviour};
+use crate::gameplay::objects::{FarmerBehaviour, FarmlandBehaviour, KnowledgeBase, TreeBehaviour};
 use crate::{Assets, Mode, MyRenderer};
 use datamap::Storage;
 use game::api::{Action, Event, GameResponse, PlayerRequest};
-use game::model::{FarmlandId, TreeId};
+use game::model::{FarmerId, FarmlandId, TreeId};
 use glam::{Mat4, Vec3};
 use log::{error, info};
 use network::TcpClient;
@@ -20,6 +20,7 @@ pub struct Gameplay {
     pub knowledge: KnowledgeBase,
     pub farmlands: HashMap<FarmlandId, FarmlandBehaviour>,
     pub trees: HashMap<TreeId, TreeBehaviour>,
+    pub farmers: HashMap<FarmerId, FarmerBehaviour>,
     pub camera: Camera,
 }
 
@@ -32,6 +33,7 @@ impl Gameplay {
             knowledge: KnowledgeBase::new(),
             farmlands: Default::default(),
             trees: HashMap::new(),
+            farmers: Default::default(),
             camera: Camera::new(viewport),
         }
     }
@@ -87,6 +89,36 @@ impl Gameplay {
                                 info!("Vanish farmland {:?}", id);
                                 self.farmlands.remove(&id);
                             }
+                            Event::FarmerAppeared { id, kind, position } => {
+                                let kind = self.knowledge.farmers.get(kind).unwrap();
+                                info!(
+                                    "Appear farmer {:?} kind='{}' at {:?}",
+                                    id, kind.name, position
+                                );
+
+                                let asset = assets.farmer(&kind.name);
+
+                                self.farmers.insert(
+                                    id,
+                                    FarmerBehaviour {
+                                        id,
+                                        kind,
+                                        asset,
+                                        considered_position: position.into(),
+                                        position: Vec3::new(position[0], 0.0, position[1]),
+                                    },
+                                );
+                            }
+                            Event::FarmerVanished(id) => {
+                                info!("Vanish farmer {:?}", id);
+                                self.farmers.remove(&id);
+                            }
+                            Event::FarmerMoved { id, position } => {
+                                match self.farmers.get_mut(&id) {
+                                    None => {}
+                                    Some(farmer) => farmer.considered_position = position.into(),
+                                }
+                            }
                         }
                     }
                 }
@@ -129,6 +161,13 @@ impl Gameplay {
                 &tree.asset.mesh,
                 &tree.asset.texture,
             );
+        }
+        for farmer in self.farmers.values() {
+            renderer.draw(
+                Mat4::from_translation(farmer.position),
+                &farmer.asset.mesh,
+                &farmer.asset.texture,
+            )
         }
     }
 }

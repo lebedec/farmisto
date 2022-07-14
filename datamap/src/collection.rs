@@ -28,14 +28,12 @@ pub trait WithContext: Sized {
         connection: &rusqlite::Connection,
     ) -> Result<Vec<Self>, rusqlite::Error> {
         let table = std::any::type_name::<Self>().split("::").last().unwrap();
-        let mut statement = connection
-            .prepare(&format!(
-                "select * from {} where {} = ?",
-                table,
-                Self::PREFETCH_PARENT
-            ))
-            .unwrap();
-        let mut rows = statement.query([parent]).unwrap();
+        let mut statement = connection.prepare(&format!(
+            "select * from {} where {} = ?",
+            table,
+            Self::PREFETCH_PARENT
+        ))?;
+        let mut rows = statement.query([parent])?;
         let mut prefetch = vec![];
         while let Some(row) = rows.next()? {
             let id: usize = row.get("id")?;
@@ -76,19 +74,22 @@ where
         }
     }
 
-    pub fn load(&mut self, storage: &Storage, context: &mut T::Context) {
+    pub fn load(
+        &mut self,
+        storage: &Storage,
+        context: &mut T::Context,
+    ) -> Result<i64, rusqlite::Error> {
         let connection = storage.connection();
         let table = std::any::type_name::<T>().split("::").last().unwrap();
-        let mut statement = connection
-            .prepare(&format!("select * from {} where timestamp > ?", table))
-            .unwrap();
-        let mut rows = statement.query([self.last_timestamp]).unwrap();
+        let mut statement =
+            connection.prepare(&format!("select * from {} where timestamp > ?", table))?;
+        let mut rows = statement.query([self.last_timestamp])?;
 
-        while let Some(row) = rows.next().unwrap() {
-            let id: usize = row.get("id").unwrap();
-            let name: String = row.get("name").unwrap();
-            let timestamp: i64 = row.get("timestamp").unwrap();
-            let deleted: bool = row.get("deleted").unwrap();
+        while let Some(row) = rows.next()? {
+            let id: usize = row.get("id")?;
+            let name: String = row.get("name")?;
+            let timestamp: i64 = row.get("timestamp")?;
+            let deleted: bool = row.get("deleted")?;
             if deleted {
                 info!("DELETE: {}", name);
                 self.items.remove(&name);
@@ -112,6 +113,8 @@ where
             }
             self.last_timestamp = timestamp;
         }
+
+        Ok(self.last_timestamp)
     }
 }
 

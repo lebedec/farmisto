@@ -14,6 +14,8 @@ create trigger sql_tracking_Body
     on Body
 begin
     update Body set timestamp = (cast(strftime('%s') as integer)) where id = new.id;
+
+    update Farmer set timestamp = (cast(strftime('%s') as integer)) where id = new.id;
 end;
 
 drop trigger if exists sql_tracking_Barrier;
@@ -53,4 +55,12 @@ create trigger sql_tracking_Tree
     on Tree
 begin
     update Tree set timestamp = (cast(strftime('%s') as integer)) where id = new.id;
+end;
+
+drop trigger if exists sql_tracking_Farmer;
+create trigger sql_tracking_Farmer
+    after update
+    on Farmer
+begin
+    update Farmer set timestamp = (cast(strftime('%s') as integer)) where id = new.id;
 end;

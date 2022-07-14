@@ -9,6 +9,7 @@ pub struct Universe {
     pub id: usize,
     pub known_trees: Known<TreeKind>,
     pub known_farmlands: Known<FarmlandKind>,
+    pub known_farmers: Known<FarmerKind>,
     pub farmlands: Collection<Farmland>,
     pub trees: Collection<Tree>,
     pub farmers: Collection<Farmer>,
@@ -21,6 +22,8 @@ pub struct UniverseSnapshot {
     pub farmlands_to_delete: HashSet<FarmlandId>,
     pub trees: HashSet<TreeId>,
     pub trees_to_delete: HashSet<TreeId>,
+    pub farmers: HashSet<FarmerId>,
+    pub farmers_to_delete: HashSet<FarmerId>,
 }
 
 impl UniverseSnapshot {
@@ -127,6 +130,7 @@ impl Universe {
 
         self.known_farmlands.load(storage);
         self.known_trees.load(storage);
+        self.known_farmers.load(storage);
 
         let changeset = self.trees.load(storage, &self.known_trees);
         // todo: automate changeset conversion to universe snapshot
@@ -139,6 +143,7 @@ impl Universe {
         for id in changeset.deletes {
             snapshot.trees_to_delete.insert(id.into());
         }
+
         let changeset = self.farmlands.load(storage, &self.known_farmlands);
         // todo: automate changeset conversion to universe snapshot
         for id in changeset.inserts {
@@ -151,10 +156,27 @@ impl Universe {
             snapshot.trees_to_delete.insert(id.into());
         }
 
-        let next_id = *[self.id, self.farmlands.last_id(), self.trees.last_id()]
-            .iter()
-            .max()
-            .unwrap();
+        let changeset = self.farmers.load(storage, &self.known_farmers);
+        // todo: automate changeset conversion to universe snapshot
+        for id in changeset.inserts {
+            snapshot.farmers.insert(id.into());
+        }
+        for id in changeset.updates {
+            snapshot.farmers.insert(id.into());
+        }
+        for id in changeset.deletes {
+            snapshot.farmers_to_delete.insert(id.into());
+        }
+
+        let next_id = *[
+            self.id,
+            self.farmlands.last_id(),
+            self.trees.last_id(),
+            self.farmers.last_id(),
+        ]
+        .iter()
+        .max()
+        .unwrap();
         if next_id != self.id {
             info!("Advance id value from {} to {}", self.id, next_id);
             self.id = next_id;

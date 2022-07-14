@@ -1,4 +1,4 @@
-use crate::model::{FarmlandId, FarmlandKey, TreeId, TreeKey};
+use crate::model::{FarmerId, FarmerKey, FarmlandId, FarmlandKey, TreeId, TreeKey};
 use std::fmt::Debug;
 
 pub const API_VERSION: &str = "0.1";
@@ -54,4 +54,14 @@ pub enum Event {
         kind: FarmlandKey,
     },
     FarmlandVanished(FarmlandId),
+    FarmerAppeared {
+        id: FarmerId,
+        kind: FarmerKey,
+        position: [f32; 2],
+    },
+    FarmerVanished(FarmerId),
+    FarmerMoved {
+        id: FarmerId,
+        position: [f32; 2],
+    },
 }

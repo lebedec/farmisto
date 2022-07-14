@@ -75,6 +75,22 @@ impl Game {
             .map(Event::TreeVanished);
         stream.extend(events);
 
+        for farmer in self.universe.farmers.iter() {
+            if snapshot.whole || snapshot.farmers.contains(&farmer.id) {
+                let body = self.physics.bodies.get(farmer.id).unwrap();
+                stream.push(Event::FarmerAppeared {
+                    id: farmer.id,
+                    kind: farmer.kind.id,
+                    position: body.position,
+                })
+            }
+        }
+        let events = snapshot
+            .farmers_to_delete
+            .into_iter()
+            .map(Event::FarmerVanished);
+        stream.extend(events);
+
         stream
     }
 

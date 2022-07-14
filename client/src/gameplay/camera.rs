@@ -15,7 +15,7 @@ impl Camera {
     pub fn new(viewport: [f32; 2]) -> Self {
         Self {
             viewport,
-            eye: vec3(0.0, -2.0, -4.0),
+            eye: vec3(0.0, -4.0, -4.0),
             z_near: 0.1,
             z_far: 10000.0,
         }
@@ -67,7 +67,7 @@ impl Camera {
             offset.z -= 1.0;
         }
 
-        self.eye += offset.normalize_or_zero() * input.time * 5.0;
+        self.eye += offset.normalize_or_zero() * input.time * 10.0;
     }
 
     pub fn uniform(&self) -> CameraUniform {
