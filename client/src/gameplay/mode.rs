@@ -1,9 +1,12 @@
 use crate::engine::Input;
 use crate::gameplay::camera::Camera;
-use crate::gameplay::objects::{FarmerBehaviour, FarmlandBehaviour, KnowledgeBase, TreeBehaviour};
+use crate::gameplay::objects::{
+    BarrierHint, FarmerBehaviour, FarmlandBehaviour, KnowledgeBase, TreeBehaviour,
+};
 use crate::{Assets, Mode, MyRenderer};
 use datamap::Storage;
 use game::api::{Action, Event, GameResponse, PlayerRequest};
+use game::math::{detect_collision, Collider};
 use game::model::{FarmerId, FarmlandId, TreeId};
 use glam::{Mat4, Vec2, Vec3};
 use log::{error, info, warn};
@@ -18,6 +21,7 @@ pub struct Gameplay {
     client: TcpClient,
     action_id: usize,
     pub knowledge: KnowledgeBase,
+    pub barriers: Vec<BarrierHint>,
     pub farmlands: HashMap<FarmlandId, FarmlandBehaviour>,
     pub trees: HashMap<TreeId, TreeBehaviour>,
     pub farmers: HashMap<FarmerId, FarmerBehaviour>,
@@ -31,6 +35,7 @@ impl Gameplay {
             client,
             action_id: 0,
             knowledge: KnowledgeBase::new(),
+            barriers: Default::default(),
             farmlands: Default::default(),
             trees: HashMap::new(),
             farmers: Default::default(),
@@ -73,6 +78,7 @@ impl Gameplay {
                             Event::TreeVanished(id) => {
                                 info!("Vanish tree {:?}", id);
                                 self.trees.remove(&id);
+                                // self.barriers.remove(&id.into());
                             }
                             Event::TreeUpdated { id } => {
                                 info!("Update tree {:?} [not implemented yet]", id);
@@ -147,6 +153,19 @@ impl Gameplay {
                                     }
                                 }
                             }
+                            Event::BarrierHintAppeared {
+                                id,
+                                kind,
+                                position,
+                                bounds,
+                            } => {
+                                self.barriers.push(BarrierHint {
+                                    id,
+                                    kind,
+                                    position,
+                                    bounds,
+                                });
+                            }
                         }
                     }
                 }
@@ -189,14 +208,17 @@ impl Gameplay {
             let destination =
                 delta + Vec2::new(farmer.rendering_position.x, farmer.rendering_position.z);
 
-            farmer.estimated_position = destination;
-            if delta.length() > 0.0 {
-                self.client.send(PlayerRequest::Perform {
-                    action_id: 0,
-                    action: Action::MoveFarmer {
-                        destination: destination.into(),
-                    },
-                })
+            // client side physics pre-calculation to prevent
+            // obvious movement errors
+            if let Some(destination) = detect_collision(farmer, destination.into(), &self.barriers)
+            {
+                farmer.estimated_position = Vec2::from(destination);
+                if delta.length() > 0.0 {
+                    self.client.send(PlayerRequest::Perform {
+                        action_id: 0,
+                        action: Action::MoveFarmer { destination },
+                    })
+                }
             }
         }
     }

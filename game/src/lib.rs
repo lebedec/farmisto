@@ -4,11 +4,10 @@ use crate::physics::{Physics, PhysicsDomain};
 use crate::planting::PlantingDomain;
 use datamap::Storage;
 pub use domains::*;
-pub use math::*;
 
 pub mod api;
 mod domains;
-mod math;
+pub mod math;
 pub mod model;
 
 pub struct Game {
@@ -84,6 +83,12 @@ impl Game {
             if snapshot.whole || snapshot.trees.contains(&tree.id) {
                 let barrier = self.physics.barriers.get(tree.id).unwrap();
                 let plant_kind = self.planting.known_plants.get(tree.kind.plant).unwrap();
+                stream.push(Event::BarrierHintAppeared {
+                    id: barrier.id.into(),
+                    kind: barrier.kind.id.into(),
+                    position: barrier.position,
+                    bounds: barrier.kind.bounds,
+                });
                 stream.push(Event::TreeAppeared {
                     id: tree.id,
                     kind: tree.kind.id,

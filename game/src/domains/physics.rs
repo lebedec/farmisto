@@ -1,4 +1,4 @@
-use crate::VectorMath;
+use crate::math::{detect_collision, test_rect_collision, Collider, VectorMath};
 use datamap::{Collection, Grouping, Id, Known, Persisted, Shared, Storage};
 use log::{error, info};
 
@@ -147,11 +147,11 @@ impl PhysicsDomain {
             let mut empty = vec![];
             let bodies = self.bodies.iter_mut(space.id).unwrap_or(&mut empty);
             let mut empty = vec![];
-            let _barriers = self.barriers.iter_mut(space.id).unwrap_or(&mut empty);
+            let barriers = self.barriers.iter_mut(space.id).unwrap_or(&mut empty);
             for index in 0..bodies.len() {
                 let _id = bodies[index].id;
 
-                let body = &mut bodies[index];
+                let body = &bodies[index];
                 let delta = body.kind.speed * time;
 
                 let destination = body.direction;
@@ -159,17 +159,22 @@ impl PhysicsDomain {
                 let distance = body.position.distance(destination);
 
                 if distance > 0.00001 {
-                    if delta > distance {
-                        body.position = destination;
+                    let position = if delta > distance {
+                        destination
                     } else {
                         let movement = body.position.direction(destination).mul(delta);
-                        body.position = body.position.add(movement);
+                        body.position.add(movement)
+                    };
+
+                    if let Some(position) = detect_collision(&body, position, &barriers) {
+                        let body = &mut bodies[index];
+                        body.position = position;
+                        events.push(Physics::BodyPositionChanged {
+                            id: body.id.into(),
+                            space: body.space.into(),
+                            position: body.position,
+                        })
                     }
-                    events.push(Physics::BodyPositionChanged {
-                        id: body.id.into(),
-                        space: body.space.into(),
-                        position: body.position,
-                    })
                 }
 
                 /*
@@ -201,5 +206,25 @@ impl PhysicsDomain {
         }
 
         events
+    }
+}
+
+impl Collider for &Body {
+    fn position(&self) -> [f32; 2] {
+        self.position
+    }
+
+    fn bounds(&self) -> [f32; 2] {
+        [0.5, 0.5]
+    }
+}
+
+impl Collider for Barrier {
+    fn position(&self) -> [f32; 2] {
+        self.position
+    }
+
+    fn bounds(&self) -> [f32; 2] {
+        self.kind.bounds
     }
 }

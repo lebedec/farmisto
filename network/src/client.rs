@@ -4,7 +4,7 @@ use log::{error, info};
 use std::net::{SocketAddr, TcpStream};
 use std::sync::mpsc::{channel, Receiver, RecvTimeoutError, Sender, TryIter};
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 pub struct TcpClient {
     pub player: String,
@@ -52,10 +52,30 @@ impl TcpClient {
             }
             thread::spawn(move || {
                 info!("Start client responses thread");
-                while let Some(response) = receiver.receive() {
-                    if responses_sender.send(response).is_err() {
-                        error!("Unable to receive response, client not working");
-                        break;
+                loop {
+                    let mut responses = vec![];
+                    let time = Instant::now();
+                    loop {
+                        match receiver.receive() {
+                            Some(response) => {
+                                responses.push(response);
+                            }
+                            None => {
+                                error!("Unable to receive response, server not working");
+                                break;
+                            }
+                        }
+                        // - buffering
+                        // - downstream latency simulation
+                        if time.elapsed() > Duration::from_millis(0) {
+                            break;
+                        }
+                    }
+                    for response in responses {
+                        if responses_sender.send(response).is_err() {
+                            error!("Unable to receive response, client not working");
+                            break;
+                        }
                     }
                 }
                 info!("Stop client responses thread");
@@ -64,17 +84,30 @@ impl TcpClient {
             thread::spawn(move || {
                 info!("Start client requests thread");
                 loop {
-                    let request = match requests_receiver.recv_timeout(heartbeat) {
-                        Ok(request) => request,
-                        Err(RecvTimeoutError::Timeout) => PlayerRequest::Heartbeat,
-                        Err(RecvTimeoutError::Disconnected) => {
-                            error!("Unable to send request, connection lost");
+                    let mut requests = vec![];
+                    let time = Instant::now();
+                    loop {
+                        let request = match requests_receiver.recv_timeout(heartbeat) {
+                            Ok(request) => request,
+                            Err(RecvTimeoutError::Timeout) => PlayerRequest::Heartbeat,
+                            Err(RecvTimeoutError::Disconnected) => {
+                                error!("Unable to send request, connection lost");
+                                break;
+                            }
+                        };
+                        requests.push(request);
+
+                        // - buffering
+                        // - upstream latency simulation
+                        if time.elapsed() > Duration::from_millis(0) {
                             break;
                         }
-                    };
-                    if sender.send(&request).is_none() {
-                        error!("Unable to send request, network error");
-                        break;
+                    }
+                    for request in requests {
+                        if sender.send(&request).is_none() {
+                            error!("Unable to send request, network error");
+                            break;
+                        }
                     }
                 }
                 info!("Stop client requests thread");

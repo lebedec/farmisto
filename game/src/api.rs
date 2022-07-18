@@ -1,4 +1,5 @@
 use crate::model::{FarmerId, FarmerKey, FarmlandId, FarmlandKey, TreeId, TreeKey};
+use crate::physics::BarrierId;
 use std::fmt::Debug;
 
 pub const API_VERSION: &str = "0.1";
@@ -40,6 +41,12 @@ pub enum Action {
 
 #[derive(bincode::Encode, bincode::Decode)]
 pub enum Event {
+    BarrierHintAppeared {
+        id: usize,
+        kind: usize,
+        position: [f32; 2],
+        bounds: [f32; 2],
+    },
     TreeAppeared {
         id: TreeId,
         kind: TreeKey,
