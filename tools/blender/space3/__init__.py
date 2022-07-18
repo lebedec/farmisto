@@ -22,7 +22,7 @@ import zlib
 bl_info = {
     "name": "Space3 format",
     "author": "Lebedev Games Team",
-    "version": (1, 0, 10),
+    "version": (1, 0, 13),
     "blender": (3, 0, 0),
     "location": "File > Import-Export",
     "description": "Space3 IO meshes, UV's, vertex colors, materials, textures, cameras, lamps and actions",
@@ -221,6 +221,7 @@ def main(context: Context, report, output_path: str, use_selection: bool):
             for frame in range(context.scene.frame_end):
                 context.scene.frame_set(frame)
                 channels = []
+                report(f"FRAME: {frame}")
                 for bone in ob.pose.bones:
                     channels.append(S3Channel(
                         node=0, #TODO: bone <-> vertex group mapping
@@ -229,14 +230,14 @@ def main(context: Context, report, output_path: str, use_selection: bool):
                         scale=tuple(bone.scale),
                         matrix=[list(row) for row in bone.matrix],
                     ))
-                    # report(
-                    #     f'bone {bone.name} ({bone.bone_group_index}) '
-                    #     f'location: {bone.location} matrix: {bone.matrix}'
-                    # )
+                    report(
+                        f'bone {bone.name} ({bone.bone_group_index}) '
+                        f'location: {tuple(bone.location)} rotation: {tuple(bone.rotation_quaternion)} matrix: {bone.matrix}'
+                    )
                 scene.animation.keyframes.append(S3Keyframe(
                     channels=channels
                 ))
-            report(f'my animation: {scene.animation}')
+            # report(f'my animation: {scene.animation}')
 
         if isinstance(ob.data, Mesh):
             mesh = ob.data
@@ -345,12 +346,9 @@ class Space3Export(bpy.types.Operator, ExportHelper):
         return self.batch_mode == 'OFF'
 
     def execute(self, context):
-        if self.debug_process:
-            def report(message: str, level='INFO'):
+        def report(message: str, level='INFO'):
+            if level != 'INFO' or self.debug_process:
                 self.report({level}, message)
-        else:
-            def report(message: str, level='INFO'):
-                pass
 
         main(context, report, self.filepath, self.use_selection)
         return {'FINISHED'}
