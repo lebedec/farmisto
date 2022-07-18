@@ -3,6 +3,10 @@ use crate::engine::my::MyRenderer;
 use crate::engine::{Assets, Input};
 use ash::vk;
 use datamap::Storage;
+use libfmod::ffi::{
+    FMOD_INIT_NORMAL, FMOD_STUDIO_INIT_NORMAL, FMOD_STUDIO_LOAD_BANK_NORMAL, FMOD_VERSION,
+};
+use libfmod::{SpeakerMode, Studio};
 use log::info;
 use std::ffi::CString;
 use std::sync::Arc;
@@ -10,7 +14,13 @@ use std::time::Instant;
 
 pub trait App {
     fn start(assets: &mut Assets) -> Self;
-    fn update(&mut self, input: Input, renderer: &mut MyRenderer, assets: &mut Assets);
+    fn update(
+        &mut self,
+        input: Input,
+        renderer: &mut MyRenderer,
+        assets: &mut Assets,
+        studio: &Studio,
+    );
 }
 
 pub fn startup<A: App>(title: String) {
@@ -53,6 +63,30 @@ pub fn startup<A: App>(title: String) {
         window.clone(),
         instance_extensions,
     );
+
+    info!("FMOD expected version: {:#08x}", FMOD_VERSION);
+    let studio = Studio::create().unwrap();
+    let system = studio.get_core_system().unwrap();
+    system
+        .set_software_format(None, Some(SpeakerMode::Quad), None)
+        .unwrap();
+    studio
+        .initialize(1024, FMOD_STUDIO_INIT_NORMAL, FMOD_INIT_NORMAL, None)
+        .unwrap();
+
+    let master = studio
+        .load_bank_file("./assets/audio/Master.bank", FMOD_STUDIO_LOAD_BANK_NORMAL)
+        .unwrap();
+    let strings = studio
+        .load_bank_file(
+            "./assets/audio/Master.strings.bank",
+            FMOD_STUDIO_LOAD_BANK_NORMAL,
+        )
+        .unwrap();
+    let sfx = studio
+        .load_bank_file("./assets/audio/SFX.bank", FMOD_STUDIO_LOAD_BANK_NORMAL)
+        .unwrap();
+    info!("FMOD banks loaded");
 
     unsafe {
         let renderpass_attachments = [
@@ -153,6 +187,7 @@ pub fn startup<A: App>(title: String) {
         let mut input = Input::new(window_size);
         loop {
             assets.update();
+            studio.update().unwrap();
 
             input.reset();
             input.time = time.elapsed().as_secs_f32();
@@ -178,7 +213,7 @@ pub fn startup<A: App>(title: String) {
                 .unwrap();
 
             my_renderer.present_index = present_index;
-            app.update(input.clone(), &mut my_renderer, &mut assets);
+            app.update(input.clone(), &mut my_renderer, &mut assets, &studio);
 
             let clear_values = [
                 vk::ClearValue {
