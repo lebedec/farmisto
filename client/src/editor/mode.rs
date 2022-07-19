@@ -16,6 +16,10 @@ pub struct Editor {
 }
 
 impl Editor {
+    pub fn do_something(&mut self) {
+        info!("Editor do something");
+    }
+
     fn handle_edit_operations(&mut self, input: &Input, assets: &mut Assets) {
         if input.pressed(Keycode::Tab) {
             self.active = !self.active;

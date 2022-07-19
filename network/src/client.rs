@@ -83,7 +83,7 @@ impl TcpClient {
 
             thread::spawn(move || {
                 info!("Start client requests thread");
-                loop {
+                'thread: loop {
                     let mut requests = vec![];
                     let time = Instant::now();
                     loop {
@@ -92,7 +92,7 @@ impl TcpClient {
                             Err(RecvTimeoutError::Timeout) => PlayerRequest::Heartbeat,
                             Err(RecvTimeoutError::Disconnected) => {
                                 error!("Unable to send request, connection lost");
-                                break;
+                                break 'thread;
                             }
                         };
                         requests.push(request);
