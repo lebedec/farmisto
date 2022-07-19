@@ -1,10 +1,86 @@
-use crate::editor::Editor;
 use crate::Input;
-use game::model::TreeId;
-use serde_json::{json, Value};
-use std::collections::{HashMap, HashSet};
+use serde_json::Value;
+use std::collections::hash_map::Values;
+use std::collections::HashMap;
 
 pub type Factory<B> = fn(Value) -> Box<dyn Control<B>>;
+
+#[derive(Clone, Copy)]
+pub struct RenderRect {
+    position: [f32; 2],
+    size: [f32; 2],
+}
+
+pub enum RenderNode<B> {
+    Text {
+        value: String,
+        style: *const Style,
+    },
+    Element {
+        tag: String,
+        style: Style,
+        children: Vec<RenderNode<B>>,
+    },
+    Component {
+        tag: String,
+        value: Value,
+        controller: Box<dyn Control<B>>,
+        node: Box<RenderNode<B>>,
+    },
+}
+
+impl<B> RenderNode<B> {
+    pub fn text(value: &str, style: *const Style) -> RenderNode<B> {
+        RenderNode::Text {
+            value: value.to_string(),
+            style,
+        }
+    }
+
+    pub fn rect(&self) -> RenderRect {
+        match self {
+            RenderNode::Text { style, .. } => {
+                let style: &Style = unsafe { &**style };
+                style.rect()
+            }
+            RenderNode::Element { style, .. } => style.rect(),
+            RenderNode::Component { node, .. } => node.rect(),
+        }
+    }
+}
+
+pub struct StyleAsset {}
+
+pub struct Style {
+    left: f32,
+    top: f32,
+    width: f32,
+    height: f32,
+}
+
+impl Style {
+    pub fn rect(&self) -> RenderRect {
+        RenderRect {
+            position: [self.left, self.top],
+            size: [self.width, self.height],
+        }
+    }
+}
+
+impl Default for Style {
+    fn default() -> Self {
+        Self {
+            left: 0.0,
+            top: 0.0,
+            width: 0.0,
+            height: 0.0,
+        }
+    }
+}
+
+fn compute_style(parent: &Style, specified: &StyleAsset) -> Style {
+    unimplemented!()
+}
 
 pub struct Component<B> {
     factory: Factory<B>,
@@ -13,8 +89,8 @@ pub struct Component<B> {
 }
 
 pub struct Interface<B> {
-    root: RenderObject<B>,
-    components: HashMap<String, Component<B>>,
+    pub root: RenderNode<B>,
+    pub components: HashMap<String, Component<B>>,
 }
 
 impl<B> Interface<B> {
@@ -29,153 +105,78 @@ impl<B> Interface<B> {
         );
     }
 
-    pub fn render(&mut self, backend: &B, input: &Input) {
-        // render tree
-        match &self.root {
-            RenderObject::Text(_) => {}
-            RenderObject::Element { .. } => {}
-            RenderObject::Component { controller, tag } => {
-                let value = controller.render(backend);
-                let component = self.components.get(tag).unwrap();
-                let element = value_to_element::<B>(component.template.clone(), value);
-                let controller = (component.factory)(Value::Null);
-                self.root = RenderObject::Component {
-                    controller,
-                    tag: "a".to_string(),
+    fn render(
+        &mut self,
+        current: &mut RenderNode<B>,
+        input: &Input,
+        backend: &B,
+        specified: &StyleAsset,
+        parent: &Style,
+    ) {
+        match current {
+            RenderNode::Text { value, style } => {
+                // once per render_template:
+                // *style = parent;
+            }
+            RenderNode::Element {
+                tag,
+                children,
+                style,
+            } => {
+                // once per render_template:
+                // *style = compute_style(parent, specified);
+                for node in children.iter_mut() {
+                    self.render(node, input, backend, specified, style);
                 }
             }
+            RenderNode::Component {
+                tag,
+                value,
+                controller,
+                node,
+            } => {
+                controller.handle(input, node.rect());
+                let next = controller.update(backend);
+                let specified = StyleAsset {};
+                if value != &next {
+                    *node.as_mut() = self.render_template(tag, &next);
+                    *value = next;
+                }
+                self.render(node, input, backend, &specified, parent);
+            }
         }
-        // calculate styles
-        // ..
-
-        // handle input
-
-        // calculate bounds only (fixed position + resolved length)
-        // :active
     }
-}
 
-fn value_to_element<B>(template: String, value: Value) -> RenderObject<B> {
-    unimplemented!()
-}
-
-fn test_main(editor: &Editor, input: &Input) {
-    let mut interface = Interface {
-        root: RenderObject::Text("".to_string()),
-        components: Default::default(),
-    };
-    interface.register("Parent", Parent::create, "parent.html", "parent.css");
-    interface.register("Child", Child::create, "child.html", "child.css");
-    interface.render(editor, input);
+    fn render_template(&self, tag: &String, value: &Value) -> RenderNode<B> {
+        let component = self.components.get(tag).unwrap();
+        let template = &component.template;
+        unimplemented!();
+    }
 }
 
 pub trait Control<B> {
-    fn boxed(self) -> Box<dyn Control<B>>
-    where
-        Self: 'static + Sized,
-    {
-        Box::new(self)
-    }
-
     fn create(props: Value) -> Box<dyn Control<B>>
     where
         Self: Sized;
 
-    fn handle(&self, backend: &mut B, input: &Input) {}
+    fn handle(&mut self, input: &Input, rect: RenderRect) {}
 
-    // fn template(&self) -> String;
-
-    fn render(&self, backend: &B) -> Value {
+    fn update(&mut self, backend: &B) -> Value {
         Value::Null
     }
 }
 
-pub enum RenderObject<B> {
-    Text(String),
-    Element {
-        children: Vec<RenderObject<B>>,
-    },
-    Component {
-        controller: Box<dyn Control<B>>,
-        tag: String,
-    },
+pub trait ValueArray<V> {
+    fn as_array<F>(self, map: F) -> Vec<Value>
+    where
+        F: FnMut(&V) -> Value;
 }
 
-pub struct Parent {}
-
-impl Control<Editor> for Parent {
-    fn create(props: Value) -> Box<dyn Control<Editor>> {
-        Box::new(Self {})
-    }
-
-    fn handle(&self, editor: &mut Editor, input: &Input) {
-        // render properties
-        if input.click() {
-            editor.do_something();
-        }
-    }
-
-    // fn template(&self) -> String {
-    //     r#"
-    //     <div>
-    //         <h1>Editor: {{mode}}</h1>
-    //         {{#items}}
-    //         <Child key="{{id}}" id="{{id}}" name="{{name}}">
-    //         {{/items}}
-    //     </div>
-    //     "#
-    //     .to_string()
-    // }
-
-    fn render(&self, editor: &Editor) -> Value {
-        let items: Vec<Value> = editor
-            .gameplay
-            .trees
-            .values()
-            .map(|tree| {
-                let id: usize = tree.id.into();
-                json!({ "id": id, "name": &tree.kind.name })
-            })
-            .collect();
-        json!({
-            "mode": editor.active,
-            "items": items
-        })
-    }
-}
-
-#[derive(serde::Deserialize)]
-pub struct ChildProps {
-    id: usize,
-    name: String,
-}
-
-pub struct Child {
-    id: TreeId,
-    name: String,
-}
-
-impl Control<Editor> for Child {
-    fn create(props: Value) -> Box<dyn Control<Editor>> {
-        let props: ChildProps = serde_json::from_value(props).unwrap();
-        Box::new(Child {
-            id: props.id.into(),
-            name: props.name,
-        })
-    }
-
-    // fn template(&self) -> String {
-    //     r#"
-    //     <h2>{{name}} : {{x}}</h2>
-    //     "#
-    //     .to_string()
-    // }
-
-    fn render(&self, editor: &Editor) -> Value {
-        let tree = editor.gameplay.trees.get(&self.id).unwrap();
-        json!({
-            "name": self.name,
-            "x": tree.position.x
-        })
+impl<K, V> ValueArray<V> for Values<'_, K, V> {
+    fn as_array<F>(self, map: F) -> Vec<Value>
+    where
+        F: FnMut(&V) -> Value,
+    {
+        self.map(map).collect()
     }
 }
