@@ -3,7 +3,7 @@ use crate::gameplay::camera::Camera;
 use crate::gameplay::objects::{
     BarrierHint, FarmerBehaviour, FarmlandBehaviour, KnowledgeBase, TreeBehaviour,
 };
-use crate::{Assets, Mode, MyRenderer};
+use crate::{Assets, Mode, SceneRenderer};
 use datamap::Storage;
 use game::api::{Action, Event, GameResponse, PlayerRequest};
 use game::math::{detect_collision, Collider};
@@ -223,7 +223,7 @@ impl Gameplay {
         }
     }
 
-    pub fn render(&mut self, renderer: &mut MyRenderer) {
+    pub fn render(&mut self, renderer: &mut SceneRenderer) {
         renderer.clear();
         renderer.look_at(self.camera.uniform());
         for farmland in self.farmlands.values() {
@@ -273,7 +273,7 @@ impl Mode for Gameplay {
         self.knowledge.reload();
     }
 
-    fn update(&mut self, input: &Input, renderer: &mut MyRenderer, assets: &mut Assets) {
+    fn update(&mut self, input: &Input, renderer: &mut SceneRenderer, assets: &mut Assets) {
         self.handle_server_responses(assets);
         self.handle_user_input(input);
         self.render(renderer);

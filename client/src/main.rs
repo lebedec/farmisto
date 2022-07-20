@@ -1,4 +1,4 @@
-use crate::engine::my::MyRenderer;
+use crate::engine::scene::SceneRenderer;
 use crate::engine::{startup, App, Assets, Input, ShaderCompiler};
 use crate::intro::Intro;
 use crate::mode::Mode;
@@ -40,7 +40,7 @@ impl App for Appplication {
     fn update(
         &mut self,
         input: Input,
-        renderer: &mut MyRenderer,
+        renderer: &mut SceneRenderer,
         assets: &mut Assets,
         studio: &Studio,
     ) {

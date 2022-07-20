@@ -1,7 +1,7 @@
 use crate::editor::Editor;
 use crate::gameplay::Gameplay;
 use crate::menu::Menu;
-use crate::{Mode, MyRenderer};
+use crate::{Mode, SceneRenderer};
 use datamap::Storage;
 use network::{Configuration, TcpClient};
 use server::LocalServerThread;
@@ -19,7 +19,7 @@ impl Intro {
 }
 
 impl Mode for Intro {
-    fn transition(&self, renderer: &mut MyRenderer) -> Option<Box<dyn Mode>> {
+    fn transition(&self, renderer: &mut SceneRenderer) -> Option<Box<dyn Mode>> {
         if self.is_editor {
             // development mode startup
             let player = "dev".to_string();

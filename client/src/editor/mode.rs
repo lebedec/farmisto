@@ -1,7 +1,7 @@
 use crate::editor::operations::{Delete, Duplicate, Move, Operation, Rotation, Scale};
 use crate::editor::selection::Selection;
 use crate::gameplay::Gameplay;
-use crate::{Assets, Input, Mode, MyRenderer};
+use crate::{Assets, Input, Mode, SceneRenderer};
 use datamap::Storage;
 use glam::{Mat4, Vec2, Vec3};
 use log::info;
@@ -113,7 +113,7 @@ impl Editor {
         }
     }
 
-    fn render(&self, renderer: &mut MyRenderer) {
+    fn render(&self, renderer: &mut SceneRenderer) {
         match self.selection.as_ref() {
             None => {}
             Some(Selection::FarmlandProp { farmland, id, kind }) => {
@@ -137,7 +137,7 @@ impl Editor {
 }
 
 impl Mode for Editor {
-    fn update(&mut self, input: &Input, renderer: &mut MyRenderer, assets: &mut Assets) {
+    fn update(&mut self, input: &Input, renderer: &mut SceneRenderer, assets: &mut Assets) {
         self.gameplay.knowledge.reload();
         self.gameplay.handle_server_responses(assets);
         self.handle_edit_operations(input, assets);

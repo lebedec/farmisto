@@ -1,5 +1,5 @@
 use crate::engine::base::{submit_commands, Base};
-use crate::engine::my::MyRenderer;
+use crate::engine::scene::SceneRenderer;
 use crate::engine::{Assets, Input};
 use ash::vk;
 use datamap::Storage;
@@ -17,7 +17,7 @@ pub trait App {
     fn update(
         &mut self,
         input: Input,
-        renderer: &mut MyRenderer,
+        renderer: &mut SceneRenderer,
         assets: &mut Assets,
         studio: &Studio,
     );
@@ -170,7 +170,7 @@ pub fn startup<A: App>(title: String) {
         let storage = Storage::open("./assets/assets.sqlite").unwrap();
         let mut assets = Assets::new(base.device.clone(), base.pool, base.queue.clone());
 
-        let mut my_renderer = MyRenderer::create(
+        let mut my_renderer = SceneRenderer::create(
             &base.device,
             &base.queue.device_memory,
             base.queue.clone(),

@@ -6,7 +6,7 @@ from typing import Tuple
 from typing import Union
 from time import time
 
-import bpy
+import bpy as bpy
 from bpy.props import EnumProperty
 from bpy.props import BoolProperty
 from bpy.props import StringProperty
@@ -17,12 +17,13 @@ from bpy.types import Mesh
 from bpy.types import Object
 from bpy_extras.io_utils import ExportHelper
 from bpy_extras.io_utils import orientation_helper
+from bpy_extras.io_utils import axis_conversion
 import zlib
 
 bl_info = {
     "name": "Space3 format",
     "author": "Lebedev Games Team",
-    "version": (1, 0, 13),
+    "version": (1, 1, 3),
     "blender": (3, 0, 0),
     "location": "File > Import-Export",
     "description": "Space3 IO meshes, UV's, vertex colors, materials, textures, cameras, lamps and actions",
@@ -107,9 +108,9 @@ class Writer:
     def write_vertex(self, value: S3Vertex):
         self.buffer.write(struct.pack(
             '3f3f2f4b4f',
-            value.position[0], # axis orientation (coordinate system mapping):
-            -value.position[2], # Blender Z = Vulkan -Y
-            value.position[1], # Blender Y = Vulkan Z
+            value.position[0],
+            value.position[1],
+            value.position[2],
             value.normal[0],
             value.normal[1],
             value.normal[2],
@@ -198,7 +199,7 @@ def pack_scene(scene: S3Scene) -> BytesIO:
     return writer.buffer
 
 
-def main(context: Context, report, output_path: str, use_selection: bool):
+def main(context: Context, orientation, report, output_path: str, use_selection: bool):
     scene = S3Scene([], S3Animation('', []))
 
     if use_selection:
@@ -232,7 +233,7 @@ def main(context: Context, report, output_path: str, use_selection: bool):
                     ))
                     report(
                         f'bone {bone.name} ({bone.bone_group_index}) '
-                        f'location: {tuple(bone.location)} rotation: {tuple(bone.rotation_quaternion)} matrix: {bone.matrix}'
+                        f'location: {tuple(bone.location)} rotation: {tuple(bone.rotation_quaternion)} scale: {tuple(bone.scale)}'
                     )
                 scene.animation.keyframes.append(S3Keyframe(
                     channels=channels
@@ -240,7 +241,9 @@ def main(context: Context, report, output_path: str, use_selection: bool):
             # report(f'my animation: {scene.animation}')
 
         if isinstance(ob.data, Mesh):
-            mesh = ob.data
+            mesh = ob.to_mesh()
+            mesh.transform(orientation)
+
             mesh.calc_loop_triangles()
             uv_data = mesh.uv_layers.active.data
 
@@ -286,7 +289,6 @@ def main(context: Context, report, output_path: str, use_selection: bool):
                 vertices=vertices,
                 triangles=triangles
             )
-            report(f'my mesh: {out_mesh}')
             scene.meshes.append(out_mesh)
 
     t = time()
@@ -298,7 +300,8 @@ def main(context: Context, report, output_path: str, use_selection: bool):
     report(f'Data length: {data_length} bytes, Export time: {time() - t} seconds')
 
 
-
+# Vulkan orientation by default
+@orientation_helper(axis_forward='Z', axis_up='-Y')
 class Space3Export(bpy.types.Operator, ExportHelper):
     bl_idname = "export_scene.space3"
     bl_label = "Export Space3"
@@ -350,7 +353,12 @@ class Space3Export(bpy.types.Operator, ExportHelper):
             if level != 'INFO' or self.debug_process:
                 self.report({level}, message)
 
-        main(context, report, self.filepath, self.use_selection)
+        orientation = axis_conversion(
+            to_forward=self.axis_forward,
+            to_up=self.axis_up,
+        ).to_4x4()
+
+        main(context, orientation, report, self.filepath, self.use_selection)
         return {'FINISHED'}
 
 
@@ -385,6 +393,8 @@ class Space3ExportPanel(bpy.types.Panel):
 
         layout.prop(operator, 'use_selection')
         layout.prop(operator, 'debug_process')
+        layout.prop(operator, "axis_forward")
+        layout.prop(operator, "axis_up")
 
 
 

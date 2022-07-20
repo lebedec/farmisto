@@ -1,3 +1,4 @@
+use glam::{Mat4, Quat, Vec3, Vec4};
 use log::error;
 use std::collections::HashMap;
 
@@ -11,7 +12,10 @@ pub struct AnimationAsset {
 }
 
 pub struct Channel {
+    parent: Option<usize>,
     position: [f32; 3],
+    rotation: [f32; 4],
+    scale: [f32; 3],
 }
 
 pub struct Frame {
@@ -65,6 +69,7 @@ pub struct Machine {
     parameters: HashMap<ParameterId, Parameter>,
     states: Vec<State>,
     current: usize,
+    transform: [[f32; 16]; 64],
 }
 
 impl Machine {
@@ -102,6 +107,22 @@ impl Machine {
                 }
             }
         }
+
+        let blend = &state.motion.frames[state.frame];
+
+        let transform = &mut self.transform;
+        for (bone, channel) in blend.channels.iter().enumerate() {
+            let mut local = Mat4::from_scale_rotation_translation(
+                Vec3::from(channel.scale),
+                Quat::from_vec4(Vec4::from(channel.rotation)),
+                Vec3::from(channel.position),
+            );
+            if let Some(parent) = channel.parent {
+                local = Mat4::from_cols_array(&transform[parent]) * local;
+            }
+            transform[bone] = local.to_cols_array();
+        }
+        // move transform to GPU buffer
 
         if exit {
             let state = &self.states[self.current];

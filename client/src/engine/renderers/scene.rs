@@ -15,17 +15,17 @@ use std::time::Instant;
 
 pub struct Material {}
 
-pub struct MyRenderObject {
+pub struct SceneObject {
     transform: Mat4,
     mesh: MeshAsset,
     texture: TextureAsset,
 }
 
-pub struct MyRenderer {
+pub struct SceneRenderer {
     device: Device,
     swapchain: usize,
-    objects: Vec<MyRenderObject>,
-    bounds: Vec<MyRenderObject>,
+    objects: Vec<SceneObject>,
+    bounds: Vec<SceneObject>,
     layout: vk::PipelineLayout,
     pipeline: vk::Pipeline,
     gizmos_pipeline: vk::Pipeline,
@@ -47,7 +47,7 @@ pub struct MyRenderer {
     wireframe_tex: TextureAsset,
 }
 
-impl MyRenderer {
+impl SceneRenderer {
     pub fn look_at(&mut self, uniform: CameraUniform) {
         self.camera_buffer
             .update(self.present_index as usize, uniform);
@@ -61,7 +61,7 @@ impl MyRenderer {
     pub fn bounds(&mut self, transform: Mat4, bounds: MeshBounds) {
         let bounds_matrix = Mat4::from_scale(Vec3::from(bounds.length()))
             * Mat4::from_translation(Vec3::from(bounds.offset()));
-        self.bounds.push(MyRenderObject {
+        self.bounds.push(SceneObject {
             transform: transform * bounds_matrix,
             mesh: self.bounds_mesh.clone(),
             texture: self.wireframe_tex.clone(),
@@ -69,7 +69,7 @@ impl MyRenderer {
     }
 
     pub fn draw(&mut self, transform: Mat4, mesh: &MeshAsset, texture: &TextureAsset) {
-        self.objects.push(MyRenderObject {
+        self.objects.push(SceneObject {
             transform,
             mesh: mesh.clone(),
             texture: texture.clone(),
