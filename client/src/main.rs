@@ -5,6 +5,7 @@ use crate::mode::Mode;
 use libfmod::Studio;
 use log::info;
 
+pub mod animatoro;
 pub mod bumaga;
 pub mod editor;
 pub mod engine;
