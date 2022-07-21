@@ -41,6 +41,7 @@ pub struct S3Keyframe {
 
 pub struct S3Armature {}
 
+#[derive(Default)]
 pub struct S3Animation {
     pub name: String,
     pub keyframes: Vec<S3Keyframe>,

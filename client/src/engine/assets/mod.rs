@@ -12,5 +12,5 @@ mod mesh;
 mod prefabs;
 mod props;
 mod shader;
-mod space3;
+pub mod space3;
 mod texture;

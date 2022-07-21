@@ -4,6 +4,7 @@ pub use input::*;
 pub use renderers::*;
 
 mod app;
+pub mod armature;
 mod assets;
 mod base;
 mod commands;

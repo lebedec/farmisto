@@ -12,9 +12,10 @@ use std::default::Default;
 use std::ffi::{CStr, CString};
 use std::ops::Drop;
 use std::os::raw::c_char;
+use std::ptr;
 use std::sync::{Arc, Mutex};
 
-use ash::vk::{DebugUtilsMessageSeverityFlagsEXT, Handle};
+use ash::vk::{DebugUtilsMessageSeverityFlagsEXT, DescriptorSetLayout, Handle};
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 use ash::vk::{
     KhrGetPhysicalDeviceProperties2Fn, KhrPortabilityEnumerationFn, KhrPortabilitySubsetFn,
@@ -548,6 +549,23 @@ impl Base {
             }
         }
     }
+
+    pub fn create_descriptor_set_layout<const N: usize>(
+        device: &Device,
+        stage_flags: vk::ShaderStageFlags,
+        bindings: [vk::DescriptorType; N],
+    ) -> DescriptorSetLayout {
+        let mut binding = 0;
+        let bindings = bindings.map(|descriptor_type| vk::DescriptorSetLayoutBinding {
+            binding: binding.increment(),
+            descriptor_type,
+            descriptor_count: 1,
+            stage_flags,
+            p_immutable_samplers: ptr::null(),
+        });
+        let info = vk::DescriptorSetLayoutCreateInfo::builder().bindings(&bindings);
+        unsafe { device.create_descriptor_set_layout(&info, None).unwrap() }
+    }
 }
 
 impl Drop for Base {
@@ -612,4 +630,16 @@ pub fn create_buffer(
     }
 
     (buffer, device_memory, memory.size)
+}
+
+trait Increment {
+    fn increment(&mut self) -> Self;
+}
+
+impl Increment for u32 {
+    fn increment(&mut self) -> Self {
+        let temp = *self;
+        *self += 1;
+        temp
+    }
 }

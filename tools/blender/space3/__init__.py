@@ -23,7 +23,7 @@ import zlib
 bl_info = {
     "name": "Space3 format",
     "author": "Lebedev Games Team",
-    "version": (1, 1, 3),
+    "version": (1, 1, 11),
     "blender": (3, 0, 0),
     "location": "File > Import-Export",
     "description": "Space3 IO meshes, UV's, vertex colors, materials, textures, cameras, lamps and actions",
@@ -214,7 +214,8 @@ def main(context: Context, orientation, report, output_path: str, use_selection:
             armature = ob.data
 
             for bone in armature.bones:
-                report(f'bone {bone.name} p={bone.parent} children:{list(bone.children)}')
+                # report(f'bone {bone.name} p={bone.parent} children:{list(bone.children)}')
+                report(f'bone {bone.name} {bone.matrix_local}')
 
             # report(f'animation: {armature.animation_data.action.name}')
             report(f'animation {ob.animation_data.action.name}')
@@ -224,17 +225,23 @@ def main(context: Context, orientation, report, output_path: str, use_selection:
                 channels = []
                 report(f"FRAME: {frame}")
                 for bone in ob.pose.bones:
+                    position, rotation, scale = (orientation @ bone.matrix_channel).decompose()
                     channels.append(S3Channel(
                         node=0, #TODO: bone <-> vertex group mapping
-                        position=tuple(bone.location),
-                        rotation=tuple(bone.rotation_quaternion),
-                        scale=tuple(bone.scale),
+                        position=tuple(position),
+                        rotation=tuple(rotation),
+                        scale=tuple(scale),
                         matrix=[list(row) for row in bone.matrix],
                     ))
                     report(
-                        f'bone {bone.name} ({bone.bone_group_index}) '
-                        f'location: {tuple(bone.location)} rotation: {tuple(bone.rotation_quaternion)} scale: {tuple(bone.scale)}'
+                        f'{bone.name} ({bone.bone_group_index}) '
+                        f'location: {tuple(position)} rotation: {tuple(rotation)} scale: {tuple(scale)}'
                     )
+                    # loc, rot, scale = (orientation @ bone.matrix).decompose()
+                    # report(
+                    #     f'FINAL ORI {bone.name} ({bone.bone_group_index}) '
+                    #     f'location: {loc} rotation: {rot} scale: {scale}'
+                    # )
                 scene.animation.keyframes.append(S3Keyframe(
                     channels=channels
                 ))

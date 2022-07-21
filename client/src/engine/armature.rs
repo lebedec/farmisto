@@ -1,21 +1,20 @@
 use crate::engine::base::create_buffer;
 use ash::{vk, Device};
 use glam::Mat4;
+use std::ptr;
 
 #[derive(Clone, Copy)]
-pub struct CameraUniform {
-    pub model: Mat4,
-    pub view: Mat4,
-    pub proj: Mat4,
+pub struct ArmatureUniform {
+    pub bones: [Mat4; 64],
 }
 
-pub struct UniformBuffer {
+pub struct ArmatureBuffer {
     device: Device,
     pub buffers: Vec<vk::Buffer>,
     memory: Vec<vk::DeviceMemory>,
 }
 
-impl UniformBuffer {
+impl ArmatureBuffer {
     pub fn create<T>(
         device: Device,
         device_memory_properties: &vk::PhysicalDeviceMemoryProperties,

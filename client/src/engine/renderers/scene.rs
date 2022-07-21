@@ -1,4 +1,5 @@
-use crate::engine::base::Queue;
+use crate::engine::armature::{ArmatureBuffer, ArmatureUniform};
+use crate::engine::base::{Base, Queue};
 use crate::engine::uniform::{CameraUniform, UniformBuffer};
 use crate::engine::{MeshAsset, MeshBounds, ShaderAsset, TextureAsset, Vertex};
 use crate::Assets;
@@ -34,6 +35,7 @@ pub struct SceneRenderer {
     pub texture_set_layout: vk::DescriptorSetLayout,
     pub texture_descriptors: Arc<RefCell<HashMap<u64, vk::DescriptorSet>>>,
     camera_buffer: UniformBuffer,
+    armature_buffer: ArmatureBuffer,
     pub present_index: u32,
     pub viewport: [f32; 2],
     pass: vk::RenderPass,
@@ -86,33 +88,128 @@ impl SceneRenderer {
         pass: vk::RenderPass,
         assets: &mut Assets,
     ) -> Self {
-        let fragment_shader = assets.shader("./assets/shaders/triangle.frag.spv");
+        let fragment_shader = assets.shader("./assets/shaders/animated.frag.spv");
         let wireframe_shader = assets.shader("./assets/shaders/wireframe.frag.spv");
-        let vertex_shader = assets.shader("./assets/shaders/triangle.vert.spv");
+        let vertex_shader = assets.shader("./assets/shaders/animated.vert.spv");
         //
         let camera_buffer =
             UniformBuffer::create::<CameraUniform>(device.clone(), device_memory, swapchain);
-        //
-        let descriptor_pool = UniformBuffer::create_descriptor_pool(device, swapchain as u32);
-        let descriptor_set_layout = UniformBuffer::create_descriptor_set_layout(device);
-        let descriptor_sets = UniformBuffer::create_descriptor_sets::<CameraUniform>(
+        let armature_buffer =
+            ArmatureBuffer::create::<ArmatureBuffer>(device.clone(), device_memory, swapchain);
+
+        for present_index in 0..swapchain {
+            armature_buffer.update(
+                present_index,
+                ArmatureUniform {
+                    bones: [Mat4::IDENTITY; 64],
+                },
+            );
+        }
+
+        // LAYOUT //
+        let pool_sizes = [
+            vk::DescriptorPoolSize {
+                ty: vk::DescriptorType::UNIFORM_BUFFER,
+                descriptor_count: swapchain as u32,
+            },
+            vk::DescriptorPoolSize {
+                ty: vk::DescriptorType::UNIFORM_BUFFER,
+                descriptor_count: swapchain as u32,
+            },
+            vk::DescriptorPoolSize {
+                ty: vk::DescriptorType::COMBINED_IMAGE_SAMPLER,
+                descriptor_count: swapchain as u32,
+            },
+        ];
+
+        let info = vk::DescriptorPoolCreateInfo::builder()
+            .max_sets(3)
+            .pool_sizes(&pool_sizes);
+
+        let descriptor_pool = unsafe { device.create_descriptor_pool(&info, None).unwrap() };
+
+        let descriptor_set_layout = Base::create_descriptor_set_layout(
             device,
-            descriptor_pool,
-            descriptor_set_layout,
-            &camera_buffer.buffers,
-            swapchain,
+            vk::ShaderStageFlags::VERTEX,
+            [
+                vk::DescriptorType::UNIFORM_BUFFER,
+                vk::DescriptorType::UNIFORM_BUFFER,
+            ],
         );
+
+        let mut layouts: Vec<vk::DescriptorSetLayout> = vec![];
+        for _ in 0..swapchain {
+            layouts.push(descriptor_set_layout);
+        }
+
+        let descriptor_set_allocate_info = vk::DescriptorSetAllocateInfo {
+            s_type: vk::StructureType::DESCRIPTOR_SET_ALLOCATE_INFO,
+            p_next: ptr::null(),
+            descriptor_pool,
+            descriptor_set_count: swapchain as u32,
+            p_set_layouts: layouts.as_ptr(),
+        };
+
+        let descriptor_sets = unsafe {
+            device
+                .allocate_descriptor_sets(&descriptor_set_allocate_info)
+                .expect("Failed to allocate descriptor sets!")
+        };
+
+        for (i, &descritptor_set) in descriptor_sets.iter().enumerate() {
+            let descriptor_buffer_info = [vk::DescriptorBufferInfo {
+                buffer: camera_buffer.buffers[i],
+                offset: 0,
+                range: std::mem::size_of::<CameraUniform>() as u64,
+            }];
+
+            let descriptor_write_sets = [vk::WriteDescriptorSet {
+                s_type: vk::StructureType::WRITE_DESCRIPTOR_SET,
+                p_next: ptr::null(),
+                dst_set: descritptor_set,
+                dst_binding: 0,
+                dst_array_element: 0,
+                descriptor_count: 1,
+                descriptor_type: vk::DescriptorType::UNIFORM_BUFFER,
+                p_image_info: ptr::null(),
+                p_buffer_info: descriptor_buffer_info.as_ptr(),
+                p_texel_buffer_view: ptr::null(),
+            }];
+
+            unsafe {
+                device.update_descriptor_sets(&descriptor_write_sets, &[]);
+            }
+
+            let descriptor_buffer_info = [vk::DescriptorBufferInfo {
+                buffer: armature_buffer.buffers[i],
+                offset: 0,
+                range: std::mem::size_of::<ArmatureBuffer>() as u64,
+            }];
+
+            let descriptor_write_sets = [vk::WriteDescriptorSet {
+                s_type: vk::StructureType::WRITE_DESCRIPTOR_SET,
+                p_next: ptr::null(),
+                dst_set: descritptor_set,
+                dst_binding: 1,
+                dst_array_element: 0,
+                descriptor_count: 1,
+                descriptor_type: vk::DescriptorType::UNIFORM_BUFFER,
+                p_image_info: ptr::null(),
+                p_buffer_info: descriptor_buffer_info.as_ptr(),
+                p_texel_buffer_view: ptr::null(),
+            }];
+
+            unsafe {
+                device.update_descriptor_sets(&descriptor_write_sets, &[]);
+            }
+        }
+
         // ^
-        let bindings = [vk::DescriptorSetLayoutBinding {
-            binding: 0,
-            descriptor_type: vk::DescriptorType::COMBINED_IMAGE_SAMPLER,
-            descriptor_count: 1,
-            stage_flags: vk::ShaderStageFlags::FRAGMENT,
-            p_immutable_samplers: ptr::null(),
-        }];
-        let info = vk::DescriptorSetLayoutCreateInfo::builder().bindings(&bindings);
-        let texture_set_layout =
-            unsafe { device.create_descriptor_set_layout(&info, None).unwrap() };
+        let texture_set_layout = Base::create_descriptor_set_layout(
+            device,
+            vk::ShaderStageFlags::FRAGMENT,
+            [vk::DescriptorType::COMBINED_IMAGE_SAMPLER],
+        );
 
         let set_layouts = [descriptor_set_layout, texture_set_layout];
 
@@ -147,6 +244,7 @@ impl SceneRenderer {
             texture_set_layout,
             texture_descriptors,
             camera_buffer,
+            armature_buffer,
             present_index: 0,
             viewport: [viewports[0].width, viewports[0].height],
             pass,

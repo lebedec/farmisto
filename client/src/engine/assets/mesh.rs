@@ -93,44 +93,60 @@ impl MeshAssetData {
         let json = JsonMesh {
             vertices: vec![
                 Vertex {
-                    pos: [0.5, 0.5, 0.5, 1.0],
+                    position: [0.5, 0.5, 0.5],
                     uv: [0.625, 0.5],
-                    color: [1.0; 4],
+                    normal: [1.0; 3],
+                    bones: [-1; 4],
+                    weights: [1.0; 4],
                 },
                 Vertex {
-                    pos: [0.5, 0.5, -0.5, 1.0],
+                    position: [0.5, 0.5, -0.5],
                     uv: [0.375, 0.5],
-                    color: [1.0; 4],
+                    normal: [1.0; 3],
+                    bones: [-1; 4],
+                    weights: [1.0; 4],
                 },
                 Vertex {
-                    pos: [0.5, -0.5, 0.5, 1.0],
+                    position: [0.5, -0.5, 0.5],
                     uv: [0.625, 0.75],
-                    color: [1.0; 4],
+                    normal: [1.0; 3],
+                    bones: [-1; 4],
+                    weights: [1.0; 4],
                 },
                 Vertex {
-                    pos: [0.5, -0.5, -0.5, 1.0],
+                    position: [0.5, -0.5, -0.5],
                     uv: [0.375, 0.75],
-                    color: [1.0; 4],
+                    normal: [1.0; 3],
+                    bones: [-1; 4],
+                    weights: [1.0; 4],
                 },
                 Vertex {
-                    pos: [-0.5, 0.5, 0.5, 1.0],
+                    position: [-0.5, 0.5, 0.5],
                     uv: [0.625, 0.25],
-                    color: [1.0; 4],
+                    normal: [1.0; 3],
+                    bones: [-1; 4],
+                    weights: [1.0; 4],
                 },
                 Vertex {
-                    pos: [-0.5, 0.5, -0.5, 1.0],
+                    position: [-0.5, 0.5, -0.5],
                     uv: [0.375, 0.25],
-                    color: [1.0; 4],
+                    normal: [1.0; 3],
+                    bones: [-1; 4],
+                    weights: [1.0; 4],
                 },
                 Vertex {
-                    pos: [-0.5, -0.5, 0.5, 1.0],
+                    position: [-0.5, -0.5, 0.5],
                     uv: [0.625, 0.0],
-                    color: [1.0; 4],
+                    normal: [1.0; 3],
+                    bones: [-1; 4],
+                    weights: [1.0; 4],
                 },
                 Vertex {
-                    pos: [-0.5, -0.5, -0.5, 1.0],
+                    position: [-0.5, -0.5, -0.5],
                     uv: [0.125, 0.75],
-                    color: [1.0; 4],
+                    normal: [1.0; 3],
+                    bones: [-1; 4],
+                    weights: [1.0; 4],
                 },
             ],
 
@@ -146,19 +162,25 @@ impl MeshAssetData {
         let json = JsonMesh {
             vertices: vec![
                 Vertex {
-                    pos: [-1.0, 1.0, 0.0, 1.0],
-                    color: [0.0, 1.0, 0.0, 1.0],
+                    position: [-1.0, 1.0, 0.0],
+                    normal: [1.0; 3],
                     uv: [0.0, 0.0],
+                    bones: [-1; 4],
+                    weights: [1.0; 4],
                 },
                 Vertex {
-                    pos: [1.0, 1.0, 0.0, 1.0],
-                    color: [0.0, 0.0, 1.0, 1.0],
+                    position: [1.0, 1.0, 0.0],
+                    normal: [1.0; 3],
                     uv: [1.0, 0.0],
+                    bones: [-1; 4],
+                    weights: [1.0; 4],
                 },
                 Vertex {
-                    pos: [0.0, -1.0, 0.0, 1.0],
-                    color: [1.0, 0.0, 0.0, 1.0],
+                    position: [0.0, -1.0, 0.0],
+                    normal: [1.0; 3],
                     uv: [0.5, 1.0],
+                    bones: [-1; 4],
+                    weights: [1.0; 4],
                 },
             ],
             indices: vec![0, 1, 2],
@@ -176,7 +198,7 @@ impl MeshAssetData {
         let index = IndexBuffer::create(&queue.device, &queue.device_memory, mesh.indices);
         let mut bounds = MeshBounds::default();
         for vertex in &mesh.vertices {
-            let vertex = vertex.pos;
+            let vertex = vertex.position;
             // x
             if vertex[0] < bounds.x[0] {
                 bounds.x[0] = vertex[0];
@@ -220,14 +242,11 @@ impl MeshAssetData {
                 .into_iter()
                 .map(|vertex| {
                     let vertex = Vertex {
-                        pos: [
-                            vertex.position[0],
-                            vertex.position[1],
-                            vertex.position[2],
-                            1.0,
-                        ],
-                        color: [1.0; 4],
+                        position: vertex.position,
+                        normal: vertex.normal,
                         uv: vertex.uv,
+                        bones: vertex.bones.map(|value| value as i32),
+                        weights: vertex.weights,
                     };
                     vertex
                 })
@@ -348,9 +367,11 @@ impl VertexBuffer {
 #[derive(Default, Clone, Debug, Copy, bytemuck::Pod, bytemuck::Zeroable, serde::Deserialize)]
 #[repr(C)]
 pub struct Vertex {
-    pub pos: [f32; 4],
-    pub color: [f32; 4],
+    pub position: [f32; 3],
+    pub normal: [f32; 3],
     pub uv: [f32; 2],
+    pub bones: [i32; 4],
+    pub weights: [f32; 4],
 }
 
 impl Vertex {
@@ -361,24 +382,36 @@ impl Vertex {
             input_rate: vk::VertexInputRate::VERTEX,
         }];
 
-    pub const ATTRIBUTES: [vk::VertexInputAttributeDescription; 3] = [
+    pub const ATTRIBUTES: [vk::VertexInputAttributeDescription; 5] = [
         vk::VertexInputAttributeDescription {
             location: 0,
             binding: 0,
-            format: vk::Format::R32G32B32A32_SFLOAT,
+            format: vk::Format::R32G32B32_SFLOAT,
             offset: 0,
         },
         vk::VertexInputAttributeDescription {
             location: 1,
             binding: 0,
-            format: vk::Format::R32G32B32A32_SFLOAT,
-            offset: 16,
+            format: vk::Format::R32G32B32_SFLOAT,
+            offset: 12,
         },
         vk::VertexInputAttributeDescription {
             location: 2,
             binding: 0,
             format: vk::Format::R32G32_SFLOAT,
+            offset: 24,
+        },
+        vk::VertexInputAttributeDescription {
+            location: 3,
+            binding: 0,
+            format: vk::Format::R32G32B32A32_SINT,
             offset: 32,
+        },
+        vk::VertexInputAttributeDescription {
+            location: 4,
+            binding: 0,
+            format: vk::Format::R32G32B32A32_SFLOAT,
+            offset: 48,
         },
     ];
 }

@@ -1,6 +1,9 @@
+use crate::engine::space3;
+use crate::engine::space3::S3Animation;
 use glam::{Mat4, Quat, Vec3, Vec4};
 use log::error;
 use std::collections::HashMap;
+use std::path::Path;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 struct StateId(usize);
@@ -9,6 +12,33 @@ pub struct Armature {}
 
 pub struct AnimationAsset {
     frames: Vec<Frame>,
+}
+
+impl AnimationAsset {
+    pub fn from_space3<P: AsRef<Path>>(path: P) -> Self {
+        let mut scene = space3::read_scene_from_file(path).unwrap();
+
+        // todo: optimize struct, remove translation and collect
+        let animation = std::mem::replace(&mut scene.animation, S3Animation::default());
+        AnimationAsset {
+            frames: animation
+                .keyframes
+                .into_iter()
+                .map(|frame| Frame {
+                    channels: frame
+                        .channels
+                        .into_iter()
+                        .map(|channel| Channel {
+                            parent: None,
+                            position: channel.position,
+                            rotation: channel.rotation,
+                            scale: channel.scale,
+                        })
+                        .collect(),
+                })
+                .collect(),
+        }
+    }
 }
 
 pub struct Channel {
