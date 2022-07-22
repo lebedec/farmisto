@@ -35,7 +35,7 @@ pub struct SceneRenderer {
     pub texture_set_layout: vk::DescriptorSetLayout,
     pub texture_descriptors: Arc<RefCell<HashMap<u64, vk::DescriptorSet>>>,
     camera_buffer: UniformBuffer,
-    armature_buffer: ArmatureBuffer,
+    pub armature_buffer: ArmatureBuffer,
     pub present_index: u32,
     pub viewport: [f32; 2],
     pass: vk::RenderPass,
@@ -95,7 +95,7 @@ impl SceneRenderer {
         let camera_buffer =
             UniformBuffer::create::<CameraUniform>(device.clone(), device_memory, swapchain);
         let armature_buffer =
-            ArmatureBuffer::create::<ArmatureBuffer>(device.clone(), device_memory, swapchain);
+            ArmatureBuffer::create::<ArmatureUniform>(device.clone(), device_memory, swapchain);
 
         for present_index in 0..swapchain {
             armature_buffer.update(
