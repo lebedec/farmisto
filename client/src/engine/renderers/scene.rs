@@ -1,5 +1,5 @@
 use crate::engine::armature::{ArmatureBuffer, ArmatureUniform};
-use crate::engine::base::{Base, Queue};
+use crate::engine::base::{Queue, ShaderData, ShaderDataSet};
 use crate::engine::uniform::{CameraUniform, UniformBuffer};
 use crate::engine::{MeshAsset, MeshBounds, ShaderAsset, TextureAsset, Vertex};
 use crate::Assets;
@@ -7,10 +7,7 @@ use ash::vk::Handle;
 use ash::{vk, Device};
 use glam::{Mat4, Vec3};
 use log::info;
-use std::cell::RefCell;
-use std::collections::HashMap;
 use std::ffi::CStr;
-use std::ptr;
 use std::sync::Arc;
 use std::time::Instant;
 
@@ -20,6 +17,7 @@ pub struct SceneObject {
     transform: Mat4,
     mesh: MeshAsset,
     texture: TextureAsset,
+    texture_bind: vk::DescriptorSet,
 }
 
 pub struct SceneRenderer {
@@ -30,10 +28,10 @@ pub struct SceneRenderer {
     layout: vk::PipelineLayout,
     pipeline: vk::Pipeline,
     gizmos_pipeline: vk::Pipeline,
-    pub descriptor_set_layout: vk::DescriptorSetLayout,
+    // pub scene_data: ShaderData,
+    pub material_data: ShaderDataSet<1>,
+    // pub object_data: ShaderData,
     pub descriptor_sets: Vec<vk::DescriptorSet>,
-    pub texture_set_layout: vk::DescriptorSetLayout,
-    pub texture_descriptors: Arc<RefCell<HashMap<u64, vk::DescriptorSet>>>,
     camera_buffer: UniformBuffer,
     pub armature_buffer: ArmatureBuffer,
     pub present_index: u32,
@@ -63,10 +61,19 @@ impl SceneRenderer {
     pub fn bounds(&mut self, transform: Mat4, bounds: MeshBounds) {
         let bounds_matrix = Mat4::from_scale(Vec3::from(bounds.length()))
             * Mat4::from_translation(Vec3::from(bounds.offset()));
+        let texture = &self.wireframe_tex;
         self.bounds.push(SceneObject {
             transform: transform * bounds_matrix,
             mesh: self.bounds_mesh.clone(),
-            texture: self.wireframe_tex.clone(),
+            texture: texture.clone(),
+            texture_bind: self.material_data.describe(
+                texture.id(),
+                vec![[ShaderData::Texture([vk::DescriptorImageInfo {
+                    sampler: texture.sampler(),
+                    image_view: texture.view(),
+                    image_layout: vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
+                }])]],
+            )[0],
         })
     }
 
@@ -75,6 +82,14 @@ impl SceneRenderer {
             transform,
             mesh: mesh.clone(),
             texture: texture.clone(),
+            texture_bind: self.material_data.describe(
+                texture.id(),
+                vec![[ShaderData::Texture([vk::DescriptorImageInfo {
+                    sampler: texture.sampler(),
+                    image_view: texture.view(),
+                    image_layout: vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
+                }])]],
+            )[0],
         })
     }
 
@@ -107,29 +122,10 @@ impl SceneRenderer {
         }
 
         // LAYOUT //
-        let pool_sizes = [
-            vk::DescriptorPoolSize {
-                ty: vk::DescriptorType::UNIFORM_BUFFER,
-                descriptor_count: swapchain as u32,
-            },
-            vk::DescriptorPoolSize {
-                ty: vk::DescriptorType::UNIFORM_BUFFER,
-                descriptor_count: swapchain as u32,
-            },
-            vk::DescriptorPoolSize {
-                ty: vk::DescriptorType::COMBINED_IMAGE_SAMPLER,
-                descriptor_count: swapchain as u32,
-            },
-        ];
 
-        let info = vk::DescriptorPoolCreateInfo::builder()
-            .max_sets(3)
-            .pool_sizes(&pool_sizes);
-
-        let descriptor_pool = unsafe { device.create_descriptor_pool(&info, None).unwrap() };
-
-        let descriptor_set_layout = Base::create_descriptor_set_layout(
-            device,
+        let mut scene_data = ShaderDataSet::create(
+            device.clone(),
+            swapchain as u32,
             vk::ShaderStageFlags::VERTEX,
             [
                 vk::DescriptorType::UNIFORM_BUFFER,
@@ -137,81 +133,34 @@ impl SceneRenderer {
             ],
         );
 
-        let mut layouts: Vec<vk::DescriptorSetLayout> = vec![];
-        for _ in 0..swapchain {
-            layouts.push(descriptor_set_layout);
-        }
+        let descriptor_sets = scene_data.describe(
+            0,
+            (0..swapchain)
+                .map(|index| {
+                    [
+                        ShaderData::Uniform([vk::DescriptorBufferInfo {
+                            buffer: camera_buffer.buffers[index],
+                            offset: 0,
+                            range: std::mem::size_of::<CameraUniform>() as u64,
+                        }]),
+                        ShaderData::Uniform([vk::DescriptorBufferInfo {
+                            buffer: armature_buffer.buffers[index],
+                            offset: 0,
+                            range: std::mem::size_of::<ArmatureUniform>() as u64,
+                        }]),
+                    ]
+                })
+                .collect(),
+        );
 
-        let descriptor_set_allocate_info = vk::DescriptorSetAllocateInfo {
-            s_type: vk::StructureType::DESCRIPTOR_SET_ALLOCATE_INFO,
-            p_next: ptr::null(),
-            descriptor_pool,
-            descriptor_set_count: swapchain as u32,
-            p_set_layouts: layouts.as_ptr(),
-        };
-
-        let descriptor_sets = unsafe {
-            device
-                .allocate_descriptor_sets(&descriptor_set_allocate_info)
-                .expect("Failed to allocate descriptor sets!")
-        };
-
-        for (i, &descritptor_set) in descriptor_sets.iter().enumerate() {
-            let descriptor_buffer_info = [vk::DescriptorBufferInfo {
-                buffer: camera_buffer.buffers[i],
-                offset: 0,
-                range: std::mem::size_of::<CameraUniform>() as u64,
-            }];
-
-            let descriptor_write_sets = [vk::WriteDescriptorSet {
-                s_type: vk::StructureType::WRITE_DESCRIPTOR_SET,
-                p_next: ptr::null(),
-                dst_set: descritptor_set,
-                dst_binding: 0,
-                dst_array_element: 0,
-                descriptor_count: 1,
-                descriptor_type: vk::DescriptorType::UNIFORM_BUFFER,
-                p_image_info: ptr::null(),
-                p_buffer_info: descriptor_buffer_info.as_ptr(),
-                p_texel_buffer_view: ptr::null(),
-            }];
-
-            unsafe {
-                device.update_descriptor_sets(&descriptor_write_sets, &[]);
-            }
-
-            let descriptor_buffer_info = [vk::DescriptorBufferInfo {
-                buffer: armature_buffer.buffers[i],
-                offset: 0,
-                range: std::mem::size_of::<ArmatureBuffer>() as u64,
-            }];
-
-            let descriptor_write_sets = [vk::WriteDescriptorSet {
-                s_type: vk::StructureType::WRITE_DESCRIPTOR_SET,
-                p_next: ptr::null(),
-                dst_set: descritptor_set,
-                dst_binding: 1,
-                dst_array_element: 0,
-                descriptor_count: 1,
-                descriptor_type: vk::DescriptorType::UNIFORM_BUFFER,
-                p_image_info: ptr::null(),
-                p_buffer_info: descriptor_buffer_info.as_ptr(),
-                p_texel_buffer_view: ptr::null(),
-            }];
-
-            unsafe {
-                device.update_descriptor_sets(&descriptor_write_sets, &[]);
-            }
-        }
-
-        // ^
-        let texture_set_layout = Base::create_descriptor_set_layout(
-            device,
+        let material_data = ShaderDataSet::create(
+            device.clone(),
+            4,
             vk::ShaderStageFlags::FRAGMENT,
             [vk::DescriptorType::COMBINED_IMAGE_SAMPLER],
         );
 
-        let set_layouts = [descriptor_set_layout, texture_set_layout];
+        let set_layouts = [scene_data.layout, material_data.layout];
 
         let push_constant_ranges = [vk::PushConstantRange {
             stage_flags: vk::ShaderStageFlags::VERTEX,
@@ -229,8 +178,6 @@ impl SceneRenderer {
                 .unwrap()
         };
 
-        let texture_descriptors = Arc::new(RefCell::new(Default::default()));
-
         let mut renderer = Self {
             device: device.clone(),
             swapchain,
@@ -239,10 +186,8 @@ impl SceneRenderer {
             layout: pipeline_layout,
             pipeline: vk::Pipeline::null(), // will be immediately overridden
             gizmos_pipeline: vk::Pipeline::null(),
-            descriptor_set_layout,
+            material_data,
             descriptor_sets,
-            texture_set_layout,
-            texture_descriptors,
             camera_buffer,
             armature_buffer,
             present_index: 0,
@@ -262,76 +207,15 @@ impl SceneRenderer {
         renderer
     }
 
-    pub fn describe_texture(&self, texture: &TextureAsset) -> vk::DescriptorSet {
-        let mut descriptors = self.texture_descriptors.borrow_mut();
-        if let Some(descriptor) = descriptors.get(&texture.id()) {
-            return *descriptor;
-        }
-
-        let descriptor_count = 1;
-        let pool_sizes = [vk::DescriptorPoolSize {
-            ty: vk::DescriptorType::COMBINED_IMAGE_SAMPLER,
-            descriptor_count,
-        }];
-        let info = vk::DescriptorPoolCreateInfo::builder()
-            .max_sets(descriptor_count)
-            .pool_sizes(&pool_sizes);
-        let descriptor_pool = unsafe { self.device.create_descriptor_pool(&info, None).unwrap() };
-
-        let mut layouts: Vec<vk::DescriptorSetLayout> = vec![];
-        for _ in 0..1 {
-            layouts.push(self.texture_set_layout);
-        }
-        let descriptor_set_allocate_info = vk::DescriptorSetAllocateInfo {
-            s_type: vk::StructureType::DESCRIPTOR_SET_ALLOCATE_INFO,
-            p_next: ptr::null(),
-            descriptor_pool,
-            descriptor_set_count: 1,
-            p_set_layouts: layouts.as_ptr(),
-        };
-        let texture_descriptor_sets = unsafe {
-            self.device
-                .allocate_descriptor_sets(&descriptor_set_allocate_info)
-                .expect("Failed to allocate descriptor sets!")
-        };
-        let tex_descriptor_set = texture_descriptor_sets[0];
-        let descriptor_image_infos = [vk::DescriptorImageInfo {
-            sampler: texture.sampler(),
-            image_view: texture.view(),
-            image_layout: vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
-        }];
-        let descriptor_write_sets = [vk::WriteDescriptorSet {
-            // sampler uniform
-            s_type: vk::StructureType::WRITE_DESCRIPTOR_SET,
-            p_next: ptr::null(),
-            dst_set: tex_descriptor_set,
-            dst_binding: 0,
-            dst_array_element: 0,
-            descriptor_count: 1,
-            descriptor_type: vk::DescriptorType::COMBINED_IMAGE_SAMPLER,
-            p_image_info: descriptor_image_infos.as_ptr(),
-            p_buffer_info: ptr::null(),
-            p_texel_buffer_view: ptr::null(),
-        }];
-        unsafe {
-            self.device
-                .update_descriptor_sets(&descriptor_write_sets, &[]);
-        }
-
-        descriptors.insert(texture.id(), tex_descriptor_set);
-
-        tex_descriptor_set
-    }
-
-    pub unsafe fn render(&mut self, device: &Device, buffer: vk::CommandBuffer) {
+    pub unsafe fn render(&self, device: &Device, buffer: vk::CommandBuffer) {
         device.cmd_set_viewport(buffer, 0, &self.viewports);
         device.cmd_set_scissor(buffer, 0, &self.scissors);
 
         device.cmd_bind_pipeline(buffer, vk::PipelineBindPoint::GRAPHICS, self.pipeline);
 
-        let bind_point = vk::PipelineBindPoint::GRAPHICS;
+        let point = vk::PipelineBindPoint::GRAPHICS;
         let descriptor_set = &[self.descriptor_sets[0]];
-        device.cmd_bind_descriptor_sets(buffer, bind_point, self.layout, 0, descriptor_set, &[]);
+        device.cmd_bind_descriptor_sets(buffer, point, self.layout, 0, descriptor_set, &[]);
 
         let mut previous_mesh = 0;
         let mut previous_texture = 0;
@@ -347,11 +231,10 @@ impl SceneRenderer {
                 previous_texture = object.texture.id();
                 device.cmd_bind_descriptor_sets(
                     buffer,
-                    bind_point,
+                    point,
                     self.layout,
                     1,
-                    // todo: move &mut texture descriptor creation out of render function
-                    &[self.describe_texture(&object.texture)],
+                    &[object.texture_bind],
                     &[],
                 );
             }
@@ -395,8 +278,7 @@ impl SceneRenderer {
                     bind_point,
                     self.layout,
                     1,
-                    // todo: move &mut texture descriptor creation out of render function
-                    &[self.describe_texture(&object.texture)],
+                    &[object.texture_bind],
                     &[],
                 );
             }
