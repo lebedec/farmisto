@@ -1,21 +1,19 @@
 use crate::engine::base::create_buffer;
 use ash::{vk, Device};
 use glam::Mat4;
-use log::info;
-use std::ptr;
 
 #[derive(Clone, Copy)]
-pub struct ArmatureUniform {
+pub struct PoseUniform {
     pub bones: [Mat4; 64],
 }
 
-pub struct ArmatureBuffer {
+pub struct PoseBuffer {
     device: Device,
     pub buffers: Vec<vk::Buffer>,
     memory: Vec<vk::DeviceMemory>,
 }
 
-impl ArmatureBuffer {
+impl PoseBuffer {
     pub fn create<T>(
         device: Device,
         device_memory_properties: &vk::PhysicalDeviceMemoryProperties,

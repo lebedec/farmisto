@@ -20,10 +20,12 @@ from bpy_extras.io_utils import orientation_helper
 from bpy_extras.io_utils import axis_conversion
 import zlib
 
+VERSION = (1, 1, 28)
+
 bl_info = {
     "name": "Space3 format",
     "author": "Lebedev Games Team",
-    "version": (1, 1, 11),
+    "version": VERSION,
     "blender": (3, 0, 0),
     "location": "File > Import-Export",
     "description": "Space3 IO meshes, UV's, vertex colors, materials, textures, cameras, lamps and actions",
@@ -137,10 +139,10 @@ class Writer:
             value.position[0],
             value.position[1],
             value.position[2],
-            value.rotation[0],
-            value.rotation[1],
-            value.rotation[2],
-            value.rotation[3],
+            value.rotation[1], # X (reorder Blender quaternion)
+            value.rotation[2], # Y
+            value.rotation[3], # Z
+            value.rotation[0], # W
             value.scale[0],
             value.scale[1],
             value.scale[2],
@@ -209,13 +211,17 @@ def main(context: Context, orientation, report, output_path: str, use_selection:
 
     for ob in objects:
         report(f'!!! ob {type(ob)}, {ob}, name: {ob.name}, {ob.type}: {ob.data}')
+        report(f'ORIENTATION {orientation}')
 
         if isinstance(ob.data, Armature):
             armature = ob.data
 
             for bone in armature.bones:
                 # report(f'bone {bone.name} p={bone.parent} children:{list(bone.children)}')
-                report(f'bone {bone.name} {bone.matrix_local}')
+                position, rotation, scale = (orientation @ bone.matrix_local).decompose()
+                report(f'bone {bone.name} mat4 p{position} r{rotation} s{scale}')
+                # position, rotation, scale = (orientation @ bone.matrix).decompose()
+                # report(f'bone {bone.name} mat3 p{position} r{rotation} s{scale}')
 
             # report(f'animation: {armature.animation_data.action.name}')
             report(f'animation {ob.animation_data.action.name}')
@@ -225,13 +231,20 @@ def main(context: Context, orientation, report, output_path: str, use_selection:
                 channels = []
                 report(f"FRAME: {frame}")
                 for bone in ob.pose.bones:
+
+                    report(
+                        f'{bone.name} ... pos: {tuple(bone.location)} rot: {tuple(bone.rotation_quaternion)}'
+                    )
                     position, rotation, scale = (orientation @ bone.matrix_channel).decompose()
+                    rotation = bone.rotation_quaternion
+                    position = bone.location
+                    bone_offset = (orientation @ bone.bone.matrix_local)
                     channels.append(S3Channel(
                         node=0, #TODO: bone <-> vertex group mapping
                         position=tuple(position),
                         rotation=tuple(rotation),
                         scale=tuple(scale),
-                        matrix=[list(row) for row in bone.matrix],
+                        matrix=[list(row) for row in bone_offset],
                     ))
                     report(
                         f'{bone.name} ({bone.bone_group_index}) '
@@ -304,7 +317,7 @@ def main(context: Context, orientation, report, output_path: str, use_selection:
         data = buffer.getvalue()
         output.write(data)
         data_length = len(data)
-    report(f'Data length: {data_length} bytes, Export time: {time() - t} seconds')
+    report(f'{VERSION} Data length: {data_length} bytes, Export time: {time() - t} seconds')
 
 
 # Vulkan orientation by default

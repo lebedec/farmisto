@@ -1,4 +1,4 @@
-use crate::engine::armature::ArmatureUniform;
+use crate::engine::armature::PoseUniform;
 use crate::engine::base::{submit_commands, Base};
 use crate::engine::scene::SceneRenderer;
 use crate::engine::{Assets, Input};

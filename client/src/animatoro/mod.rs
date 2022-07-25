@@ -1,12 +1,13 @@
+use crate::engine::armature::{PoseBuffer, PoseUniform};
 use crate::engine::space3;
 use crate::engine::space3::S3Animation;
 use glam::{Mat4, Quat, Vec3, Vec4};
-use log::error;
+use log::{error, info};
 use std::collections::HashMap;
 use std::path::Path;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
-struct StateId(usize);
+pub struct StateId(pub usize);
 
 pub struct Armature {}
 
@@ -33,6 +34,7 @@ impl AnimationAsset {
                             position: channel.position,
                             rotation: channel.rotation,
                             scale: channel.scale,
+                            matrix: Mat4::from_cols_array_2d(&channel.matrix),
                         })
                         .collect(),
                 })
@@ -46,6 +48,7 @@ pub struct Channel {
     position: [f32; 3],
     rotation: [f32; 4],
     scale: [f32; 3],
+    matrix: Mat4,
 }
 
 pub struct Frame {
@@ -53,14 +56,14 @@ pub struct Frame {
 }
 
 pub struct State {
-    id: StateId,
-    name: String,
-    fps: f32,
-    motion: AnimationAsset,
-    looped: bool,
-    frame: usize,
-    frame_time: f32,
-    transitions: Vec<Transition>,
+    pub id: StateId,
+    pub name: String,
+    pub fps: f32,
+    pub motion: AnimationAsset,
+    pub looped: bool,
+    pub frame: usize,
+    pub frame_time: f32,
+    pub transitions: Vec<Transition>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -90,16 +93,17 @@ pub struct Condition {
     value: f32,
 }
 
-struct Transition {
+pub struct Transition {
     conditions: Vec<Condition>,
     next: StateId,
 }
 
 pub struct Machine {
-    parameters: HashMap<ParameterId, Parameter>,
-    states: Vec<State>,
-    current: usize,
-    transform: [[f32; 16]; 64],
+    pub parameters: HashMap<ParameterId, Parameter>,
+    pub states: Vec<State>,
+    pub current: usize,
+    pub transform: [Mat4; 64],
+    pub pose_buffer: PoseBuffer,
 }
 
 impl Machine {
@@ -142,17 +146,31 @@ impl Machine {
 
         let transform = &mut self.transform;
         for (bone, channel) in blend.channels.iter().enumerate() {
-            let mut local = Mat4::from_scale_rotation_translation(
-                Vec3::from(channel.scale),
-                Quat::from_vec4(Vec4::from(channel.rotation)),
-                Vec3::from(channel.position),
-            );
-            if let Some(parent) = channel.parent {
-                local = Mat4::from_cols_array(&transform[parent]) * local;
-            }
-            transform[bone] = local.to_cols_array();
+            let pos = Vec3::from(channel.position);
+            let quat = Quat::from_vec4(Vec4::from([
+                channel.rotation[0],
+                channel.rotation[1],  // Y
+                -channel.rotation[2], // Z
+                channel.rotation[3],
+            ]));
+            let scale = Vec3::from(channel.scale);
+            // info!(
+            //     "FRAME {} BONE {} pos {:?} quat {:?} scale {:?}",
+            //     state.frame, bone, pos, quat, scale
+            // );
+            // let mut local = Mat4::from_scale_rotation_translation(scale, quat, pos);
+            // if let Some(parent) = channel.parent {
+            //     local = transform[parent] * local;
+            // }
+            // local = local * channel.matrix;
+            // transform[bone] = local;
+            // transform[bone] = Mat4::from_translation(pos);
         }
         // move transform to GPU buffer
+        let uniform = PoseUniform {
+            bones: transform.clone(),
+        };
+        self.pose_buffer.update::<PoseUniform>(0, uniform);
 
         if exit {
             let state = &self.states[self.current];

@@ -1,3 +1,5 @@
+use crate::animatoro::{AnimationAsset, Machine, State, StateId};
+use crate::engine::armature::{PoseBuffer, PoseUniform};
 use crate::engine::Input;
 use crate::gameplay::camera::Camera;
 use crate::gameplay::objects::{
@@ -43,7 +45,7 @@ impl Gameplay {
         }
     }
 
-    pub fn handle_server_responses(&mut self, assets: &mut Assets) {
+    pub fn handle_server_responses(&mut self, assets: &mut Assets, renderer: &mut SceneRenderer) {
         for response in self.client.responses() {
             match response {
                 GameResponse::Heartbeat => {}
@@ -125,6 +127,28 @@ impl Gameplay {
                                         ),
                                         last_sync_position: position.into(),
                                         direction: Vec2::ZERO,
+                                        machine: Machine {
+                                            parameters: Default::default(),
+                                            states: vec![State {
+                                                id: StateId(42),
+                                                name: "idle".to_string(),
+                                                fps: 10.0,
+                                                motion: AnimationAsset::from_space3(
+                                                    "./assets/mesh/animal_anim.space3",
+                                                ),
+                                                looped: true,
+                                                frame: 0,
+                                                frame_time: 0.0,
+                                                transitions: vec![],
+                                            }],
+                                            current: 0,
+                                            transform: [Mat4::IDENTITY; 64],
+                                            pose_buffer: PoseBuffer::create::<PoseUniform>(
+                                                renderer.device.clone(),
+                                                &renderer.device_memory,
+                                                1,
+                                            ),
+                                        },
                                     },
                                 );
                             }
@@ -223,7 +247,18 @@ impl Gameplay {
         }
     }
 
-    pub fn render(&mut self, renderer: &mut SceneRenderer) {
+    pub fn animate(&mut self, input: &Input) {
+        for farmer in self.farmers.values_mut() {
+            farmer.machine.update(input.time);
+            farmer.rendering_position = Vec3::new(
+                farmer.estimated_position.x,
+                0.0,
+                farmer.estimated_position.y,
+            );
+        }
+    }
+
+    pub fn render(&self, renderer: &mut SceneRenderer) {
         renderer.clear();
         renderer.look_at(self.camera.uniform());
         for farmland in self.farmlands.values() {
@@ -244,17 +279,13 @@ impl Gameplay {
                 &tree.asset.texture,
             );
         }
-        for farmer in self.farmers.values_mut() {
-            farmer.rendering_position = Vec3::new(
-                farmer.estimated_position.x,
-                0.0,
-                farmer.estimated_position.y,
-            );
-
-            renderer.draw(
+        for farmer in self.farmers.values() {
+            renderer.animate(
                 Mat4::from_translation(farmer.rendering_position),
                 &farmer.asset.mesh,
                 &farmer.asset.texture,
+                42,
+                &farmer.machine.pose_buffer,
             );
             renderer.bounds(
                 Mat4::from_translation(Vec3::new(
@@ -274,8 +305,9 @@ impl Mode for Gameplay {
     }
 
     fn update(&mut self, input: &Input, renderer: &mut SceneRenderer, assets: &mut Assets) {
-        self.handle_server_responses(assets);
+        self.handle_server_responses(assets, renderer);
         self.handle_user_input(input);
+        self.animate(input);
         self.render(renderer);
     }
 }

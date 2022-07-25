@@ -1,3 +1,4 @@
+use crate::animatoro::Machine;
 use crate::engine::{FarmerAsset, FarmlandAsset, TreeAsset};
 use datamap::{Known, Shared, Storage};
 use game::math::Collider;
@@ -13,6 +14,7 @@ pub struct FarmerBehaviour {
     pub rendering_position: Vec3,
     pub last_sync_position: Vec2,
     pub direction: Vec2,
+    pub machine: Machine,
 }
 
 impl Collider for FarmerBehaviour {

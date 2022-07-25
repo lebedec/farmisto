@@ -1,9 +1,9 @@
-use crate::engine::armature::{ArmatureBuffer, ArmatureUniform};
+use crate::engine::armature::{PoseBuffer, PoseUniform};
 use crate::engine::base::{Queue, ShaderData, ShaderDataSet};
 use crate::engine::uniform::{CameraUniform, UniformBuffer};
 use crate::engine::{MeshAsset, MeshBounds, ShaderAsset, TextureAsset, Vertex};
 use crate::Assets;
-use ash::vk::Handle;
+use ash::vk::{DescriptorSet, Handle};
 use ash::{vk, Device};
 use glam::{Mat4, Vec3};
 use log::info;
@@ -18,10 +18,12 @@ pub struct SceneObject {
     mesh: MeshAsset,
     texture: TextureAsset,
     texture_bind: vk::DescriptorSet,
+    pose_data: Option<vk::DescriptorSet>,
 }
 
 pub struct SceneRenderer {
-    device: Device,
+    pub device: Device,
+    pub device_memory: vk::PhysicalDeviceMemoryProperties,
     swapchain: usize,
     objects: Vec<SceneObject>,
     bounds: Vec<SceneObject>,
@@ -30,10 +32,10 @@ pub struct SceneRenderer {
     gizmos_pipeline: vk::Pipeline,
     // pub scene_data: ShaderData,
     pub material_data: ShaderDataSet<1>,
-    // pub object_data: ShaderData,
+    pub object_data: ShaderDataSet<1>,
     pub descriptor_sets: Vec<vk::DescriptorSet>,
+    pub static_pose: vk::DescriptorSet,
     camera_buffer: UniformBuffer,
-    pub armature_buffer: ArmatureBuffer,
     pub present_index: u32,
     pub viewport: [f32; 2],
     pass: vk::RenderPass,
@@ -74,6 +76,7 @@ impl SceneRenderer {
                     image_layout: vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
                 }])]],
             )[0],
+            pose_data: None,
         })
     }
 
@@ -90,6 +93,40 @@ impl SceneRenderer {
                     image_layout: vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
                 }])]],
             )[0],
+            pose_data: None,
+        })
+    }
+
+    pub fn animate(
+        &mut self,
+        transform: Mat4,
+        mesh: &MeshAsset,
+        texture: &TextureAsset,
+        pose_id: u64,
+        pose_buffer: &PoseBuffer,
+    ) {
+        self.objects.push(SceneObject {
+            transform,
+            mesh: mesh.clone(),
+            texture: texture.clone(),
+            texture_bind: self.material_data.describe(
+                texture.id(),
+                vec![[ShaderData::Texture([vk::DescriptorImageInfo {
+                    sampler: texture.sampler(),
+                    image_view: texture.view(),
+                    image_layout: vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
+                }])]],
+            )[0],
+            pose_data: Some(
+                self.object_data.describe(
+                    pose_id,
+                    vec![[ShaderData::Uniform([vk::DescriptorBufferInfo {
+                        buffer: pose_buffer.buffers[0],
+                        offset: 0,
+                        range: std::mem::size_of::<PoseUniform>() as u64,
+                    }])]],
+                )[0],
+            ),
         })
     }
 
@@ -109,17 +146,6 @@ impl SceneRenderer {
         //
         let camera_buffer =
             UniformBuffer::create::<CameraUniform>(device.clone(), device_memory, swapchain);
-        let armature_buffer =
-            ArmatureBuffer::create::<ArmatureUniform>(device.clone(), device_memory, swapchain);
-
-        for present_index in 0..swapchain {
-            armature_buffer.update(
-                present_index,
-                ArmatureUniform {
-                    bones: [Mat4::IDENTITY; 64],
-                },
-            );
-        }
 
         // LAYOUT //
 
@@ -127,31 +153,44 @@ impl SceneRenderer {
             device.clone(),
             swapchain as u32,
             vk::ShaderStageFlags::VERTEX,
-            [
-                vk::DescriptorType::UNIFORM_BUFFER,
-                vk::DescriptorType::UNIFORM_BUFFER,
-            ],
+            [vk::DescriptorType::UNIFORM_BUFFER],
         );
-
         let descriptor_sets = scene_data.describe(
             0,
             (0..swapchain)
                 .map(|index| {
-                    [
-                        ShaderData::Uniform([vk::DescriptorBufferInfo {
-                            buffer: camera_buffer.buffers[index],
-                            offset: 0,
-                            range: std::mem::size_of::<CameraUniform>() as u64,
-                        }]),
-                        ShaderData::Uniform([vk::DescriptorBufferInfo {
-                            buffer: armature_buffer.buffers[index],
-                            offset: 0,
-                            range: std::mem::size_of::<ArmatureUniform>() as u64,
-                        }]),
-                    ]
+                    [ShaderData::Uniform([vk::DescriptorBufferInfo {
+                        buffer: camera_buffer.buffers[index],
+                        offset: 0,
+                        range: std::mem::size_of::<CameraUniform>() as u64,
+                    }])]
                 })
                 .collect(),
         );
+
+        let mut object_data = ShaderDataSet::create(
+            device.clone(),
+            swapchain as u32,
+            vk::ShaderStageFlags::VERTEX,
+            [vk::DescriptorType::UNIFORM_BUFFER],
+        );
+
+        // no animator, static mesh
+        let pose_buffer = PoseBuffer::create::<PoseUniform>(device.clone(), device_memory, 1);
+        pose_buffer.update(
+            0,
+            PoseUniform {
+                bones: [Mat4::IDENTITY; 64],
+            },
+        );
+        let static_pose = object_data.describe(
+            0,
+            vec![[ShaderData::Uniform([vk::DescriptorBufferInfo {
+                buffer: pose_buffer.buffers[0],
+                offset: 0,
+                range: std::mem::size_of::<PoseUniform>() as u64,
+            }])]],
+        )[0];
 
         let material_data = ShaderDataSet::create(
             device.clone(),
@@ -160,7 +199,7 @@ impl SceneRenderer {
             [vk::DescriptorType::COMBINED_IMAGE_SAMPLER],
         );
 
-        let set_layouts = [scene_data.layout, material_data.layout];
+        let set_layouts = [scene_data.layout, material_data.layout, object_data.layout];
 
         let push_constant_ranges = [vk::PushConstantRange {
             stage_flags: vk::ShaderStageFlags::VERTEX,
@@ -180,6 +219,7 @@ impl SceneRenderer {
 
         let mut renderer = Self {
             device: device.clone(),
+            device_memory: device_memory.clone(),
             swapchain,
             objects: vec![],
             bounds: vec![],
@@ -187,9 +227,10 @@ impl SceneRenderer {
             pipeline: vk::Pipeline::null(), // will be immediately overridden
             gizmos_pipeline: vk::Pipeline::null(),
             material_data,
+            object_data,
             descriptor_sets,
+            static_pose,
             camera_buffer,
-            armature_buffer,
             present_index: 0,
             viewport: [viewports[0].width, viewports[0].height],
             pass,
@@ -238,6 +279,12 @@ impl SceneRenderer {
                     &[],
                 );
             }
+
+            let pose = match object.pose_data {
+                None => self.static_pose,
+                Some(pose) => pose,
+            };
+            device.cmd_bind_descriptor_sets(buffer, point, self.layout, 2, &[pose], &[]);
 
             device.cmd_push_constants(
                 buffer,

@@ -139,11 +139,12 @@ impl Editor {
 impl Mode for Editor {
     fn update(&mut self, input: &Input, renderer: &mut SceneRenderer, assets: &mut Assets) {
         self.gameplay.knowledge.reload();
-        self.gameplay.handle_server_responses(assets);
+        self.gameplay.handle_server_responses(assets, renderer);
         self.handle_edit_operations(input, assets);
         if !self.active {
             self.gameplay.handle_user_input(input);
         }
+        self.gameplay.animate(input);
         self.gameplay.render(renderer);
         if self.active {
             self.render(renderer);
