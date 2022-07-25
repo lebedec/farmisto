@@ -20,7 +20,7 @@ from bpy_extras.io_utils import orientation_helper
 from bpy_extras.io_utils import axis_conversion
 import zlib
 
-VERSION = (1, 1, 28)
+VERSION = (1, 1, 30)
 
 bl_info = {
     "name": "Space3 format",
@@ -54,6 +54,7 @@ class S3Mesh:
 @dataclass
 class S3Channel:
     node: int
+    parent: int
     position: Tuple[float, float, float]
     rotation: Tuple[float, float, float, float]
     scale: Tuple[float, float, float]
@@ -134,8 +135,9 @@ class Writer:
 
     def write_channel(self, value: S3Channel):
         self.buffer.write(struct.pack(
-            'i3f4f3f',
+            '2i3f4f3f',
             value.node,
+            value.parent,
             value.position[0],
             value.position[1],
             value.position[2],
@@ -216,12 +218,11 @@ def main(context: Context, orientation, report, output_path: str, use_selection:
         if isinstance(ob.data, Armature):
             armature = ob.data
 
-            for bone in armature.bones:
-                # report(f'bone {bone.name} p={bone.parent} children:{list(bone.children)}')
-                position, rotation, scale = (orientation @ bone.matrix_local).decompose()
-                report(f'bone {bone.name} mat4 p{position} r{rotation} s{scale}')
-                # position, rotation, scale = (orientation @ bone.matrix).decompose()
-                # report(f'bone {bone.name} mat3 p{position} r{rotation} s{scale}')
+            bone_index = {
+            }
+            for index, bone in enumerate(armature.bones):
+                bone_index[bone] = index
+                report(f'bone {bone.name} p={bone.parent} children:{list(bone.children)}')
 
             # report(f'animation: {armature.animation_data.action.name}')
             report(f'animation {ob.animation_data.action.name}')
@@ -231,34 +232,27 @@ def main(context: Context, orientation, report, output_path: str, use_selection:
                 channels = []
                 report(f"FRAME: {frame}")
                 for bone in ob.pose.bones:
-
-                    report(
-                        f'{bone.name} ... pos: {tuple(bone.location)} rot: {tuple(bone.rotation_quaternion)}'
-                    )
-                    position, rotation, scale = (orientation @ bone.matrix_channel).decompose()
+                    # position, rotation, scale = (orientation @ bone.matrix_channel).decompose()
                     rotation = bone.rotation_quaternion
                     position = bone.location
+                    scale = bone.scale
                     bone_offset = (orientation @ bone.bone.matrix_local)
-                    channels.append(S3Channel(
+                    channel = S3Channel(
                         node=0, #TODO: bone <-> vertex group mapping
+                        parent=bone_index[bone.parent.bone] if bone.parent else -1,
                         position=tuple(position),
                         rotation=tuple(rotation),
                         scale=tuple(scale),
                         matrix=[list(row) for row in bone_offset],
-                    ))
-                    report(
-                        f'{bone.name} ({bone.bone_group_index}) '
-                        f'location: {tuple(position)} rotation: {tuple(rotation)} scale: {tuple(scale)}'
                     )
-                    # loc, rot, scale = (orientation @ bone.matrix).decompose()
-                    # report(
-                    #     f'FINAL ORI {bone.name} ({bone.bone_group_index}) '
-                    #     f'location: {loc} rotation: {rot} scale: {scale}'
-                    # )
+                    channels.append(channel)
+                    report(
+                        f'{bone.name} ({bone.bone_group_index}) p{channel.parent} '
+                        f'pos: {channel.position} rot: {channel.rotation} scale: {channel.scale}'
+                    )
                 scene.animation.keyframes.append(S3Keyframe(
                     channels=channels
                 ))
-            # report(f'my animation: {scene.animation}')
 
         if isinstance(ob.data, Mesh):
             mesh = ob.to_mesh()

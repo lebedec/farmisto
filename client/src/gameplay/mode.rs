@@ -112,6 +112,8 @@ impl Gameplay {
 
                                 let asset = assets.farmer(&kind.name);
 
+                                info!("Mesh bounds: {:?}", asset.mesh.bounds());
+
                                 self.farmers.insert(
                                     id,
                                     FarmerBehaviour {

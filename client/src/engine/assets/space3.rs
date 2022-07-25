@@ -29,6 +29,7 @@ pub struct S3Mesh {
 #[derive(Debug, Clone, Copy)]
 pub struct S3Channel {
     pub node: u32,
+    pub parent: i32,
     pub position: [f32; 3],
     pub rotation: [f32; 4],
     pub scale: [f32; 3],

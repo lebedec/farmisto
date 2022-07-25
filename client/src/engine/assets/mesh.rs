@@ -52,7 +52,7 @@ impl MeshAsset {
 }
 
 #[repr(C)]
-#[derive(Clone, Copy, Default)]
+#[derive(Clone, Copy, Default, Debug)]
 pub struct MeshBounds {
     pub x: [f32; 2],
     pub y: [f32; 2],
@@ -75,7 +75,7 @@ impl MeshBounds {
     pub fn offset(&self) -> [f32; 3] {
         [
             (self.x[0] + self.x[1]) / 2.0,
-            (self.y[0] + self.y[1]) / 2.0 + 0.5, // todo: bounds:cube and mesh pivot match
+            (self.y[0] + self.y[1]) / 2.0 + 0.5,
             (self.z[0] + self.z[1]) / 2.0,
         ]
     }

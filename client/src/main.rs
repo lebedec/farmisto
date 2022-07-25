@@ -16,20 +16,32 @@ pub mod menu;
 pub mod mode;
 
 fn main() {
+    // let z_neg_45 = Quat::from_euler(
+    //     EulerRot::XYZ,
+    //     0.0f32.to_radians(),
+    //     0.0f32.to_radians(),
+    //     -45.0f32.to_radians(),
+    // );
+    //
+    // let y90 = Quat::from_euler(
+    //     EulerRot::XYZ,
+    //     0.0f32.to_radians(),
+    //     90.0f32.to_radians(),
+    //     0.0f32.to_radians(),
+    // );
+    //
+    // // println!("Z -45: {}", z_neg_45);
+    // // println!("Y  90: {}", y90);
+    //
+    // // root
     // let a = Vec4::new(-1., -1., 0., 1.);
     // let b = Vec4::new(0., -1., 0., 1.);
     // let c = Vec4::new(0., 0., 0., 1.);
     //
-    // // centered
-    // let a = Vec4::new(-1., -0.5, 0., 1.);
-    // let b = Vec4::new(0., -0.5, 0., 1.);
-    // let c = Vec4::new(0., 0.5, 0., 1.);
-    //
-    // let bone = Mat4::from_translation(Vec3::new(0., -0.5, 0.));
-    //
-    // println!("Ap: {}", bone * a);
-    // println!("Bp: {}", bone * b);
-    // println!("Cp: {}", bone * c);
+    // // torso
+    // let e = Vec4::new(-1., -1.5, 0., 1.);
+    // let f = Vec4::new(0., -2.5, 0., 1.);
+    // let g = Vec4::new(0., -1.5, 0., 1.);
     //
     // let z_neg_45 = Quat::from_euler(
     //     EulerRot::XYZ,
@@ -37,30 +49,35 @@ fn main() {
     //     0.0f32.to_radians(),
     //     45.0f32.to_radians(),
     // );
-    // let pose = Mat4::from_rotation_translation(z_neg_45, Vec3::ZERO) * bone;
+    // println!("Quat -45 Z: {}", z_neg_45);
+    // let root_pose = Mat4::from_rotation_translation(z_neg_45, Vec3::ZERO);
+    // let torso_pose = Mat4::from_scale_rotation_translation(
+    //     Vec3::ONE,
+    //     Quat::from_array([0., 0., 0., 1.]),
+    //     Vec3::ZERO,
+    // );
+    // let torso_pose = root_pose * torso_pose;
     //
-    // println!("A: {}", pose * a);
-    // println!("B: {}", pose * b);
-    // println!("C: {}", pose * c);
+    // println!("ROOT: {}", root_pose);
+    // println!("TORSO: {}", torso_pose);
     //
-    // // answer
-    // // A: [0.00000011920929, -1.4142135, 0, 1]
-    // // B: [0.7071068, -0.7071067, 0, 1]
-    // // C: [0, 0, 0, 1]
+    // println!("A: {}", root_pose * a);
+    // println!("B: {}", root_pose * b);
+    // println!("C: {}", root_pose * c);
     //
+    // println!("E: {}", torso_pose * e);
+    // println!("F: {}", torso_pose * f);
+    // println!("G: {}", torso_pose * g);
+
+    // A: [0.00000011920929, -1.4142135, 0, 1]
+    // B: [0.7071068, -0.7071067, 0, 1]
+    // C: [0, 0, 0, 1]
+    // E: [0.35355353, -1.767767, 0, 1]
+    // F: [1.7677671, -1.7677667, 0, 1]
+    // G: [1.0606602, -1.0606601, 0, 1]
+
     // return;
 
-    // let y_neg_45 = Quat::from_euler(
-    //     EulerRot::XYZ,
-    //     0.0f32.to_radians(),
-    //     -45.0f32.to_radians(),
-    //     0.0f32.to_radians(),
-    // );
-    //
-    // println!("Z-45: {:?}", z_neg_45);
-    // println!("Y-45: {:?}", y_neg_45);
-    //
-    // return;
     env_logger::init();
     info!("OS: {}", std::env::consts::OS);
     startup::<Appplication>("Farmisto".to_string());

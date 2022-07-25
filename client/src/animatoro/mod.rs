@@ -30,7 +30,11 @@ impl AnimationAsset {
                         .channels
                         .into_iter()
                         .map(|channel| Channel {
-                            parent: None,
+                            parent: if channel.parent > -1 {
+                                Some(channel.parent as usize)
+                            } else {
+                                None
+                            },
                             position: channel.position,
                             rotation: channel.rotation,
                             scale: channel.scale,
@@ -129,7 +133,9 @@ impl Machine {
         let frame_time = 1.0 / state.fps;
         state.frame_time += time;
         let mut exit = false;
+        let mut need_update = false;
         while state.frame_time >= frame_time {
+            need_update = true;
             state.frame_time -= frame_time;
             state.frame += 1;
             if state.frame >= state.motion.frames.len() {
@@ -142,35 +148,32 @@ impl Machine {
             }
         }
 
-        let blend = &state.motion.frames[state.frame];
+        if need_update {
+            let blend = &state.motion.frames[state.frame];
 
-        let transform = &mut self.transform;
-        for (bone, channel) in blend.channels.iter().enumerate() {
-            let pos = Vec3::from(channel.position);
-            let quat = Quat::from_vec4(Vec4::from([
-                channel.rotation[0],
-                channel.rotation[1],  // Y
-                -channel.rotation[2], // Z
-                channel.rotation[3],
-            ]));
-            let scale = Vec3::from(channel.scale);
-            // info!(
-            //     "FRAME {} BONE {} pos {:?} quat {:?} scale {:?}",
-            //     state.frame, bone, pos, quat, scale
-            // );
-            // let mut local = Mat4::from_scale_rotation_translation(scale, quat, pos);
-            // if let Some(parent) = channel.parent {
-            //     local = transform[parent] * local;
-            // }
-            // local = local * channel.matrix;
-            // transform[bone] = local;
-            // transform[bone] = Mat4::from_translation(pos);
+            let transform = &mut self.transform;
+            for (bone, channel) in blend.channels.iter().enumerate() {
+                let pos = Vec3::from(channel.position);
+                let quat = Quat::from_vec4(Vec4::from([
+                    channel.rotation[0],
+                    -channel.rotation[1], // Y todo: quaternion orientation
+                    -channel.rotation[2], // Z
+                    channel.rotation[3],
+                ]));
+                let scale = Vec3::from(channel.scale);
+                let mut local = Mat4::from_scale_rotation_translation(scale, quat, pos);
+
+                if let Some(parent) = channel.parent {
+                    local = transform[parent] * local;
+                }
+                transform[bone] = local;
+            }
+            // move transform to GPU buffer
+            let uniform = PoseUniform {
+                bones: transform.clone(),
+            };
+            self.pose_buffer.update::<PoseUniform>(0, uniform);
         }
-        // move transform to GPU buffer
-        let uniform = PoseUniform {
-            bones: transform.clone(),
-        };
-        self.pose_buffer.update::<PoseUniform>(0, uniform);
 
         if exit {
             let state = &self.states[self.current];
