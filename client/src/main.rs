@@ -16,12 +16,93 @@ pub mod menu;
 pub mod mode;
 
 fn main() {
-    // let z_neg_45 = Quat::from_euler(
-    //     EulerRot::XYZ,
-    //     0.0f32.to_radians(),
-    //     0.0f32.to_radians(),
-    //     -45.0f32.to_radians(),
-    // );
+    // FRAME 0
+    println!("FRAME 0");
+    let a = Vec4::new(-1.0, 0.0, 1.0, 1.);
+    let b = Vec4::new(0.0, 0.0, 1.0, 1.0);
+    let c = Vec4::new(0.0, 0.0, 0.0, 1.0);
+
+    let p = Vec3::new(-1.0, 0.0, 1.0);
+
+    let matrix_local = Mat4::from_cols_array_2d(&[
+        [1.0000, 0.0000, 0.0000, 0.0000],
+        [0.0000, 0.0000, -1.0000, 0.0000],
+        [0.0000, 1.0000, 0.0000, 0.0000],
+        [0.0000, 0.0000, 0.0000, 1.0000],
+    ]);
+    println!("matrix_local p {}", matrix_local.project_point3(p));
+
+    let matrix = Mat4::from_cols_array_2d(&[
+        [1.0000, 0.0000, 0.0000, 0.0000],
+        [0.0000, 0.0000, -1.0000, 0.0000],
+        [0.0000, 1.0000, 0.0000, 0.0000],
+        [0.0000, 0.0000, 0.0000, 1.0000],
+    ]);
+    println!("matrix p {}", matrix.transform_point3(p));
+
+    let matrix_basis = Mat4::from_cols_array_2d(&[
+        [1.0000, 0.0000, 0.0000, 0.0000],
+        [0.0000, 1.0000, 0.0000, 0.0000],
+        [0.0000, 0.0000, 1.0000, 0.0000],
+        [0.0000, 0.0000, 0.0000, 1.0000],
+    ]);
+    println!("matrix_basis p {}", matrix_basis.transform_point3(p));
+
+    let matrix_channel = Mat4::from_cols_array_2d(&[
+        [1.0000, 0.0000, 0.0000, 0.0000],
+        [0.0000, 1.0000, 0.0000, 0.0000],
+        [0.0000, 0.0000, 1.0000, 0.0000],
+        [0.0000, 0.0000, 0.0000, 1.0000],
+    ]);
+    println!("matrix_channel p {}", matrix_channel.transform_point3(p));
+
+    // FRAME 5
+    println!("FRAME 5");
+    let p = Vec3::new(-1.0, 0.0, 1.0);
+
+    let matrix_local = Mat4::from_cols_array_2d(&[
+        [1.0000, 0.0000, 0.0000, 0.0000],
+        [0.0000, 0.0000, -1.0000, 0.0000],
+        [0.0000, 1.0000, 0.0000, 0.0000],
+        [0.0000, 0.0000, 0.0000, 1.0000],
+    ]);
+    println!("matrix_local p {}", matrix_local.project_point3(p));
+
+    let matrix = Mat4::from_cols_array_2d(&[
+        [0.7660, 0.6428, 0.0000, 0.0000],
+        [0.0000, 0.0000, -1.0000, 0.0000],
+        [-0.6428, 0.7660, 0.0000, 0.0000],
+        [0.0000, 0.0000, 0.0000, 1.0000],
+    ]);
+    println!("matrix p {}", matrix.transform_point3(p));
+
+    let matrix_basis = Mat4::from_cols_array_2d(&[
+        [0.7660, 0.6428, 0.0000, 0.0000],
+        [-0.6428, 0.7660, 0.0000, 0.0000],
+        [0.0000, 0.0000, 1.0000, 0.0000],
+        [0.0000, 0.0000, 0.0000, 1.0000],
+    ]);
+    println!("matrix_basis p {}", matrix_basis.transform_point3(p));
+
+    let matrix_channel = Mat4::from_cols_array_2d(&[
+        [0.7660, 0.0000, 0.6428, 0.0000],
+        [0.0000, 1.0000, 0.0000, 0.0000],
+        [-0.6428, 0.0000, 0.7660, 0.0000],
+        [0.0000, 0.0000, 0.0000, 1.0000],
+    ]);
+    println!(
+        "matrix_channel p {} -> {}",
+        p,
+        matrix_channel.project_point3(p)
+    );
+
+    // vertices: ~
+    // a [-0.123, 0.0, 1.408]
+    // b [0.6, 0.0, 0.7]
+    // c [0.0, 0.0, 0.0]
+
+    return
+
     //
     // let y90 = Quat::from_euler(
     //     EulerRot::XYZ,

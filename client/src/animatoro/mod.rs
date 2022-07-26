@@ -156,15 +156,15 @@ impl Machine {
                 let pos = Vec3::from(channel.position);
                 let quat = Quat::from_vec4(Vec4::from([
                     channel.rotation[0],
-                    -channel.rotation[1], // Y todo: quaternion orientation
-                    -channel.rotation[2], // Z
+                    channel.rotation[1],
+                    channel.rotation[2],
                     channel.rotation[3],
                 ]));
                 let scale = Vec3::from(channel.scale);
                 let mut local = Mat4::from_scale_rotation_translation(scale, quat, pos);
 
                 if let Some(parent) = channel.parent {
-                    local = transform[parent] * local;
+                    // local = transform[parent] * local;
                 }
                 transform[bone] = local;
             }

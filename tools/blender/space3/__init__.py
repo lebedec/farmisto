@@ -19,6 +19,7 @@ from bpy_extras.io_utils import ExportHelper
 from bpy_extras.io_utils import orientation_helper
 from bpy_extras.io_utils import axis_conversion
 import zlib
+import mathutils
 
 VERSION = (1, 1, 30)
 
@@ -141,10 +142,10 @@ class Writer:
             value.position[0],
             value.position[1],
             value.position[2],
-            value.rotation[1], # X (reorder Blender quaternion)
-            value.rotation[2], # Y
-            value.rotation[3], # Z
-            value.rotation[0], # W
+            value.rotation[1],  # X (reorder Blender quaternion)
+            value.rotation[2],  # Y
+            value.rotation[3],  # Z
+            value.rotation[0],  # W
             value.scale[0],
             value.scale[1],
             value.scale[2],
@@ -222,7 +223,8 @@ def main(context: Context, orientation, report, output_path: str, use_selection:
             }
             for index, bone in enumerate(armature.bones):
                 bone_index[bone] = index
-                report(f'bone {bone.name} p={bone.parent} children:{list(bone.children)}')
+                report(
+                    f'bone {bone.name} p={bone.parent} children:{list(bone.children)} x{bone.x_axis} y{bone.y_axis} z{bone.z_axis} {type(bone.x_axis)}')
 
             # report(f'animation: {armature.animation_data.action.name}')
             report(f'animation {ob.animation_data.action.name}')
@@ -231,14 +233,78 @@ def main(context: Context, orientation, report, output_path: str, use_selection:
                 context.scene.frame_set(frame)
                 channels = []
                 report(f"FRAME: {frame}")
-                for bone in ob.pose.bones:
-                    # position, rotation, scale = (orientation @ bone.matrix_channel).decompose()
-                    rotation = bone.rotation_quaternion
-                    position = bone.location
-                    scale = bone.scale
+                for index, bone in enumerate(ob.pose.bones):
+                    target = {
+                        0: mathutils.Vector((-1.0, 0.0, 1.0))
+                    }.get(index, mathutils.Vector((-1.0, 0.0, 1.0)))
+
+                    report(
+                        f'{bone.name} '
+                        f'pos: {tuple(bone.location)} rot: {tuple(bone.rotation_quaternion)}'
+                    )
+
+                    point = mathutils.Matrix.Translation(target)
+                    point_vec = point.to_translation()
+
+                    point_local = (bone.bone.matrix_local.inverted() @ point)
+                    point_local_vec = point_local.to_translation()
+
+                    local = (bone.matrix_basis @ point_local)
+                    local_vec = local.to_translation()
+                    # report(f"LOCAL {point_local_vec} to {local_vec}")
+
+                    calc = (bone.bone.matrix_local @ local)
+                    calc_vec = calc.to_translation()
+
+                    # transform to Blender|model space @ (bone transform @ (project to bone space @ point))
+                    matrix_basis = mathutils.Matrix.LocRotScale(
+                        bone.location,
+                        bone.rotation_quaternion,
+                        bone.scale
+                    )
+                    # matrix_basis == bone.matrix_basis
+                    expr = bone.bone.matrix_local @ matrix_basis @ bone.bone.matrix_local.inverted() @ point
+                    expr_vec = expr.to_translation()
+
+                    result = (bone.matrix_channel @ point).to_translation()
+                    report(f"RESULT {point_vec} to {result} ? {calc_vec} e {expr_vec}")
+
+
+                    report("WITH ORIENTATION:")
+
+                    bone_bone_matrix_local = orientation @ bone.bone.matrix_local
+
+                    point = orientation @ mathutils.Matrix.Translation(target)
+                    point_vec = point.to_translation()
+
+                    point_local = (bone_bone_matrix_local.inverted() @ point)
+                    point_local_vec = point_local.to_translation()
+
+                    local = (bone.matrix_basis @ point_local)
+                    local_vec = local.to_translation()
+                    # report(f"LOCAL {point_local_vec} to {local_vec}")
+
+                    calc = (bone_bone_matrix_local @ local)
+                    calc_vec = calc.to_translation()
+
+                    # transform to Blender|model space @ (bone transform @ (project to bone space @ point))
+                    matrix_basis = mathutils.Matrix.LocRotScale(
+                        bone.location,
+                        bone.rotation_quaternion,
+                        bone.scale
+                    )
+                    # matrix_basis == bone.matrix_basis
+                    expr = bone_bone_matrix_local @ matrix_basis @ bone_bone_matrix_local.inverted() @ point
+                    expr_vec = expr.to_translation()
+
+                    result = (orientation @ bone.matrix_channel @ point).to_translation()
+                    report(f"RESULT {point_vec} to {result} ? {calc_vec} e {expr_vec}")
+
+
+                    position, rotation, scale = (orientation @ bone.matrix).decompose()
                     bone_offset = (orientation @ bone.bone.matrix_local)
                     channel = S3Channel(
-                        node=0, #TODO: bone <-> vertex group mapping
+                        node=0,  # TODO: bone <-> vertex group mapping
                         parent=bone_index[bone.parent.bone] if bone.parent else -1,
                         position=tuple(position),
                         rotation=tuple(rotation),
@@ -246,10 +312,10 @@ def main(context: Context, orientation, report, output_path: str, use_selection:
                         matrix=[list(row) for row in bone_offset],
                     )
                     channels.append(channel)
-                    report(
-                        f'{bone.name} ({bone.bone_group_index}) p{channel.parent} '
-                        f'pos: {channel.position} rot: {channel.rotation} scale: {channel.scale}'
-                    )
+                    # report(
+                    #     f'{bone.name} ({bone.bone_group_index}) p{channel.parent} '
+                    #     f'pos: {channel.position} rot: {channel.rotation} scale: {channel.scale}'
+                    # )
                 scene.animation.keyframes.append(S3Keyframe(
                     channels=channels
                 ))
@@ -411,7 +477,6 @@ class Space3ExportPanel(bpy.types.Panel):
         layout.prop(operator, "axis_up")
 
 
-
 def register():
     bpy.utils.register_class(Space3Export)
     bpy.utils.register_class(Space3ExportPanel)
@@ -422,7 +487,6 @@ def unregister():
     bpy.utils.unregister_class(Space3Export)
     bpy.utils.unregister_class(Space3ExportPanel)
     bpy.types.TOPBAR_MT_file_export.remove(menu_func_export)
-
 
 
 if __name__ == "__main__":
