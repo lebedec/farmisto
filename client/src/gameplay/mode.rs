@@ -136,7 +136,7 @@ impl Gameplay {
                                                 name: "idle".to_string(),
                                                 fps: 10.0,
                                                 motion: AnimationAsset::from_space3(
-                                                    "./assets/mesh/animal_anim.space3",
+                                                    "./assets/mesh/male@idle.space3",
                                                 ),
                                                 looped: true,
                                                 frame: 0,

@@ -3,15 +3,24 @@ use crate::engine::space3;
 use crate::engine::space3::S3Animation;
 use glam::{Mat4, Quat, Vec3, Vec4};
 use log::{error, info};
+use sdl2::libc::stat;
 use std::collections::HashMap;
 use std::path::Path;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct StateId(pub usize);
 
-pub struct Armature {}
+pub struct Bone {
+    parent: Option<usize>,
+    matrix: Mat4,
+}
+
+pub struct Armature {
+    bones: Vec<Bone>,
+}
 
 pub struct AnimationAsset {
+    armature: Armature,
     frames: Vec<Frame>,
 }
 
@@ -22,6 +31,29 @@ impl AnimationAsset {
         // todo: optimize struct, remove translation and collect
         let animation = std::mem::replace(&mut scene.animation, S3Animation::default());
         AnimationAsset {
+            armature: Armature {
+                bones: animation
+                    .armature
+                    .bones
+                    .into_iter()
+                    .map(|bone| {
+                        let [r0, r1, r2, r3] = bone.matrix;
+                        Bone {
+                            parent: if bone.parent > -1 {
+                                Some(bone.parent as usize)
+                            } else {
+                                None
+                            },
+                            matrix: Mat4::from_cols_array_2d(&[
+                                [r0[0], r1[0], r2[0], r3[0]],
+                                [r0[1], r1[1], r2[1], r3[1]],
+                                [r0[2], r1[2], r2[2], r3[2]],
+                                [r0[3], r1[3], r2[3], r3[3]],
+                            ]),
+                        }
+                    })
+                    .collect(),
+            },
             frames: animation
                 .keyframes
                 .into_iter()
@@ -30,15 +62,9 @@ impl AnimationAsset {
                         .channels
                         .into_iter()
                         .map(|channel| Channel {
-                            parent: if channel.parent > -1 {
-                                Some(channel.parent as usize)
-                            } else {
-                                None
-                            },
                             position: channel.position,
                             rotation: channel.rotation,
                             scale: channel.scale,
-                            matrix: Mat4::from_cols_array_2d(&channel.matrix),
                         })
                         .collect(),
                 })
@@ -48,11 +74,9 @@ impl AnimationAsset {
 }
 
 pub struct Channel {
-    parent: Option<usize>,
     position: [f32; 3],
     rotation: [f32; 4],
     scale: [f32; 3],
-    matrix: Mat4,
 }
 
 pub struct Frame {
@@ -149,24 +173,26 @@ impl Machine {
         }
 
         if need_update {
-            let blend = &state.motion.frames[state.frame];
+            let armature = &state.motion.armature;
+            let motions_blend = &state.motion.frames[state.frame];
 
             let transform = &mut self.transform;
-            for (bone, channel) in blend.channels.iter().enumerate() {
-                let pos = Vec3::from(channel.position);
-                let quat = Quat::from_vec4(Vec4::from([
-                    channel.rotation[0],
-                    channel.rotation[1],
-                    channel.rotation[2],
-                    channel.rotation[3],
-                ]));
-                let scale = Vec3::from(channel.scale);
-                let mut local = Mat4::from_scale_rotation_translation(scale, quat, pos);
+            for (bone, channel) in motions_blend.channels.iter().enumerate() {
+                let mut bone_transform = Mat4::from_scale_rotation_translation(
+                    Vec3::from(channel.scale),
+                    Quat::from_array(channel.rotation),
+                    Vec3::from(channel.position),
+                );
 
-                if let Some(parent) = channel.parent {
-                    // local = transform[parent] * local;
+                let bone_space = armature.bones[bone].matrix;
+                let world_space = bone_space.inverse();
+                bone_transform = bone_space * bone_transform * world_space;
+
+                if let Some(parent) = armature.bones[bone].parent {
+                    bone_transform = transform[parent] * bone_transform;
                 }
-                transform[bone] = local;
+
+                transform[bone] = bone_transform;
             }
             // move transform to GPU buffer
             let uniform = PoseUniform {

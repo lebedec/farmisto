@@ -24,84 +24,37 @@ fn main() {
 
     let p = Vec3::new(-1.0, 0.0, 1.0);
 
-    let matrix_local = Mat4::from_cols_array_2d(&[
+    let orientation = Mat4::from_cols_array_2d(&[
         [1.0000, 0.0000, 0.0000, 0.0000],
-        [0.0000, 0.0000, -1.0000, 0.0000],
-        [0.0000, 1.0000, 0.0000, 0.0000],
-        [0.0000, 0.0000, 0.0000, 1.0000],
-    ]);
-    println!("matrix_local p {}", matrix_local.project_point3(p));
-
-    let matrix = Mat4::from_cols_array_2d(&[
-        [1.0000, 0.0000, 0.0000, 0.0000],
-        [0.0000, 0.0000, -1.0000, 0.0000],
-        [0.0000, 1.0000, 0.0000, 0.0000],
-        [0.0000, 0.0000, 0.0000, 1.0000],
-    ]);
-    println!("matrix p {}", matrix.transform_point3(p));
-
-    let matrix_basis = Mat4::from_cols_array_2d(&[
-        [1.0000, 0.0000, 0.0000, 0.0000],
-        [0.0000, 1.0000, 0.0000, 0.0000],
         [0.0000, 0.0000, 1.0000, 0.0000],
+        [0.0000, -1.0000, 0.0000, 0.0000],
         [0.0000, 0.0000, 0.0000, 1.0000],
     ]);
-    println!("matrix_basis p {}", matrix_basis.transform_point3(p));
-
-    let matrix_channel = Mat4::from_cols_array_2d(&[
+    let point = orientation.transform_point3(p);
+    /// let point = Vec3::new(-1., -1., 0.);
+    let bone_bone_matrix_local = Mat4::from_cols_array_2d(&[
         [1.0000, 0.0000, 0.0000, 0.0000],
-        [0.0000, 1.0000, 0.0000, 0.0000],
-        [0.0000, 0.0000, 1.0000, 0.0000],
-        [0.0000, 0.0000, 0.0000, 1.0000],
-    ]);
-    println!("matrix_channel p {}", matrix_channel.transform_point3(p));
-
-    // FRAME 5
-    println!("FRAME 5");
-    let p = Vec3::new(-1.0, 0.0, 1.0);
-
-    let matrix_local = Mat4::from_cols_array_2d(&[
-        [1.0000, 0.0000, 0.0000, 0.0000],
+        [0.0000, -1.0000, 0.0000, 0.0000],
         [0.0000, 0.0000, -1.0000, 0.0000],
-        [0.0000, 1.0000, 0.0000, 0.0000],
         [0.0000, 0.0000, 0.0000, 1.0000],
     ]);
-    println!("matrix_local p {}", matrix_local.project_point3(p));
 
-    let matrix = Mat4::from_cols_array_2d(&[
-        [0.7660, 0.6428, 0.0000, 0.0000],
-        [0.0000, 0.0000, -1.0000, 0.0000],
-        [-0.6428, 0.7660, 0.0000, 0.0000],
-        [0.0000, 0.0000, 0.0000, 1.0000],
-    ]);
-    println!("matrix p {}", matrix.transform_point3(p));
-
-    let matrix_basis = Mat4::from_cols_array_2d(&[
-        [0.7660, 0.6428, 0.0000, 0.0000],
-        [-0.6428, 0.7660, 0.0000, 0.0000],
-        [0.0000, 0.0000, 1.0000, 0.0000],
-        [0.0000, 0.0000, 0.0000, 1.0000],
-    ]);
-    println!("matrix_basis p {}", matrix_basis.transform_point3(p));
-
-    let matrix_channel = Mat4::from_cols_array_2d(&[
-        [0.7660, 0.0000, 0.6428, 0.0000],
-        [0.0000, 1.0000, 0.0000, 0.0000],
-        [-0.6428, 0.0000, 0.7660, 0.0000],
-        [0.0000, 0.0000, 0.0000, 1.0000],
-    ]);
-    println!(
-        "matrix_channel p {} -> {}",
-        p,
-        matrix_channel.project_point3(p)
+    let matrix_basis = Mat4::from_rotation_translation(
+        Quat::from_array([0.0, 0.0, -0.34202, 0.93969]),
+        Vec3::new(0.0, 0.0, -0.5),
     );
 
-    // vertices: ~
-    // a [-0.123, 0.0, 1.408]
-    // b [0.6, 0.0, 0.7]
-    // c [0.0, 0.0, 0.0]
+    let point_local = bone_bone_matrix_local.transform_point3(point);
+    let local = matrix_basis.transform_point3(point_local);
 
-    return
+    println!("LOCAL {} to {}", point_local, local);
+
+    let calc = bone_bone_matrix_local.transform_point3(local);
+
+    let result = (bone_bone_matrix_local * matrix_basis * bone_bone_matrix_local.inverse())
+        .transform_point3(point);
+
+    println!("result calc {} {}", calc, result);
 
     //
     // let y90 = Quat::from_euler(

@@ -29,22 +29,30 @@ pub struct S3Mesh {
 #[derive(Debug, Clone, Copy)]
 pub struct S3Channel {
     pub node: u32,
-    pub parent: i32,
     pub position: [f32; 3],
     pub rotation: [f32; 4],
     pub scale: [f32; 3],
+}
+
+pub struct S3Bone {
+    pub name: String,
+    pub parent: i32,
     pub matrix: [[f32; 4]; 4],
+}
+
+#[derive(Default)]
+pub struct S3Armature {
+    pub bones: Vec<S3Bone>,
 }
 
 pub struct S3Keyframe {
     pub channels: Vec<S3Channel>,
 }
 
-pub struct S3Armature {}
-
 #[derive(Default)]
 pub struct S3Animation {
     pub name: String,
+    pub armature: S3Armature,
     pub keyframes: Vec<S3Keyframe>,
 }
 
@@ -114,39 +122,43 @@ where
             triangles,
         };
 
-        // for v in mesh.vertices.iter() {
-        //     info!(
-        //         "vertex p:{:?}, uv:{:?}, bones:{:?}, weights:{:?}",
-        //         v.position, v.uv, v.bones, v.weights
-        //     );
-        // }
-
         meshes.push(mesh);
     }
 
     let name = read_name(stream)?;
-    // info!("animation: {}", &name);
-    let stream = &mut decompress(stream)?;
 
+    let bones_length = read_u8(stream)? as usize;
+    let mut bones = Vec::with_capacity(bones_length);
+    for _ in 0..bones_length {
+        let name = read_name(stream)?;
+        let parent = read_i32(stream)?;
+        let mut matrix = [0; 64];
+        stream.read_exact(&mut matrix)?;
+        bones.push(S3Bone {
+            name,
+            parent,
+            matrix: bytemuck::cast(matrix),
+        });
+    }
+    let armature = S3Armature { bones };
+
+    let stream = &mut decompress(stream)?;
     let keyframes_length = read_i32(stream)? as usize;
     let mut keyframes = Vec::with_capacity(keyframes_length);
-    // info!("keyframes: {}", keyframes_length);
     for _ in 0..keyframes_length {
         let keyframe = S3Keyframe {
             channels: read_vec(stream)?,
         };
-        // for channel in keyframe.channels.iter() {
-        //     info!(
-        //         "channel {}, p:{:?}, matrix:{:?}",
-        //         channel.node, channel.position, channel.matrix
-        //     );
-        // }
         keyframes.push(keyframe);
     }
 
     Ok(S3Scene {
         meshes,
-        animation: S3Animation { name, keyframes },
+        animation: S3Animation {
+            name,
+            armature,
+            keyframes,
+        },
     })
 }
 
