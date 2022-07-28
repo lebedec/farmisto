@@ -21,7 +21,7 @@ from bpy_extras.io_utils import axis_conversion
 import zlib
 import mathutils
 
-VERSION = (1, 2, 1)
+VERSION = (1, 3, 1)
 
 bl_info = {
     "name": "Space3 format",
@@ -347,9 +347,6 @@ def main(context: Context, orientation, report, output_path: str, use_selection:
             mesh.calc_loop_triangles()
             uv_data = mesh.uv_layers.active.data
 
-            vertices = [S3Vertex()] * len(mesh.vertices)
-            triangles = [0] * len(mesh.loop_triangles) * 3
-
             for mod in ob.modifiers:
                 if isinstance(mod, ArmatureModifier):
                     report(f'arm mod {mod.name} vg: {mod.vertex_group}, object.data: {mod.object.data}')
@@ -357,11 +354,28 @@ def main(context: Context, orientation, report, output_path: str, use_selection:
             for group in ob.vertex_groups:
                 report(f'vgroup: {group.name} ({group.index})')
 
-            ptr = 0
+            report(
+                f"triangles: {len(mesh.loop_triangles)}"
+            )
+            report(
+                f"polygons: {len(mesh.polygons)}"
+            )
+
+            # uv_index = {}
+            # for triangle in mesh.loop_triangles:
+            #     for loop in triangle.loops:
+            #         uv = uv_data[loop].uv
+            #         uv_index[tuple(uv)] = 1
+            #
+            # report(f"mesh loops: {len(mesh.loops)}, vertices: {len(mesh.vertices)}, uv: {len(uv_data)}, uv_index: {len(uv_index)}")
+
+            vertex_index = {}
+            vertices = []
+            triangles = []
             for triangle in mesh.loop_triangles:
-                for index, loop in zip(triangle.vertices, triangle.loops):
+                for v_index, loop in zip(triangle.vertices, triangle.loops):
                     uv = uv_data[loop].uv
-                    vertex = mesh.vertices[index]
+                    vertex = mesh.vertices[v_index]
                     bones = [-1, -1, -1, -1]
                     weights = [0.0, 0.0, 0.0, 0.0]
                     for n, group in enumerate(vertex.groups):
@@ -370,19 +384,29 @@ def main(context: Context, orientation, report, output_path: str, use_selection:
                             break
                         bones[n] = group.group
                         weights[n] = group.weight
-                    vertices[index] = S3Vertex(
-                        position=tuple(vertex.co),
-                        normal=tuple(vertex.normal),
-                        uv=tuple(uv),
-                        bones=tuple(bones),
-                        weights=tuple(weights)
-                    )
-                    triangles[ptr] = index
+
+                    vertex_key = v_index, tuple(uv)
+
+                    index = vertex_index.get(vertex_key, None)
+                    if index is None:
+                        index = len(vertices)
+                        vertex_index[vertex_key] = index
+                        vertices.append(S3Vertex(
+                            position=tuple(vertex.co),
+                            normal=tuple(vertex.normal),
+                            uv=tuple(uv),
+                            bones=tuple(bones),
+                            weights=tuple(weights)
+                        ))
+
+                    triangles.append(index)
+
                     report(
-                        f'tri ({triangle.index}) vertex {index} position: {vertex.co}, '
+                        f'triangle #{triangle.index} vertex {index} position: {vertex.co}, '
                         f'normal: {vertex.normal}, uv: {list(uv)}, bones: {bones}, weights: {weights}'
                     )
-                    ptr += 1
+
+            report(f"Vertices: {len(vertices)}, triangles: {len(triangles)}")
 
             out_mesh = S3Mesh(
                 name=mesh.name,
