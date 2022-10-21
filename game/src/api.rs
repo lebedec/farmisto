@@ -1,5 +1,4 @@
 use crate::model::{FarmerId, FarmerKey, FarmlandId, FarmlandKey, TreeId, TreeKey};
-use crate::physics::BarrierId;
 use std::fmt::Debug;
 
 pub const API_VERSION: &str = "0.1";

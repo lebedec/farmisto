@@ -124,3 +124,20 @@ There are only a few "legal" reasons to use macros:
 - Data structure introspection to eliminate mapping code 
 - The variation of arguments to simplify non-game aspects, logging and stuff like that
 
+## Development
+
+### Windows
+
+1. Download SDL development libraries from http://www.libsdl.org
+2. Download FMOD development libraries from https://www.fmod.com
+3. Install a Vulkan ready driver and SDK from https://www.lunarg.com/vulkan-sdk
+4. Copy all development libraries to folder of your choosing:
+
+   Current target build:
+   > ./target/debug/deps
+
+5. Run `client/src/main.rs`, specify env variables:
+   - `RUST_LOG=info` for logging
+   - `FARMISTO_EDITOR=1` for dev mode
+6. When you're shipping `client.exe` make sure to copy development libraries 
+to the same directory that your compiled exe is in.

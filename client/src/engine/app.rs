@@ -51,12 +51,7 @@ pub fn startup<A: App>(title: String) {
     info!("SDL Vulkan drawable: {:?}", window.vulkan_drawable_size());
     let window = Arc::new(window);
     let mut event_pump = system.event_pump().unwrap();
-    let instance_extensions: Vec<CString> = window
-        .vulkan_instance_extensions()
-        .unwrap()
-        .iter()
-        .map(|&name| CString::new(name.to_string()).unwrap())
-        .collect();
+    let instance_extensions: Vec<&'static str> = window.vulkan_instance_extensions().unwrap();
     info!("SDL Vulkan extensions: {:?}", instance_extensions);
 
     let base = Base::new(

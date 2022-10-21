@@ -1,12 +1,5 @@
 extern crate ash;
 
-use ash::extensions::{
-    ext::DebugUtils,
-    khr::{Surface, Swapchain},
-};
-
-use ash::{vk, Entry};
-pub use ash::{Device, Instance};
 use std::borrow::Cow;
 use std::default::Default;
 use std::ffi::{CStr, CString};
@@ -14,9 +7,15 @@ use std::ops::Drop;
 use std::os::raw::c_char;
 use std::sync::{Arc, Mutex};
 
+use ash::extensions::{
+    ext::DebugUtils,
+    khr::{Surface, Swapchain},
+};
+use ash::vk::Handle;
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 use ash::vk::KhrPortabilitySubsetFn;
-use ash::vk::{DebugUtilsMessageSeverityFlagsEXT, DescriptorSetLayout, Handle};
+use ash::{vk, Entry};
+pub use ash::{Device, Instance};
 use log::{log, Level};
 use sdl2::video::Window;
 
@@ -99,10 +98,10 @@ unsafe extern "system" fn vulkan_debug_callback(
     };
 
     let level = match message_severity {
-        DebugUtilsMessageSeverityFlagsEXT::VERBOSE => Level::Debug,
-        DebugUtilsMessageSeverityFlagsEXT::INFO => Level::Info,
-        DebugUtilsMessageSeverityFlagsEXT::WARNING => Level::Warn,
-        DebugUtilsMessageSeverityFlagsEXT::ERROR => Level::Error,
+        vk::DebugUtilsMessageSeverityFlagsEXT::VERBOSE => Level::Debug,
+        vk::DebugUtilsMessageSeverityFlagsEXT::INFO => Level::Info,
+        vk::DebugUtilsMessageSeverityFlagsEXT::WARNING => Level::Warn,
+        vk::DebugUtilsMessageSeverityFlagsEXT::ERROR => Level::Error,
         _ => Level::Error,
     };
 
@@ -174,20 +173,15 @@ impl Base {
         window_width: u32,
         window_height: u32,
         window: Arc<Window>,
-        sdl_extension_names: Vec<CString>,
+        sdl_extension_names: Vec<&str>,
     ) -> Self {
         unsafe {
-            // TODO: fix CString pointer drop to provide extension names from SDL
-            #[cfg(unix)]
-            let mut extension_names = vec![
-                CStr::from_bytes_with_nul_unchecked(b"VK_KHR_surface\0").as_ptr(),
-                CStr::from_bytes_with_nul_unchecked(b"VK_MVK_macos_surface\0").as_ptr(),
-            ];
-            #[cfg(windows)]
-            let mut extension_names = vec![
-                CStr::from_bytes_with_nul_unchecked(b"VK_KHR_surface\0").as_ptr(),
-                CStr::from_bytes_with_nul_unchecked(b"VK_KHR_win32_surface\0").as_ptr(),
-            ];
+            let mut extension_names = vec![DebugUtils::name().as_ptr()];
+            extension_names.extend(
+                sdl_extension_names
+                    .into_iter()
+                    .map(|ext| ext.as_ptr() as *const c_char),
+            );
 
             let entry = Entry::load().unwrap();
             let app_name = CStr::from_bytes_with_nul_unchecked(b"VulkanTriangle\0");
@@ -199,8 +193,6 @@ impl Base {
                 .iter()
                 .map(|raw_name| raw_name.as_ptr())
                 .collect();
-
-            extension_names.push(DebugUtils::name().as_ptr());
 
             let appinfo = vk::ApplicationInfo::builder()
                 .application_name(app_name)

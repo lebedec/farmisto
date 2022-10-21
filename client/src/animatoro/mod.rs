@@ -1,11 +1,12 @@
+use std::collections::HashMap;
+use std::path::Path;
+
+use glam::{Mat4, Quat, Vec3};
+use log::error;
+
 use crate::engine::armature::{PoseBuffer, PoseUniform};
 use crate::engine::space3;
 use crate::engine::space3::S3Animation;
-use glam::{Mat4, Quat, Vec3, Vec4};
-use log::{error, info};
-use sdl2::libc::stat;
-use std::collections::HashMap;
-use std::path::Path;
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct StateId(pub usize);

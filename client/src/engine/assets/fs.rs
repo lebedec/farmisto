@@ -4,7 +4,7 @@ use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use std::sync::{Arc, RwLock};
-use std::thread;
+use std::{fs, thread};
 
 pub struct FileSystem {}
 

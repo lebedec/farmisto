@@ -1,4 +1,4 @@
-use crate::math::{detect_collision, test_rect_collision, Collider, VectorMath};
+use crate::math::{detect_collision, Collider, VectorMath};
 use datamap::{Collection, Grouping, Id, Known, Persisted, Shared, Storage};
 use log::{error, info};
 

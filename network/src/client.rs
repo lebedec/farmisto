@@ -52,7 +52,7 @@ impl TcpClient {
             }
             thread::spawn(move || {
                 info!("Start client responses thread");
-                loop {
+                'running: loop {
                     let mut responses = vec![];
                     let time = Instant::now();
                     loop {
@@ -74,7 +74,7 @@ impl TcpClient {
                     for response in responses {
                         if responses_sender.send(response).is_err() {
                             error!("Unable to receive response, client not working");
-                            break;
+                            break 'running;
                         }
                     }
                 }

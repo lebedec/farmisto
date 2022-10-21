@@ -40,11 +40,7 @@ impl<const B: usize> ShaderDataSet<B> {
         }
     }
 
-    pub fn describe(
-        &mut self,
-        id: u64,
-        mut writes: Vec<[ShaderData; B]>,
-    ) -> Vec<vk::DescriptorSet> {
+    pub fn describe(&mut self, id: u64, writes: Vec<[ShaderData; B]>) -> Vec<vk::DescriptorSet> {
         if let Some(descriptors) = self.descriptors.get(&id) {
             return descriptors.clone();
         }
