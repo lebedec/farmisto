@@ -2,25 +2,32 @@ use game::api::{GameResponse, PlayerRequest};
 use game::{Game, UniverseSnapshot};
 use log::info;
 use network::{Configuration, TcpServer};
+use std::fmt::format;
 use std::sync::atomic::{AtomicBool, Ordering};
-use std::sync::Arc;
+use std::sync::mpsc::channel;
+use std::sync::{Arc, Mutex, MutexGuard};
 use std::thread;
 use std::time::{Duration, Instant};
 
 pub struct LocalServerThread {
-    running: Arc<AtomicBool>,
+    pub running: Arc<AtomicBool>,
+    pub address: String,
 }
 
 impl LocalServerThread {
     pub fn spawn(config: Configuration) -> Self {
         let running = Arc::new(AtomicBool::new(true));
+        let (notify_started, started) = channel();
         let running_thread = running.clone();
+        let port = config.port;
         let mut server = TcpServer::startup(config);
+        let address = format!("{}:{}", server.address(), port);
         thread::spawn(move || {
             info!("Start game server thread");
             let mut game = Game::new();
 
             let mut tick = Instant::now();
+            notify_started.send(true).unwrap();
             while running_thread.load(Ordering::Relaxed) {
                 for player in server.accept_players() {
                     info!("Add player '{}' to game", player);
@@ -55,8 +62,8 @@ impl LocalServerThread {
             }
             info!("Stop game server thread");
         });
-
-        Self { running }
+        started.recv().unwrap();
+        Self { running, address }
     }
 
     pub fn terminate(&mut self) {

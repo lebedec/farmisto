@@ -2,7 +2,6 @@ use crate::engine::scene::SceneRenderer;
 use crate::engine::{startup, App, Assets, Input, ShaderCompiler};
 use crate::intro::Intro;
 use crate::mode::Mode;
-use glam::{EulerRot, Mat4, Quat, Vec3, Vec4};
 use libfmod::Studio;
 use log::info;
 use std::io::Write;
@@ -37,18 +36,13 @@ fn main() {
 
 struct Application {
     mode: Box<dyn Mode>,
-    time: f32,
 }
 
 impl App for Application {
     fn start(assets: &mut Assets) -> Self {
-        let editor = option_env!("FARMISTO_EDITOR").is_some();
-        info!("Editor mode: {}", editor);
-        let mut mode = Intro::new(editor);
-        info!("Start {:?}", mode.name());
+        let mut mode = Intro::new();
         mode.start(assets);
-
-        Self { mode, time: 0.0 }
+        Self { mode }
     }
 
     fn update(
@@ -56,19 +50,8 @@ impl App for Application {
         input: Input,
         renderer: &mut SceneRenderer,
         assets: &mut Assets,
-        studio: &Studio,
+        _studio: &Studio,
     ) {
-        self.time += input.time;
-        if self.time > 1.0 {
-            self.time = 0.0;
-            // info!("fire event!");
-            // let event = studio.get_event("event:/Farmer/Footsteps").unwrap();
-            // // studio.set_listener_attributes()
-            // let event = event.create_instance().unwrap();
-            // event.set_parameter_by_name("Terrain", 0.0, false).unwrap();
-            // event.start().unwrap();
-            // event.release().unwrap();
-        }
         self.mode.update(&input, renderer, assets);
         if let Some(next) = self.mode.transition(renderer) {
             info!("Finish {:?}", self.mode.name());

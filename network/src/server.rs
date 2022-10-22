@@ -31,6 +31,7 @@ pub struct TcpServer {
 
 pub struct Configuration {
     pub host: String,
+    pub port: u32,
     pub password: Option<String>,
 }
 
@@ -145,7 +146,7 @@ fn spawn_listener(
     disconnection: Sender<String>,
 ) {
     thread::spawn(move || {
-        let address = "0.0.0.0:8080";
+        let address = format!("0.0.0.0:{}", config.port);
         info!(
             "Listen player connections on {:?}, API version is {}",
             address, API_VERSION
@@ -307,17 +308,17 @@ fn detect_server_address() -> String {
 
 #[cfg(windows)]
 fn detect_server_address() -> String {
-    match Command::new("netsh")
-        .args(["interface", "ip", "show", "config", "name=\"Ethernet\""])
+    match Command::new("ipconfig")
+        //.args(["interface", "ip", "show", "config"])
         .output()
         .map_err(|err| err.to_string())
-        .and_then(|output| String::from_utf8(output.stdout).map_err(|err| err.to_string()))
+        .map(|output| String::from_utf8_lossy(&output.stdout).to_string())
     {
         Ok(configuration) => {
             let mut ip = "127.0.0.1".to_string();
             for line in configuration.split("\n") {
                 let line = line.trim();
-                if line.starts_with("IP Address:") {
+                if line.starts_with("IPv4") {
                     ip = line.split_whitespace().last().unwrap().to_string();
                     break;
                 }
