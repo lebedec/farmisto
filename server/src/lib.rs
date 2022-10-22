@@ -1,6 +1,5 @@
 use game::api::{GameResponse, PlayerRequest};
-use game::model::UniverseSnapshot;
-use game::Game;
+use game::{Game, UniverseSnapshot};
 use log::info;
 use network::{Configuration, TcpServer};
 use std::sync::atomic::{AtomicBool, Ordering};

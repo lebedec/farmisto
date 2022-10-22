@@ -138,7 +138,7 @@ impl Editor {
 
 impl Mode for Editor {
     fn update(&mut self, input: &Input, renderer: &mut SceneRenderer, assets: &mut Assets) {
-        self.gameplay.knowledge.reload();
+        self.gameplay.knowledge.load(&self.storage);
         self.gameplay.handle_server_responses(assets, renderer);
         self.handle_edit_operations(input, assets);
         if !self.active {

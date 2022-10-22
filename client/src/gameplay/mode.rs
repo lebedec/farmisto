@@ -2,21 +2,19 @@ use crate::animatoro::{AnimationAsset, Machine, State, StateId};
 use crate::engine::armature::{PoseBuffer, PoseUniform};
 use crate::engine::Input;
 use crate::gameplay::camera::Camera;
-use crate::gameplay::objects::{
-    BarrierHint, FarmerBehaviour, FarmlandBehaviour, KnowledgeBase, TreeBehaviour,
-};
+use crate::gameplay::objects::{BarrierHint, FarmerBehaviour, FarmlandBehaviour, TreeBehaviour};
 use crate::{Assets, Mode, SceneRenderer};
 use datamap::Storage;
 use game::api::{Action, Event, GameResponse, PlayerRequest};
-use game::math::{detect_collision, Collider};
+use game::math::detect_collision;
 use game::model::{FarmerId, FarmlandId, TreeId};
+use game::KnowledgeBase;
 use glam::{Mat4, Vec2, Vec3};
-use log::{error, info, warn};
+use log::{error, info};
 use network::TcpClient;
 use sdl2::keyboard::Keycode;
 use server::LocalServerThread;
 use std::collections::HashMap;
-use std::hash::Hash;
 
 pub struct Gameplay {
     server: Option<LocalServerThread>,
@@ -28,6 +26,7 @@ pub struct Gameplay {
     pub trees: HashMap<TreeId, TreeBehaviour>,
     pub farmers: HashMap<FarmerId, FarmerBehaviour>,
     pub camera: Camera,
+    pub storage: Storage,
 }
 
 impl Gameplay {
@@ -36,12 +35,13 @@ impl Gameplay {
             server,
             client,
             action_id: 0,
-            knowledge: KnowledgeBase::new(),
+            knowledge: KnowledgeBase::default(),
             barriers: Default::default(),
             farmlands: Default::default(),
             trees: HashMap::new(),
             farmers: Default::default(),
             camera: Camera::new(viewport),
+            storage: Storage::open("./assets/database.sqlite").unwrap(),
         }
     }
 
@@ -303,7 +303,7 @@ impl Gameplay {
 
 impl Mode for Gameplay {
     fn start(&mut self, assets: &mut Assets) {
-        self.knowledge.reload();
+        self.knowledge.load(&self.storage);
     }
 
     fn update(&mut self, input: &Input, renderer: &mut SceneRenderer, assets: &mut Assets) {

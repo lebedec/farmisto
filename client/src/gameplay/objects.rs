@@ -41,13 +41,6 @@ pub struct TreeBehaviour {
     pub direction: Vec2,
 }
 
-pub struct KnowledgeBase {
-    storage: Storage,
-    pub trees: Known<TreeKind>,
-    pub farmlands: Known<FarmlandKind>,
-    pub farmers: Known<FarmerKind>,
-}
-
 pub struct BarrierHint {
     pub id: usize,
     pub kind: usize,
@@ -62,24 +55,5 @@ impl Collider for BarrierHint {
 
     fn bounds(&self) -> [f32; 2] {
         self.bounds
-    }
-}
-
-impl KnowledgeBase {
-    pub fn new() -> Self {
-        let storage = Storage::open("./assets/database.sqlite").unwrap();
-        Self {
-            storage,
-            trees: Default::default(),
-            farmlands: Default::default(),
-            farmers: Default::default(),
-        }
-    }
-
-    pub fn reload(&mut self) {
-        let storage = &self.storage;
-        self.trees.load(storage);
-        self.farmlands.load(storage);
-        self.farmers.load(storage);
     }
 }
