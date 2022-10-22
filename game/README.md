@@ -82,7 +82,7 @@ flowchart LR
 	
 	universe --- tree
 	
-	tree --- physics & navigation & farming
+	tree --- physics & navigation & planting
 	
 	subgraph api[API]
 		action
