@@ -309,7 +309,7 @@ fn generate_asset_data_trait(ast: &DeriveInput) -> TokenStream {
 
                     fn parse(
                         row: &rusqlite::Row,
-                        id: usize,
+                        id: String,
                         context: &mut Self::Context,
                         connection: &rusqlite::Connection,
                     ) -> Result<Self, rusqlite::Error> {

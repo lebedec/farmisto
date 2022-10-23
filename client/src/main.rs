@@ -1,3 +1,5 @@
+extern crate core;
+
 use crate::engine::scene::SceneRenderer;
 use crate::engine::{startup, App, Assets, Input, ShaderCompiler};
 use crate::intro::Intro;

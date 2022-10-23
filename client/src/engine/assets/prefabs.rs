@@ -12,9 +12,9 @@ pub struct FarmlandAssetData {
 
 #[derive(datamap::AssetData)]
 pub struct FarmlandAssetPropItem {
-    pub id: usize,
+    pub id: String,
     #[parent]
-    pub farmland: usize,
+    pub farmland: String,
     pub position: [f32; 3],
     pub rotation: [f32; 3],
     pub scale: [f32; 3],

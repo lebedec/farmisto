@@ -54,27 +54,27 @@ impl Operation for Scale {
             Selection::FarmlandProp { farmland, id, kind } => {
                 // self.farmlands
 
-                let mut asset = assets.farmlands.edit(&kind).unwrap();
-                let prop = asset.props.iter_mut().find(|prop| &prop.id == id).unwrap();
-
-                if self.scale.is_none() {
-                    self.scale = Some(prop.scale());
-                }
-                let scale = self.scale.unwrap();
-
-                prop.scale = (scale + direction * delta).into();
-
-                if input.click() {
-                    assets
-                        .storage
-                        .connection()
-                        .execute(
-                            "update FarmlandAssetPropItem set scale = ? where id = ?",
-                            params![datamap::to_json_value(prop.scale.as_ref()), *id],
-                        )
-                        .unwrap();
-                    return true;
-                }
+                // let mut asset = assets.farmlands.edit(&kind).unwrap();
+                // let prop = asset.props.iter_mut().find(|prop| &prop.id == id).unwrap();
+                //
+                // if self.scale.is_none() {
+                //     self.scale = Some(prop.scale());
+                // }
+                // let scale = self.scale.unwrap();
+                //
+                // prop.scale = (scale + direction * delta).into();
+                //
+                // if input.click() {
+                //     assets
+                //         .storage
+                //         .connection()
+                //         .execute(
+                //             "update FarmlandAssetPropItem set scale = ? where id = ?",
+                //             params![datamap::to_json_value(prop.scale.as_ref()), *id],
+                //         )
+                //         .unwrap();
+                //     return true;
+                // }
             }
             Selection::Tree { id } => {}
         }

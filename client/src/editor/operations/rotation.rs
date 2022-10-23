@@ -58,27 +58,27 @@ impl Operation for Rotation {
             Selection::FarmlandProp { id, kind, .. } => {
                 // self.farmlands
 
-                let mut asset = assets.farmlands.edit(&kind).unwrap();
-                let prop = asset.props.iter_mut().find(|prop| &prop.id == id).unwrap();
-
-                if self.rotation.is_none() {
-                    self.rotation = Some(prop.rotation());
-                }
-                let rotation = self.rotation.unwrap();
-
-                prop.rotation = (rotation + self.angle * direction).into();
-
-                if input.click() {
-                    assets
-                        .storage
-                        .connection()
-                        .execute(
-                            "update FarmlandAssetPropItem set rotation = ? where id = ?",
-                            params![datamap::to_json_value(prop.rotation.as_ref()), *id],
-                        )
-                        .unwrap();
-                    return true;
-                }
+                // let mut asset = assets.farmlands.edit(&kind).unwrap();
+                // let prop = asset.props.iter_mut().find(|prop| &prop.id == id).unwrap();
+                //
+                // if self.rotation.is_none() {
+                //     self.rotation = Some(prop.rotation());
+                // }
+                // let rotation = self.rotation.unwrap();
+                //
+                // prop.rotation = (rotation + self.angle * direction).into();
+                //
+                // if input.click() {
+                //     assets
+                //         .storage
+                //         .connection()
+                //         .execute(
+                //             "update FarmlandAssetPropItem set rotation = ? where id = ?",
+                //             params![datamap::to_json_value(prop.rotation.as_ref()), *id],
+                //         )
+                //         .unwrap();
+                //     return true;
+                // }
             }
             Selection::Tree { .. } => {}
         }

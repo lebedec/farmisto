@@ -42,35 +42,35 @@ impl Editor {
             return;
         }
 
-        if input.click() {
-            let (_, pos) = self.gameplay.camera.cast_ray(input.mouse_position());
-
-            if let Some(pos) = pos {
-                let mut best = f32::INFINITY;
-                let mut best_position = Vec3::ZERO;
-                for farmland in self.gameplay.farmlands.values() {
-                    for prop in &farmland.asset.props {
-                        let distance = prop.position().distance(pos);
-                        if distance < best {
-                            best = distance;
-                            self.selection = Some(Selection::FarmlandProp {
-                                id: prop.id,
-                                farmland: farmland.id,
-                                kind: farmland.kind.name.clone(),
-                            })
-                        }
-                    }
-                }
-                for tree in self.gameplay.trees.values() {
-                    let distance = tree.position.distance(pos);
-                    if distance < best {
-                        best = distance;
-                        self.selection = Some(Selection::Tree { id: tree.id })
-                    }
-                }
-                info!("SELECTION: {:?}", self.selection);
-            }
-        }
+        // if input.click() {
+        //     let (_, pos) = self.gameplay.camera.cast_ray(input.mouse_position());
+        //
+        //     if let Some(pos) = pos {
+        //         let mut best = f32::INFINITY;
+        //         let mut best_position = Vec3::ZERO;
+        //         for farmland in self.gameplay.farmlands.values() {
+        //             for prop in &farmland.asset.props {
+        //                 let distance = prop.position().distance(pos);
+        //                 if distance < best {
+        //                     best = distance;
+        //                     self.selection = Some(Selection::FarmlandProp {
+        //                         id: prop.id,
+        //                         farmland: farmland.id,
+        //                         kind: farmland.kind.name.clone(),
+        //                     })
+        //                 }
+        //             }
+        //         }
+        //         for tree in self.gameplay.trees.values() {
+        //             let distance = tree.position.distance(pos);
+        //             if distance < best {
+        //                 best = distance;
+        //                 self.selection = Some(Selection::Tree { id: tree.id })
+        //             }
+        //         }
+        //         info!("SELECTION: {:?}", self.selection);
+        //     }
+        // }
 
         self.handle_selection_command(input);
     }
@@ -114,6 +114,7 @@ impl Editor {
     }
 
     fn render(&self, renderer: &mut SceneRenderer) {
+        /*
         match self.selection.as_ref() {
             None => {}
             Some(Selection::FarmlandProp { farmland, id, kind }) => {
@@ -132,7 +133,7 @@ impl Editor {
                 let matrix = Mat4::from_translation(tree.position);
                 renderer.bounds(matrix, tree.asset.mesh.bounds());
             }
-        }
+        }*/
     }
 }
 

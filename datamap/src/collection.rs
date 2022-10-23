@@ -1,19 +1,20 @@
-use crate::{Known, Persist, Shared, Storage};
+use crate::{Known, Operation, Persist, Shared, Storage};
 use log::{error, info, warn};
+use rusqlite::types::FromSql;
+use rusqlite::ToSql;
 use std::cell::{RefCell, RefMut};
 use std::collections::HashMap;
+use std::ops::Deref;
 use std::sync::Arc;
 
 pub struct Dictionary<T> {
-    items: HashMap<String, Arc<RefCell<T>>>,
-    last_timestamp: i64,
+    pub items: HashMap<String, Arc<RefCell<T>>>,
 }
 
 impl<T> Default for Dictionary<T> {
     fn default() -> Self {
         Self {
             items: HashMap::new(),
-            last_timestamp: -1,
         }
     }
 }
@@ -23,7 +24,7 @@ pub trait WithContext: Sized {
     const PREFETCH_PARENT: &'static str = "id";
 
     fn prefetch(
-        parent: usize,
+        parent: String,
         context: &mut Self::Context,
         connection: &rusqlite::Connection,
     ) -> Result<Vec<Self>, rusqlite::Error> {
@@ -36,7 +37,7 @@ pub trait WithContext: Sized {
         let mut rows = statement.query([parent])?;
         let mut prefetch = vec![];
         while let Some(row) = rows.next()? {
-            let id: usize = row.get("id")?;
+            let id: String = row.get("id")?;
             let value = Self::parse(row, id, context, connection)?;
             prefetch.push(value);
         }
@@ -45,7 +46,7 @@ pub trait WithContext: Sized {
 
     fn parse(
         row: &rusqlite::Row,
-        id: usize,
+        id: String,
         context: &mut Self::Context,
         connection: &rusqlite::Connection,
     ) -> Result<Self, rusqlite::Error>;
@@ -66,55 +67,47 @@ where
         }
     }
 
-    #[inline]
-    pub fn edit(&mut self, name: &str) -> Option<RefMut<T>> {
-        match self.items.get_mut(name) {
-            Some(reference) => Some(reference.borrow_mut()),
-            None => None,
-        }
-    }
-
-    pub fn load(
+    pub fn handle(
         &mut self,
         storage: &Storage,
         context: &mut T::Context,
-    ) -> Result<i64, rusqlite::Error> {
+        id: String,
+        operation: Operation,
+    ) -> Result<(), rusqlite::Error> {
         let connection = storage.connection();
         let table = std::any::type_name::<T>().split("::").last().unwrap();
-        let mut statement =
-            connection.prepare(&format!("select * from {} where timestamp > ?", table))?;
-        let mut rows = statement.query([self.last_timestamp])?;
 
-        while let Some(row) = rows.next()? {
-            let id: usize = row.get("id")?;
-            let name: String = row.get("name")?;
-            let timestamp: i64 = row.get("timestamp")?;
-            let deleted: bool = row.get("deleted")?;
-            if deleted {
-                info!("DELETE: {}", name);
-                self.items.remove(&name);
-            } else {
-                match T::parse(row, id, context, connection) {
-                    Ok(data) => match self.items.get_mut(&name) {
-                        Some(reference) => {
-                            info!("UPDAte: {}", name);
-                            *reference.borrow_mut() = data;
+        match operation {
+            Operation::Insert | Operation::Update => {
+                let statement = format!("select * from {} where id = ?", table);
+                let mut statement = connection.prepare(&statement)?;
+                let mut rows = statement.query([&id])?;
+
+                while let Some(row) = rows.next()? {
+                    match T::parse(row, id.clone(), context, connection) {
+                        Ok(data) => match self.items.get_mut(&id) {
+                            Some(reference) => {
+                                info!("Dictionary:update {} {}", table, id);
+                                *reference.borrow_mut() = data;
+                            }
+                            None => {
+                                info!("Dictionary:insert {} {}", table, id);
+                                self.items.insert(id.clone(), Arc::new(RefCell::new(data)));
+                            }
+                        },
+                        Err(error) => {
+                            error!("Unable to parse {} row id={}, {}", table, id, error);
                         }
-                        None => {
-                            info!("INSert: {}", name);
-                            self.items.insert(name, Arc::new(RefCell::new(data)));
-                        }
-                    },
-                    Err(error) => {
-                        error!("Unable to parse {} row id={}, {}", table, id, error);
-                        break;
                     }
                 }
             }
-            self.last_timestamp = timestamp;
+            Operation::Delete => {
+                info!("Dictionary:delete {} {}", table, id);
+                self.items.remove(&id);
+            }
         }
 
-        Ok(self.last_timestamp)
+        Ok(())
     }
 }
 

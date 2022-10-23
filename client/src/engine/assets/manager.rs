@@ -7,8 +7,8 @@ use crate::engine::{
 };
 use crate::ShaderCompiler;
 use ash::{vk, Device};
-use datamap::{Dictionary, Storage};
-use log::{error, info};
+use datamap::{Dictionary, Operation, Storage};
+use log::{debug, error, info};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
@@ -73,6 +73,7 @@ pub enum AssetKind {
 impl Assets {
     pub fn new(device: Device, pool: vk::CommandPool, queue: Arc<Queue>) -> Self {
         let storage = Storage::open("./assets/assets.sqlite").unwrap();
+        storage.setup_tracking().unwrap();
 
         info!(
             "Shader compiler version: {}",
@@ -257,19 +258,83 @@ impl Assets {
     }
 
     pub fn tree(&mut self, name: &str) -> TreeAsset {
-        self.trees.get(name).unwrap()
+        match self.trees.get(name) {
+            Some(asset) => asset,
+            None => {
+                let ptr = self as *mut Assets;
+                unsafe {
+                    self.trees
+                        .handle(
+                            &self.storage,
+                            &mut *ptr,
+                            name.to_string(),
+                            Operation::Insert,
+                        )
+                        .unwrap();
+                    self.trees.get(name).unwrap()
+                }
+            }
+        }
     }
 
     pub fn farmer(&mut self, name: &str) -> FarmerAsset {
-        self.farmers.get(name).unwrap()
+        match self.farmers.get(name) {
+            Some(asset) => asset,
+            None => {
+                let ptr = self as *mut Assets;
+                unsafe {
+                    self.farmers
+                        .handle(
+                            &self.storage,
+                            &mut *ptr,
+                            name.to_string(),
+                            Operation::Insert,
+                        )
+                        .unwrap();
+                    self.farmers.get(name).unwrap()
+                }
+            }
+        }
     }
 
     pub fn farmland(&mut self, name: &str) -> FarmlandAsset {
-        self.farmlands.get(name).unwrap()
+        match self.farmlands.get(name) {
+            Some(asset) => asset,
+            None => {
+                let ptr = self as *mut Assets;
+                unsafe {
+                    self.farmlands
+                        .handle(
+                            &self.storage,
+                            &mut *ptr,
+                            name.to_string(),
+                            Operation::Insert,
+                        )
+                        .unwrap();
+                    self.farmlands.get(name).unwrap()
+                }
+            }
+        }
     }
 
     pub fn props(&mut self, name: &str) -> PropsAsset {
-        self.props.get(name).unwrap()
+        match self.props.get(name) {
+            Some(asset) => asset,
+            None => {
+                let ptr = self as *mut Assets;
+                unsafe {
+                    self.props
+                        .handle(
+                            &self.storage,
+                            &mut *ptr,
+                            name.to_string(),
+                            Operation::Insert,
+                        )
+                        .unwrap();
+                    self.props.get(name).unwrap()
+                }
+            }
+        }
     }
 
     fn require_update(&mut self, kind: AssetKind, path: PathBuf) {
@@ -280,7 +345,34 @@ impl Assets {
 
     fn reload_dictionaries(&mut self) -> Result<(), rusqlite::Error> {
         let ptr = self as *mut Assets;
+        let changes = self.storage.track_changes()?;
         let storage = &self.storage;
+        unsafe {
+            for change in changes {
+                match change.entity.as_str() {
+                    "FarmerAssetData" => {
+                        self.farmers
+                            .handle(storage, &mut *ptr, change.id, change.operation)?
+                    }
+                    "FarmlandAssetData" | "FarmlandAssetPropItem" => {
+                        self.farmlands
+                            .handle(storage, &mut *ptr, change.id, change.operation)?
+                    }
+                    "PropsAssetData" => {
+                        self.props
+                            .handle(storage, &mut *ptr, change.id, change.operation)?
+                    }
+                    "TreeAssetData" => {
+                        self.trees
+                            .handle(storage, &mut *ptr, change.id, change.operation)?
+                    }
+                    _ => {
+                        error!("Handle of {:?} not implemented yet", change)
+                    }
+                }
+            }
+        }
+        /*
         unsafe {
             // database collections changes by himself,
             // *ptr change only non-database assets
@@ -289,7 +381,7 @@ impl Assets {
             self.trees.load(storage, &mut *ptr)?;
             self.farmers.load(storage, &mut *ptr)?;
             self.farmlands.load(storage, &mut *ptr)?;
-        };
+        };*/
         Ok(())
     }
 
@@ -299,7 +391,7 @@ impl Assets {
         }
 
         for (path, event) in self.observe_file_events() {
-            info!(
+            debug!(
                 "Observed {:?} {:?}, {:?}",
                 event,
                 path.to_str(),

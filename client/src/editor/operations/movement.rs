@@ -60,28 +60,28 @@ impl Operation for Move {
             Selection::FarmlandProp { farmland, id, kind } => {
                 // self.farmlands
 
-                let mut asset = assets.farmlands.edit(&kind).unwrap();
-                let prop = asset.props.iter_mut().find(|prop| &prop.id == id).unwrap();
-
-                if self.position.is_none() {
-                    self.position = Some(prop.position());
-                }
-                let position = self.position.unwrap();
-
-                // prop.position = (position + self.translation).into();
-                prop.position = self.translation.into();
-
-                if input.click() {
-                    assets
-                        .storage
-                        .connection()
-                        .execute(
-                            "update FarmlandAssetPropItem set position = ? where id = ?",
-                            params![datamap::to_json_value(prop.position.as_ref()), *id],
-                        )
-                        .unwrap();
-                    return true;
-                }
+                // let mut asset = assets.farmlands.edit(&kind).unwrap();
+                // let prop = asset.props.iter_mut().find(|prop| &prop.id == id).unwrap();
+                //
+                // if self.position.is_none() {
+                //     self.position = Some(prop.position());
+                // }
+                // let position = self.position.unwrap();
+                //
+                // // prop.position = (position + self.translation).into();
+                // prop.position = self.translation.into();
+                //
+                // if input.click() {
+                //     assets
+                //         .storage
+                //         .connection()
+                //         .execute(
+                //             "update FarmlandAssetPropItem set position = ? where id = ?",
+                //             params![datamap::to_json_value(prop.position.as_ref()), *id],
+                //         )
+                //         .unwrap();
+                //     return true;
+                // }
             }
             Selection::Tree { id } => {
                 let tree = gameplay.trees.get_mut(id).unwrap();
