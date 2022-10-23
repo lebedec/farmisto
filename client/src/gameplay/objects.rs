@@ -1,4 +1,4 @@
-use crate::animatoro::Machine;
+use crate::engine::animatoro::Machine;
 use crate::engine::{FarmerAsset, FarmlandAsset, TreeAsset};
 use datamap::{Known, Shared, Storage};
 use game::math::Collider;

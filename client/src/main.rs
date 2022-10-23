@@ -7,8 +7,6 @@ use log::info;
 use std::io::Write;
 use std::time::Instant;
 
-pub mod animatoro;
-pub mod bumaga;
 pub mod editor;
 pub mod engine;
 pub mod gameplay;

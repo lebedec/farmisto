@@ -1,5 +1,5 @@
-use crate::bumaga::{Control, Interface, RenderNode, RenderRect, Style, ValueArray};
 use crate::editor::Editor;
+use crate::engine::bumaga::{Control, Interface, RenderNode, RenderRect, Style, ValueArray};
 use crate::Input;
 use game::model::TreeId;
 use serde_json::{json, Value};

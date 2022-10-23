@@ -1,4 +1,4 @@
-use crate::animatoro::{AnimationAsset, Machine, State, StateId};
+use crate::engine::animatoro::{AnimationAsset, Machine, State, StateId};
 use crate::engine::armature::{PoseBuffer, PoseUniform};
 use crate::engine::Input;
 use crate::gameplay::camera::Camera;
