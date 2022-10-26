@@ -1,4 +1,4 @@
-pub use datamap_derive::{AssetData, Domain, Id, Persisted};
+pub use datamap_derive::{Domain, Id, Persisted};
 
 pub use collection::*;
 pub use grouping::*;

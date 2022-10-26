@@ -19,8 +19,7 @@ create table PropsAssetData
 
 create table FarmlandAssetPropItem
 (
-    id      text primary key unique,
-    farmland text not null references FarmlandAssetData,
+    id text not null references FarmlandAssetData,
     position json not null,
     rotation json not null,
     scale    json not null,

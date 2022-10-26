@@ -1,23 +1,130 @@
-use rusqlite::types::FromSql;
-use rusqlite::Connection;
+use log::info;
+use rusqlite::types::{FromSql, ValueRef};
+use rusqlite::{Connection, Statement};
+use serde::de::DeserializeOwned;
+use serde::de::Unexpected::Str;
+use serde::Deserialize;
+use serde_json::{Number, Value};
+use std::collections::HashMap;
 use std::path::Path;
+use std::rc::Rc;
+use std::time::Instant;
 
 pub struct Storage {
     connection: Connection,
+    connection_string: String,
     last_change_timestamp: usize,
+}
+
+pub struct Entry {
+    columns: Rc<HashMap<String, usize>>,
+    values: Vec<Value>,
+}
+
+impl Entry {
+    pub fn get<'a, T: Deserialize<'a>>(&'a self, index: &str) -> Result<T, serde_json::Error> {
+        let index = *self.columns.get(index).unwrap();
+        T::deserialize(&self.values[index])
+        // serde_json::from_value(self.values[index].clone())
+    }
 }
 
 impl Storage {
     pub fn open<P: AsRef<Path>>(path: P) -> rusqlite::Result<Self> {
-        Connection::open(path).map(|connection| Storage {
+        let t = Instant::now();
+        let res = Connection::open(path.as_ref()).map(|connection| Storage {
             connection,
+            connection_string: path.as_ref().to_str().unwrap().to_string(),
             last_change_timestamp: 0,
-        })
+        });
+        let t = t.elapsed();
+        info!("CONNNNECT! {:?}", t);
+        res
     }
 
     #[inline]
     pub fn connection(&self) -> &Connection {
         &self.connection
+    }
+
+    pub fn reopen(&self) -> Storage {
+        Storage::open(&self.connection_string).unwrap()
+    }
+
+    pub fn relate2(&self, parent: &str) -> Result<Statement<'_>, rusqlite::Error> {
+        let table = std::any::type_name::<Self>().split("::").last().unwrap();
+        let mut statement = self
+            .connection
+            .prepare(&format!("select * from {} where {} = ?", table, parent))?;
+        Ok(statement)
+    }
+
+    pub fn fetch<T>(&self, p0: &str, parent: &str) -> Entry {
+        self.fetch_many::<T>(p0, parent).remove(0)
+    }
+
+    pub fn fetch_many<T>(&self, p0: &str, parent: &str) -> Vec<Entry> {
+        let table = std::any::type_name::<T>().split("::").last().unwrap();
+        let mut statement = self
+            .connection
+            .prepare(&format!("select * from {} where {} = ?", table, parent))
+            .unwrap();
+        let mut columns: HashMap<String, usize> = Default::default();
+        for (index, column) in statement.column_names().iter().enumerate() {
+            columns.insert(column.to_string(), index);
+        }
+        let columns_count = columns.len();
+        let columns = Rc::new(columns);
+        let mut rows = statement.query([p0]).unwrap();
+        let mut entries = vec![];
+        while let Some(row) = rows.next().unwrap() {
+            let mut values = vec![];
+
+            for i in 0..columns_count {
+                let value = match row.get_ref_unwrap(i) {
+                    ValueRef::Null => Value::Null,
+                    ValueRef::Integer(data) => Value::Number(Number::from(data)),
+                    ValueRef::Real(data) => Value::Number(Number::from_f64(data).unwrap()),
+                    ValueRef::Text(ptr) => {
+                        if ptr[0] == '[' as u8 || ptr[0] == '{' as u8 {
+                            serde_json::from_slice(ptr).unwrap()
+                        } else {
+                            Value::String(String::from_utf8_lossy(ptr).to_string())
+                        }
+                    }
+                    ValueRef::Blob(ptr) => serde_json::from_slice(ptr).unwrap(),
+                };
+                values.push(value);
+            }
+            let entry = Entry {
+                columns: columns.clone(),
+                values,
+            };
+            entries.push(entry);
+        }
+        entries
+    }
+
+    pub fn relate<T, M>(
+        &self,
+        parent: &str,
+        parent_id: &str,
+        mut map: M,
+    ) -> Result<Vec<T>, rusqlite::Error>
+    where
+        M: FnMut(&rusqlite::Row) -> Result<T, rusqlite::Error>,
+    {
+        let table = std::any::type_name::<Self>().split("::").last().unwrap();
+        let mut statement = self
+            .connection
+            .prepare(&format!("select * from {} where {} = ?", table, parent))?;
+        let mut rows = statement.query([parent_id])?;
+        let mut prefetch = vec![];
+        while let Some(row) = rows.next()? {
+            let value = map(row)?;
+            prefetch.push(value);
+        }
+        Ok(prefetch)
     }
 
     pub fn track_changes<T>(&mut self) -> Result<Vec<Change<T>>, rusqlite::Error>

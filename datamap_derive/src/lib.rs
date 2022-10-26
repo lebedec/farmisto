@@ -4,12 +4,6 @@ use proc_macro::TokenStream;
 use quote::{format_ident, quote, ToTokens};
 use syn::{Data, DeriveInput, Type};
 
-#[proc_macro_derive(AssetData, attributes(parent, context, prefetch))]
-pub fn asset_data_derive(input: TokenStream) -> TokenStream {
-    let ast = syn::parse(input).unwrap();
-    generate_asset_data_trait(&ast).into()
-}
-
 #[proc_macro_derive(Persisted, attributes(group))]
 pub fn persisted_derive(input: TokenStream) -> TokenStream {
     let ast = syn::parse(input).unwrap();
@@ -236,91 +230,6 @@ fn generate_id_trait(ast: &DeriveInput) -> TokenStream {
             }
         }
         Data::Union(_) => panic!("Persist trait for union not implemented yet"),
-    };
-    code.into()
-}
-
-fn generate_asset_data_trait(ast: &DeriveInput) -> TokenStream {
-    let name = &ast.ident;
-    let code = match &ast.data {
-        Data::Enum(_) => panic!("Persist trait for enum not implemented yet"),
-        Data::Struct(data) => {
-            let mut mapping = vec![];
-            let mut parent = quote! { "id" };
-            for (_index, field) in data.fields.iter().enumerate() {
-                let field_ident = field.ident.as_ref().unwrap();
-                let field_name = format!("{}", field_ident);
-                let field_type_tokens = match &field.ty {
-                    Type::Path(path) => path.to_token_stream(),
-                    _ => quote! { () },
-                };
-
-                if field
-                    .attrs
-                    .iter()
-                    .map(|a| a.path.to_token_stream().to_string())
-                    .filter(|attribute| attribute == "parent")
-                    .last()
-                    .is_some()
-                {
-                    parent = quote! { #field_name };
-                }
-
-                let is_sql_type = SQL_TYPES.contains(&&*field_type_tokens.to_string());
-                let is_context_type = field
-                    .attrs
-                    .iter()
-                    .map(|a| a.path.to_token_stream().to_string())
-                    .filter(|attribute| attribute == "context")
-                    .last()
-                    .is_some();
-                let is_prefetch = field
-                    .attrs
-                    .iter()
-                    .map(|a| a.path.to_token_stream().to_string())
-                    .filter(|attribute| attribute == "prefetch")
-                    .last()
-                    .is_some();
-
-                let map_value = if is_context_type {
-                    let function = field_type_tokens
-                        .to_string()
-                        .replace("Asset", "")
-                        .to_lowercase();
-                    let function = format_ident!("{}", function);
-                    quote! { context.#function(&row.get::<&str, String>(#field_name)?) }
-                } else if is_prefetch {
-                    quote! { datamap::WithContext::prefetch(id, context, connection)? }
-                } else if !is_sql_type {
-                    quote! { datamap::parse_json_value(row.get(#field_name)?) }
-                } else {
-                    quote! { row.get(#field_name)? }
-                };
-
-                mapping.push(quote! {
-                    #field_ident: #map_value,
-                })
-            }
-
-            quote! {
-                impl datamap::WithContext for #name {
-                    type Context = crate::Assets;
-                    const PREFETCH_PARENT: &'static str = #parent;
-
-                    fn parse(
-                        row: &rusqlite::Row,
-                        id: String,
-                        context: &mut Self::Context,
-                        connection: &rusqlite::Connection,
-                    ) -> Result<Self, rusqlite::Error> {
-                        Ok(Self {
-                            #(#mapping)*
-                        })
-                    }
-                }
-            }
-        }
-        Data::Union(_) => panic!("WithContext trait for union not implemented yet"),
     };
     code.into()
 }

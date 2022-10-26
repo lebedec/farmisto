@@ -2,19 +2,22 @@ use crate::engine::assets::fs::{FileEvent, FileSystem};
 use crate::engine::assets::prefabs::{TreeAsset, TreeAssetData};
 use crate::engine::base::Queue;
 use crate::engine::{
-    FarmerAsset, FarmerAssetData, FarmlandAsset, FarmlandAssetData, MeshAsset, MeshAssetData,
-    PropsAsset, PropsAssetData, ShaderAsset, ShaderAssetData, TextureAsset, TextureAssetData,
+    FarmerAsset, FarmerAssetData, FarmlandAsset, FarmlandAssetData, FarmlandAssetPropItem,
+    MeshAsset, MeshAssetData, PropsAsset, PropsAssetData, ShaderAsset, ShaderAssetData,
+    TextureAsset, TextureAssetData,
 };
 use crate::ShaderCompiler;
 use ash::{vk, Device};
-use datamap::{Dictionary, Operation, Storage};
+use datamap::{Entry, Operation, Storage};
 use log::{debug, error, info};
+use rusqlite::Row;
+
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{channel, Receiver};
 use std::sync::{Arc, RwLock};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use std::{fs, thread};
 
 pub struct Assets {
@@ -34,10 +37,10 @@ pub struct Assets {
 
     shaders: HashMap<PathBuf, ShaderAsset>,
 
-    pub farmlands: Dictionary<FarmlandAssetData>,
-    trees: Dictionary<TreeAssetData>,
-    props: Dictionary<PropsAssetData>,
-    farmers: Dictionary<FarmerAssetData>,
+    farmlands: HashMap<String, FarmlandAsset>,
+    trees: HashMap<String, TreeAsset>,
+    props: HashMap<String, PropsAsset>,
+    farmers: HashMap<String, FarmerAsset>,
 
     queue: Arc<Queue>,
 }
@@ -259,82 +262,100 @@ impl Assets {
 
     pub fn tree(&mut self, name: &str) -> TreeAsset {
         match self.trees.get(name) {
-            Some(asset) => asset,
+            Some(asset) => asset.share(),
             None => {
-                let ptr = self as *mut Assets;
-                unsafe {
-                    self.trees
-                        .handle(
-                            &self.storage,
-                            &mut *ptr,
-                            name.to_string(),
-                            Operation::Insert,
-                        )
-                        .unwrap();
-                    self.trees.get(name).unwrap()
-                }
+                let data = self.load_tree_data(name).unwrap();
+                let asset = TreeAsset::from_data(Arc::new(RefCell::new(data)));
+                self.trees.insert(name.to_string(), asset.share());
+                asset
             }
         }
     }
 
-    pub fn farmer(&mut self, name: &str) -> FarmerAsset {
-        match self.farmers.get(name) {
-            Some(asset) => asset,
-            None => {
-                let ptr = self as *mut Assets;
-                unsafe {
-                    self.farmers
-                        .handle(
-                            &self.storage,
-                            &mut *ptr,
-                            name.to_string(),
-                            Operation::Insert,
-                        )
-                        .unwrap();
-                    self.farmers.get(name).unwrap()
-                }
-            }
-        }
+    pub fn load_tree_data(&mut self, id: &str) -> Result<TreeAssetData, serde_json::Error> {
+        let entry = self.storage.fetch::<TreeAssetData>(id, "id");
+        let texture: String = entry.get("texture")?;
+        let mesh: String = entry.get("mesh")?;
+        let data = TreeAssetData {
+            texture: self.texture(texture),
+            mesh: self.mesh(mesh),
+        };
+        Ok(data)
     }
 
     pub fn farmland(&mut self, name: &str) -> FarmlandAsset {
         match self.farmlands.get(name) {
-            Some(asset) => asset,
+            Some(asset) => asset.share(),
             None => {
-                let ptr = self as *mut Assets;
-                unsafe {
-                    self.farmlands
-                        .handle(
-                            &self.storage,
-                            &mut *ptr,
-                            name.to_string(),
-                            Operation::Insert,
-                        )
-                        .unwrap();
-                    self.farmlands.get(name).unwrap()
-                }
+                let data = self.load_farmland_data(name).unwrap();
+                let asset = FarmlandAsset::from_data(Arc::new(RefCell::new(data)));
+                self.farmlands.insert(name.to_string(), asset.share());
+                asset
             }
         }
     }
 
-    pub fn props(&mut self, name: &str) -> PropsAsset {
-        match self.props.get(name) {
-            Some(asset) => asset,
+    pub fn load_farmland_data(&mut self, id: &str) -> Result<FarmlandAssetData, serde_json::Error> {
+        let entries = self.storage.fetch_many::<FarmlandAssetPropItem>(id, "id");
+        let mut props = vec![];
+        for entry in entries {
+            let asset: String = entry.get("asset")?;
+            let data = FarmlandAssetPropItem {
+                position: entry.get("position")?,
+                rotation: entry.get("rotation")?,
+                scale: entry.get("scale")?,
+                asset: self.props(&asset),
+            };
+            props.push(data)
+        }
+        let data = FarmlandAssetData { props };
+        Ok(data)
+    }
+
+    pub fn farmer(&mut self, name: &str) -> FarmerAsset {
+        match self.farmers.get(name) {
+            Some(asset) => asset.share(),
             None => {
-                let ptr = self as *mut Assets;
-                unsafe {
-                    self.props
-                        .handle(
-                            &self.storage,
-                            &mut *ptr,
-                            name.to_string(),
-                            Operation::Insert,
-                        )
-                        .unwrap();
-                    self.props.get(name).unwrap()
-                }
+                let data = self.load_farmer_data(name).unwrap();
+                let asset = FarmerAsset::from_data(Arc::new(RefCell::new(data)));
+                self.farmers.insert(name.to_string(), asset.share());
+                asset
             }
         }
+    }
+
+    pub fn load_farmer_data(&mut self, id: &str) -> Result<FarmerAssetData, serde_json::Error> {
+        let entry = self.storage.fetch::<FarmerAssetData>(id, "id");
+        let texture: String = entry.get("texture")?;
+        let mesh: String = entry.get("mesh")?;
+        let data = FarmerAssetData {
+            texture: self.texture(texture),
+            mesh: self.mesh(mesh),
+        };
+        Ok(data)
+    }
+
+    pub fn props(&mut self, name: &str) -> PropsAsset {
+        match self.props.get(name) {
+            Some(asset) => asset.share(),
+            None => {
+                let data = self.load_props_data(name).unwrap();
+                let asset = PropsAsset::from_data(Arc::new(RefCell::new(data)));
+                self.props.insert(name.to_string(), asset.share());
+                asset
+            }
+        }
+    }
+
+    pub fn load_props_data(&mut self, id: &str) -> Result<PropsAssetData, serde_json::Error> {
+        let entry = self.storage.fetch::<PropsAssetData>(id, "id");
+        let texture: String = entry.get("texture")?;
+        let mesh: String = entry.get("mesh")?;
+        let data = PropsAssetData {
+            texture: self.texture(texture),
+            mesh: self.mesh(mesh),
+        };
+        Ok(data)
     }
 
     fn require_update(&mut self, kind: AssetKind, path: PathBuf) {
@@ -344,27 +365,27 @@ impl Assets {
     }
 
     fn reload_dictionaries(&mut self) -> Result<(), rusqlite::Error> {
-        let ptr = self as *mut Assets;
-        let changes = self.storage.track_changes()?;
-        let storage = &self.storage;
+        // let ptr = self as *mut Assets;
+        let changes = self.storage.track_changes::<String>()?;
+        // let storage = &self.storage;
         unsafe {
             for change in changes {
                 match change.entity.as_str() {
                     "FarmerAssetData" => {
-                        self.farmers
-                            .handle(storage, &mut *ptr, change.id, change.operation)?
+                        // self.farmers
+                        //     .handle(storage, &mut *ptr, change.id, change.operation)?
                     }
                     "FarmlandAssetData" | "FarmlandAssetPropItem" => {
-                        self.farmlands
-                            .handle(storage, &mut *ptr, change.id, change.operation)?
+                        let data = self.load_farmland_data(&change.id).unwrap();
+                        self.farmlands.get_mut(&change.id).unwrap().update(data);
                     }
                     "PropsAssetData" => {
-                        self.props
-                            .handle(storage, &mut *ptr, change.id, change.operation)?
+                        // self.props
+                        //     .handle(storage, &mut *ptr, change.id, change.operation)?
                     }
                     "TreeAssetData" => {
-                        self.trees
-                            .handle(storage, &mut *ptr, change.id, change.operation)?
+                        // self.trees
+                        //     .handle(storage, &mut *ptr, change.id, change.operation)?
                     }
                     _ => {
                         error!("Handle of {:?} not implemented yet", change)

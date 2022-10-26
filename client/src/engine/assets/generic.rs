@@ -1,3 +1,5 @@
+use crate::engine::MeshAssetData;
+use crate::Assets;
 use std::cell::RefCell;
 use std::ops::Deref;
 use std::sync::Arc;
@@ -27,5 +29,23 @@ impl<T> Deref for Asset<T> {
 impl<T> From<Arc<RefCell<T>>> for Asset<T> {
     fn from(data: Arc<RefCell<T>>) -> Self {
         Self { data }
+    }
+}
+
+impl<T> Asset<T> {
+    #[inline]
+    pub fn update(&mut self, data: T) {
+        let mut this = self.data.borrow_mut();
+        *this = data;
+    }
+
+    pub fn from_data(data: Arc<RefCell<T>>) -> Self {
+        Self { data }
+    }
+
+    pub fn share(&self) -> Asset<T> {
+        Self {
+            data: self.data.clone(),
+        }
     }
 }
