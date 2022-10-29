@@ -1,6 +1,6 @@
-<mxfile host="Electron" modified="2022-10-29T07:55:50.464Z" agent="5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/20.3.0 Chrome/104.0.5112.114 Electron/20.1.3 Safari/537.36" etag="4EiT15LQaEM5DhsbyRGV" compressed="false" version="20.3.0" type="device">
+<mxfile host="Electron" modified="2022-10-29T08:08:08.390Z" agent="5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) draw.io/20.3.0 Chrome/104.0.5112.114 Electron/20.1.3 Safari/537.36" etag="Pxz7Cm83bM3JJRSOW2-S" compressed="false" version="20.3.0" type="device">
   <diagram id="4F9wqSCAFgGCJMIqSkhs" name="client">
-    <mxGraphModel dx="2426" dy="1441" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="900" background="none" math="0" shadow="0">
+    <mxGraphModel dx="2062" dy="1225" grid="0" gridSize="10" guides="1" tooltips="1" connect="1" arrows="1" fold="1" page="1" pageScale="1" pageWidth="1600" pageHeight="900" background="none" math="0" shadow="0">
       <root>
         <mxCell id="0" />
         <mxCell id="1" parent="0" />
@@ -31,8 +31,8 @@
         <mxCell id="IV640sm_gUoJWKc3RDt8-15" value="&lt;font style=&quot;font-size: 25px;&quot;&gt;Long Nameing&lt;/font&gt;&lt;br&gt;&lt;br&gt;&lt;font style=&quot;font-size: 15px;&quot;&gt;[min nameing]&lt;/font&gt;" style="whiteSpace=wrap;html=1;aspect=fixed;fillColor=#6CABFC;strokeColor=#6c8ebf;opacity=70;labelBackgroundColor=none;fontColor=#FFFFFF;labelBorderColor=none;" vertex="1" parent="1">
           <mxGeometry x="404" y="564" width="162" height="162" as="geometry" />
         </mxCell>
-        <mxCell id="IV640sm_gUoJWKc3RDt8-17" value="&lt;font style=&quot;font-size: 28px;&quot;&gt;Long Nameing&lt;br&gt;&lt;/font&gt;&lt;br&gt;&lt;font style=&quot;font-size: 16px;&quot;&gt;[min nameing]&lt;/font&gt;" style="whiteSpace=wrap;html=1;aspect=fixed;fillColor=#6CABFC;strokeColor=#6c8ebf;opacity=90;labelBackgroundColor=none;fontColor=#FFFFFF;labelBorderColor=none;" vertex="1" parent="1">
-          <mxGeometry x="179" y="560" width="162" height="162" as="geometry" />
+        <mxCell id="IV640sm_gUoJWKc3RDt8-17" value="&lt;font style=&quot;font-size: 28px;&quot;&gt;Long Nameing&lt;br&gt;&lt;/font&gt;&lt;br&gt;&lt;font style=&quot;font-size: 16px;&quot;&gt;[min nameing]&lt;/font&gt;" style="whiteSpace=wrap;html=1;aspect=fixed;fillColor=#4E99FC;strokeColor=#6c8ebf;labelBackgroundColor=none;fontColor=#FFFFFF;labelBorderColor=none;" vertex="1" parent="1">
+          <mxGeometry x="43" y="580" width="162" height="162" as="geometry" />
         </mxCell>
         <mxCell id="IV640sm_gUoJWKc3RDt8-18" value="&lt;font style=&quot;font-size: 22px;&quot;&gt;Long Nameing&lt;/font&gt;&lt;br&gt;&lt;br&gt;&lt;font style=&quot;font-size: 14px;&quot;&gt;[min nameing]&lt;/font&gt;" style="whiteSpace=wrap;html=1;aspect=fixed;fillColor=#6CABFC;strokeColor=#6c8ebf;opacity=70;labelBackgroundColor=none;fontColor=#FFFFFF;labelBorderColor=none;" vertex="1" parent="1">
           <mxGeometry x="643" y="560" width="162" height="162" as="geometry" />
@@ -41,7 +41,13 @@
           <mxGeometry x="879" y="564" width="162" height="162" as="geometry" />
         </mxCell>
         <mxCell id="IV640sm_gUoJWKc3RDt8-20" value="&lt;font style=&quot;font-size: 16px;&quot;&gt;Long Nameing&lt;/font&gt;&lt;br&gt;&lt;br&gt;[min nameing]" style="whiteSpace=wrap;html=1;aspect=fixed;fillColor=#4974AB;strokeColor=#6c8ebf;opacity=70;labelBackgroundColor=none;fontColor=#FFFFFF;labelBorderColor=none;" vertex="1" parent="1">
-          <mxGeometry x="1109" y="564" width="162" height="162" as="geometry" />
+          <mxGeometry x="1122" y="576" width="162" height="162" as="geometry" />
+        </mxCell>
+        <mxCell id="IV640sm_gUoJWKc3RDt8-21" value="Player&lt;br&gt;&lt;font style=&quot;font-size: 16px;&quot;&gt;[ person ]&lt;/font&gt;" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;strokeColor=#432D57;fontFamily=Inter;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DInter;fontSize=32;fillColor=#76608a;fontColor=#ffffff;" vertex="1" parent="1">
+          <mxGeometry x="339" y="97" width="175" height="175" as="geometry" />
+        </mxCell>
+        <mxCell id="IV640sm_gUoJWKc3RDt8-22" value="Player" style="ellipse;whiteSpace=wrap;html=1;aspect=fixed;strokeColor=#432D57;fontFamily=Inter;fontSource=https%3A%2F%2Ffonts.googleapis.com%2Fcss%3Ffamily%3DInter;fontSize=32;fillColor=#76608a;fontColor=#ffffff;" vertex="1" parent="1">
+          <mxGeometry x="665" y="104" width="175" height="175" as="geometry" />
         </mxCell>
       </root>
     </mxGraphModel>
