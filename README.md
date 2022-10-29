@@ -12,6 +12,8 @@ take on planet environment challenges.
 ![](.readme/diagrams/server.png)
 ![](.readme/diagrams/server2.png)
 ![](.readme/diagrams/server3.png)
+![](.readme/diagrams/servert1.png)
+![](.readme/diagrams/servert2.png)
 
 ```mermaid
 %%{init: {'theme': 'base', 'themeVariables': {
