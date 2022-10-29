@@ -7,6 +7,8 @@ take on planet environment challenges.
 
 ## Project Overview
 
+![](.readme/diagrams/client.png)
+
 ```mermaid
 %%{init: {'theme': 'base', 'themeVariables': {
   'primaryColor': '#428cd5',

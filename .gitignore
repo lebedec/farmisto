@@ -12,3 +12,4 @@ Cargo.lock
 # IDE
 .idea
 .DS_Store
+.readme/.$diagrams.xml.*

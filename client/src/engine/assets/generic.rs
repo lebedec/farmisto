@@ -1,8 +1,9 @@
-use crate::engine::MeshAssetData;
-use crate::Assets;
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::ops::Deref;
 use std::sync::Arc;
+
+
 
 /// Provides safe access to game assets data.
 ///
@@ -32,16 +33,33 @@ impl<T> From<Arc<RefCell<T>>> for Asset<T> {
     }
 }
 
-impl<T> Asset<T> {
+
+pub trait AssetMap<T> {
+    fn upsert(&mut self, name: &str, data: T) -> Asset<T>;
+}
+
+impl<T> AssetMap<T> for HashMap<String, Asset<T>> {
+    fn upsert(&mut self, name: &str, data: T) -> Asset<T> {
+        let asset = Asset::from(data);
+        self.insert(name.to_string(), asset.share());
+        asset
+    }
+}
+
+
+impl<T> From<T> for Asset<T> {
+    fn from(data: T) -> Self {
+        Self { data: Arc::new(RefCell::new(data)) }
+    }
+}
+
+impl<T: Sized> Asset<T> {
     #[inline]
     pub fn update(&mut self, data: T) {
         let mut this = self.data.borrow_mut();
         *this = data;
     }
 
-    pub fn from_data(data: Arc<RefCell<T>>) -> Self {
-        Self { data }
-    }
 
     pub fn share(&self) -> Asset<T> {
         Self {
