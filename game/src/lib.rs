@@ -13,6 +13,7 @@ pub mod api;
 mod domains;
 pub mod math;
 pub mod model;
+mod data;
 
 pub struct Game {
     universe: Universe,
@@ -22,12 +23,12 @@ pub struct Game {
 }
 
 impl Game {
-    pub fn new() -> Self {
+    pub fn new(storage: Storage) -> Self {
         Self {
             universe: Universe::default(),
             physics: PhysicsDomain::default(),
             planting: PlantingDomain::default(),
-            storage: Storage::open("./assets/database.sqlite").unwrap(),
+            storage,
         }
     }
 
@@ -127,7 +128,7 @@ impl Game {
         stream
     }
 
-    pub fn update(&mut self, time: f32) -> Vec<Event> {
+    pub fn hot_reload(&mut self) -> Vec<Event> {
         let mut events = vec![];
 
         self.physics.load(&self.storage);
@@ -135,6 +136,11 @@ impl Game {
         let changes = self.universe.load(&self.storage);
         events.extend(self.look_around(changes));
 
+        events
+    }
+
+    pub fn update(&mut self, time: f32) -> Vec<Event> {
+        let mut events = vec![];
         for event in self.physics.update(time) {
             match event {
                 Physics::BodyPositionChanged { id, position, .. } => {
@@ -154,7 +160,6 @@ impl Game {
             }
         }
         self.planting.update(time);
-
         events
     }
 }

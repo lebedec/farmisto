@@ -35,11 +35,11 @@ impl<T> From<Arc<RefCell<T>>> for Asset<T> {
 
 
 pub trait AssetMap<T> {
-    fn upsert(&mut self, name: &str, data: T) -> Asset<T>;
+    fn publish(&mut self, name: &str, data: T) -> Asset<T>;
 }
 
 impl<T> AssetMap<T> for HashMap<String, Asset<T>> {
-    fn upsert(&mut self, name: &str, data: T) -> Asset<T> {
+    fn publish(&mut self, name: &str, data: T) -> Asset<T> {
         let asset = Asset::from(data);
         self.insert(name.to_string(), asset.share());
         asset

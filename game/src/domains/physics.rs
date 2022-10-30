@@ -118,17 +118,6 @@ impl PhysicsDomain {
         )
     }
 
-    pub fn move_body(&mut self, id: BodyId, direction: [f32; 2]) {
-        match self.bodies.get_mut(id) {
-            Some(body) => {
-                body.direction = direction;
-            }
-            None => {
-                error!("Unable to move body {:?}, not found", id);
-            }
-        }
-    }
-
     pub fn move_body2(&mut self, id: BodyId, direction: [f32; 2]) {
         match self.bodies.get_mut(id) {
             Some(body) => {

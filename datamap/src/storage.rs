@@ -1,18 +1,18 @@
-use log::info;
+
 use rusqlite::types::{FromSql, ValueRef};
-use rusqlite::{Connection, Statement};
-use serde::de::DeserializeOwned;
-use serde::de::Unexpected::Str;
+use rusqlite::{Connection, params};
+
+
 use serde::Deserialize;
 use serde_json::{Number, Value};
 use std::collections::HashMap;
 use std::path::Path;
 use std::rc::Rc;
-use std::time::Instant;
+use log::info;
+
 
 pub struct Storage {
     connection: Connection,
-    connection_string: String,
     last_change_timestamp: usize,
 }
 
@@ -25,38 +25,20 @@ impl Entry {
     pub fn get<'a, T: Deserialize<'a>>(&'a self, index: &str) -> Result<T, serde_json::Error> {
         let index = *self.columns.get(index).unwrap();
         T::deserialize(&self.values[index])
-        // serde_json::from_value(self.values[index].clone())
     }
 }
 
 impl Storage {
     pub fn open<P: AsRef<Path>>(path: P) -> rusqlite::Result<Self> {
-        let t = Instant::now();
-        let res = Connection::open(path.as_ref()).map(|connection| Storage {
+        Connection::open(path.as_ref()).map(|connection| Storage {
             connection,
-            connection_string: path.as_ref().to_str().unwrap().to_string(),
             last_change_timestamp: 0,
-        });
-        let t = t.elapsed();
-        info!("CONNNNECT! {:?}", t);
-        res
+        })
     }
 
     #[inline]
     pub fn connection(&self) -> &Connection {
         &self.connection
-    }
-
-    pub fn reopen(&self) -> Storage {
-        Storage::open(&self.connection_string).unwrap()
-    }
-
-    pub fn relate2(&self, parent: &str) -> Result<Statement<'_>, rusqlite::Error> {
-        let table = std::any::type_name::<Self>().split("::").last().unwrap();
-        let mut statement = self
-            .connection
-            .prepare(&format!("select * from {} where {} = ?", table, parent))?;
-        Ok(statement)
     }
 
     pub fn fetch<T>(&self, p0: &str, parent: &str) -> Entry {
@@ -105,26 +87,34 @@ impl Storage {
         entries
     }
 
-    pub fn relate<T, M>(
-        &self,
-        parent: &str,
-        parent_id: &str,
-        mut map: M,
-    ) -> Result<Vec<T>, rusqlite::Error>
-    where
-        M: FnMut(&rusqlite::Row) -> Result<T, rusqlite::Error>,
+    pub fn select_changes<T>(&mut self, last_change_timestamp: usize, entity: &str) -> Result<Vec<Change<T>>, rusqlite::Error>
+        where
+            T: FromSql,
     {
-        let table = std::any::type_name::<Self>().split("::").last().unwrap();
+        let mut changes = vec![];
         let mut statement = self
             .connection
-            .prepare(&format!("select * from {} where {} = ?", table, parent))?;
-        let mut rows = statement.query([parent_id])?;
-        let mut prefetch = vec![];
+            .prepare("select * from sql_tracking where timestamp > ? and entity = ?")?;
+        let mut rows = statement.query(params![last_change_timestamp, entity])?;
         while let Some(row) = rows.next()? {
-            let value = map(row)?;
-            prefetch.push(value);
+            let timestamp: usize = row.get("timestamp")?;
+            let entity: String = row.get("entity")?;
+            let id = row.get("id")?;
+            let operation: String = row.get("operation")?;
+            let operation = match operation.as_str() {
+                "Insert" => Operation::Insert,
+                "Update" => Operation::Update,
+                "Delete" => Operation::Delete,
+                _ => return Err(rusqlite::Error::InvalidParameterName(operation)),
+            };
+            changes.push(Change {
+                timestamp,
+                entity,
+                id,
+                operation,
+            });
         }
-        Ok(prefetch)
+        Ok(changes)
     }
 
     pub fn track_changes<T>(&mut self) -> Result<Vec<Change<T>>, rusqlite::Error>
@@ -198,6 +188,7 @@ impl Storage {
                 // skip sqlite tables
                 continue;
             }
+            info!("Initialize changes tracking for {}", name);
             self.connection
                 .execute(&insert.replace("<table>", &name), [])?;
             self.connection

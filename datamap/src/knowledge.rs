@@ -1,4 +1,4 @@
-use crate::{Persist, Shared, Storage};
+use crate::{Operation, Persist, Shared, Storage};
 use log::{error, info};
 use std::collections::HashMap;
 
@@ -17,9 +17,9 @@ impl<K> Default for Known<K> {
 }
 
 impl<K, J> Known<K>
-where
-    K: Persist<Id = J>,
-    J: Into<usize>,
+    where
+        K: Persist<Id=J>,
+        J: Into<usize>,
 {
     #[inline]
     pub fn get(&self, key: J) -> Option<Shared<K>> {
@@ -30,6 +30,29 @@ where
     pub fn get_unchecked(&self, key: usize) -> Shared<K> {
         self.knowledge.get(&key).unwrap().clone()
     }
+
+    pub fn handle(&mut self, id: usize, operation: Operation, storage: Storage) {
+        let connection = storage.connection();
+        let table = std::any::type_name::<K>().split("::").last().unwrap();
+        let mut statement = connection
+            .prepare(&format!("select * from {} where id = ?", table))
+            .unwrap();
+        let mut rows = statement.query([self.last_timestamp]).unwrap();
+        let row = rows.next().unwrap().unwrap();
+        match operation {
+            Operation::Insert | Operation::Update => match K::parse(row) {
+                Ok(kind) => match self.knowledge.get_mut(&id) {
+                    Some(reference) => { *reference.borrow_mut() = kind; }
+                    None => { self.knowledge.insert(id, Shared::new(kind)); }
+                }
+                Err(error) => {
+                    error!("Unable to parse {} row id={}, {}", table, id, error);
+                }
+            }
+            Operation::Delete => { self.knowledge.remove(&id); }
+        }
+    }
+
 
     pub fn load(&mut self, storage: &Storage) {
         let connection = storage.connection();

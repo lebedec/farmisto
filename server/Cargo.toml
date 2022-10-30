@@ -6,4 +6,5 @@ edition = "2021"
 [dependencies]
 game = { path = "../game" }
 network = { path = "../network" }
+datamap = { path = "../datamap" }
 log = "0.4"

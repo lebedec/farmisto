@@ -267,7 +267,7 @@ impl Assets {
             Some(asset) => asset.share(),
             None => {
                 let data = self.load_tree_data(name).unwrap();
-                self.trees.upsert(name, data)
+                self.trees.publish(name, data)
             }
         }
     }
@@ -277,7 +277,7 @@ impl Assets {
             Some(asset) => asset.share(),
             None => {
                 let data = self.load_farmland_data(name).unwrap();
-                self.farmlands.upsert(name, data)
+                self.farmlands.publish(name, data)
             }
         }
     }
@@ -287,7 +287,7 @@ impl Assets {
             Some(asset) => asset.share(),
             None => {
                 let data = self.load_farmer_data(name).unwrap();
-                self.farmers.upsert(name, data)
+                self.farmers.publish(name, data)
             }
         }
     }
@@ -297,7 +297,7 @@ impl Assets {
             Some(asset) => asset.share(),
             None => {
                 let data = self.load_props_data(name).unwrap();
-                self.props.upsert(name, data)
+                self.props.publish(name, data)
             }
         }
     }
