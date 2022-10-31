@@ -3,7 +3,7 @@ use crate::engine::commands::Single;
 
 use ash::vk::Handle;
 use ash::{vk, Device};
-use log::info;
+use log::{debug, info};
 use std::cell::RefCell;
 use std::ptr;
 use std::sync::Arc;
@@ -173,7 +173,7 @@ impl TextureAssetData {
             &queue.device_memory,
         );
 
-        info!(
+        debug!(
             "Image {}x{} created at {:?}",
             image_width,
             image_height,
@@ -217,7 +217,7 @@ impl TextureAssetData {
             device.free_memory(staging_buffer_memory, None);
         }
 
-        info!("SUBMIT IMAGE QUEUE: {:?}", t1.elapsed());
+        debug!("SUBMIT IMAGE QUEUE: {:?}", t1.elapsed());
 
         image
     }

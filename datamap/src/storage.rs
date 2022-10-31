@@ -1,6 +1,6 @@
 
 use rusqlite::types::{FromSql, ValueRef};
-use rusqlite::{Connection, params};
+use rusqlite::{Connection, params, Params};
 
 
 use serde::Deserialize;
@@ -41,15 +41,23 @@ impl Storage {
         &self.connection
     }
 
-    pub fn fetch<T>(&self, p0: &str, parent: &str) -> Entry {
-        self.fetch_many::<T>(p0, parent).remove(0)
+    pub fn fetch_one<T>(&self, id: &str) -> Entry {
+        self.query::<T, _>([id], "where id = ?").remove(0)
     }
 
-    pub fn fetch_many<T>(&self, p0: &str, parent: &str) -> Vec<Entry> {
+    pub fn fetch_many<T>(&self, id: &str) -> Vec<Entry> {
+        self.query::<T, _>([id], "where id = ?")
+    }
+
+    pub fn fetch_all<T>(&self) -> Vec<Entry> {
+        self.query::<T, _>([], "")
+    }
+
+    fn query<T, P: Params>(&self, params: P, where_clause: &str) -> Vec<Entry> {
         let table = std::any::type_name::<T>().split("::").last().unwrap();
         let mut statement = self
             .connection
-            .prepare(&format!("select * from {} where {} = ?", table, parent))
+            .prepare(&format!("select * from {} {}", table, where_clause))
             .unwrap();
         let mut columns: HashMap<String, usize> = Default::default();
         for (index, column) in statement.column_names().iter().enumerate() {
@@ -57,7 +65,7 @@ impl Storage {
         }
         let columns_count = columns.len();
         let columns = Rc::new(columns);
-        let mut rows = statement.query([p0]).unwrap();
+        let mut rows = statement.query(params).unwrap();
         let mut entries = vec![];
         while let Some(row) = rows.next().unwrap() {
             let mut values = vec![];

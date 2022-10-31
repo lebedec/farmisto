@@ -3,7 +3,7 @@ use std::cell::RefCell;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::{Arc, RwLock};
-use std::sync::mpsc::{channel, Receiver};
+use std::sync::mpsc::{channel, Receiver, Sender};
 use std::time::Duration;
 
 use ash::{Device, vk};
@@ -75,6 +75,95 @@ pub enum AssetKind {
     ShaderSrc,
 }
 
+fn spawn_loader(
+    loader: i32,
+    loaders_requests: Arc<RwLock<Vec<AssetRequest>>>,
+    loader_queue: Arc<Queue>,
+    loader_result: Sender<AssetPayload>,
+    loader_device: Device,
+    pool: vk::CommandPool,
+) {
+    thread::spawn(move || {
+        info!("[loader-{}] Start loader", loader);
+        loop {
+            let request = { loaders_requests.write().unwrap().pop() };
+            if let Some(request) = request {
+                debug!(
+                    "[loader-{}] Load {:?} {:?}",
+                    loader,
+                    request.kind,
+                    request.path.to_str()
+                );
+                let path = request.path.clone();
+                match request.kind {
+                    AssetKind::Texture => {
+                        loader_result
+                            .send(AssetPayload::Texture {
+                                path: request.path.clone(),
+                                data: TextureAssetData::create_and_read_image(
+                                    &loader_device,
+                                    pool,
+                                    loader_queue.clone(),
+                                    &fs::read(request.path).unwrap(),
+                                ),
+                            })
+                            .unwrap();
+                    }
+                    AssetKind::Shader => {
+                        let data = ShaderAssetData::from_spirv_file(&loader_queue, &path);
+                        match data {
+                            Ok(data) => {
+                                loader_result
+                                    .send(AssetPayload::Shader { path, data })
+                                    .unwrap();
+                            }
+                            Err(error) => {
+                                error!(
+                                    "[loader-{}] Unable to load {:?} {:?}, {:?}",
+                                    loader,
+                                    request.kind,
+                                    path.to_str(),
+                                    error
+                                );
+                            }
+                        }
+                    }
+                    AssetKind::Mesh => {
+                        let data = if path.extension().unwrap() == "space3" {
+                            MeshAssetData::from_space3(&loader_queue, &path)
+                        } else {
+                            MeshAssetData::from_json_file(&loader_queue, &path)
+                        };
+                        match data {
+                            Ok(data) => {
+                                loader_result
+                                    .send(AssetPayload::Mesh { path, data })
+                                    .unwrap();
+                            }
+                            Err(error) => {
+                                error!(
+                                    "[loader-{}] Unable to load {:?} {:?}, {:?}",
+                                    loader,
+                                    request.kind,
+                                    path.to_str(),
+                                    error
+                                );
+                            }
+                        }
+                    }
+                    AssetKind::ShaderSrc => {
+                        debug!("[loader-{}] Compile shader {:?}", loader, path.to_str());
+                        let compiler = ShaderCompiler::new();
+                        compiler.compile_file(path);
+                    }
+                }
+            } else {
+                thread::sleep(Duration::from_millis(15))
+            }
+        }
+    });
+}
+
 impl Assets {
     pub fn new(device: Device, pool: vk::CommandPool, queue: Arc<Queue>) -> Self {
         let storage = Storage::open("./assets/assets.sqlite").unwrap();
@@ -117,85 +206,7 @@ impl Assets {
             let loader_queue = queue.clone();
             let loader_result = loading.clone();
             let loader_device = device.clone();
-            thread::spawn(move || {
-                info!("[loader-{}] Start", loader);
-                loop {
-                    let request = { loaders_requests.write().unwrap().pop() };
-                    if let Some(request) = request {
-                        info!(
-                            "[loader-{}] Load {:?} {:?}",
-                            loader,
-                            request.kind,
-                            request.path.to_str()
-                        );
-                        let path = request.path.clone();
-                        match request.kind {
-                            AssetKind::Texture => {
-                                loader_result
-                                    .send(AssetPayload::Texture {
-                                        path: request.path.clone(),
-                                        data: TextureAssetData::create_and_read_image(
-                                            &loader_device,
-                                            pool,
-                                            loader_queue.clone(),
-                                            &fs::read(request.path).unwrap(),
-                                        ),
-                                    })
-                                    .unwrap();
-                            }
-                            AssetKind::Shader => {
-                                let data = ShaderAssetData::from_spirv_file(&loader_queue, &path);
-                                match data {
-                                    Ok(data) => {
-                                        loader_result
-                                            .send(AssetPayload::Shader { path, data })
-                                            .unwrap();
-                                    }
-                                    Err(error) => {
-                                        error!(
-                                            "[loader-{}] Unable to load {:?} {:?}, {:?}",
-                                            loader,
-                                            request.kind,
-                                            path.to_str(),
-                                            error
-                                        );
-                                    }
-                                }
-                            }
-                            AssetKind::Mesh => {
-                                let data = if path.extension().unwrap() == "space3" {
-                                    MeshAssetData::from_space3(&loader_queue, &path)
-                                } else {
-                                    MeshAssetData::from_json_file(&loader_queue, &path)
-                                };
-                                match data {
-                                    Ok(data) => {
-                                        loader_result
-                                            .send(AssetPayload::Mesh { path, data })
-                                            .unwrap();
-                                    }
-                                    Err(error) => {
-                                        error!(
-                                            "[loader-{}] Unable to load {:?} {:?}, {:?}",
-                                            loader,
-                                            request.kind,
-                                            path.to_str(),
-                                            error
-                                        );
-                                    }
-                                }
-                            }
-                            AssetKind::ShaderSrc => {
-                                info!("[loader-{}] Compile shader {:?}", loader, path.to_str());
-                                let compiler = ShaderCompiler::new();
-                                compiler.compile_file(path);
-                            }
-                        }
-                    } else {
-                        thread::sleep(Duration::from_millis(15))
-                    }
-                }
-            });
+            spawn_loader(loader, loaders_requests, loader_queue, loader_result, loader_device, pool);
         }
 
         let file_events = FileSystem::watch();
@@ -303,7 +314,7 @@ impl Assets {
     }
 
     pub fn load_tree_data(&mut self, id: &str) -> Result<TreeAssetData, serde_json::Error> {
-        let entry = self.storage.fetch::<TreeAssetData>(id, "id");
+        let entry = self.storage.fetch_one::<TreeAssetData>(id);
         let texture: String = entry.get("texture")?;
         let mesh: String = entry.get("mesh")?;
         let data = TreeAssetData {
@@ -314,7 +325,7 @@ impl Assets {
     }
 
     pub fn load_farmland_data(&mut self, id: &str) -> Result<FarmlandAssetData, serde_json::Error> {
-        let entries = self.storage.fetch_many::<FarmlandAssetPropItem>(id, "id");
+        let entries = self.storage.fetch_many::<FarmlandAssetPropItem>(id);
         let mut props = vec![];
         for entry in entries {
             let asset: String = entry.get("asset")?;
@@ -331,7 +342,7 @@ impl Assets {
     }
 
     pub fn load_farmer_data(&mut self, id: &str) -> Result<FarmerAssetData, serde_json::Error> {
-        let entry = self.storage.fetch::<FarmerAssetData>(id, "id");
+        let entry = self.storage.fetch_one::<FarmerAssetData>(id);
         let texture: String = entry.get("texture")?;
         let mesh: String = entry.get("mesh")?;
         let data = FarmerAssetData {
@@ -342,7 +353,7 @@ impl Assets {
     }
 
     pub fn load_props_data(&mut self, id: &str) -> Result<PropsAssetData, serde_json::Error> {
-        let entry = self.storage.fetch::<PropsAssetData>(id, "id");
+        let entry = self.storage.fetch_one::<PropsAssetData>(id);
         let texture: String = entry.get("texture")?;
         let mesh: String = entry.get("mesh")?;
         let data = PropsAssetData {
@@ -353,7 +364,7 @@ impl Assets {
     }
 
     fn require_update(&mut self, kind: AssetKind, path: PathBuf) {
-        info!("Require update {:?} {:?}", kind, path.to_str());
+        debug!("Require update {:?} {:?}", kind, path.to_str());
         let mut requests = self.loading_requests.write().unwrap();
         requests.push(AssetRequest { path, kind });
     }
@@ -434,7 +445,7 @@ impl Assets {
                         );
                     }
                     Some(texture) => {
-                        info!("Update texture {:?}", path.to_str());
+                        debug!("Update texture {:?}", path.to_str());
                         texture.update(data);
                     }
                 },
@@ -446,7 +457,7 @@ impl Assets {
                         );
                     }
                     Some(shader) => {
-                        info!("Update shader {:?}", path.to_str());
+                        debug!("Update shader {:?}", path.to_str());
                         shader.update(data);
                     }
                 },
@@ -455,7 +466,7 @@ impl Assets {
                         error!("Unable to update mesh {:?}, not registered", path.to_str());
                     }
                     Some(mesh) => {
-                        info!("Update mesh {:?}", path.to_str());
+                        debug!("Update mesh {:?}", path.to_str());
                         mesh.update(data);
                     }
                 },

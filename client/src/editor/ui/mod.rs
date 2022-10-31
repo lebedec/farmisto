@@ -30,7 +30,7 @@ impl Control<Editor> for Parent {
 
     fn update(&mut self, editor: &Editor) -> Value {
         let items = editor.gameplay.trees.values().as_array(|tree| {
-            let id: usize = tree.id.into();
+            let id: usize = tree.id.0;
             json!({
                 "id": id,
                 "name": &tree.kind.name

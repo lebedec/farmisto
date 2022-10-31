@@ -28,11 +28,11 @@ impl LocalServerThread {
             let storage = Storage::open("./assets/database.sqlite").unwrap();
             storage.setup_tracking().unwrap();
             let mut game = Game::new(storage);
+            game.load_game_full();
             let mut tick = Instant::now();
             notify_started.send(true).unwrap();
             while running_thread.load(Ordering::Relaxed) {
-                game.hot_reload();
-
+                // game.hot_reload();
                 for player in server.accept_players() {
                     info!("Add player '{}' to game", player);
                     let events = game.look_around(UniverseSnapshot::whole());

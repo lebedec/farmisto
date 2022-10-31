@@ -1,6 +1,7 @@
 use crate::engine::animatoro::Machine;
 use crate::engine::{FarmerAsset, FarmlandAsset, TreeAsset};
-use datamap::{Known, Shared, Storage};
+
+use game::collections::Shared;
 use game::math::Collider;
 use game::model::{FarmerId, FarmerKind, FarmlandId, FarmlandKind, TreeId, TreeKind};
 use glam::{Vec2, Vec3};

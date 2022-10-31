@@ -29,6 +29,7 @@ impl Operation for Duplicate {
         gameplay: &mut Gameplay,
         selection: &mut Option<Selection>,
     ) -> bool {
+        /*
         let (ray, hit) = gameplay.camera.cast_ray(input.mouse_position());
         let position = hit.unwrap_or(Vec3::ZERO);
 
@@ -46,7 +47,7 @@ impl Operation for Duplicate {
                     .unwrap();
             }
             Selection::Tree { .. } => {}
-        }
+        }*/
         true
     }
 

@@ -36,6 +36,7 @@ impl Operation for Move {
         gameplay: &mut Gameplay,
         selection: &mut Option<Selection>,
     ) -> bool {
+        /*
         if input.pressed(Keycode::X) {
             self.lock = Vec3::X;
         }
@@ -96,7 +97,7 @@ impl Operation for Move {
 
                 if input.click() {
                     let bp = [tree.position.x, tree.position.z];
-                    let id: usize = tree.id.into();
+                    let id: usize = tree.id.0;
                     storage
                         .connection()
                         .execute(
@@ -107,7 +108,7 @@ impl Operation for Move {
                     return true;
                 }
             }
-        }
+        }*/
 
         false
     }

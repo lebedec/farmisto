@@ -1,4 +1,4 @@
-use log::info;
+use log::{debug, info};
 use std::fs::File;
 use std::io::{Cursor, Error, Read};
 use std::path::Path;
@@ -91,7 +91,7 @@ where
     let time = Instant::now();
     let scene = read_scene(&mut file)?;
     let parsing_time = time.elapsed().as_secs_f32();
-    info!(
+    debug!(
         "Scene {:?} read time: {} seconds",
         path.as_ref(),
         parsing_time

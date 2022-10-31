@@ -1,22 +1,22 @@
+use std::collections::{HashMap, HashSet};
+
+use datamap::{Storage};
+pub use domains::*;
+
 use crate::api::{Action, Event};
-use crate::model::{
-    Farmer, FarmerId, FarmerKind, Farmland, FarmlandId, FarmlandKind, Tree, TreeId, TreeKind,
-};
+use crate::model::{Farmer, FarmerId, FarmerKey, FarmerKind, Farmland, FarmlandId, FarmlandKey, FarmlandKind, Tree, TreeId, TreeKey, TreeKind};
 use crate::physics::{Physics, PhysicsDomain};
 use crate::planting::PlantingDomain;
-use datamap::{Collection, Known, Storage};
-pub use domains::*;
-use log::info;
-use std::collections::HashSet;
 
 pub mod api;
 mod domains;
 pub mod math;
 pub mod model;
 mod data;
+pub mod collections;
 
 pub struct Game {
-    universe: Universe,
+    pub universe: Universe,
     physics: PhysicsDomain,
     planting: PlantingDomain,
     storage: Storage,
@@ -46,7 +46,6 @@ impl Game {
                 match self
                     .universe
                     .farmers
-                    .iter()
                     .iter()
                     .find(|farmer| &farmer.player == player)
                 {
@@ -86,11 +85,11 @@ impl Game {
 
         for tree in self.universe.trees.iter() {
             if snapshot.whole || snapshot.trees.contains(&tree.id) {
-                let barrier = self.physics.barriers.get(tree.id).unwrap();
-                let plant_kind = self.planting.known_plants.get(tree.kind.plant).unwrap();
+                let barrier = self.physics.get_barrier(tree.id.into()).unwrap();
+                let plant_kind = self.planting.known_plants.get(&tree.kind.plant).unwrap();
                 stream.push(Event::BarrierHintAppeared {
-                    id: barrier.id.into(),
-                    kind: barrier.kind.id.into(),
+                    id: barrier.id.0,
+                    kind: barrier.kind.id.0,
                     position: barrier.position,
                     bounds: barrier.kind.bounds,
                 });
@@ -110,7 +109,7 @@ impl Game {
 
         for farmer in self.universe.farmers.iter() {
             if snapshot.whole || snapshot.farmers.contains(&farmer.id) {
-                let body = self.physics.bodies.get(farmer.id).unwrap();
+                let body = self.physics.get_body(farmer.id.into()).unwrap();
                 stream.push(Event::FarmerAppeared {
                     id: farmer.id,
                     kind: farmer.kind.id,
@@ -128,15 +127,9 @@ impl Game {
         stream
     }
 
-    pub fn hot_reload(&mut self) -> Vec<Event> {
-        let mut events = vec![];
-
-        self.physics.load(&self.storage);
-        self.planting.load(&self.storage);
-        let changes = self.universe.load(&self.storage);
-        events.extend(self.look_around(changes));
-
-        events
+    pub fn load_game_full(&mut self) {
+        self.load_game_knowledge();
+        self.load_game_state();
     }
 
     pub fn update(&mut self, time: f32) -> Vec<Event> {
@@ -147,7 +140,6 @@ impl Game {
                     if let Some(farmer) = self
                         .universe
                         .farmers
-                        .iter()
                         .iter()
                         .find(|farmer| id == farmer.id.into())
                     {
@@ -166,86 +158,18 @@ impl Game {
 
 #[derive(Default)]
 pub struct KnowledgeBase {
-    pub trees: Known<TreeKind>,
-    pub farmlands: Known<FarmlandKind>,
-    pub farmers: Known<FarmerKind>,
-}
-
-impl KnowledgeBase {
-    pub fn load(&mut self, storage: &Storage) {
-        self.trees.load(storage);
-        self.farmlands.load(storage);
-        self.farmers.load(storage);
-    }
+    pub trees: HashMap<TreeKey, collections::Shared<TreeKind>>,
+    pub farmlands: HashMap<FarmlandKey, collections::Shared<FarmlandKind>>,
+    pub farmers: HashMap<FarmerKey, collections::Shared<FarmerKind>>,
 }
 
 #[derive(Default)]
 pub struct Universe {
     pub id: usize,
     pub known: KnowledgeBase,
-    pub farmlands: Collection<Farmland>,
-    pub trees: Collection<Tree>,
-    pub farmers: Collection<Farmer>,
-}
-
-impl Universe {
-    pub fn load(&mut self, storage: &Storage) -> UniverseSnapshot {
-        let mut snapshot = UniverseSnapshot::default();
-
-        self.known.load(storage);
-
-        let changeset = self.trees.load(storage, &self.known.trees);
-        // todo: automate changeset conversion to universe snapshot
-        for id in changeset.inserts {
-            snapshot.trees.insert(id.into());
-        }
-        for id in changeset.updates {
-            snapshot.trees.insert(id.into());
-        }
-        for id in changeset.deletes {
-            snapshot.trees_to_delete.insert(id.into());
-        }
-
-        let changeset = self.farmlands.load(storage, &self.known.farmlands);
-        // todo: automate changeset conversion to universe snapshot
-        for id in changeset.inserts {
-            snapshot.farmlands.insert(id.into());
-        }
-        for id in changeset.updates {
-            snapshot.farmlands.insert(id.into());
-        }
-        for id in changeset.deletes {
-            snapshot.farmlands_to_delete.insert(id.into());
-        }
-
-        let changeset = self.farmers.load(storage, &self.known.farmers);
-        // todo: automate changeset conversion to universe snapshot
-        for id in changeset.inserts {
-            snapshot.farmers.insert(id.into());
-        }
-        for id in changeset.updates {
-            snapshot.farmers.insert(id.into());
-        }
-        for id in changeset.deletes {
-            snapshot.farmers_to_delete.insert(id.into());
-        }
-
-        let next_id = *[
-            self.id,
-            self.farmlands.last_id(),
-            self.trees.last_id(),
-            self.farmers.last_id(),
-        ]
-        .iter()
-        .max()
-        .unwrap();
-        if next_id != self.id {
-            info!("Advance id value from {} to {}", self.id, next_id);
-            self.id = next_id;
-        }
-
-        snapshot
-    }
+    pub farmlands: Vec<Farmland>,
+    pub trees: Vec<Tree>,
+    pub farmers: Vec<Farmer>,
 }
 
 #[derive(Default)]

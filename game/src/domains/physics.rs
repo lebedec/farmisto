@@ -1,77 +1,89 @@
-use crate::math::{detect_collision, Collider, VectorMath};
-use datamap::{Collection, Grouping, Id, Known, Persisted, Shared, Storage};
+use std::collections::HashMap;
+
 use log::{error, info};
 
-#[derive(Default)]
+
+use crate::math::{Collider, detect_collision, VectorMath};
+use crate::collections::Shared;
+
+pub const MAX_SPACES: usize = 128;
+
 pub struct PhysicsDomain {
-    pub known_spaces: Known<SpaceKind>,
-    pub known_bodies: Known<BodyKind>,
-    pub known_barriers: Known<BarrierKind>,
-    pub spaces: Collection<Space>,
-    pub bodies: Grouping<Body, SpaceId>,
-    pub barriers: Grouping<Barrier, SpaceId>,
+    pub known_spaces: HashMap<SpaceKey, Shared<SpaceKind>>,
+    pub known_bodies: HashMap<BodyKey, Shared<BodyKind>>,
+    pub known_barriers: HashMap<BarrierKey, Shared<BarrierKind>>,
+    pub spaces: Vec<Space>,
+    pub bodies: Vec<Vec<Body>>,
+    pub barriers: Vec<Vec<Barrier>>,
 }
 
-#[derive(Id, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct SpaceKey(usize);
+impl Default for PhysicsDomain {
+    fn default() -> Self {
+        Self {
+            known_spaces: Default::default(),
+            known_bodies: Default::default(),
+            known_barriers: Default::default(),
+            spaces: vec![],
+            bodies: vec![vec![]; MAX_SPACES],
+            barriers: vec![vec![]; MAX_SPACES],
+        }
+    }
+}
 
-#[derive(Persisted)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+pub struct SpaceKey(pub usize);
+
 pub struct SpaceKind {
-    id: SpaceKey,
-    name: String,
+    pub id: SpaceKey,
+    pub name: String,
 }
 
-#[derive(Id, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct SpaceId(usize);
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+pub struct SpaceId(pub usize);
 
-#[derive(Persisted)]
 pub struct Space {
-    id: SpaceId,
-    kind: Shared<SpaceKind>,
+    pub id: SpaceId,
+    pub kind: Shared<SpaceKind>,
 }
 
-#[derive(Id, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct BodyKey(usize);
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+pub struct BodyKey(pub usize);
 
-#[derive(Persisted)]
 pub struct BodyKind {
     pub id: BodyKey,
     pub name: String,
     pub speed: f32,
 }
 
-#[derive(Debug, Id, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct BodyId(usize);
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+pub struct BodyId(pub usize);
 
-#[derive(Persisted)]
+#[derive(Clone)]
 pub struct Body {
     pub id: BodyId,
     pub kind: Shared<BodyKind>,
     pub position: [f32; 2],
     pub direction: [f32; 2],
-    #[group]
     pub space: SpaceId,
 }
 
-#[derive(Id, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct BarrierKey(usize);
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+pub struct BarrierKey(pub usize);
 
-#[derive(Persisted)]
 pub struct BarrierKind {
     pub id: BarrierKey,
     pub name: String,
     pub bounds: [f32; 2],
 }
 
-#[derive(Id, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct BarrierId(usize);
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+pub struct BarrierId(pub usize);
 
-#[derive(Persisted)]
+#[derive(Clone)]
 pub struct Barrier {
     pub id: BarrierId,
     pub kind: Shared<BarrierKind>,
     pub position: [f32; 2],
-    #[group]
     pub space: SpaceId,
 }
 
@@ -84,17 +96,41 @@ pub enum Physics {
 }
 
 impl PhysicsDomain {
-    pub fn load(&mut self, storage: &Storage) {
-        self.known_spaces.load(storage);
-        self.spaces.load(storage, &self.known_spaces);
-        self.known_bodies.load(storage);
-        self.bodies.load(storage, &self.known_bodies);
-        self.known_barriers.load(storage);
-        self.barriers.load(storage, &self.known_barriers);
+    pub fn get_body_mut(&mut self, id: BodyId) -> Option<&mut Body> {
+        for bodies in self.bodies.iter_mut() {
+            for body in bodies {
+                if body.id == id {
+                    return Some(body);
+                }
+            }
+        }
+        return None;
+    }
+
+    pub fn get_body(&self, id: BodyId) -> Option<&Body> {
+        for bodies in self.bodies.iter() {
+            for body in bodies {
+                if body.id == id {
+                    return Some(body);
+                }
+            }
+        }
+        return None;
+    }
+
+    pub fn get_barrier(&self, id: BarrierId) -> Option<&Barrier> {
+        for barriers in self.barriers.iter() {
+            for barrier in barriers {
+                if barrier.id == id {
+                    return Some(barrier);
+                }
+            }
+        }
+        return None;
     }
 
     pub fn handle_translate(&mut self, _space: SpaceId, body: BodyId, position: [f32; 2]) {
-        match self.bodies.get_mut(body) {
+        match self.get_body_mut(body) {
             None => {}
             Some(body) => {
                 body.position = position;
@@ -105,10 +141,9 @@ impl PhysicsDomain {
     pub fn handle_create_barrier(&mut self, space: SpaceId, kind: BarrierKey, position: [f32; 2]) {
         // let id = self.barriers.next_id();
         let id = BarrierId(10);
-        let kind = self.known_barriers.get(kind).unwrap();
+        let kind = self.known_barriers.get(&kind).unwrap().clone();
         info!("barrier kind name is {:?}", kind.name);
-        self.barriers.insert(
-            space,
+        self.barriers[space.0].push(
             Barrier {
                 id,
                 kind,
@@ -119,7 +154,7 @@ impl PhysicsDomain {
     }
 
     pub fn move_body2(&mut self, id: BodyId, direction: [f32; 2]) {
-        match self.bodies.get_mut(id) {
+        match self.get_body_mut(id) {
             Some(body) => {
                 body.direction = direction;
             }
@@ -133,10 +168,8 @@ impl PhysicsDomain {
         let mut events = vec![];
 
         for space in self.spaces.iter() {
-            let mut empty = vec![];
-            let bodies = self.bodies.iter_mut(space.id).unwrap_or(&mut empty);
-            let mut empty = vec![];
-            let barriers = self.barriers.iter_mut(space.id).unwrap_or(&mut empty);
+            let bodies = &mut self.bodies[space.id.0];
+            let barriers = &mut self.barriers[space.id.0];
             for index in 0..bodies.len() {
                 let _id = bodies[index].id;
 

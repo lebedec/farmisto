@@ -1,63 +1,65 @@
-use crate::Storage;
-use datamap::{Collection, Grouping, Id, Known, Persisted, Shared};
+use std::collections::HashMap;
 
-#[derive(Default)]
+use crate::collections::Shared;
+
+pub const MAX_LANDS: usize = 128;
+
 pub struct PlantingDomain {
-    pub known_lands: Known<LandKind>,
-    pub known_plants: Known<PlantKind>,
-    pub lands: Collection<Land>,
-    pub plants: Grouping<Plant, LandId>,
+    pub known_lands: HashMap<LandKey, Shared<LandKind>>,
+    pub known_plants: HashMap<PlantKey, Shared<PlantKind>>,
+    pub lands: Vec<Land>,
+    pub plants: Vec<Vec<Plant>>,
 }
 
-#[derive(Id, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct LandKey(usize);
+impl Default for PlantingDomain {
+    fn default() -> Self {
+        Self {
+            known_lands: Default::default(),
+            known_plants: Default::default(),
+            lands: vec![],
+            plants: vec![vec![]; MAX_LANDS],
+        }
+    }
+}
 
-#[derive(Persisted)]
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+pub struct LandKey(pub usize);
+
 pub struct LandKind {
-    id: LandKey,
-    name: String,
+    pub id: LandKey,
+    pub name: String,
 }
 
-#[derive(Id, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct LandId(usize);
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+pub struct LandId(pub usize);
 
-#[derive(Persisted)]
 pub struct Land {
-    id: LandId,
-    kind: Shared<LandKind>,
+    pub id: LandId,
+    pub kind: Shared<LandKind>,
 }
 
-#[derive(Id, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct PlantKey(usize);
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+pub struct PlantKey(pub usize);
 
-#[derive(Persisted)]
 pub struct PlantKind {
     pub id: PlantKey,
     pub name: String,
     pub growth: f32,
 }
 
-#[derive(Id, Clone, Copy, PartialEq, Eq, Hash)]
-pub struct PlantId(usize);
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+pub struct PlantId(pub usize);
 
-#[derive(Persisted)]
+#[derive(Clone)]
 pub struct Plant {
     pub id: PlantId,
     pub kind: Shared<PlantKind>,
-    #[group]
     pub land: LandId,
 }
 
 pub enum Planting {}
 
 impl PlantingDomain {
-    pub fn load(&mut self, storage: &Storage) {
-        self.known_lands.load(storage);
-        self.lands.load(storage, &self.known_lands);
-        self.known_plants.load(storage);
-        self.plants.load(storage, &self.known_plants);
-    }
-
     pub fn update(&mut self, _time: f32) -> Vec<Planting> {
         let mut _events = vec![];
         _events

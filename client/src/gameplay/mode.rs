@@ -8,7 +8,7 @@ use datamap::Storage;
 use game::api::{Action, Event, GameResponse, PlayerRequest};
 use game::math::detect_collision;
 use game::model::{FarmerId, FarmlandId, TreeId};
-use game::KnowledgeBase;
+use game::{Game, KnowledgeBase};
 use glam::{Mat4, Vec2, Vec3};
 use log::{error, info};
 use network::TcpClient;
@@ -20,13 +20,12 @@ pub struct Gameplay {
     server: Option<LocalServerThread>,
     client: TcpClient,
     action_id: usize,
-    pub knowledge: KnowledgeBase,
+    pub knowledge: Game,
     pub barriers: Vec<BarrierHint>,
     pub farmlands: HashMap<FarmlandId, FarmlandBehaviour>,
     pub trees: HashMap<TreeId, TreeBehaviour>,
     pub farmers: HashMap<FarmerId, FarmerBehaviour>,
     pub camera: Camera,
-    pub storage: Storage,
 }
 
 impl Gameplay {
@@ -35,13 +34,12 @@ impl Gameplay {
             server,
             client,
             action_id: 0,
-            knowledge: KnowledgeBase::default(),
+            knowledge: Game::new(Storage::open("./assets/database.sqlite").unwrap()),
             barriers: Default::default(),
             farmlands: Default::default(),
             trees: HashMap::new(),
             farmers: Default::default(),
             camera: Camera::new(viewport),
-            storage: Storage::open("./assets/database.sqlite").unwrap(),
         }
     }
 
@@ -58,7 +56,7 @@ impl Gameplay {
                                 position,
                                 growth,
                             } => {
-                                let kind = self.knowledge.trees.get(kind).unwrap();
+                                let kind = self.knowledge.universe.known.trees.get(&kind).unwrap().clone();
                                 info!(
                                     "Appear tree {:?} kind='{}' at {:?} (g {})",
                                     id, kind.name, position, growth
@@ -86,7 +84,7 @@ impl Gameplay {
                                 info!("Update tree {:?} [not implemented yet]", id);
                             }
                             Event::FarmlandAppeared { id, kind } => {
-                                let kind = self.knowledge.farmlands.get(kind).unwrap();
+                                let kind = self.knowledge.universe.known.farmlands.get(&kind).unwrap().clone();
                                 info!("Appear farmland {:?} kind='{}'", id, kind.name);
 
                                 let asset = assets.farmland(&kind.name);
@@ -104,7 +102,7 @@ impl Gameplay {
                                 position,
                                 player,
                             } => {
-                                let kind = self.knowledge.farmers.get(kind).unwrap();
+                                let kind = self.knowledge.universe.known.farmers.get(&kind).unwrap().clone();
                                 info!(
                                     "Appear farmer {:?}({}) kind='{}' at {:?}",
                                     id, player, kind.name, position
@@ -303,7 +301,7 @@ impl Gameplay {
 
 impl Mode for Gameplay {
     fn start(&mut self, assets: &mut Assets) {
-        self.knowledge.load(&self.storage);
+        self.knowledge.load_game_knowledge();
     }
 
     fn update(&mut self, input: &Input, renderer: &mut SceneRenderer, assets: &mut Assets) {
