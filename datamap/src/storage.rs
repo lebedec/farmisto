@@ -156,30 +156,34 @@ impl Storage {
         Ok(changes)
     }
 
-    pub fn setup_tracking(&self) -> Result<usize, rusqlite::Error> {
-        let tracking_table = "create table if not exists sql_tracking (
+    pub fn setup_tracking(&self) -> Result<(), rusqlite::Error> {
+        let tracking_table = "drop table if exists sql_tracking;
+        create table sql_tracking (
             timestamp integer primary key autoincrement,
             entity text not null,
             id blob not null,
             operation text not null
         );";
-        self.connection.execute(tracking_table, [])?;
+        self.connection.execute_batch(tracking_table)?;
 
-        let insert = "create trigger if not exists on_<table>_insert
+        let insert = "drop trigger if exists on_<table>_insert;
+        create trigger on_<table>_insert
         after insert on <table>
         begin
             insert into sql_tracking (entity, id, operation)
             values ('<table>', new.id, 'Insert');
         end;";
 
-        let update = "create trigger if not exists on_<table>_update
+        let update = "drop trigger if exists on_<table>_update;
+        create trigger on_<table>_update
         after update on <table>
         begin
             insert into sql_tracking (entity, id, operation)
             values ('<table>', new.id, 'Update');
         end;";
 
-        let delete = "create trigger if not exists on_<table>_delete
+        let delete = "drop trigger if exists on_<table>_delete;
+        create trigger on_<table>_delete
         after delete on <table>
         begin
             insert into sql_tracking (entity, id, operation)
@@ -189,6 +193,14 @@ impl Storage {
         let mut statement = self
             .connection
             .prepare("select * from sqlite_master where type = 'table'")?;
+
+        let mut _foreign_keys = self
+            .connection
+            .prepare("select * from pragma_foreign_key_list(?);")?;
+
+        //let mut references = HashMap::new();
+        let mut tables = Vec::new();
+
         let mut rows = statement.query([])?;
         while let Some(row) = rows.next()? {
             let name: String = row.get("name")?;
@@ -196,16 +208,20 @@ impl Storage {
                 // skip sqlite tables
                 continue;
             }
-            info!("Initialize changes tracking for {}", name);
-            self.connection
-                .execute(&insert.replace("<table>", &name), [])?;
-            self.connection
-                .execute(&update.replace("<table>", &name), [])?;
-            self.connection
-                .execute(&delete.replace("<table>", &name), [])?;
+            tables.push(name);
         }
 
-        self.connection.execute("delete from sql_tracking", [])
+        for name in tables {
+            info!("Initialize changes tracking for {}", name);
+            self.connection
+                .execute_batch(&insert.replace("<table>", &name))?;
+            self.connection
+                .execute_batch(&update.replace("<table>", &name))?;
+            self.connection
+                .execute_batch(&delete.replace("<table>", &name))?;
+        }
+
+        Ok(())
     }
 }
 

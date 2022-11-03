@@ -1,6 +1,43 @@
+use std::collections::{HashMap, HashSet};
+
 use crate::collections::Shared;
 use crate::physics::{BarrierId, BarrierKey, BodyId, BodyKey, SpaceId, SpaceKey};
 use crate::planting::{LandId, LandKey, PlantId, PlantKey};
+
+#[derive(Default)]
+pub struct KnowledgeBase {
+    pub trees: HashMap<TreeKey, Shared<TreeKind>>,
+    pub farmlands: HashMap<FarmlandKey, Shared<FarmlandKind>>,
+    pub farmers: HashMap<FarmerKey, Shared<FarmerKind>>,
+}
+
+#[derive(Default)]
+pub struct Universe {
+    pub id: usize,
+    pub known: KnowledgeBase,
+    pub farmlands: Vec<Farmland>,
+    pub trees: Vec<Tree>,
+    pub farmers: Vec<Farmer>,
+}
+
+#[derive(Default)]
+pub struct UniverseSnapshot {
+    pub whole: bool,
+    pub farmlands: HashSet<FarmlandId>,
+    pub farmlands_to_delete: HashSet<FarmlandId>,
+    pub trees: HashSet<TreeId>,
+    pub trees_to_delete: HashSet<TreeId>,
+    pub farmers: HashSet<FarmerId>,
+    pub farmers_to_delete: HashSet<FarmerId>,
+}
+
+impl UniverseSnapshot {
+    pub fn whole() -> Self {
+        let mut snapshot = UniverseSnapshot::default();
+        snapshot.whole = true;
+        snapshot
+    }
+}
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
 pub struct FarmerKey(pub usize);

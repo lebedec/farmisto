@@ -1,14 +1,73 @@
 use log::info;
 
-use datamap::{Entry};
+use datamap::{Entry, Operation};
 
 use crate::{Farmer, FarmerId, FarmerKind, Farmland, FarmlandId, FarmlandKind, Game, Tree, TreeId, TreeKind};
 use crate::collections::Shared;
-use crate::model::{FarmerKey, FarmlandKey, TreeKey};
+use crate::model::{FarmerKey, FarmlandKey, TreeKey, UniverseSnapshot};
 use crate::physics::{Barrier, BarrierId, BarrierKey, BarrierKind, Body, BodyId, BodyKey, BodyKind, Space, SpaceId, SpaceKey, SpaceKind};
 use crate::planting::{Land, LandId, LandKey, LandKind, Plant, PlantId, PlantKey, PlantKind};
 
 impl Game {
+    pub fn hot_reload(&mut self) -> UniverseSnapshot {
+        // todo:
+        let mut snapshot = UniverseSnapshot::default();
+        let changes = self.storage.track_changes::<usize>().unwrap();
+        for change in changes {
+            match change.entity.as_str() {
+                "Space" => {
+                    match change.operation {
+                        Operation::Insert => {
+                            // let entry = self.storage.fetch_one(change.id);
+                            // let space = self.load_space(entry).unwrap();
+                            // self.physics.spaces.push(space);
+                        }
+                        Operation::Update => {
+                            // let space = self.physics.spaces.get_mut(change.id).unwrap();
+                            // let entry = self.storage.fetch_one(change.id);
+                            // *space = self.load_space(entry).unwrap();
+                        }
+                        Operation::Delete => {
+                            // self.physics.spaces.delete(entry.id)
+                        }
+                    }
+                }
+                "Body" => {}
+                "Barrier" => {}
+                "Tree" => match change.operation {
+                    Operation::Insert | Operation::Update => {
+                        snapshot.trees.insert(TreeId(change.id));
+                    }
+                    Operation::Delete => {
+                        snapshot.trees_to_delete.insert(TreeId(change.id));
+                    }
+                }
+                "Farmland" => {
+                    match change.operation {
+                        Operation::Insert | Operation::Update => {
+                            snapshot.farmlands.insert(FarmlandId(change.id));
+                        }
+                        Operation::Delete => {
+                            snapshot.farmlands_to_delete.insert(FarmlandId(change.id));
+                        }
+                    }
+                }
+                "Farmer" => {
+                    match change.operation {
+                        Operation::Insert | Operation::Update => {
+                            snapshot.farmers.insert(FarmerId(change.id));
+                        }
+                        Operation::Delete => {
+                            snapshot.farmers_to_delete.insert(FarmerId(change.id));
+                        }
+                    }
+                }
+                _ => {}
+            }
+        }
+        snapshot
+    }
+
     pub fn load_game_knowledge(&mut self) {
         info!("Begin game knowledge loading from ...");
         for entry in self.storage.fetch_all::<SpaceKind>().into_iter() {

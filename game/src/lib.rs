@@ -1,10 +1,10 @@
 use std::collections::{HashMap, HashSet};
 
-use datamap::{Storage};
+use datamap::Storage;
 pub use domains::*;
 
 use crate::api::{Action, Event};
-use crate::model::{Farmer, FarmerId, FarmerKey, FarmerKind, Farmland, FarmlandId, FarmlandKey, FarmlandKind, Tree, TreeId, TreeKey, TreeKind};
+use crate::model::{Farmer, FarmerId, FarmerKey, FarmerKind, Farmland, FarmlandId, FarmlandKey, FarmlandKind, Tree, TreeId, TreeKey, TreeKind, Universe, UniverseSnapshot};
 use crate::physics::{Physics, PhysicsDomain};
 use crate::planting::PlantingDomain;
 
@@ -156,37 +156,3 @@ impl Game {
     }
 }
 
-#[derive(Default)]
-pub struct KnowledgeBase {
-    pub trees: HashMap<TreeKey, collections::Shared<TreeKind>>,
-    pub farmlands: HashMap<FarmlandKey, collections::Shared<FarmlandKind>>,
-    pub farmers: HashMap<FarmerKey, collections::Shared<FarmerKind>>,
-}
-
-#[derive(Default)]
-pub struct Universe {
-    pub id: usize,
-    pub known: KnowledgeBase,
-    pub farmlands: Vec<Farmland>,
-    pub trees: Vec<Tree>,
-    pub farmers: Vec<Farmer>,
-}
-
-#[derive(Default)]
-pub struct UniverseSnapshot {
-    pub whole: bool,
-    pub farmlands: HashSet<FarmlandId>,
-    pub farmlands_to_delete: HashSet<FarmlandId>,
-    pub trees: HashSet<TreeId>,
-    pub trees_to_delete: HashSet<TreeId>,
-    pub farmers: HashSet<FarmerId>,
-    pub farmers_to_delete: HashSet<FarmerId>,
-}
-
-impl UniverseSnapshot {
-    pub fn whole() -> Self {
-        let mut snapshot = UniverseSnapshot::default();
-        snapshot.whole = true;
-        snapshot
-    }
-}

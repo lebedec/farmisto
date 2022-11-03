@@ -8,7 +8,7 @@ use datamap::Storage;
 use game::api::{Action, Event, GameResponse, PlayerRequest};
 use game::math::detect_collision;
 use game::model::{FarmerId, FarmlandId, TreeId};
-use game::{Game, KnowledgeBase};
+use game::{Game};
 use glam::{Mat4, Vec2, Vec3};
 use log::{error, info};
 use network::TcpClient;
