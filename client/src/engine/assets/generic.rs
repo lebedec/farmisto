@@ -3,8 +3,6 @@ use std::collections::HashMap;
 use std::ops::Deref;
 use std::sync::Arc;
 
-
-
 /// Provides safe access to game assets data.
 ///
 /// Usage:
@@ -33,7 +31,6 @@ impl<T> From<Arc<RefCell<T>>> for Asset<T> {
     }
 }
 
-
 pub trait AssetMap<T> {
     fn publish(&mut self, name: &str, data: T) -> Asset<T>;
 }
@@ -46,10 +43,11 @@ impl<T> AssetMap<T> for HashMap<String, Asset<T>> {
     }
 }
 
-
 impl<T> From<T> for Asset<T> {
     fn from(data: T) -> Self {
-        Self { data: Arc::new(RefCell::new(data)) }
+        Self {
+            data: Arc::new(RefCell::new(data)),
+        }
     }
 }
 
@@ -59,7 +57,6 @@ impl<T: Sized> Asset<T> {
         let mut this = self.data.borrow_mut();
         *this = data;
     }
-
 
     pub fn share(&self) -> Asset<T> {
         Self {

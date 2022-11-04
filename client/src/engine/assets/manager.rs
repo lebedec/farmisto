@@ -12,13 +12,13 @@ use log::{debug, error, info};
 use datamap::Storage;
 
 use crate::engine::assets::fs::{FileEvent, FileSystem};
-use crate::engine::assets::generic::AssetMap;
+use crate::engine::assets::generic::{Asset, AssetMap};
 use crate::engine::assets::prefabs::{TreeAsset, TreeAssetData};
 use crate::engine::base::Queue;
 use crate::engine::{
     FarmerAsset, FarmerAssetData, FarmlandAsset, FarmlandAssetData, FarmlandAssetPropItem,
-    MeshAsset, MeshAssetData, PropsAsset, PropsAssetData, ShaderAsset, ShaderAssetData,
-    TextureAsset, TextureAssetData,
+    MeshAsset, MeshAssetData, PipelineAsset, PipelineAssetData, PropsAsset, PropsAssetData,
+    ShaderAsset, ShaderAssetData, TextureAsset, TextureAssetData,
 };
 use crate::ShaderCompiler;
 
@@ -43,6 +43,7 @@ pub struct Assets {
     trees: HashMap<String, TreeAsset>,
     props: HashMap<String, PropsAsset>,
     farmers: HashMap<String, FarmerAsset>,
+    pipelines: HashMap<String, PipelineAsset>,
 
     queue: Arc<Queue>,
 }
@@ -77,16 +78,16 @@ pub enum AssetKind {
 
 fn spawn_loader(
     loader: i32,
-    loaders_requests: Arc<RwLock<Vec<AssetRequest>>>,
-    loader_queue: Arc<Queue>,
-    loader_result: Sender<AssetPayload>,
-    loader_device: Device,
+    requests: Arc<RwLock<Vec<AssetRequest>>>,
+    queue: Arc<Queue>,
+    result: Sender<AssetPayload>,
+    device: Device,
     pool: vk::CommandPool,
 ) {
     thread::spawn(move || {
         info!("[loader-{}] Start loader", loader);
         loop {
-            let request = { loaders_requests.write().unwrap().pop() };
+            let request = { requests.write().unwrap().pop() };
             if let Some(request) = request {
                 debug!(
                     "[loader-{}] Load {:?} {:?}",
@@ -97,48 +98,37 @@ fn spawn_loader(
                 let path = request.path.clone();
                 match request.kind {
                     AssetKind::Texture => {
-                        loader_result
-                            .send(AssetPayload::Texture {
-                                path: request.path.clone(),
-                                data: TextureAssetData::create_and_read_image(
-                                    &loader_device,
-                                    pool,
-                                    loader_queue.clone(),
-                                    &fs::read(request.path).unwrap(),
-                                ),
-                            })
-                            .unwrap();
+                        let data = TextureAssetData::create_and_read_image(
+                            &device,
+                            pool,
+                            queue.clone(),
+                            &fs::read(&path).unwrap(),
+                        );
+                        result.send(AssetPayload::Texture { path, data }).unwrap();
                     }
-                    AssetKind::Shader => {
-                        let data = ShaderAssetData::from_spirv_file(&loader_queue, &path);
-                        match data {
-                            Ok(data) => {
-                                loader_result
-                                    .send(AssetPayload::Shader { path, data })
-                                    .unwrap();
-                            }
-                            Err(error) => {
-                                error!(
-                                    "[loader-{}] Unable to load {:?} {:?}, {:?}",
-                                    loader,
-                                    request.kind,
-                                    path.to_str(),
-                                    error
-                                );
-                            }
+                    AssetKind::Shader => match ShaderAssetData::from_spirv_file(&queue, &path) {
+                        Ok(data) => {
+                            result.send(AssetPayload::Shader { path, data }).unwrap();
                         }
-                    }
+                        Err(error) => {
+                            error!(
+                                "[loader-{}] Unable to load {:?} {:?}, {:?}",
+                                loader,
+                                request.kind,
+                                path.to_str(),
+                                error
+                            );
+                        }
+                    },
                     AssetKind::Mesh => {
                         let data = if path.extension().unwrap() == "space3" {
-                            MeshAssetData::from_space3(&loader_queue, &path)
+                            MeshAssetData::from_space3(&queue, &path)
                         } else {
-                            MeshAssetData::from_json_file(&loader_queue, &path)
+                            MeshAssetData::from_json_file(&queue, &path)
                         };
                         match data {
                             Ok(data) => {
-                                loader_result
-                                    .send(AssetPayload::Mesh { path, data })
-                                    .unwrap();
+                                result.send(AssetPayload::Mesh { path, data }).unwrap();
                             }
                             Err(error) => {
                                 error!(
@@ -235,6 +225,7 @@ impl Assets {
             trees: Default::default(),
             props: Default::default(),
             farmers: Default::default(),
+            pipelines: Default::default(),
         }
     }
 
@@ -370,6 +361,17 @@ impl Assets {
         Ok(data)
     }
 
+    pub fn load_pipeline_data(&mut self, id: &str) -> Result<PipelineAssetData, serde_json::Error> {
+        let entry = self.storage.fetch_one::<PipelineAssetData>(id);
+        let fragment: String = entry.get("fragment")?;
+        let vertex: String = entry.get("vertex")?;
+        let data = PipelineAssetData {
+            fragment: self.shader(fragment),
+            vertex: self.shader(vertex),
+        };
+        Ok(data)
+    }
+
     fn require_update(&mut self, kind: AssetKind, path: PathBuf) {
         debug!("Require update {:?} {:?}", kind, path.to_str());
         let mut requests = self.loading_requests.write().unwrap();
@@ -388,13 +390,24 @@ impl Assets {
                     let data = self.load_farmland_data(&change.id).unwrap();
                     self.farmlands.get_mut(&change.id).unwrap().update(data);
                 }
+                "TreeAssetData" => {
+                    let data = self.load_tree_data(&change.id).unwrap();
+                    self.trees.get_mut(&change.id).unwrap().update(data);
+                }
                 "PropsAssetData" => {
                     let data = self.load_props_data(&change.id).unwrap();
                     self.props.get_mut(&change.id).unwrap().update(data);
                 }
-                "TreeAssetData" => {
-                    let data = self.load_tree_data(&change.id).unwrap();
-                    self.trees.get_mut(&change.id).unwrap().update(data);
+                "PipelineAssetData" => {
+                    let data = self.load_pipeline_data(&change.id).unwrap();
+                    match self.pipelines.get_mut(&change.id) {
+                        Some(asset) => {
+                            asset.update(data);
+                        }
+                        None => {
+                            self.pipelines.insert(change.id, Asset::from(data));
+                        }
+                    }
                 }
                 _ => {
                     error!("Handle of {:?} not implemented yet", change)

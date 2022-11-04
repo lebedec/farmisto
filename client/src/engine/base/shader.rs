@@ -1,3 +1,4 @@
+use crate::engine::TextureAsset;
 use ash::{vk, Device};
 use std::collections::HashMap;
 use std::ptr;
@@ -13,6 +14,16 @@ pub struct ShaderDataSet<const B: usize> {
 pub enum ShaderData {
     Texture([vk::DescriptorImageInfo; 1]),
     Uniform([vk::DescriptorBufferInfo; 1]),
+}
+
+impl From<&TextureAsset> for ShaderData {
+    fn from(texture: &TextureAsset) -> Self {
+        ShaderData::Texture([vk::DescriptorImageInfo {
+            sampler: texture.sampler(),
+            image_view: texture.view(),
+            image_layout: vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
+        }])
+    }
 }
 
 impl<const B: usize> ShaderDataSet<B> {

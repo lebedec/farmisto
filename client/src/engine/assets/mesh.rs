@@ -333,14 +333,14 @@ impl VertexBuffer {
         self.buffer
     }
 
-    pub fn create(
+    pub fn create<T: Copy>(
         device: &Device,
         device_memory_properties: &vk::PhysicalDeviceMemoryProperties,
-        vertices: Vec<Vertex>,
+        vertices: Vec<T>,
     ) -> Self {
         let (buffer, device_memory, memory_size) = create_buffer(
             device,
-            (vertices.len() * std::mem::size_of::<Vertex>()) as u64,
+            (vertices.len() * std::mem::size_of::<T>()) as u64,
             vk::BufferUsageFlags::VERTEX_BUFFER,
             vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
             device_memory_properties,
@@ -352,9 +352,8 @@ impl VertexBuffer {
                 .map_memory(device_memory, 0, memory_size, vk::MemoryMapFlags::empty())
                 .unwrap()
         };
-        let mut alignment = unsafe {
-            ash::util::Align::new(ptr, std::mem::align_of::<Vertex>() as u64, memory_size)
-        };
+        let mut alignment =
+            unsafe { ash::util::Align::new(ptr, std::mem::align_of::<T>() as u64, memory_size) };
         alignment.copy_from_slice(&vertices);
         unsafe {
             device.unmap_memory(device_memory);

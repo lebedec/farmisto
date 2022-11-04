@@ -19,7 +19,7 @@ create table PropsAssetData
 
 create table FarmlandAssetPropItem
 (
-    id text not null references FarmlandAssetData,
+    id       text not null references FarmlandAssetData,
     position json not null,
     rotation json not null,
     scale    json not null,
@@ -33,5 +33,10 @@ create table TreeAssetData
     mesh    text not null
 );
 
-
+create table PipelineAssetData
+(
+    id       text primary key unique,
+    fragment text not null,
+    vertex   text not null
+);
 

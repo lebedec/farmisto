@@ -1,77 +1,88 @@
 use crate::engine::armature::{PoseBuffer, PoseUniform};
 use crate::engine::base::{Pipeline, Screen, ShaderData, ShaderDataSet};
 use crate::engine::uniform::{CameraUniform, UniformBuffer};
-use crate::engine::{MeshAsset, ShaderAsset, TextureAsset, Vertex};
+use crate::engine::{ShaderAsset, TextureAsset, VertexBuffer};
 use crate::Assets;
 
 use ash::{vk, Device};
-use glam::Mat4;
-use log::{error, info};
+use glam::{vec3, Mat4};
+use log::{debug, error, info};
 
 use std::time::Instant;
-
-pub struct Material {}
-
-pub struct SceneObject {
-    transform: Mat4,
-    mesh: MeshAsset,
-    texture: TextureAsset,
-    texture_bind: vk::DescriptorSet,
-    pose_data: Option<vk::DescriptorSet>,
-}
-
-pub struct SpriteUniform {}
 
 pub struct SpriteRenderer {
     pub device: Device,
     pub device_memory: vk::PhysicalDeviceMemoryProperties,
-    swapchain: usize,
-    objects: Vec<SceneObject>,
-    bounds: Vec<SceneObject>,
+    sprites: Vec<Sprite>,
     layout: vk::PipelineLayout,
     pipeline: vk::Pipeline,
-    gizmos_pipeline: vk::Pipeline,
-    // pub scene_data: ShaderData,
-    pub material_data: ShaderDataSet<1>,
-    pub object_data: ShaderDataSet<1>,
     pub descriptor_sets: Vec<vk::DescriptorSet>,
-    pub static_pose: vk::DescriptorSet,
     camera_buffer: UniformBuffer,
+    vertex_buffer: VertexBuffer,
     pub present_index: u32,
     pass: vk::RenderPass,
+
+    pub material_slot: ShaderDataSet<1>,
     vertex_shader: ShaderAsset,
     fragment_shader: ShaderAsset,
+
     screen: Screen,
-    wireframe_tex: TextureAsset,
 }
 
 impl SpriteRenderer {
-    pub fn look_at(&mut self, uniform: CameraUniform) {
+    pub fn look_at(&mut self) {
+        let width = self.screen.width() as f32;
+        let height = self.screen.height() as f32;
+        // GLM was originally designed for OpenGL,
+        // where the Y coordinate of the clip coordinates is inverted
+        // let inverted = Mat4::from_scale(vec3(1.0, -1.0, 1.0));
+        //
+        // let uniform = CameraUniform {
+        //     model: Mat4::IDENTITY,
+        //     view: Mat4::IDENTITY,
+        //     proj: Mat4::orthographic_rh(
+        //         0.0,
+        //         self.screen.width() as f32,
+        //         self.screen.height() as f32,
+        //         0.0,
+        //         0.1,
+        //         1000.0,
+        //     ) * inverted,
+        // };
+
+        let inverted = Mat4::from_scale(vec3(1.0, -1.0, 1.0));
+
+        let uniform = CameraUniform {
+            model: Mat4::IDENTITY,
+            view: Mat4::look_at_rh(
+                vec3(0.0, -5.0, -5.0), // Vulkan Z: inside screen
+                vec3(0.0, 0.0, 0.0),
+                vec3(0.0, -1.0, 0.0), // Vulkan Y: bottom screen
+            ),
+            proj: Mat4::perspective_rh(45.0_f32.to_radians(), width / height, 0.1, 1000.0)
+                * inverted,
+        };
+
         self.camera_buffer
             .update(self.present_index as usize, uniform);
     }
 
     pub fn clear(&mut self) {
-        self.objects.clear();
-        self.bounds.clear();
+        self.sprites.clear();
     }
 
     pub fn update(&self) {}
 
-    pub fn draw(&mut self, transform: Mat4, mesh: &MeshAsset, texture: &TextureAsset) {
-        self.objects.push(SceneObject {
-            transform,
-            mesh: mesh.clone(),
-            texture: texture.clone(),
-            texture_bind: self.material_data.describe(
-                texture.id(),
-                vec![[ShaderData::Texture([vk::DescriptorImageInfo {
-                    sampler: texture.sampler(),
-                    image_view: texture.view(),
-                    image_layout: vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
-                }])]],
-            )[0],
-            pose_data: None,
+    pub fn draw(&mut self, texture: &TextureAsset) {
+        self.sprites.push(Sprite {
+            texture: self
+                .material_slot
+                .describe(texture.id(), vec![[ShaderData::from(texture)]])[0],
+            sprite: SpriteUniform {
+                position: [0.0, 0.0],
+                size: [1.0, 1.0],
+                coords: [0.0, 0.0, 1.0, 1.0],
+            },
         })
     }
 
@@ -83,14 +94,15 @@ impl SpriteRenderer {
         pass: vk::RenderPass,
         assets: &mut Assets,
     ) -> Self {
-        let fragment_shader = assets.shader("./assets/shaders/animated.frag.spv");
-        let vertex_shader = assets.shader("./assets/shaders/animated.vert.spv");
+        let fragment_shader = assets.shader("./assets/shaders/sprite.frag.spv");
+        let vertex_shader = assets.shader("./assets/shaders/sprite.vert.spv");
         //
         let camera_buffer =
             UniformBuffer::create::<CameraUniform>(device.clone(), device_memory, swapchain);
 
-        // LAYOUT //
+        let vertex_buffer = VertexBuffer::create(device, device_memory, SPRITE_VERTICES.to_vec());
 
+        // LAYOUT //
         let mut scene_data = ShaderDataSet::create(
             device.clone(),
             swapchain as u32,
@@ -110,30 +122,6 @@ impl SpriteRenderer {
                 .collect(),
         );
 
-        let mut object_data = ShaderDataSet::create(
-            device.clone(),
-            swapchain as u32,
-            vk::ShaderStageFlags::VERTEX,
-            [vk::DescriptorType::UNIFORM_BUFFER],
-        );
-
-        // no animator, static mesh
-        let pose_buffer = PoseBuffer::create::<PoseUniform>(device.clone(), device_memory, 1);
-        pose_buffer.update(
-            0,
-            PoseUniform {
-                bones: [Mat4::IDENTITY; 64],
-            },
-        );
-        let static_pose = object_data.describe(
-            0,
-            vec![[ShaderData::Uniform([vk::DescriptorBufferInfo {
-                buffer: pose_buffer.buffers[0],
-                offset: 0,
-                range: std::mem::size_of::<PoseUniform>() as u64,
-            }])]],
-        )[0];
-
         let material_data = ShaderDataSet::create(
             device.clone(),
             4,
@@ -141,7 +129,7 @@ impl SpriteRenderer {
             [vk::DescriptorType::COMBINED_IMAGE_SAMPLER],
         );
 
-        let set_layouts = [scene_data.layout, material_data.layout, object_data.layout];
+        let set_layouts = [scene_data.layout, material_data.layout];
 
         let push_constant_ranges = [vk::PushConstantRange {
             stage_flags: vk::ShaderStageFlags::VERTEX,
@@ -162,23 +150,18 @@ impl SpriteRenderer {
         let mut renderer = Self {
             device: device.clone(),
             device_memory: device_memory.clone(),
-            swapchain,
-            objects: vec![],
-            bounds: vec![],
+            sprites: vec![],
             layout: pipeline_layout,
-            pipeline: vk::Pipeline::null(), // will be immediately overridden
-            gizmos_pipeline: vk::Pipeline::null(),
-            material_data,
-            object_data,
+            pipeline: vk::Pipeline::null(),
             descriptor_sets,
-            static_pose,
             camera_buffer,
+            vertex_buffer,
             present_index: 0,
             pass,
+            material_slot: material_data,
             vertex_shader: vertex_shader.clone(),
             fragment_shader,
             screen,
-            wireframe_tex: assets.texture_white(),
         };
         renderer.rebuild_pipeline();
         renderer
@@ -191,43 +174,38 @@ impl SpriteRenderer {
         let point = vk::PipelineBindPoint::GRAPHICS;
         let descriptor_set = &[self.descriptor_sets[0]];
         device.cmd_bind_descriptor_sets(buffer, point, self.layout, 0, descriptor_set, &[]);
-        let mut previous_mesh = 0;
-        let mut previous_texture = 0;
-        for object in self.objects.iter() {
-            if previous_mesh != object.mesh.id() {
-                previous_mesh = object.mesh.id();
-                device.cmd_bind_vertex_buffers(buffer, 0, &[object.mesh.vertex()], &[0]);
-                device.cmd_bind_index_buffer(buffer, object.mesh.index(), 0, vk::IndexType::UINT32);
-            }
-            if previous_texture != object.texture.id() {
-                previous_texture = object.texture.id();
+        device.cmd_bind_vertex_buffers(buffer, 0, &[self.vertex_buffer.bind()], &[0]);
+
+        let mut previous_texture = Default::default();
+        for object in self.sprites.iter() {
+            if previous_texture != object.texture {
+                previous_texture = object.texture;
                 device.cmd_bind_descriptor_sets(
                     buffer,
                     point,
                     self.layout,
                     1,
-                    &[object.texture_bind],
+                    &[object.texture],
                     &[],
                 );
             }
-            let pose = match object.pose_data {
-                None => self.static_pose,
-                Some(pose) => pose,
-            };
-            device.cmd_bind_descriptor_sets(buffer, point, self.layout, 2, &[pose], &[]);
             device.cmd_push_constants(
                 buffer,
                 self.layout,
                 vk::ShaderStageFlags::VERTEX,
                 0,
-                bytemuck::cast_slice(&object.transform.to_cols_array()),
+                bytemuck::bytes_of(&object.sprite),
             );
-            device.cmd_draw_indexed(buffer, object.mesh.vertices(), 1, 0, 0, 1);
+            device.cmd_draw(buffer, SPRITE_VERTICES.len() as u32, 1, 0, 0);
         }
     }
 
     pub fn rebuild_pipeline(&mut self) {
         let time = Instant::now();
+        debug!(
+            "Prepare pipeline layout={:?} pass={:?}",
+            self.layout, self.pass
+        );
         let building = Pipeline::new()
             .layout(self.layout)
             .vertex(self.vertex_shader.module())
@@ -237,8 +215,8 @@ impl SpriteRenderer {
                 &self.device,
                 &self.screen.scissors,
                 &self.screen.viewports,
-                &Vertex::ATTRIBUTES,
-                &Vertex::BINDINGS,
+                &SpriteVertex::ATTRIBUTES,
+                &SpriteVertex::BINDINGS,
             );
         match building {
             Ok(pipeline) => {
@@ -251,3 +229,74 @@ impl SpriteRenderer {
         }
     }
 }
+
+pub struct Sprite {
+    texture: vk::DescriptorSet,
+    sprite: SpriteUniform,
+}
+
+#[derive(Debug, Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
+#[repr(C)]
+pub struct SpriteUniform {
+    pub position: [f32; 2],
+    pub size: [f32; 2],
+    pub coords: [f32; 4],
+}
+
+#[derive(Default, Clone, Debug, Copy, bytemuck::Pod, bytemuck::Zeroable, serde::Deserialize)]
+#[repr(C)]
+pub struct SpriteVertex {
+    pub position: [f32; 2],
+    pub uv: [f32; 2],
+}
+
+impl SpriteVertex {
+    pub const BINDINGS: [vk::VertexInputBindingDescription; 1] =
+        [vk::VertexInputBindingDescription {
+            binding: 0,
+            stride: std::mem::size_of::<SpriteVertex>() as u32,
+            input_rate: vk::VertexInputRate::VERTEX,
+        }];
+
+    pub const ATTRIBUTES: [vk::VertexInputAttributeDescription; 2] = [
+        vk::VertexInputAttributeDescription {
+            location: 0,
+            binding: 0,
+            format: vk::Format::R32G32_SFLOAT,
+            offset: 0,
+        },
+        vk::VertexInputAttributeDescription {
+            location: 1,
+            binding: 0,
+            format: vk::Format::R32G32_SFLOAT,
+            offset: 8,
+        },
+    ];
+}
+
+const SPRITE_VERTICES: [SpriteVertex; 6] = [
+    SpriteVertex {
+        position: [-0.5, -0.5],
+        uv: [0.0, 0.0],
+    },
+    SpriteVertex {
+        position: [-0.5, 0.5],
+        uv: [0.0, 1.0],
+    },
+    SpriteVertex {
+        position: [0.5, -0.5],
+        uv: [1.0, 0.0],
+    },
+    SpriteVertex {
+        position: [0.5, -0.5],
+        uv: [1.0, 0.0],
+    },
+    SpriteVertex {
+        position: [-0.5, 0.5],
+        uv: [0.0, 1.0],
+    },
+    SpriteVertex {
+        position: [0.5, 0.5],
+        uv: [1.0, 1.0],
+    },
+];

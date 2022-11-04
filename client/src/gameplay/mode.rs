@@ -280,7 +280,11 @@ impl Gameplay {
         }
     }
 
-    pub fn render2d(&self, _renderer: &mut SpriteRenderer) {}
+    pub fn render2d(&self, renderer: &mut SpriteRenderer, assets: &mut Assets) {
+        renderer.clear();
+        renderer.look_at();
+        renderer.draw(&assets.texture("./assets/texture/objects.png"));
+    }
 
     pub fn render(&self, renderer: &mut SceneRenderer) {
         renderer.clear();
@@ -336,6 +340,6 @@ impl Mode for Gameplay {
         self.handle_user_input(&frame.input);
         self.animate(&frame.input);
         self.render(frame.scene);
-        self.render2d(frame.sprites);
+        self.render2d(frame.sprites, frame.assets);
     }
 }

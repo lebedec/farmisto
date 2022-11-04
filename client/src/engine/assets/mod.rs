@@ -1,18 +1,20 @@
 pub use manager::*;
 pub use mesh::*;
+pub use pipeline::*;
 pub use prefabs::*;
 pub use props::*;
 pub use shader::*;
-pub use texture::*;
 pub use sprite::*;
+pub use texture::*;
 
 mod fs;
 mod generic;
 mod manager;
 mod mesh;
+mod pipeline;
 mod prefabs;
 mod props;
 mod shader;
 pub mod space3;
-mod texture;
 mod sprite;
+mod texture;
