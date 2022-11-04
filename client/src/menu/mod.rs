@@ -1,6 +1,6 @@
-use crate::engine::Input;
 use crate::gameplay::Gameplay;
-use crate::{Assets, Mode, SceneRenderer};
+use crate::Frame;
+use crate::Mode;
 use log::info;
 use network::{Configuration, TcpClient};
 use sdl2::keyboard::Keycode;
@@ -21,7 +21,9 @@ impl Menu {
 }
 
 impl Mode for Menu {
-    fn update(&mut self, input: &Input, _renderer: &mut SceneRenderer, _assets: &mut Assets) {
+    fn update(&mut self, frame: Frame) {
+        let input = &frame.input;
+
         if input.pressed(Keycode::E) {
             info!("Run editor mode")
         }
@@ -37,7 +39,7 @@ impl Mode for Menu {
         }
     }
 
-    fn transition(&self, renderer: &mut SceneRenderer) -> Option<Box<dyn Mode>> {
+    fn transition(&self) -> Option<Box<dyn Mode>> {
         if let Some(player) = self.host.as_ref() {
             let config = Configuration {
                 host: player.clone(),
@@ -46,12 +48,12 @@ impl Mode for Menu {
             };
             let server = LocalServerThread::spawn(config);
             let client = TcpClient::connect(&server.address, player.clone(), None).unwrap();
-            let gameplay = Gameplay::new(Some(server), client, renderer.viewport);
+            let gameplay = Gameplay::new(Some(server), client);
             return Some(Box::new(gameplay));
         }
         if let Some(player) = self.join.as_ref() {
             let client = TcpClient::connect("127.0.0.1:8080", player.to_string(), None).unwrap();
-            return Some(Box::new(Gameplay::new(None, client, renderer.viewport)));
+            return Some(Box::new(Gameplay::new(None, client)));
         }
         None
     }

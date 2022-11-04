@@ -23,7 +23,6 @@ pub struct SceneObject {
 pub struct SceneRenderer {
     pub device: Device,
     pub device_memory: vk::PhysicalDeviceMemoryProperties,
-    swapchain: usize,
     objects: Vec<SceneObject>,
     bounds: Vec<SceneObject>,
     layout: vk::PipelineLayout,
@@ -36,13 +35,12 @@ pub struct SceneRenderer {
     pub static_pose: vk::DescriptorSet,
     camera_buffer: UniformBuffer,
     pub present_index: u32,
-    pub viewport: [f32; 2],
     pass: vk::RenderPass,
     vertex_shader: ShaderAsset,
     vertex_last_id: u64,
     fragment_shader: ShaderAsset,
     fragment_last_id: u64,
-    screen: Screen,
+    pub screen: Screen,
     bounds_mesh: MeshAsset,
     wireframe_tex: TextureAsset,
 }
@@ -216,7 +214,6 @@ impl SceneRenderer {
         let mut renderer = Self {
             device: device.clone(),
             device_memory: device_memory.clone(),
-            swapchain,
             objects: vec![],
             bounds: vec![],
             layout: pipeline_layout,
@@ -228,7 +225,6 @@ impl SceneRenderer {
             static_pose,
             camera_buffer,
             present_index: 0,
-            viewport: [screen.width() as f32, screen.height() as f32],
             pass,
             vertex_shader: vertex_shader.clone(),
             vertex_last_id: 0,

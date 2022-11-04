@@ -1,4 +1,4 @@
-use log::{debug, info};
+use log::debug;
 use std::fs::File;
 use std::io::{Cursor, Error, Read};
 use std::path::Path;

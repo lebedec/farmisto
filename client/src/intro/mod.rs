@@ -1,5 +1,5 @@
 use crate::menu::Menu;
-use crate::{Mode, SceneRenderer};
+use crate::Mode;
 
 pub struct Intro {}
 
@@ -10,7 +10,7 @@ impl Intro {
 }
 
 impl Mode for Intro {
-    fn transition(&self, _renderer: &mut SceneRenderer) -> Option<Box<dyn Mode>> {
+    fn transition(&self) -> Option<Box<dyn Mode>> {
         Some(Menu::new())
     }
 }

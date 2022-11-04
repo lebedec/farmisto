@@ -1,28 +1,27 @@
-use crate::engine::armature::PoseUniform;
 use crate::engine::base::{submit_commands, Base};
 use crate::engine::scene::SceneRenderer;
+use crate::engine::sprites::SpriteRenderer;
 use crate::engine::{Assets, Input};
 use ash::vk;
-use datamap::Storage;
-use glam::Mat4;
-use libfmod::ffi::{
-    FMOD_INIT_NORMAL, FMOD_STUDIO_INIT_NORMAL, FMOD_STUDIO_LOAD_BANK_NORMAL, FMOD_VERSION,
-};
+
+use libfmod::ffi::{FMOD_INIT_NORMAL, FMOD_STUDIO_INIT_NORMAL, FMOD_VERSION};
 use libfmod::{SpeakerMode, Studio};
 use log::info;
-use std::ffi::CString;
+
 use std::sync::Arc;
 use std::time::Instant;
 
+pub struct Frame<'c> {
+    pub input: Input,
+    pub scene: &'c mut SceneRenderer,
+    pub sprites: &'c mut SpriteRenderer,
+    pub assets: &'c mut Assets,
+    pub studio: &'c Studio,
+}
+
 pub trait App {
     fn start(assets: &mut Assets) -> Self;
-    fn update(
-        &mut self,
-        input: Input,
-        renderer: &mut SceneRenderer,
-        assets: &mut Assets,
-        studio: &Studio,
-    );
+    fn update(&mut self, frame: Frame);
 }
 
 pub fn startup<A: App>(title: String) {
@@ -70,20 +69,6 @@ pub fn startup<A: App>(title: String) {
     studio
         .initialize(1024, FMOD_STUDIO_INIT_NORMAL, FMOD_INIT_NORMAL, None)
         .unwrap();
-
-    let master = studio
-        .load_bank_file("./assets/audio/Master.bank", FMOD_STUDIO_LOAD_BANK_NORMAL)
-        .unwrap();
-    let strings = studio
-        .load_bank_file(
-            "./assets/audio/Master.strings.bank",
-            FMOD_STUDIO_LOAD_BANK_NORMAL,
-        )
-        .unwrap();
-    let sfx = studio
-        .load_bank_file("./assets/audio/SFX.bank", FMOD_STUDIO_LOAD_BANK_NORMAL)
-        .unwrap();
-    info!("FMOD banks loaded");
 
     unsafe {
         let renderpass_attachments = [
@@ -154,10 +139,17 @@ pub fn startup<A: App>(title: String) {
             })
             .collect();
 
-        let storage = Storage::open("./assets/assets.sqlite").unwrap();
         let mut assets = Assets::new(base.device.clone(), base.pool, base.queue.clone());
 
-        let mut my_renderer = SceneRenderer::create(
+        let mut scene_renderer = SceneRenderer::create(
+            &base.device,
+            &base.queue.device_memory,
+            base.screen.clone(),
+            base.present_images.len(),
+            renderpass,
+            &mut assets,
+        );
+        let mut sprites_renderer = SpriteRenderer::create(
             &base.device,
             &base.queue.device_memory,
             base.screen.clone(),
@@ -186,7 +178,8 @@ pub fn startup<A: App>(title: String) {
                 break;
             }
 
-            my_renderer.update();
+            scene_renderer.update();
+            sprites_renderer.update();
             let (present_index, _) = base
                 .swapchain_loader
                 .acquire_next_image(
@@ -197,8 +190,16 @@ pub fn startup<A: App>(title: String) {
                 )
                 .unwrap();
 
-            my_renderer.present_index = present_index;
-            app.update(input.clone(), &mut my_renderer, &mut assets, &studio);
+            scene_renderer.present_index = present_index;
+            sprites_renderer.present_index = present_index;
+
+            app.update(Frame {
+                input: input.clone(),
+                scene: &mut scene_renderer,
+                sprites: &mut sprites_renderer,
+                assets: &mut assets,
+                studio: &studio,
+            });
 
             let clear_values = [
                 vk::ClearValue {
@@ -237,7 +238,8 @@ pub fn startup<A: App>(title: String) {
                             vk::SubpassContents::INLINE,
                         );
 
-                        my_renderer.render(device, buffer);
+                        scene_renderer.render(device, buffer);
+                        sprites_renderer.render(device, buffer);
 
                         device.cmd_end_render_pass(buffer);
                     },

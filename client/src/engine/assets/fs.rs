@@ -61,7 +61,6 @@ impl FileSystem {
                 break;
             }
             let line = line.trim();
-            let message = line.split(" ").collect::<Vec<&str>>();
             let (event, path) = match line.split(":").collect::<Vec<&str>>()[..] {
                 ["Created", path] => (FileEvent::Created, path),
                 ["Changed", path] => (FileEvent::Changed, path),

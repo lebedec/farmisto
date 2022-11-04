@@ -1,14 +1,15 @@
 use crate::engine::animatoro::{AnimationAsset, Machine, State, StateId};
 use crate::engine::armature::{PoseBuffer, PoseUniform};
+use crate::engine::sprites::SpriteRenderer;
 use crate::engine::Input;
 use crate::gameplay::camera::Camera;
 use crate::gameplay::objects::{BarrierHint, FarmerBehaviour, FarmlandBehaviour, TreeBehaviour};
-use crate::{Assets, Mode, SceneRenderer};
+use crate::{Assets, Frame, Mode, SceneRenderer};
 use datamap::Storage;
 use game::api::{Action, Event, GameResponse, PlayerRequest};
 use game::math::detect_collision;
 use game::model::{FarmerId, FarmlandId, TreeId};
-use game::{Game};
+use game::Game;
 use glam::{Mat4, Vec2, Vec3};
 use log::{error, info};
 use network::TcpClient;
@@ -17,7 +18,7 @@ use server::LocalServerThread;
 use std::collections::HashMap;
 
 pub struct Gameplay {
-    server: Option<LocalServerThread>,
+    _server: Option<LocalServerThread>,
     client: TcpClient,
     action_id: usize,
     pub knowledge: Game,
@@ -29,9 +30,9 @@ pub struct Gameplay {
 }
 
 impl Gameplay {
-    pub fn new(server: Option<LocalServerThread>, client: TcpClient, viewport: [f32; 2]) -> Self {
+    pub fn new(server: Option<LocalServerThread>, client: TcpClient) -> Self {
         Self {
-            server,
+            _server: server,
             client,
             action_id: 0,
             knowledge: Game::new(Storage::open("./assets/database.sqlite").unwrap()),
@@ -39,7 +40,7 @@ impl Gameplay {
             farmlands: Default::default(),
             trees: HashMap::new(),
             farmers: Default::default(),
-            camera: Camera::new(viewport),
+            camera: Camera::new(),
         }
     }
 
@@ -56,7 +57,14 @@ impl Gameplay {
                                 position,
                                 growth,
                             } => {
-                                let kind = self.knowledge.universe.known.trees.get(&kind).unwrap().clone();
+                                let kind = self
+                                    .knowledge
+                                    .universe
+                                    .known
+                                    .trees
+                                    .get(&kind)
+                                    .unwrap()
+                                    .clone();
                                 info!(
                                     "Appear tree {:?} kind='{}' at {:?} (g {})",
                                     id, kind.name, position, growth
@@ -84,7 +92,14 @@ impl Gameplay {
                                 info!("Update tree {:?} [not implemented yet]", id);
                             }
                             Event::FarmlandAppeared { id, kind } => {
-                                let kind = self.knowledge.universe.known.farmlands.get(&kind).unwrap().clone();
+                                let kind = self
+                                    .knowledge
+                                    .universe
+                                    .known
+                                    .farmlands
+                                    .get(&kind)
+                                    .unwrap()
+                                    .clone();
                                 info!("Appear farmland {:?} kind='{}'", id, kind.name);
 
                                 let asset = assets.farmland(&kind.name);
@@ -102,7 +117,14 @@ impl Gameplay {
                                 position,
                                 player,
                             } => {
-                                let kind = self.knowledge.universe.known.farmers.get(&kind).unwrap().clone();
+                                let kind = self
+                                    .knowledge
+                                    .universe
+                                    .known
+                                    .farmers
+                                    .get(&kind)
+                                    .unwrap()
+                                    .clone();
                                 info!(
                                     "Appear farmer {:?}({}) kind='{}' at {:?}",
                                     id, player, kind.name, position
@@ -258,9 +280,14 @@ impl Gameplay {
         }
     }
 
+    pub fn render2d(&self, _renderer: &mut SpriteRenderer) {}
+
     pub fn render(&self, renderer: &mut SceneRenderer) {
         renderer.clear();
-        renderer.look_at(self.camera.uniform());
+        renderer.look_at(self.camera.uniform(
+            renderer.screen.width() as f32,
+            renderer.screen.height() as f32,
+        ));
         for farmland in self.farmlands.values() {
             for props in &farmland.asset.props {
                 let matrix = Mat4::from_translation(props.position.into())
@@ -300,14 +327,15 @@ impl Gameplay {
 }
 
 impl Mode for Gameplay {
-    fn start(&mut self, assets: &mut Assets) {
+    fn start(&mut self, _assets: &mut Assets) {
         self.knowledge.load_game_knowledge();
     }
 
-    fn update(&mut self, input: &Input, renderer: &mut SceneRenderer, assets: &mut Assets) {
-        self.handle_server_responses(assets, renderer);
-        self.handle_user_input(input);
-        self.animate(input);
-        self.render(renderer);
+    fn update(&mut self, frame: Frame) {
+        self.handle_server_responses(frame.assets, frame.scene);
+        self.handle_user_input(&frame.input);
+        self.animate(&frame.input);
+        self.render(frame.scene);
+        self.render2d(frame.sprites);
     }
 }

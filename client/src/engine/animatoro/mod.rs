@@ -22,7 +22,7 @@ pub struct Armature {
 
 pub struct AnimationAsset {
     armature: Armature,
-    frames: Vec<Frame>,
+    keyframes: Vec<Keyframe>,
 }
 
 impl AnimationAsset {
@@ -55,11 +55,11 @@ impl AnimationAsset {
                     })
                     .collect(),
             },
-            frames: animation
+            keyframes: animation
                 .keyframes
                 .into_iter()
-                .map(|frame| Frame {
-                    channels: frame
+                .map(|keyframe| Keyframe {
+                    channels: keyframe
                         .channels
                         .into_iter()
                         .map(|channel| Channel {
@@ -80,7 +80,7 @@ pub struct Channel {
     scale: [f32; 3],
 }
 
-pub struct Frame {
+pub struct Keyframe {
     channels: Vec<Channel>,
 }
 
@@ -163,11 +163,11 @@ impl Machine {
             need_update = true;
             state.frame_time -= frame_time;
             state.frame += 1;
-            if state.frame >= state.motion.frames.len() {
+            if state.frame >= state.motion.keyframes.len() {
                 if state.looped {
                     state.frame = 0;
                 } else {
-                    state.frame = state.motion.frames.len() - 1;
+                    state.frame = state.motion.keyframes.len() - 1;
                     exit = true;
                 }
             }
@@ -175,7 +175,7 @@ impl Machine {
 
         if need_update {
             let armature = &state.motion.armature;
-            let motions_blend = &state.motion.frames[state.frame];
+            let motions_blend = &state.motion.keyframes[state.frame];
 
             let transform = &mut self.transform;
             for (bone, channel) in motions_blend.channels.iter().enumerate() {

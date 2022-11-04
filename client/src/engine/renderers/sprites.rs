@@ -3,7 +3,7 @@ use crate::engine::base::{Pipeline, Screen, ShaderData, ShaderDataSet};
 use crate::engine::uniform::{CameraUniform, UniformBuffer};
 use crate::engine::{MeshAsset, ShaderAsset, TextureAsset, Vertex};
 use crate::Assets;
-use ash::vk::Handle;
+
 use ash::{vk, Device};
 use glam::Mat4;
 use log::{error, info};
@@ -22,7 +22,7 @@ pub struct SceneObject {
 
 pub struct SpriteUniform {}
 
-pub struct SpritesRenderer {
+pub struct SpriteRenderer {
     pub device: Device,
     pub device_memory: vk::PhysicalDeviceMemoryProperties,
     swapchain: usize,
@@ -38,17 +38,14 @@ pub struct SpritesRenderer {
     pub static_pose: vk::DescriptorSet,
     camera_buffer: UniformBuffer,
     pub present_index: u32,
-    pub viewport: [f32; 2],
     pass: vk::RenderPass,
     vertex_shader: ShaderAsset,
-    vertex_last_id: u64,
     fragment_shader: ShaderAsset,
-    fragment_last_id: u64,
     screen: Screen,
     wireframe_tex: TextureAsset,
 }
 
-impl SpritesRenderer {
+impl SpriteRenderer {
     pub fn look_at(&mut self, uniform: CameraUniform) {
         self.camera_buffer
             .update(self.present_index as usize, uniform);
@@ -58,6 +55,8 @@ impl SpritesRenderer {
         self.objects.clear();
         self.bounds.clear();
     }
+
+    pub fn update(&self) {}
 
     pub fn draw(&mut self, transform: Mat4, mesh: &MeshAsset, texture: &TextureAsset) {
         self.objects.push(SceneObject {
@@ -175,12 +174,9 @@ impl SpritesRenderer {
             static_pose,
             camera_buffer,
             present_index: 0,
-            viewport: [screen.width() as f32, screen.height() as f32],
             pass,
             vertex_shader: vertex_shader.clone(),
-            vertex_last_id: 0,
             fragment_shader,
-            fragment_last_id: 0,
             screen,
             wireframe_tex: assets.texture_white(),
         };
@@ -230,16 +226,6 @@ impl SpritesRenderer {
         }
     }
 
-    pub fn update(&mut self) {
-        let vertex_changed = self.vertex_last_id != self.vertex_shader.module().as_raw();
-        let fragment_changed = self.fragment_last_id != self.fragment_shader.module().as_raw();
-        if vertex_changed || fragment_changed {
-            self.vertex_last_id = self.vertex_shader.module().as_raw();
-            self.fragment_last_id = self.fragment_shader.module().as_raw();
-            self.rebuild_pipeline();
-        }
-    }
-
     pub fn rebuild_pipeline(&mut self) {
         let time = Instant::now();
         let building = Pipeline::new()
@@ -256,11 +242,11 @@ impl SpritesRenderer {
             );
         match building {
             Ok(pipeline) => {
-                info!("Create pipeline in {:?}", time.elapsed());
+                info!("Build pipeline in {:?}", time.elapsed());
                 self.pipeline = pipeline;
             }
             Err(error) => {
-                error!("Unable to rebuild pipeline, {:?}", error);
+                error!("Unable to build pipeline, {:?}", error);
             }
         }
     }

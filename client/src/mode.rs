@@ -1,4 +1,4 @@
-use crate::{Assets, Input, SceneRenderer};
+use crate::{Assets, Frame};
 
 pub trait Mode {
     fn name(&self) -> &str {
@@ -9,10 +9,9 @@ pub trait Mode {
     fn start(&mut self, assets: &mut Assets) {}
 
     #[allow(unused_variables)]
-    fn update(&mut self, input: &Input, renderer: &mut SceneRenderer, assets: &mut Assets) {}
+    fn update(&mut self, context: Frame) {}
 
-    #[allow(unused_variables)]
-    fn transition(&self, renderer: &mut SceneRenderer) -> Option<Box<dyn Mode>> {
+    fn transition(&self) -> Option<Box<dyn Mode>> {
         None
     }
 

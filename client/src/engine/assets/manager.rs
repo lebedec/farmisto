@@ -1,25 +1,25 @@
-use std::{fs, thread};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
-use std::sync::{Arc, RwLock};
 use std::sync::mpsc::{channel, Receiver, Sender};
+use std::sync::{Arc, RwLock};
 use std::time::Duration;
+use std::{fs, thread};
 
-use ash::{Device, vk};
+use ash::{vk, Device};
 use log::{debug, error, info};
 
-use datamap::{Entry, Operation, Storage};
+use datamap::Storage;
 
+use crate::engine::assets::fs::{FileEvent, FileSystem};
+use crate::engine::assets::generic::AssetMap;
+use crate::engine::assets::prefabs::{TreeAsset, TreeAssetData};
+use crate::engine::base::Queue;
 use crate::engine::{
     FarmerAsset, FarmerAssetData, FarmlandAsset, FarmlandAssetData, FarmlandAssetPropItem,
     MeshAsset, MeshAssetData, PropsAsset, PropsAssetData, ShaderAsset, ShaderAssetData,
     TextureAsset, TextureAssetData,
 };
-use crate::engine::assets::fs::{FileEvent, FileSystem};
-use crate::engine::assets::generic::{Asset, AssetMap};
-use crate::engine::assets::prefabs::{TreeAsset, TreeAssetData};
-use crate::engine::base::Queue;
 use crate::ShaderCompiler;
 
 pub struct Assets {
@@ -206,7 +206,14 @@ impl Assets {
             let loader_queue = queue.clone();
             let loader_result = loading.clone();
             let loader_device = device.clone();
-            spawn_loader(loader, loaders_requests, loader_queue, loader_result, loader_device, pool);
+            spawn_loader(
+                loader,
+                loaders_requests,
+                loader_queue,
+                loader_result,
+                loader_device,
+                pool,
+            );
         }
 
         let file_events = FileSystem::watch();

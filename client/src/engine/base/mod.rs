@@ -2,7 +2,7 @@ extern crate ash;
 
 use std::borrow::Cow;
 use std::default::Default;
-use std::ffi::{CStr, CString};
+use std::ffi::CStr;
 use std::ops::Drop;
 use std::os::raw::c_char;
 use std::sync::{Arc, Mutex};
@@ -240,7 +240,7 @@ impl Base {
             let debug_call_back = debug_utils_loader
                 .create_debug_utils_messenger(&debug_info, None)
                 .unwrap();
-            let surface = unsafe { vk::SurfaceKHR::from_raw(surface_handle) };
+            let surface = vk::SurfaceKHR::from_raw(surface_handle);
             let pdevices = instance
                 .enumerate_physical_devices()
                 .expect("Physical device error");
@@ -279,6 +279,7 @@ impl Base {
             let features = vk::PhysicalDeviceFeatures {
                 shader_clip_distance: 1,
                 sampler_anisotropy: 1,
+                fill_mode_non_solid: 1,
                 ..Default::default()
             };
             let priorities = [1.0];

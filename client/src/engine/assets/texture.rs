@@ -3,7 +3,7 @@ use crate::engine::commands::Single;
 
 use ash::vk::Handle;
 use ash::{vk, Device};
-use log::{debug, info};
+use log::debug;
 use std::cell::RefCell;
 use std::ptr;
 use std::sync::Arc;
@@ -17,7 +17,7 @@ pub struct TextureAsset {
 #[derive(Clone)]
 pub struct TextureAssetData {
     image: vk::Image,
-    memory: vk::DeviceMemory,
+    _memory: vk::DeviceMemory,
     view: vk::ImageView,
     sampler: vk::Sampler,
 }
@@ -106,7 +106,7 @@ impl TextureAssetData {
 
         Self {
             image,
-            memory,
+            _memory: memory,
             view,
             sampler,
         }
@@ -130,7 +130,7 @@ impl TextureAssetData {
         // let image_data = buf.as_ptr();
 
         let image_object = image::load_from_memory(data).unwrap();
-        let mut image_object = image_object.flipv();
+        let image_object = image_object.flipv();
         let (image_width, image_height) = (image_object.width(), image_object.height());
         let image_data = image_object.to_rgba8();
         let image_data_len = image_data.len();
@@ -139,7 +139,7 @@ impl TextureAssetData {
         let image_size =
             (std::mem::size_of::<u8>() as u32 * image_width * image_height * 4) as vk::DeviceSize;
 
-        let (staging_buffer, staging_buffer_memory, size) = create_buffer(
+        let (staging_buffer, staging_buffer_memory, _size) = create_buffer(
             device,
             image_size,
             vk::BufferUsageFlags::TRANSFER_SRC,

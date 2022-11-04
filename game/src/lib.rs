@@ -1,19 +1,30 @@
-use std::collections::{HashMap, HashSet};
-
 use datamap::Storage;
 pub use domains::*;
 
 use crate::api::{Action, Event};
-use crate::model::{Farmer, FarmerId, FarmerKey, FarmerKind, Farmland, FarmlandId, FarmlandKey, FarmlandKind, Tree, TreeId, TreeKey, TreeKind, Universe, UniverseSnapshot};
+use crate::model::Farmer;
+use crate::model::FarmerId;
+
+use crate::model::FarmerKind;
+use crate::model::Farmland;
+use crate::model::FarmlandId;
+
+use crate::model::FarmlandKind;
+use crate::model::Tree;
+use crate::model::TreeId;
+
+use crate::model::TreeKind;
+use crate::model::Universe;
+use crate::model::UniverseSnapshot;
 use crate::physics::{Physics, PhysicsDomain};
 use crate::planting::PlantingDomain;
 
 pub mod api;
+pub mod collections;
+mod data;
 mod domains;
 pub mod math;
 pub mod model;
-mod data;
-pub mod collections;
 
 pub struct Game {
     pub universe: Universe,
@@ -155,4 +166,3 @@ impl Game {
         events
     }
 }
-
