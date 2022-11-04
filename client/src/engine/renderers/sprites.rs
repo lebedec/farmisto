@@ -1,12 +1,12 @@
 use crate::engine::armature::{PoseBuffer, PoseUniform};
 use crate::engine::base::{Pipeline, Screen, ShaderData, ShaderDataSet};
 use crate::engine::uniform::{CameraUniform, UniformBuffer};
-use crate::engine::{MeshAsset, MeshBounds, ShaderAsset, TextureAsset, Vertex};
+use crate::engine::{MeshAsset, ShaderAsset, TextureAsset, Vertex};
 use crate::Assets;
 use ash::vk::Handle;
 use ash::{vk, Device};
-use glam::{Mat4, Vec3};
-use log::info;
+use glam::Mat4;
+use log::{error, info};
 
 use std::time::Instant;
 
@@ -20,7 +20,9 @@ pub struct SceneObject {
     pose_data: Option<vk::DescriptorSet>,
 }
 
-pub struct SceneRenderer {
+pub struct SpriteUniform {}
+
+pub struct SpritesRenderer {
     pub device: Device,
     pub device_memory: vk::PhysicalDeviceMemoryProperties,
     swapchain: usize,
@@ -43,11 +45,10 @@ pub struct SceneRenderer {
     fragment_shader: ShaderAsset,
     fragment_last_id: u64,
     screen: Screen,
-    bounds_mesh: MeshAsset,
     wireframe_tex: TextureAsset,
 }
 
-impl SceneRenderer {
+impl SpritesRenderer {
     pub fn look_at(&mut self, uniform: CameraUniform) {
         self.camera_buffer
             .update(self.present_index as usize, uniform);
@@ -56,26 +57,6 @@ impl SceneRenderer {
     pub fn clear(&mut self) {
         self.objects.clear();
         self.bounds.clear();
-    }
-
-    pub fn bounds(&mut self, transform: Mat4, bounds: MeshBounds) {
-        let bounds_matrix = Mat4::from_scale(Vec3::from(bounds.length()))
-            * Mat4::from_translation(Vec3::from(bounds.offset()));
-        let texture = &self.wireframe_tex;
-        self.bounds.push(SceneObject {
-            transform: transform * bounds_matrix,
-            mesh: self.bounds_mesh.clone(),
-            texture: texture.clone(),
-            texture_bind: self.material_data.describe(
-                texture.id(),
-                vec![[ShaderData::Texture([vk::DescriptorImageInfo {
-                    sampler: texture.sampler(),
-                    image_view: texture.view(),
-                    image_layout: vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
-                }])]],
-            )[0],
-            pose_data: None,
-        })
     }
 
     pub fn draw(&mut self, transform: Mat4, mesh: &MeshAsset, texture: &TextureAsset) {
@@ -95,39 +76,6 @@ impl SceneRenderer {
         })
     }
 
-    pub fn animate(
-        &mut self,
-        transform: Mat4,
-        mesh: &MeshAsset,
-        texture: &TextureAsset,
-        pose_id: u64,
-        pose_buffer: &PoseBuffer,
-    ) {
-        self.objects.push(SceneObject {
-            transform,
-            mesh: mesh.clone(),
-            texture: texture.clone(),
-            texture_bind: self.material_data.describe(
-                texture.id(),
-                vec![[ShaderData::Texture([vk::DescriptorImageInfo {
-                    sampler: texture.sampler(),
-                    image_view: texture.view(),
-                    image_layout: vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
-                }])]],
-            )[0],
-            pose_data: Some(
-                self.object_data.describe(
-                    pose_id,
-                    vec![[ShaderData::Uniform([vk::DescriptorBufferInfo {
-                        buffer: pose_buffer.buffers[0],
-                        offset: 0,
-                        range: std::mem::size_of::<PoseUniform>() as u64,
-                    }])]],
-                )[0],
-            ),
-        })
-    }
-
     pub fn create<'a>(
         device: &Device,
         device_memory: &vk::PhysicalDeviceMemoryProperties,
@@ -137,7 +85,6 @@ impl SceneRenderer {
         assets: &mut Assets,
     ) -> Self {
         let fragment_shader = assets.shader("./assets/shaders/animated.frag.spv");
-        let wireframe_shader = assets.shader("./assets/shaders/wireframe.frag.spv");
         let vertex_shader = assets.shader("./assets/shaders/animated.vert.spv");
         //
         let camera_buffer =
@@ -235,34 +182,27 @@ impl SceneRenderer {
             fragment_shader,
             fragment_last_id: 0,
             screen,
-            bounds_mesh: assets.cube(),
             wireframe_tex: assets.texture_white(),
         };
         renderer.rebuild_pipeline();
-        renderer.build_gizmos_pipeline(vertex_shader, wireframe_shader);
         renderer
     }
 
     pub unsafe fn render(&self, device: &Device, buffer: vk::CommandBuffer) {
         device.cmd_set_viewport(buffer, 0, &self.screen.viewports);
         device.cmd_set_scissor(buffer, 0, &self.screen.scissors);
-
         device.cmd_bind_pipeline(buffer, vk::PipelineBindPoint::GRAPHICS, self.pipeline);
-
         let point = vk::PipelineBindPoint::GRAPHICS;
         let descriptor_set = &[self.descriptor_sets[0]];
         device.cmd_bind_descriptor_sets(buffer, point, self.layout, 0, descriptor_set, &[]);
-
         let mut previous_mesh = 0;
         let mut previous_texture = 0;
-
         for object in self.objects.iter() {
             if previous_mesh != object.mesh.id() {
                 previous_mesh = object.mesh.id();
                 device.cmd_bind_vertex_buffers(buffer, 0, &[object.mesh.vertex()], &[0]);
                 device.cmd_bind_index_buffer(buffer, object.mesh.index(), 0, vk::IndexType::UINT32);
             }
-
             if previous_texture != object.texture.id() {
                 previous_texture = object.texture.id();
                 device.cmd_bind_descriptor_sets(
@@ -274,57 +214,11 @@ impl SceneRenderer {
                     &[],
                 );
             }
-
             let pose = match object.pose_data {
                 None => self.static_pose,
                 Some(pose) => pose,
             };
             device.cmd_bind_descriptor_sets(buffer, point, self.layout, 2, &[pose], &[]);
-
-            device.cmd_push_constants(
-                buffer,
-                self.layout,
-                vk::ShaderStageFlags::VERTEX,
-                0,
-                bytemuck::cast_slice(&object.transform.to_cols_array()),
-            );
-            device.cmd_draw_indexed(buffer, object.mesh.vertices(), 1, 0, 0, 1);
-        }
-
-        // GIZMOS
-
-        device.cmd_bind_pipeline(
-            buffer,
-            vk::PipelineBindPoint::GRAPHICS,
-            self.gizmos_pipeline,
-        );
-
-        let bind_point = vk::PipelineBindPoint::GRAPHICS;
-        let descriptor_set = &[self.descriptor_sets[0]];
-        device.cmd_bind_descriptor_sets(buffer, bind_point, self.layout, 0, descriptor_set, &[]);
-
-        let mut previous_mesh = 0;
-        let mut previous_texture = 0;
-
-        for object in self.bounds.iter() {
-            if previous_mesh != object.mesh.id() {
-                previous_mesh = object.mesh.id();
-                device.cmd_bind_vertex_buffers(buffer, 0, &[object.mesh.vertex()], &[0]);
-                device.cmd_bind_index_buffer(buffer, object.mesh.index(), 0, vk::IndexType::UINT32);
-            }
-
-            if previous_texture != object.texture.id() {
-                previous_texture = object.texture.id();
-                device.cmd_bind_descriptor_sets(
-                    buffer,
-                    bind_point,
-                    self.layout,
-                    1,
-                    &[object.texture_bind],
-                    &[],
-                );
-            }
-
             device.cmd_push_constants(
                 buffer,
                 self.layout,
@@ -347,7 +241,8 @@ impl SceneRenderer {
     }
 
     pub fn rebuild_pipeline(&mut self) {
-        self.pipeline = Pipeline::new()
+        let time = Instant::now();
+        let building = Pipeline::new()
             .layout(self.layout)
             .vertex(self.vertex_shader.module())
             .fragment(self.fragment_shader.module())
@@ -358,30 +253,15 @@ impl SceneRenderer {
                 &self.screen.viewports,
                 &Vertex::ATTRIBUTES,
                 &Vertex::BINDINGS,
-            )
-            .unwrap();
-    }
-
-    pub fn build_gizmos_pipeline(&mut self, vertex: ShaderAsset, fragment: ShaderAsset) {
-        let time = Instant::now();
-        self.gizmos_pipeline = Pipeline::new()
-            .layout(self.layout)
-            .vertex(vertex.module())
-            .fragment(fragment.module())
-            .polygon_mode(vk::PolygonMode::LINE)
-            .pass(self.pass)
-            .build(
-                &self.device,
-                &self.screen.scissors,
-                &self.screen.viewports,
-                &Vertex::ATTRIBUTES,
-                &Vertex::BINDINGS,
-            )
-            .unwrap();
-        info!("Rebuild gizmos pipeline in {:?}", time.elapsed())
-    }
-
-    pub fn pipeline_layout(&self) -> vk::PipelineLayout {
-        self.layout
+            );
+        match building {
+            Ok(pipeline) => {
+                info!("Create pipeline in {:?}", time.elapsed());
+                self.pipeline = pipeline;
+            }
+            Err(error) => {
+                error!("Unable to rebuild pipeline, {:?}", error);
+            }
+        }
     }
 }

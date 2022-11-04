@@ -19,8 +19,12 @@ pub use ash::{Device, Instance};
 use log::{log, Level};
 use sdl2::video::Window;
 
+pub use pipeline::*;
+pub use screen::*;
 pub use shader::*;
 
+mod pipeline;
+mod screen;
 mod shader;
 
 #[allow(clippy::too_many_arguments)]
@@ -145,9 +149,7 @@ pub struct Base {
 
     pub queue: Arc<Queue>,
 
-    pub surface: vk::SurfaceKHR,
-    pub surface_format: vk::SurfaceFormatKHR,
-    pub surface_resolution: vk::Extent2D,
+    pub screen: Screen,
 
     pub swapchain: vk::SwapchainKHR,
     pub present_images: Vec<vk::Image>,
@@ -507,14 +509,15 @@ impl Base {
                 family: queue_family_index,
             });
 
+            let screen = Screen::new(surface, surface_format, surface_resolution);
+
             Base {
                 entry,
                 instance,
                 device,
                 physical_device,
                 surface_loader,
-                surface_format,
-                surface_resolution,
+                screen,
                 swapchain_loader,
                 swapchain,
                 present_images,
@@ -528,7 +531,6 @@ impl Base {
                 rendering_complete_semaphore,
                 draw_commands_reuse_fence,
                 setup_commands_reuse_fence,
-                surface,
                 debug_call_back,
                 debug_utils_loader,
                 depth_image_memory,
@@ -560,7 +562,8 @@ impl Drop for Base {
             self.swapchain_loader
                 .destroy_swapchain(self.swapchain, None);
             self.device.destroy_device(None);
-            self.surface_loader.destroy_surface(self.surface, None);
+            self.surface_loader
+                .destroy_surface(self.screen.surface(), None);
             self.debug_utils_loader
                 .destroy_debug_utils_messenger(self.debug_call_back, None);
             self.instance.destroy_instance(None);

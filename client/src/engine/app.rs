@@ -88,7 +88,7 @@ pub fn startup<A: App>(title: String) {
     unsafe {
         let renderpass_attachments = [
             vk::AttachmentDescription {
-                format: base.surface_format.format,
+                format: base.screen.format(),
                 samples: vk::SampleCountFlags::TYPE_1,
                 load_op: vk::AttachmentLoadOp::CLEAR,
                 store_op: vk::AttachmentStoreOp::STORE,
@@ -144,8 +144,8 @@ pub fn startup<A: App>(title: String) {
                 let frame_buffer_create_info = vk::FramebufferCreateInfo::builder()
                     .render_pass(renderpass)
                     .attachments(&framebuffer_attachments)
-                    .width(base.surface_resolution.width)
-                    .height(base.surface_resolution.height)
+                    .width(base.screen.width())
+                    .height(base.screen.height())
                     .layers(1);
 
                 base.device
@@ -154,25 +154,13 @@ pub fn startup<A: App>(title: String) {
             })
             .collect();
 
-        let viewports = vec![vk::Viewport {
-            x: 0.0,
-            y: 0.0,
-            width: base.surface_resolution.width as f32,
-            height: base.surface_resolution.height as f32,
-            min_depth: 0.0,
-            max_depth: 1.0,
-        }];
-        let scissors = vec![base.surface_resolution.into()];
-
         let storage = Storage::open("./assets/assets.sqlite").unwrap();
         let mut assets = Assets::new(base.device.clone(), base.pool, base.queue.clone());
 
         let mut my_renderer = SceneRenderer::create(
             &base.device,
             &base.queue.device_memory,
-            base.queue.clone(),
-            scissors,
-            viewports,
+            base.screen.clone(),
             base.present_images.len(),
             renderpass,
             &mut assets,
@@ -228,7 +216,7 @@ pub fn startup<A: App>(title: String) {
             let render_begin = vk::RenderPassBeginInfo::builder()
                 .render_pass(renderpass)
                 .framebuffer(framebuffers[present_index as usize])
-                .render_area(base.surface_resolution.into())
+                .render_area(base.screen.resolution.into())
                 .clear_values(&clear_values);
 
             {
