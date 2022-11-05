@@ -1,7 +1,7 @@
 use crate::engine::armature::{PoseBuffer, PoseUniform};
 use crate::engine::base::{Pipeline, Screen, ShaderData, ShaderDataSet};
 use crate::engine::uniform::{CameraUniform, UniformBuffer};
-use crate::engine::{MeshAsset, MeshBounds, ShaderAsset, TextureAsset, Vertex};
+use crate::engine::{MeshAsset, MeshBounds, PipelineAsset, ShaderAsset, TextureAsset, Vertex};
 use crate::Assets;
 use ash::vk::Handle;
 use ash::{vk, Device};
@@ -26,8 +26,12 @@ pub struct SceneRenderer {
     objects: Vec<SceneObject>,
     bounds: Vec<SceneObject>,
     layout: vk::PipelineLayout,
+
+    pipeline_asset: PipelineAsset,
     pipeline: vk::Pipeline,
+    gizmos_pipeline_asset: PipelineAsset,
     gizmos_pipeline: vk::Pipeline,
+
     // pub scene_data: ShaderData,
     pub material_data: ShaderDataSet<1>,
     pub object_data: ShaderDataSet<1>,
@@ -36,10 +40,6 @@ pub struct SceneRenderer {
     camera_buffer: UniformBuffer,
     pub present_index: u32,
     pass: vk::RenderPass,
-    vertex_shader: ShaderAsset,
-    vertex_last_id: u64,
-    fragment_shader: ShaderAsset,
-    fragment_last_id: u64,
     pub screen: Screen,
     bounds_mesh: MeshAsset,
     wireframe_tex: TextureAsset,
@@ -134,9 +134,8 @@ impl SceneRenderer {
         pass: vk::RenderPass,
         assets: &mut Assets,
     ) -> Self {
-        let fragment_shader = assets.shader("./assets/shaders/animated.frag.spv");
-        let wireframe_shader = assets.shader("./assets/shaders/wireframe.frag.spv");
-        let vertex_shader = assets.shader("./assets/shaders/animated.vert.spv");
+        let pipeline_asset = assets.pipeline("scene");
+        let gizmos_pipeline_asset = assets.pipeline("gizmos");
         //
         let camera_buffer =
             UniformBuffer::create::<CameraUniform>(device.clone(), device_memory, swapchain);
@@ -217,7 +216,9 @@ impl SceneRenderer {
             objects: vec![],
             bounds: vec![],
             layout: pipeline_layout,
+            pipeline_asset,
             pipeline: vk::Pipeline::null(), // will be immediately overridden
+            gizmos_pipeline_asset,
             gizmos_pipeline: vk::Pipeline::null(),
             material_data,
             object_data,
@@ -226,16 +227,12 @@ impl SceneRenderer {
             camera_buffer,
             present_index: 0,
             pass,
-            vertex_shader: vertex_shader.clone(),
-            vertex_last_id: 0,
-            fragment_shader,
-            fragment_last_id: 0,
             screen,
             bounds_mesh: assets.cube(),
             wireframe_tex: assets.texture_white(),
         };
         renderer.rebuild_pipeline();
-        renderer.build_gizmos_pipeline(vertex_shader, wireframe_shader);
+        renderer.rebuild_gizmos_pipeline();
         renderer
     }
 
@@ -333,20 +330,21 @@ impl SceneRenderer {
     }
 
     pub fn update(&mut self) {
-        let vertex_changed = self.vertex_last_id != self.vertex_shader.module().as_raw();
-        let fragment_changed = self.fragment_last_id != self.fragment_shader.module().as_raw();
-        if vertex_changed || fragment_changed {
-            self.vertex_last_id = self.vertex_shader.module().as_raw();
-            self.fragment_last_id = self.fragment_shader.module().as_raw();
+        if self.pipeline_asset.changed {
             self.rebuild_pipeline();
+            self.pipeline_asset.changed = false;
+        }
+        if self.gizmos_pipeline_asset.changed {
+            self.rebuild_gizmos_pipeline();
+            self.gizmos_pipeline_asset.changed = false;
         }
     }
 
     pub fn rebuild_pipeline(&mut self) {
         self.pipeline = Pipeline::new()
             .layout(self.layout)
-            .vertex(self.vertex_shader.module())
-            .fragment(self.fragment_shader.module())
+            .vertex(self.pipeline_asset.vertex.module)
+            .fragment(self.pipeline_asset.fragment.module)
             .pass(self.pass)
             .build(
                 &self.device,
@@ -358,12 +356,12 @@ impl SceneRenderer {
             .unwrap();
     }
 
-    pub fn build_gizmos_pipeline(&mut self, vertex: ShaderAsset, fragment: ShaderAsset) {
+    pub fn rebuild_gizmos_pipeline(&mut self) {
         let time = Instant::now();
         self.gizmos_pipeline = Pipeline::new()
             .layout(self.layout)
-            .vertex(vertex.module())
-            .fragment(fragment.module())
+            .vertex(self.gizmos_pipeline_asset.vertex.module)
+            .fragment(self.gizmos_pipeline_asset.fragment.module)
             .polygon_mode(vk::PolygonMode::LINE)
             .pass(self.pass)
             .build(

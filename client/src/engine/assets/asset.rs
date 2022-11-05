@@ -1,6 +1,6 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::ops::Deref;
+use std::ops::{Deref, DerefMut};
 use std::sync::Arc;
 
 /// Provides safe access to game assets data.
@@ -22,6 +22,16 @@ impl<T> Deref for Asset<T> {
     /// (before any dereference attempts).
     fn deref(&self) -> &Self::Target {
         unsafe { &*self.data.as_ptr() }
+    }
+}
+
+impl<T> DerefMut for Asset<T> {
+    /// # Safety
+    /// Dereference of raw pointer is safe because of
+    /// underlying data update possible in single thread method Assets::update only
+    /// (before any dereference attempts).
+    fn deref_mut(&mut self) -> &mut Self::Target {
+        unsafe { &mut *self.data.as_ptr() }
     }
 }
 

@@ -1,9 +1,10 @@
 use std::cell::RefCell;
 use std::collections::HashMap;
+use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::{Arc, RwLock};
-use std::time::Duration;
+use std::time::{Duration, Instant};
 use std::{fs, thread};
 
 use ash::{vk, Device};
@@ -11,8 +12,8 @@ use log::{debug, error, info};
 
 use datamap::Storage;
 
+use crate::engine::assets::asset::{Asset, AssetMap};
 use crate::engine::assets::fs::{FileEvent, FileSystem};
-use crate::engine::assets::generic::{Asset, AssetMap};
 use crate::engine::assets::prefabs::{TreeAsset, TreeAssetData};
 use crate::engine::base::Queue;
 use crate::engine::{
@@ -27,7 +28,8 @@ pub struct Assets {
 
     loading_requests: Arc<RwLock<Vec<AssetRequest>>>,
     loading_result: Receiver<AssetPayload>,
-    file_events: Arc<RwLock<HashMap<PathBuf, FileEvent>>>,
+
+    file_system: FileSystem,
 
     textures_default: TextureAssetData,
     textures_white: TextureAsset,
@@ -206,7 +208,8 @@ impl Assets {
             );
         }
 
-        let file_events = FileSystem::watch();
+        let files = vec!["png", "json", "yaml", "space3", "frag", "vert", "spv"];
+        let file_system = FileSystem::watch(files);
 
         Self {
             storage,
@@ -219,7 +222,7 @@ impl Assets {
             loading_result,
             meshes,
             shaders,
-            file_events,
+            file_system,
             queue,
             farmlands: Default::default(),
             trees: Default::default(),
@@ -232,11 +235,11 @@ impl Assets {
     pub fn shader<P: AsRef<Path>>(&mut self, path: P) -> ShaderAsset {
         let path = fs::canonicalize(path).unwrap();
         if let Some(shader) = self.shaders.get(&path) {
-            return shader.clone();
+            return shader.share();
         }
         let data = ShaderAssetData::from_spirv_file(&self.queue, &path).unwrap();
-        let shader = ShaderAsset::from_data(Arc::new(RefCell::new(data)));
-        self.shaders.insert(path.clone(), shader.clone());
+        let shader = ShaderAsset::from(data);
+        self.shaders.insert(path.clone(), shader.share());
         shader
     }
 
@@ -269,6 +272,16 @@ impl Assets {
         self.meshes.insert(path.clone(), mesh.clone());
         self.require_update(AssetKind::Mesh, path);
         mesh
+    }
+
+    pub fn pipeline(&mut self, name: &str) -> PipelineAsset {
+        match self.pipelines.get(name) {
+            Some(asset) => asset.share(),
+            None => {
+                let data = self.load_pipeline_data(name).unwrap();
+                self.pipelines.publish(name, data)
+            }
+        }
     }
 
     pub fn tree(&mut self, name: &str) -> TreeAsset {
@@ -368,6 +381,7 @@ impl Assets {
         let data = PipelineAssetData {
             fragment: self.shader(fragment),
             vertex: self.shader(vertex),
+            changed: true,
         };
         Ok(data)
     }
@@ -400,14 +414,7 @@ impl Assets {
                 }
                 "PipelineAssetData" => {
                     let data = self.load_pipeline_data(&change.id).unwrap();
-                    match self.pipelines.get_mut(&change.id) {
-                        Some(asset) => {
-                            asset.update(data);
-                        }
-                        None => {
-                            self.pipelines.insert(change.id, Asset::from(data));
-                        }
-                    }
+                    self.pipelines.get_mut(&change.id).unwrap().update(data);
                 }
                 _ => {
                     error!("Handle of {:?} not implemented yet", change)
@@ -422,7 +429,7 @@ impl Assets {
             error!("Unable to reload dictionaries, {:?}", error);
         }
 
-        for (path, event) in self.observe_file_events() {
+        for (path, event) in self.file_system.observe_file_events() {
             debug!(
                 "Observed {:?} {:?}, {:?}",
                 event,
@@ -479,6 +486,13 @@ impl Assets {
                     Some(shader) => {
                         debug!("Update shader {:?}", path.to_str());
                         shader.update(data);
+                        for pipeline in self.pipelines.values_mut() {
+                            if pipeline.fragment.module == shader.module
+                                || pipeline.vertex.module == shader.module
+                            {
+                                pipeline.changed = true;
+                            }
+                        }
                     }
                 },
                 AssetPayload::Mesh { path, data } => match self.meshes.get_mut(&path) {
@@ -492,18 +506,5 @@ impl Assets {
                 },
             }
         }
-    }
-
-    fn observe_file_events(&mut self) -> Vec<(PathBuf, FileEvent)> {
-        let mut events = match self.file_events.write() {
-            Ok(events) => events,
-            Err(error) => {
-                error!("Unable to observe file events, {:?}", error);
-                return vec![];
-            }
-        };
-        std::mem::replace(&mut *events, HashMap::new())
-            .into_iter()
-            .collect()
     }
 }

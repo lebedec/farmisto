@@ -7,8 +7,8 @@ pub use shader::*;
 pub use sprite::*;
 pub use texture::*;
 
+mod asset;
 mod fs;
-mod generic;
 mod manager;
 mod mesh;
 mod pipeline;

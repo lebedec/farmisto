@@ -1,15 +1,12 @@
-
 use rusqlite::types::{FromSql, ValueRef};
-use rusqlite::{Connection, params, Params};
+use rusqlite::{params, Connection, Params};
 
-
+use log::info;
 use serde::Deserialize;
 use serde_json::{Number, Value};
 use std::collections::HashMap;
 use std::path::Path;
 use std::rc::Rc;
-use log::info;
-
 
 pub struct Storage {
     connection: Connection,
@@ -95,9 +92,13 @@ impl Storage {
         entries
     }
 
-    pub fn select_changes<T>(&mut self, last_change_timestamp: usize, entity: &str) -> Result<Vec<Change<T>>, rusqlite::Error>
-        where
-            T: FromSql,
+    pub fn select_changes<T>(
+        &mut self,
+        last_change_timestamp: usize,
+        entity: &str,
+    ) -> Result<Vec<Change<T>>, rusqlite::Error>
+    where
+        T: FromSql,
     {
         let mut changes = vec![];
         let mut statement = self

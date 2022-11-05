@@ -5,16 +5,16 @@ $watcher.IncludeSubdirectories = $true
 $watcher.EnableRaisingEvents = $true
 
 $generic = {
-$path = $Event.SourceEventArgs.FullPath
-$changeType = $Event.SourceEventArgs.ChangeType
-Write-Host "$changeType`:$path"
+    $path = $Event.SourceEventArgs.FullPath
+    $changeType = $Event.SourceEventArgs.ChangeType
+    Write-Host "$changeType`:$path"
 }
 
 $renamed = {
-$old = $Event.SourceEventArgs.OldFullPath
-$path = $Event.SourceEventArgs.FullPath
-Write-Host "Deleted:$old"
-Write-Host "Created:$path"
+    $old = $Event.SourceEventArgs.OldFullPath
+    $path = $Event.SourceEventArgs.FullPath
+    Write-Host "Deleted:$old"
+    Write-Host "Created:$path"
 }
 
 Register-ObjectEvent $watcher "Created" -Action $generic | out-null

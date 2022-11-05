@@ -1,7 +1,7 @@
 use crate::engine::armature::{PoseBuffer, PoseUniform};
 use crate::engine::base::{Pipeline, Screen, ShaderData, ShaderDataSet};
 use crate::engine::uniform::{CameraUniform, UniformBuffer};
-use crate::engine::{ShaderAsset, TextureAsset, VertexBuffer};
+use crate::engine::{PipelineAsset, ShaderAsset, TextureAsset, VertexBuffer};
 use crate::Assets;
 
 use ash::{vk, Device};
@@ -15,17 +15,14 @@ pub struct SpriteRenderer {
     pub device_memory: vk::PhysicalDeviceMemoryProperties,
     sprites: Vec<Sprite>,
     layout: vk::PipelineLayout,
+    pipeline_asset: PipelineAsset,
     pipeline: vk::Pipeline,
     pub descriptor_sets: Vec<vk::DescriptorSet>,
     camera_buffer: UniformBuffer,
     vertex_buffer: VertexBuffer,
     pub present_index: u32,
     pass: vk::RenderPass,
-
     pub material_slot: ShaderDataSet<1>,
-    vertex_shader: ShaderAsset,
-    fragment_shader: ShaderAsset,
-
     screen: Screen,
 }
 
@@ -71,7 +68,12 @@ impl SpriteRenderer {
         self.sprites.clear();
     }
 
-    pub fn update(&self) {}
+    pub fn update(&mut self) {
+        if self.pipeline_asset.changed {
+            self.rebuild_pipeline();
+            self.pipeline_asset.changed = false;
+        }
+    }
 
     pub fn draw(&mut self, texture: &TextureAsset) {
         self.sprites.push(Sprite {
@@ -94,8 +96,7 @@ impl SpriteRenderer {
         pass: vk::RenderPass,
         assets: &mut Assets,
     ) -> Self {
-        let fragment_shader = assets.shader("./assets/shaders/sprite.frag.spv");
-        let vertex_shader = assets.shader("./assets/shaders/sprite.vert.spv");
+        let pipeline_asset = assets.pipeline("sprites");
         //
         let camera_buffer =
             UniformBuffer::create::<CameraUniform>(device.clone(), device_memory, swapchain);
@@ -141,7 +142,7 @@ impl SpriteRenderer {
             .set_layouts(&set_layouts)
             .push_constant_ranges(&push_constant_ranges);
 
-        let pipeline_layout = unsafe {
+        let layout = unsafe {
             device
                 .create_pipeline_layout(&layout_create_info, None)
                 .unwrap()
@@ -151,7 +152,8 @@ impl SpriteRenderer {
             device: device.clone(),
             device_memory: device_memory.clone(),
             sprites: vec![],
-            layout: pipeline_layout,
+            layout,
+            pipeline_asset,
             pipeline: vk::Pipeline::null(),
             descriptor_sets,
             camera_buffer,
@@ -159,8 +161,6 @@ impl SpriteRenderer {
             present_index: 0,
             pass,
             material_slot: material_data,
-            vertex_shader: vertex_shader.clone(),
-            fragment_shader,
             screen,
         };
         renderer.rebuild_pipeline();
@@ -208,8 +208,8 @@ impl SpriteRenderer {
         );
         let building = Pipeline::new()
             .layout(self.layout)
-            .vertex(self.vertex_shader.module())
-            .fragment(self.fragment_shader.module())
+            .vertex(self.pipeline_asset.vertex.module)
+            .fragment(self.pipeline_asset.fragment.module)
             .pass(self.pass)
             .build(
                 &self.device,

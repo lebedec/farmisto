@@ -1,14 +1,37 @@
-use log::error;
+use log::{debug, error, info};
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
 use std::process::{Command, Stdio};
 use std::sync::{Arc, RwLock};
+use std::time::Instant;
 use std::{fs, thread};
 
-pub struct FileSystem {}
+pub struct FileSystem {
+    events_timer: Instant,
+    events: Arc<RwLock<HashMap<PathBuf, FileEvent>>>,
+}
 
 impl FileSystem {
+    pub fn observe_file_events(&mut self) -> Vec<(PathBuf, FileEvent)> {
+        if self.events_timer.elapsed().as_millis() >= 10 {
+            self.events_timer = Instant::now();
+            let mut events = match self.events.write() {
+                Ok(events) => events,
+                Err(error) => {
+                    error!("Unable to observe file events, {:?}", error);
+                    return vec![];
+                }
+            };
+            std::mem::replace(&mut *events, HashMap::new())
+                .into_iter()
+                .collect()
+        } else {
+            // debounce events in some time
+            vec![]
+        }
+    }
+
     #[cfg(unix)]
     pub fn watch() -> Arc<RwLock<HashMap<PathBuf, FileEvent>>> {
         let process = Command::new("fswatch")
@@ -38,13 +61,13 @@ impl FileSystem {
                 }
             };
             let path = PathBuf::from(path.trim());
-            debounce_event(thread_events.clone(), path, event);
+            compact_events(thread_events.clone(), path, event);
         });
         shared_events
     }
 
     #[cfg(windows)]
-    pub fn watch() -> Arc<RwLock<HashMap<PathBuf, FileEvent>>> {
+    pub fn watch(extensions: Vec<&'static str>) -> FileSystem {
         let process = Command::new("powershell")
             .arg(include_str!("./includes/watcher.ps1"))
             .stdout(Stdio::piped())
@@ -57,10 +80,14 @@ impl FileSystem {
         thread::spawn(move || loop {
             let mut line = String::new();
             if let Err(error) = reader.read_line(&mut line) {
-                error!("fswatch finished {:?}", error);
+                error!("watcher.ps1 finished {:?}", error);
                 break;
             }
             let line = line.trim();
+            let ext = line.split(".").last().unwrap_or("");
+            if !extensions.contains(&ext) {
+                continue;
+            }
             let (event, path) = match line.split(":").collect::<Vec<&str>>()[..] {
                 ["Created", path] => (FileEvent::Created, path),
                 ["Changed", path] => (FileEvent::Changed, path),
@@ -71,14 +98,18 @@ impl FileSystem {
                 }
             };
             let path = fs::canonicalize(".").unwrap().join(path.trim());
-            debounce_event(thread_events.clone(), path, event);
+            compact_events(thread_events.clone(), path, event);
         });
-        shared_events
+
+        FileSystem {
+            events_timer: Instant::now(),
+            events: shared_events,
+        }
     }
 }
 
 #[inline]
-fn debounce_event(
+fn compact_events(
     events: Arc<RwLock<HashMap<PathBuf, FileEvent>>>,
     path: PathBuf,
     event: FileEvent,

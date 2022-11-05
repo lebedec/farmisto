@@ -1,4 +1,4 @@
-use crate::engine::assets::generic::Asset;
+use crate::engine::assets::asset::Asset;
 use crate::engine::{MeshAsset, PropsAsset, TextureAsset};
 
 pub type FarmlandAsset = Asset<FarmlandAssetData>;

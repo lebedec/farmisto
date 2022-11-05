@@ -1,40 +1,19 @@
+use crate::engine::assets::asset::Asset;
 use crate::engine::base::Queue;
 use ash::util::read_spv;
 use ash::vk;
-use ash::vk::ShaderModule;
-use log::error;
-use std::cell::RefCell;
+use log::{debug, error};
 use std::fs::File;
 use std::io;
 use std::path::Path;
 use std::process::Command;
 use std::sync::Arc;
+use std::time::Instant;
 
-#[derive(Clone)]
-pub struct ShaderAsset {
-    data: Arc<RefCell<ShaderAssetData>>,
-}
+pub type ShaderAsset = Asset<ShaderAssetData>;
 
-impl ShaderAsset {
-    #[inline]
-    pub fn module(&self) -> ShaderModule {
-        self.data.borrow().module
-    }
-
-    #[inline]
-    pub fn update(&self, data: ShaderAssetData) {
-        let mut this = self.data.borrow_mut();
-        *this = data;
-    }
-
-    pub fn from_data(data: Arc<RefCell<ShaderAssetData>>) -> Self {
-        Self { data }
-    }
-}
-
-#[derive(Clone)]
 pub struct ShaderAssetData {
-    module: ShaderModule,
+    pub module: vk::ShaderModule,
 }
 
 impl ShaderAssetData {
@@ -42,17 +21,21 @@ impl ShaderAssetData {
         queue: &Arc<Queue>,
         path: P,
     ) -> Result<Self, ShaderAssetError> {
-        let mut file = File::open(path).map_err(ShaderAssetError::Io)?;
+        let time = Instant::now();
+        let mut file = File::open(path.as_ref()).map_err(ShaderAssetError::Io)?;
         let code = read_spv(&mut file).map_err(ShaderAssetError::Io)?;
         let info = vk::ShaderModuleCreateInfo::builder().code(&code);
-
         let module = unsafe {
             queue
                 .device
                 .create_shader_module(&info, None)
                 .map_err(ShaderAssetError::Vulkan)?
         };
-
+        debug!(
+            "Create shader module form {:?} in {:?}",
+            path.as_ref().to_str(),
+            time.elapsed()
+        );
         Ok(Self { module })
     }
 }
@@ -89,6 +72,7 @@ impl ShaderCompiler {
     }
 
     pub fn compile_file<P: AsRef<Path>>(&self, path: P) {
+        let time = Instant::now();
         let input = path.as_ref().to_path_buf();
         let mut output = input.to_path_buf();
         output.set_extension(format!(
@@ -112,5 +96,7 @@ impl ShaderCompiler {
         if output.len() != input.to_str().unwrap().len() {
             error!("Unable to compile file {:?}, {:?}", input, output);
         }
+
+        debug!("Compile shader {:?} in {:?}", input, time.elapsed());
     }
 }
