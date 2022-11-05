@@ -283,7 +283,7 @@ impl Gameplay {
     pub fn render2d(&self, renderer: &mut SpriteRenderer, assets: &mut Assets) {
         renderer.clear();
         renderer.look_at();
-        renderer.draw(&assets.texture("./assets/texture/objects.png"));
+        renderer.draw(&assets.sprite("test"), [512.0, 512.0]);
     }
 
     pub fn render(&self, renderer: &mut SceneRenderer) {

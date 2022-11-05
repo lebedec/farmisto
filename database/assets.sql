@@ -40,3 +40,10 @@ create table PipelineAssetData
     vertex   text not null
 );
 
+create table SpriteAssetData
+(
+    id       text primary key unique,
+    texture  text not null,
+    position json not null,
+    size     json not null
+);

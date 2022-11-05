@@ -1,13 +1,14 @@
 use crate::engine::armature::{PoseBuffer, PoseUniform};
 use crate::engine::base::{Pipeline, Screen, ShaderData, ShaderDataSet};
 use crate::engine::uniform::{CameraUniform, UniformBuffer};
-use crate::engine::{PipelineAsset, ShaderAsset, TextureAsset, VertexBuffer};
+use crate::engine::{PipelineAsset, ShaderAsset, SpriteAsset, TextureAsset, VertexBuffer};
 use crate::Assets;
 
 use ash::{vk, Device};
 use glam::{vec3, Mat4};
 use log::{debug, error, info};
 
+use game::physics::SpaceId;
 use std::time::Instant;
 
 pub struct SpriteRenderer {
@@ -30,36 +31,15 @@ impl SpriteRenderer {
     pub fn look_at(&mut self) {
         let width = self.screen.width() as f32;
         let height = self.screen.height() as f32;
-        // GLM was originally designed for OpenGL,
-        // where the Y coordinate of the clip coordinates is inverted
-        // let inverted = Mat4::from_scale(vec3(1.0, -1.0, 1.0));
-        //
-        // let uniform = CameraUniform {
-        //     model: Mat4::IDENTITY,
-        //     view: Mat4::IDENTITY,
-        //     proj: Mat4::orthographic_rh(
-        //         0.0,
-        //         self.screen.width() as f32,
-        //         self.screen.height() as f32,
-        //         0.0,
-        //         0.1,
-        //         1000.0,
-        //     ) * inverted,
-        // };
-
-        let inverted = Mat4::from_scale(vec3(1.0, -1.0, 1.0));
-
         let uniform = CameraUniform {
             model: Mat4::IDENTITY,
             view: Mat4::look_at_rh(
-                vec3(0.0, -5.0, -5.0), // Vulkan Z: inside screen
+                vec3(0.0, 0.0, -1.0), // Vulkan Z: inside screen
                 vec3(0.0, 0.0, 0.0),
                 vec3(0.0, -1.0, 0.0), // Vulkan Y: bottom screen
             ),
-            proj: Mat4::perspective_rh(45.0_f32.to_radians(), width / height, 0.1, 1000.0)
-                * inverted,
+            proj: Mat4::orthographic_rh_gl(0.0, width, height, 0.0, 0.0, 100.0),
         };
-
         self.camera_buffer
             .update(self.present_index as usize, uniform);
     }
@@ -75,16 +55,14 @@ impl SpriteRenderer {
         }
     }
 
-    pub fn draw(&mut self, texture: &TextureAsset) {
+    pub fn draw(&mut self, asset: &SpriteAsset, position: [f32; 2]) {
+        let texture = &asset.texture;
         self.sprites.push(Sprite {
+            asset: asset.share(),
             texture: self
                 .material_slot
                 .describe(texture.id(), vec![[ShaderData::from(texture)]])[0],
-            sprite: SpriteUniform {
-                position: [0.0, 0.0],
-                size: [1.0, 1.0],
-                coords: [0.0, 0.0, 1.0, 1.0],
-            },
+            position,
         })
     }
 
@@ -177,15 +155,15 @@ impl SpriteRenderer {
         device.cmd_bind_vertex_buffers(buffer, 0, &[self.vertex_buffer.bind()], &[0]);
 
         let mut previous_texture = Default::default();
-        for object in self.sprites.iter() {
-            if previous_texture != object.texture {
-                previous_texture = object.texture;
+        for sprite in self.sprites.iter() {
+            if previous_texture != sprite.texture {
+                previous_texture = sprite.texture;
                 device.cmd_bind_descriptor_sets(
                     buffer,
                     point,
                     self.layout,
                     1,
-                    &[object.texture],
+                    &[sprite.texture],
                     &[],
                 );
             }
@@ -194,7 +172,7 @@ impl SpriteRenderer {
                 self.layout,
                 vk::ShaderStageFlags::VERTEX,
                 0,
-                bytemuck::bytes_of(&object.sprite),
+                bytemuck::bytes_of(&sprite.uniform()),
             );
             device.cmd_draw(buffer, SPRITE_VERTICES.len() as u32, 1, 0, 0);
         }
@@ -231,8 +209,29 @@ impl SpriteRenderer {
 }
 
 pub struct Sprite {
+    asset: SpriteAsset,
     texture: vk::DescriptorSet,
-    sprite: SpriteUniform,
+    position: [f32; 2],
+}
+
+impl Sprite {
+    #[inline]
+    pub fn uniform(&self) -> SpriteUniform {
+        let asset = &self.asset;
+        let image_w = asset.texture.width() as f32;
+        let image_h = asset.texture.height() as f32;
+        let [sprite_x, sprite_y] = asset.position;
+        let [sprite_w, sprite_h] = asset.size;
+        let x = sprite_x / image_w;
+        let y = sprite_y / image_h;
+        let w = sprite_w / image_w;
+        let h = sprite_h / image_h;
+        SpriteUniform {
+            position: self.position,
+            size: asset.size,
+            coords: [x, y, w, h],
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
@@ -277,26 +276,26 @@ impl SpriteVertex {
 const SPRITE_VERTICES: [SpriteVertex; 6] = [
     SpriteVertex {
         position: [-0.5, -0.5],
+        uv: [0.0, 1.0],
+    },
+    SpriteVertex {
+        position: [-0.5, 0.5],
         uv: [0.0, 0.0],
     },
     SpriteVertex {
-        position: [-0.5, 0.5],
-        uv: [0.0, 1.0],
+        position: [0.5, -0.5],
+        uv: [1.0, 1.0],
     },
     SpriteVertex {
         position: [0.5, -0.5],
-        uv: [1.0, 0.0],
-    },
-    SpriteVertex {
-        position: [0.5, -0.5],
-        uv: [1.0, 0.0],
+        uv: [1.0, 1.0],
     },
     SpriteVertex {
         position: [-0.5, 0.5],
-        uv: [0.0, 1.0],
+        uv: [0.0, 0.0],
     },
     SpriteVertex {
         position: [0.5, 0.5],
-        uv: [1.0, 1.0],
+        uv: [1.0, 0.0],
     },
 ];

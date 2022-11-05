@@ -19,7 +19,7 @@ use crate::engine::base::Queue;
 use crate::engine::{
     FarmerAsset, FarmerAssetData, FarmlandAsset, FarmlandAssetData, FarmlandAssetPropItem,
     MeshAsset, MeshAssetData, PipelineAsset, PipelineAssetData, PropsAsset, PropsAssetData,
-    ShaderAsset, ShaderAssetData, TextureAsset, TextureAssetData,
+    ShaderAsset, ShaderAssetData, SpriteAsset, SpriteAssetData, TextureAsset, TextureAssetData,
 };
 use crate::ShaderCompiler;
 
@@ -46,6 +46,7 @@ pub struct Assets {
     props: HashMap<String, PropsAsset>,
     farmers: HashMap<String, FarmerAsset>,
     pipelines: HashMap<String, PipelineAsset>,
+    sprites: HashMap<String, SpriteAsset>,
 
     queue: Arc<Queue>,
 }
@@ -229,6 +230,7 @@ impl Assets {
             props: Default::default(),
             farmers: Default::default(),
             pipelines: Default::default(),
+            sprites: Default::default(),
         }
     }
 
@@ -272,6 +274,16 @@ impl Assets {
         self.meshes.insert(path.clone(), mesh.clone());
         self.require_update(AssetKind::Mesh, path);
         mesh
+    }
+
+    pub fn sprite(&mut self, name: &str) -> SpriteAsset {
+        match self.sprites.get(name) {
+            Some(asset) => asset.share(),
+            None => {
+                let data = self.load_sprite_data(name).unwrap();
+                self.sprites.publish(name, data)
+            }
+        }
     }
 
     pub fn pipeline(&mut self, name: &str) -> PipelineAsset {
@@ -386,6 +398,17 @@ impl Assets {
         Ok(data)
     }
 
+    pub fn load_sprite_data(&mut self, id: &str) -> Result<SpriteAssetData, serde_json::Error> {
+        let entry = self.storage.fetch_one::<SpriteAssetData>(id);
+        let texture: String = entry.get("texture")?;
+        let data = SpriteAssetData {
+            texture: self.texture(texture),
+            position: entry.get("position")?,
+            size: entry.get("size")?,
+        };
+        Ok(data)
+    }
+
     fn require_update(&mut self, kind: AssetKind, path: PathBuf) {
         debug!("Require update {:?} {:?}", kind, path.to_str());
         let mut requests = self.loading_requests.write().unwrap();
@@ -415,6 +438,10 @@ impl Assets {
                 "PipelineAssetData" => {
                     let data = self.load_pipeline_data(&change.id).unwrap();
                     self.pipelines.get_mut(&change.id).unwrap().update(data);
+                }
+                "SpriteAssetData" => {
+                    let data = self.load_sprite_data(&change.id).unwrap();
+                    self.sprites.get_mut(&change.id).unwrap().update(data);
                 }
                 _ => {
                     error!("Handle of {:?} not implemented yet", change)

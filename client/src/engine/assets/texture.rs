@@ -11,11 +11,13 @@ use std::time::Instant;
 
 #[derive(Clone)]
 pub struct TextureAsset {
-    pub data: Arc<RefCell<TextureAssetData>>,
+    data: Arc<RefCell<TextureAssetData>>,
 }
 
 #[derive(Clone)]
 pub struct TextureAssetData {
+    width: u32,
+    height: u32,
     image: vk::Image,
     _memory: vk::DeviceMemory,
     view: vk::ImageView,
@@ -23,6 +25,16 @@ pub struct TextureAssetData {
 }
 
 impl TextureAsset {
+    #[inline]
+    pub fn width(&self) -> u32 {
+        self.data.borrow().width
+    }
+
+    #[inline]
+    pub fn height(&self) -> u32 {
+        self.data.borrow().height
+    }
+
     #[inline]
     pub fn id(&self) -> u64 {
         self.data.borrow().view.as_raw()
@@ -105,6 +117,8 @@ impl TextureAssetData {
         let sampler = Self::create_texture_sampler(device);
 
         Self {
+            width,
+            height,
             image,
             _memory: memory,
             view,
