@@ -5,9 +5,9 @@ use ash::vk::Handle;
 use ash::{vk, Device};
 use log::debug;
 use std::cell::RefCell;
-use std::ptr;
 use std::sync::Arc;
 use std::time::Instant;
+use std::{io, ptr};
 
 #[derive(Clone)]
 pub struct TextureAsset {
@@ -113,7 +113,7 @@ impl TextureAssetData {
             device.bind_image_memory(image, memory, 0).unwrap();
         }
 
-        let view = Self::create_image_view(device, image, vk::Format::R8G8B8A8_UNORM);
+        let view = Self::create_image_view(device, image, format);
         let sampler = Self::create_texture_sampler(device);
 
         Self {
@@ -133,7 +133,6 @@ impl TextureAssetData {
         data: &[u8],
     ) -> Self {
         let t1 = Instant::now();
-
         // let mut decoder = png::Decoder::new(io::Cursor::new(data));
         // decoder.set_transformations(png::Transformations::normalize_to_color8());
         // let mut reader = decoder.read_info().unwrap();
@@ -176,11 +175,13 @@ impl TextureAssetData {
             device.unmap_memory(staging_buffer_memory);
         }
 
+        let format = vk::Format::R8G8B8A8_UNORM;
+
         let image = Self::create(
             device,
             image_width,
             image_height,
-            vk::Format::R8G8B8A8_UNORM,
+            format,
             vk::ImageTiling::OPTIMAL,
             vk::ImageUsageFlags::TRANSFER_DST | vk::ImageUsageFlags::SAMPLED,
             vk::MemoryPropertyFlags::DEVICE_LOCAL,
@@ -201,7 +202,7 @@ impl TextureAssetData {
             command_pool,
             *submit_queue,
             image.image,
-            vk::Format::R8G8B8A8_UNORM,
+            format,
             vk::ImageLayout::UNDEFINED,
             vk::ImageLayout::TRANSFER_DST_OPTIMAL,
         );
@@ -221,7 +222,7 @@ impl TextureAssetData {
             command_pool,
             *submit_queue,
             image.image,
-            vk::Format::R8G8B8A8_UNORM,
+            format,
             vk::ImageLayout::TRANSFER_DST_OPTIMAL,
             vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
         );

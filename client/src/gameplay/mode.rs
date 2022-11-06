@@ -284,6 +284,18 @@ impl Gameplay {
         renderer.clear();
         renderer.look_at();
         renderer.draw(&assets.sprite("test"), [512.0, 512.0]);
+
+        let mut trees: Vec<&TreeBehaviour> = self.trees.values().collect();
+        trees.sort_by_key(|tree| tree.position.z as i32);
+
+        for tree in trees {
+            let sprite = assets.sprite(&tree.kind.name);
+            let position = [
+                512.0 + tree.position.x * 32.0,
+                512.0 + tree.position.z * 32.0,
+            ];
+            renderer.draw(&sprite, position)
+        }
     }
 
     pub fn render(&self, renderer: &mut SceneRenderer) {
