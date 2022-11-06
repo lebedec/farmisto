@@ -23,7 +23,8 @@ pub struct SpriteRenderer {
     vertex_buffer: VertexBuffer,
     pub present_index: u32,
     pass: vk::RenderPass,
-    pub material_slot: ShaderDataSet<1>,
+    pub material_slot: ShaderDataSet<2>,
+    lut_texture: TextureAsset,
     screen: Screen,
 }
 
@@ -59,9 +60,13 @@ impl SpriteRenderer {
         let texture = &asset.texture;
         self.sprites.push(Sprite {
             asset: asset.share(),
-            texture: self
-                .material_slot
-                .describe(texture.id(), vec![[ShaderData::from(texture)]])[0],
+            texture: self.material_slot.describe(
+                texture.id(),
+                vec![[
+                    ShaderData::from(texture),
+                    ShaderData::from(&self.lut_texture),
+                ]],
+            )[0],
             position,
         })
     }
@@ -74,6 +79,7 @@ impl SpriteRenderer {
         pass: vk::RenderPass,
         assets: &mut Assets,
     ) -> Self {
+        let lut_texture = assets.texture("./assets/texture/lut-night.png");
         let pipeline_asset = assets.pipeline("sprites");
         //
         let camera_buffer =
@@ -105,7 +111,10 @@ impl SpriteRenderer {
             device.clone(),
             4,
             vk::ShaderStageFlags::FRAGMENT,
-            [vk::DescriptorType::COMBINED_IMAGE_SAMPLER],
+            [
+                vk::DescriptorType::COMBINED_IMAGE_SAMPLER,
+                vk::DescriptorType::COMBINED_IMAGE_SAMPLER,
+            ],
         );
 
         let set_layouts = [scene_data.layout, material_data.layout];
@@ -139,6 +148,7 @@ impl SpriteRenderer {
             present_index: 0,
             pass,
             material_slot: material_data,
+            lut_texture,
             screen,
         };
         renderer.rebuild_pipeline();
