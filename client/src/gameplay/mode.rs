@@ -1,7 +1,7 @@
 use crate::engine::animatoro::{AnimationAsset, Machine, State, StateId};
 use crate::engine::armature::{PoseBuffer, PoseUniform};
 use crate::engine::sprites::SpriteRenderer;
-use crate::engine::Input;
+use crate::engine::{Input, SpineAsset, TextureAsset};
 use crate::gameplay::camera::Camera;
 use crate::gameplay::objects::{BarrierHint, FarmerBehaviour, FarmlandBehaviour, TreeBehaviour};
 use crate::{Assets, Frame, Mode, SceneRenderer};
@@ -13,6 +13,7 @@ use game::Game;
 use glam::{Mat4, Vec2, Vec3};
 use log::{error, info};
 use network::TcpClient;
+use rusty_spine::controller::SkeletonController;
 use sdl2::keyboard::Keycode;
 use server::LocalServerThread;
 use std::collections::HashMap;
@@ -27,6 +28,12 @@ pub struct Gameplay {
     pub trees: HashMap<TreeId, TreeBehaviour>,
     pub farmers: HashMap<FarmerId, FarmerBehaviour>,
     pub camera: Camera,
+    pub farmers2d: Vec<Farmer2d>,
+}
+
+pub struct Farmer2d {
+    pub spine: SpineAsset,
+    pub skeleton: SkeletonController,
 }
 
 impl Gameplay {
@@ -41,6 +48,7 @@ impl Gameplay {
             trees: HashMap::new(),
             farmers: Default::default(),
             camera: Camera::new(),
+            farmers2d: vec![],
         }
     }
 
@@ -278,6 +286,27 @@ impl Gameplay {
                 farmer.estimated_position.y,
             );
         }
+        for farmer in self.farmers2d.iter_mut() {
+            farmer.skeleton.update(input.time);
+            let renderables = farmer.skeleton.renderables();
+            for (index, rend) in renderables.iter().enumerate() {
+                let slot = farmer
+                    .skeleton
+                    .skeleton
+                    .slot_at_index(rend.slot_index)
+                    .unwrap();
+                let ptr = rend.attachment_renderer_object.unwrap();
+                let asset: &TextureAsset = unsafe { &*(ptr as *const TextureAsset) };
+                // info!(
+                //     "{}:{} i{:?} vert{:?} uv{:?}",
+                //     index,
+                //     slot.data().name(),
+                //     rend.indices,
+                //     rend.vertices,
+                //     rend.uvs
+                // );
+            }
+        }
     }
 
     pub fn render2d(&self, renderer: &mut SpriteRenderer, assets: &mut Assets) {
@@ -330,20 +359,15 @@ impl Gameplay {
                 42,
                 &farmer.machine.pose_buffer,
             );
-            renderer.bounds(
-                Mat4::from_translation(Vec3::new(
-                    farmer.last_sync_position.x,
-                    0.5,
-                    farmer.last_sync_position.y,
-                )),
-                farmer.asset.mesh.bounds(),
-            );
         }
     }
 }
 
 impl Mode for Gameplay {
-    fn start(&mut self, _assets: &mut Assets) {
+    fn start(&mut self, assets: &mut Assets) {
+        let spine = assets.spine("boy");
+        let skeleton = spine.instantiate();
+        self.farmers2d.push(Farmer2d { spine, skeleton });
         self.knowledge.load_game_knowledge();
     }
 

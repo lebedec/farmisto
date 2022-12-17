@@ -24,13 +24,10 @@ pub struct SceneRenderer {
     pub device: Device,
     pub device_memory: vk::PhysicalDeviceMemoryProperties,
     objects: Vec<SceneObject>,
-    bounds: Vec<SceneObject>,
     layout: vk::PipelineLayout,
 
     pipeline_asset: PipelineAsset,
     pipeline: vk::Pipeline,
-    gizmos_pipeline_asset: PipelineAsset,
-    gizmos_pipeline: vk::Pipeline,
 
     // pub scene_data: ShaderData,
     pub material_data: ShaderDataSet<1>,
@@ -41,8 +38,6 @@ pub struct SceneRenderer {
     pub present_index: u32,
     pass: vk::RenderPass,
     pub screen: Screen,
-    bounds_mesh: MeshAsset,
-    wireframe_tex: TextureAsset,
 }
 
 impl SceneRenderer {
@@ -53,27 +48,6 @@ impl SceneRenderer {
 
     pub fn clear(&mut self) {
         self.objects.clear();
-        self.bounds.clear();
-    }
-
-    pub fn bounds(&mut self, transform: Mat4, bounds: MeshBounds) {
-        let bounds_matrix = Mat4::from_scale(Vec3::from(bounds.length()))
-            * Mat4::from_translation(Vec3::from(bounds.offset()));
-        let texture = &self.wireframe_tex;
-        self.bounds.push(SceneObject {
-            transform: transform * bounds_matrix,
-            mesh: self.bounds_mesh.clone(),
-            texture: texture.clone(),
-            texture_bind: self.material_data.describe(
-                texture.id(),
-                vec![[ShaderData::Texture([vk::DescriptorImageInfo {
-                    sampler: texture.sampler(),
-                    image_view: texture.view(),
-                    image_layout: vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
-                }])]],
-            )[0],
-            pose_data: None,
-        })
     }
 
     pub fn draw(&mut self, transform: Mat4, mesh: &MeshAsset, texture: &TextureAsset) {
@@ -135,7 +109,6 @@ impl SceneRenderer {
         assets: &mut Assets,
     ) -> Self {
         let pipeline_asset = assets.pipeline("scene");
-        let gizmos_pipeline_asset = assets.pipeline("gizmos");
         //
         let camera_buffer =
             UniformBuffer::create::<CameraUniform>(device.clone(), device_memory, swapchain);
@@ -214,12 +187,9 @@ impl SceneRenderer {
             device: device.clone(),
             device_memory: device_memory.clone(),
             objects: vec![],
-            bounds: vec![],
             layout: pipeline_layout,
             pipeline_asset,
             pipeline: vk::Pipeline::null(), // will be immediately overridden
-            gizmos_pipeline_asset,
-            gizmos_pipeline: vk::Pipeline::null(),
             material_data,
             object_data,
             descriptor_sets,
@@ -228,11 +198,8 @@ impl SceneRenderer {
             present_index: 0,
             pass,
             screen,
-            bounds_mesh: assets.cube(),
-            wireframe_tex: assets.texture_white(),
         };
         renderer.rebuild_pipeline();
-        renderer.rebuild_gizmos_pipeline();
         renderer
     }
 
@@ -283,60 +250,12 @@ impl SceneRenderer {
             );
             device.cmd_draw_indexed(buffer, object.mesh.vertices(), 1, 0, 0, 1);
         }
-
-        // GIZMOS
-
-        device.cmd_bind_pipeline(
-            buffer,
-            vk::PipelineBindPoint::GRAPHICS,
-            self.gizmos_pipeline,
-        );
-
-        let bind_point = vk::PipelineBindPoint::GRAPHICS;
-        let descriptor_set = &[self.descriptor_sets[0]];
-        device.cmd_bind_descriptor_sets(buffer, bind_point, self.layout, 0, descriptor_set, &[]);
-
-        let mut previous_mesh = 0;
-        let mut previous_texture = 0;
-
-        for object in self.bounds.iter() {
-            if previous_mesh != object.mesh.id() {
-                previous_mesh = object.mesh.id();
-                device.cmd_bind_vertex_buffers(buffer, 0, &[object.mesh.vertex()], &[0]);
-                device.cmd_bind_index_buffer(buffer, object.mesh.index(), 0, vk::IndexType::UINT32);
-            }
-
-            if previous_texture != object.texture.id() {
-                previous_texture = object.texture.id();
-                device.cmd_bind_descriptor_sets(
-                    buffer,
-                    bind_point,
-                    self.layout,
-                    1,
-                    &[object.texture_bind],
-                    &[],
-                );
-            }
-
-            device.cmd_push_constants(
-                buffer,
-                self.layout,
-                vk::ShaderStageFlags::VERTEX,
-                0,
-                bytemuck::cast_slice(&object.transform.to_cols_array()),
-            );
-            device.cmd_draw_indexed(buffer, object.mesh.vertices(), 1, 0, 0, 1);
-        }
     }
 
     pub fn update(&mut self) {
         if self.pipeline_asset.changed {
             self.rebuild_pipeline();
             self.pipeline_asset.changed = false;
-        }
-        if self.gizmos_pipeline_asset.changed {
-            self.rebuild_gizmos_pipeline();
-            self.gizmos_pipeline_asset.changed = false;
         }
     }
 
@@ -354,25 +273,6 @@ impl SceneRenderer {
                 &Vertex::BINDINGS,
             )
             .unwrap();
-    }
-
-    pub fn rebuild_gizmos_pipeline(&mut self) {
-        let time = Instant::now();
-        self.gizmos_pipeline = Pipeline::new()
-            .layout(self.layout)
-            .vertex(self.gizmos_pipeline_asset.vertex.module)
-            .fragment(self.gizmos_pipeline_asset.fragment.module)
-            .polygon_mode(vk::PolygonMode::LINE)
-            .pass(self.pass)
-            .build(
-                &self.device,
-                &self.screen.scissors,
-                &self.screen.viewports,
-                &Vertex::ATTRIBUTES,
-                &Vertex::BINDINGS,
-            )
-            .unwrap();
-        info!("Rebuild gizmos pipeline in {:?}", time.elapsed())
     }
 
     pub fn pipeline_layout(&self) -> vk::PipelineLayout {

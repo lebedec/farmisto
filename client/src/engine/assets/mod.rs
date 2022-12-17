@@ -4,6 +4,7 @@ pub use pipeline::*;
 pub use prefabs::*;
 pub use props::*;
 pub use shader::*;
+pub use spine::*;
 pub use sprite::*;
 pub use texture::*;
 
@@ -16,5 +17,6 @@ mod prefabs;
 mod props;
 mod shader;
 pub mod space3;
+mod spine;
 mod sprite;
 mod texture;

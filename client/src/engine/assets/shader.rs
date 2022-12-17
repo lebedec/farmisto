@@ -2,7 +2,7 @@ use crate::engine::assets::asset::Asset;
 use crate::engine::base::Queue;
 use ash::util::read_spv;
 use ash::vk;
-use log::{debug, error};
+use log::{debug, error, info};
 use std::fs::File;
 use std::io;
 use std::path::Path;
@@ -31,10 +31,11 @@ impl ShaderAssetData {
                 .create_shader_module(&info, None)
                 .map_err(ShaderAssetError::Vulkan)?
         };
-        debug!(
-            "Create shader module form {:?} in {:?}",
+        info!(
+            "Create shader module {:?} form {:?} in {:?}",
+            module,
             path.as_ref().to_str(),
-            time.elapsed()
+            time.elapsed(),
         );
         Ok(Self { module })
     }

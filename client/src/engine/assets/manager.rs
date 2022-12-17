@@ -1,14 +1,15 @@
+use std::borrow::BorrowMut;
 use std::cell::RefCell;
 use std::collections::HashMap;
-use std::ffi::OsStr;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::{Arc, RwLock};
-use std::time::{Duration, Instant};
+use std::time::Duration;
 use std::{fs, thread};
 
 use ash::{vk, Device};
 use log::{debug, error, info};
+use rusty_spine::{AnimationStateData, Atlas, SkeletonJson};
 
 use datamap::Storage;
 
@@ -19,7 +20,8 @@ use crate::engine::base::Queue;
 use crate::engine::{
     FarmerAsset, FarmerAssetData, FarmlandAsset, FarmlandAssetData, FarmlandAssetPropItem,
     MeshAsset, MeshAssetData, PipelineAsset, PipelineAssetData, PropsAsset, PropsAssetData,
-    ShaderAsset, ShaderAssetData, SpriteAsset, SpriteAssetData, TextureAsset, TextureAssetData,
+    ShaderAsset, ShaderAssetData, SpineAsset, SpineAssetData, SpriteAsset, SpriteAssetData,
+    TextureAsset, TextureAssetData,
 };
 use crate::ShaderCompiler;
 
@@ -47,6 +49,7 @@ pub struct Assets {
     farmers: HashMap<String, FarmerAsset>,
     pipelines: HashMap<String, PipelineAsset>,
     sprites: HashMap<String, SpriteAsset>,
+    spines: HashMap<String, SpineAsset>,
 
     queue: Arc<Queue>,
 }
@@ -231,6 +234,7 @@ impl Assets {
             farmers: Default::default(),
             pipelines: Default::default(),
             sprites: Default::default(),
+            spines: Default::default(),
         }
     }
 
@@ -263,6 +267,37 @@ impl Assets {
 
     pub fn cube(&self) -> MeshAsset {
         self.meshes_cube.clone()
+    }
+
+    pub fn spine(&mut self, key: &str) -> SpineAsset {
+        if let Some(asset) = self.spines.get(key) {
+            return asset.share();
+        }
+        info!("begin load spine {}", key);
+        let atlas_path = "assets/spine/boy/spineboy.atlas";
+        let json_path = "assets/spine/boy/spineboy-pro.json";
+        let mut atlas = Atlas::new_from_file(atlas_path).unwrap();
+
+        let path = PathBuf::from(atlas_path);
+        let path_dir = path.parent().unwrap();
+
+        for page in atlas.pages_mut() {
+            let page_texture = self.texture(path_dir.join(page.name()));
+            page.renderer_object().set(page_texture);
+        }
+
+        let skeleton_json = SkeletonJson::new(Arc::new(atlas));
+        let skeleton = Arc::new(skeleton_json.read_skeleton_data_file(json_path).unwrap());
+        let animation = Arc::new(AnimationStateData::new(skeleton.clone()));
+
+        info!("end load spine {}", key);
+        let data = SpineAssetData {
+            animation,
+            skeleton,
+        };
+        let asset = SpineAsset::from(data);
+        self.spines.insert(key.to_string(), asset.share());
+        asset
     }
 
     pub fn mesh<P: AsRef<Path>>(&mut self, path: P) -> MeshAsset {

@@ -158,6 +158,10 @@ impl Storage {
     }
 
     pub fn setup_tracking(&self) -> Result<(), rusqlite::Error> {
+        if std::env::var("SETUP_TRACKING").is_err() {
+            return Ok(());
+        }
+
         let tracking_table = "drop table if exists sql_tracking;
         create table sql_tracking (
             timestamp integer primary key autoincrement,
