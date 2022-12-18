@@ -1,23 +1,31 @@
 use crate::engine::armature::{PoseBuffer, PoseUniform};
 use crate::engine::base::{Pipeline, Screen, ShaderData, ShaderDataSet};
 use crate::engine::uniform::{CameraUniform, UniformBuffer};
-use crate::engine::{PipelineAsset, ShaderAsset, SpriteAsset, TextureAsset, VertexBuffer};
+use crate::engine::{
+    IndexBuffer, PipelineAsset, ShaderAsset, SpineAsset, SpriteAsset, TextureAsset, VertexBuffer,
+};
 use crate::Assets;
+use std::hint::spin_loop;
 
 use ash::{vk, Device};
 use glam::{vec3, Mat4};
 use log::{debug, error, info};
 
 use game::physics::SpaceId;
+use rusty_spine::controller::SkeletonController;
+use rusty_spine::AttachmentType;
 use std::time::Instant;
 
 pub struct SpriteRenderer {
     pub device: Device,
     pub device_memory: vk::PhysicalDeviceMemoryProperties,
     sprites: Vec<Sprite>,
+    spine_sprites: Vec<SpineSprite>,
     layout: vk::PipelineLayout,
     pipeline_asset: PipelineAsset,
     pipeline: vk::Pipeline,
+    pipeline_spine_asset: PipelineAsset,
+    pipeline_spine: vk::Pipeline,
     pub descriptor_sets: Vec<vk::DescriptorSet>,
     camera_buffer: UniformBuffer,
     vertex_buffer: VertexBuffer,
@@ -26,6 +34,20 @@ pub struct SpriteRenderer {
     pub material_slot: ShaderDataSet<2>,
     lut_texture: TextureAsset,
     screen: Screen,
+}
+
+pub struct SpineSpriteController {
+    pub skeleton: SkeletonController,
+    pub buffers: Vec<VertexBuffer>,
+    pub index_buffers: Vec<IndexBuffer>,
+    pub textures: Vec<TextureAsset>,
+}
+
+pub struct SpineSprite {
+    buffers: Vec<VertexBuffer>,
+    index_buffers: Vec<IndexBuffer>,
+    textures: Vec<vk::DescriptorSet>,
+    position: [f32; 2],
 }
 
 impl SpriteRenderer {
@@ -47,12 +69,17 @@ impl SpriteRenderer {
 
     pub fn clear(&mut self) {
         self.sprites.clear();
+        self.spine_sprites.clear();
     }
 
     pub fn update(&mut self) {
         if self.pipeline_asset.changed {
             self.rebuild_pipeline();
             self.pipeline_asset.changed = false;
+        }
+        if self.pipeline_spine_asset.changed {
+            self.rebuild_pipeline_spine();
+            self.pipeline_spine_asset.changed = false;
         }
     }
 
@@ -81,6 +108,7 @@ impl SpriteRenderer {
     ) -> Self {
         let lut_texture = assets.texture("./assets/texture/lut-night.png");
         let pipeline_asset = assets.pipeline("sprites");
+        let pipeline_spine_asset = assets.pipeline("spines");
         //
         let camera_buffer =
             UniformBuffer::create::<CameraUniform>(device.clone(), device_memory, swapchain);
@@ -139,9 +167,12 @@ impl SpriteRenderer {
             device: device.clone(),
             device_memory: device_memory.clone(),
             sprites: vec![],
+            spine_sprites: vec![],
             layout,
             pipeline_asset,
             pipeline: vk::Pipeline::null(),
+            pipeline_spine_asset,
+            pipeline_spine: vk::Pipeline::null(),
             descriptor_sets,
             camera_buffer,
             vertex_buffer,
@@ -152,25 +183,133 @@ impl SpriteRenderer {
             screen,
         };
         renderer.rebuild_pipeline();
+        renderer.rebuild_pipeline_spine();
         renderer
+    }
+
+    pub fn instantiate(&mut self, spine: &SpineAsset) -> SpineSpriteController {
+        let skeleton = SkeletonController::new(spine.skeleton.clone(), spine.animation.clone());
+        let mut buffers = vec![];
+        let mut index_buffers = vec![];
+        let mut textures = vec![];
+
+        let vertices: Vec<SpriteVertex> = vec![];
+
+        for index in 0..skeleton.skeleton.slots_count() {
+            let slot = skeleton.skeleton.draw_order_at_index(index).unwrap();
+            if let Some(attachment) = slot.attachment() {
+                match attachment.attachment_type() {
+                    AttachmentType::Region => {
+                        let region = attachment.as_region().unwrap();
+                        info!(
+                            "{}: REGION {} {}x{}",
+                            slot.data().name(),
+                            attachment.name(),
+                            region.width(),
+                            region.height()
+                        );
+
+                        let mut spine_vertices = vec![0.0; 8];
+                        unsafe {
+                            region.compute_world_vertices(&slot, &mut spine_vertices, 0, 2);
+                        }
+                        let spine_uvs = region.uvs();
+                        let mut vertices = vec![];
+                        for i in 0..4 {
+                            vertices.push(SpriteVertex {
+                                position: [spine_vertices[i * 2], -spine_vertices[i * 2 + 1]],
+                                uv: [spine_uvs[i * 2], 1.0 - spine_uvs[i * 2 + 1]], // inverse
+                            });
+                        }
+
+                        unsafe {
+                            let mut obj = region.renderer_object();
+                            let mut obj2 = obj.get_atlas_region();
+                            let page = obj2.unwrap();
+                            let mut obj3 = page.page();
+                            let mut obj4 = obj3.renderer_object();
+                            let texture: &mut TextureAsset = obj4.get_unchecked();
+                            textures.push(texture.clone());
+                        }
+
+                        //
+                        //info!("VERTICES: {:?}", vertices);
+                        let buffer =
+                            VertexBuffer::create(&self.device, &self.device_memory, vertices);
+                        buffers.push(buffer);
+
+                        let indices = vec![0, 1, 2, 2, 3, 0];
+                        let buffer =
+                            IndexBuffer::create(&self.device, &self.device_memory, indices);
+                        index_buffers.push(buffer);
+                    }
+                    AttachmentType::Mesh => {
+                        let mesh = attachment.as_mesh().unwrap();
+                        info!(
+                            "{}: MESH {} {}x{}",
+                            slot.data().name(),
+                            attachment.name(),
+                            mesh.width(),
+                            mesh.height()
+                        )
+                    }
+                    attachment_type => {
+                        error!("Unknown attachment type {:?}", attachment_type)
+                    }
+                }
+            }
+        }
+
+        SpineSpriteController {
+            skeleton,
+            buffers,
+            index_buffers,
+            textures,
+        }
+    }
+
+    pub fn draw_spine(&mut self, sprite: &SpineSpriteController) {
+        let mut textures = vec![];
+        for texture in sprite.textures.iter() {
+            let tex = self.material_slot.describe(
+                texture.id(),
+                vec![[
+                    ShaderData::from(texture),
+                    ShaderData::from(&self.lut_texture),
+                ]],
+            )[0];
+            textures.push(tex);
+        }
+        self.spine_sprites.push(SpineSprite {
+            buffers: sprite.buffers.clone(),
+            index_buffers: sprite.index_buffers.clone(),
+            textures: textures,
+            position: [512.0, 512.0],
+        })
     }
 
     pub unsafe fn render(&self, device: &Device, buffer: vk::CommandBuffer) {
         device.cmd_set_viewport(buffer, 0, &self.screen.viewports);
         device.cmd_set_scissor(buffer, 0, &self.screen.scissors);
-        device.cmd_bind_pipeline(buffer, vk::PipelineBindPoint::GRAPHICS, self.pipeline);
-        let point = vk::PipelineBindPoint::GRAPHICS;
-        let descriptor_set = &[self.descriptor_sets[0]];
-        device.cmd_bind_descriptor_sets(buffer, point, self.layout, 0, descriptor_set, &[]);
-        device.cmd_bind_vertex_buffers(buffer, 0, &[self.vertex_buffer.bind()], &[0]);
 
+        device.cmd_bind_pipeline(buffer, vk::PipelineBindPoint::GRAPHICS, self.pipeline);
+        let descriptor_set = &[self.descriptor_sets[0]];
+        device.cmd_bind_descriptor_sets(
+            buffer,
+            vk::PipelineBindPoint::GRAPHICS,
+            self.layout,
+            0,
+            descriptor_set,
+            &[],
+        );
+        device.cmd_bind_vertex_buffers(buffer, 0, &[self.vertex_buffer.bind()], &[0]);
         let mut previous_texture = Default::default();
         for sprite in self.sprites.iter() {
             if previous_texture != sprite.texture {
                 previous_texture = sprite.texture;
                 device.cmd_bind_descriptor_sets(
                     buffer,
-                    point,
+                    vk::PipelineBindPoint::GRAPHICS,
                     self.layout,
                     1,
                     &[sprite.texture],
@@ -185,6 +324,37 @@ impl SpriteRenderer {
                 bytemuck::bytes_of(&sprite.uniform()),
             );
             device.cmd_draw(buffer, SPRITE_VERTICES.len() as u32, 1, 0, 0);
+        }
+
+        device.cmd_bind_pipeline(buffer, vk::PipelineBindPoint::GRAPHICS, self.pipeline_spine);
+        for sprite in self.spine_sprites.iter() {
+            for i in 0..sprite.buffers.len() {
+                let b = sprite.buffers[i];
+                let t = sprite.textures[i];
+                let i = sprite.index_buffers[i];
+                device.cmd_bind_descriptor_sets(
+                    buffer,
+                    vk::PipelineBindPoint::GRAPHICS,
+                    self.layout,
+                    1,
+                    &[t],
+                    &[],
+                );
+                device.cmd_bind_vertex_buffers(buffer, 0, &[b.bind()], &[0]);
+                device.cmd_bind_index_buffer(buffer, i.bind(), 0, vk::IndexType::UINT32);
+                device.cmd_push_constants(
+                    buffer,
+                    self.layout,
+                    vk::ShaderStageFlags::VERTEX,
+                    0,
+                    bytemuck::bytes_of(&SpriteUniform {
+                        position: sprite.position,
+                        size: [1.0, 1.0],
+                        coords: [0.0, 0.0, 0.0, 0.0],
+                    }),
+                );
+                device.cmd_draw_indexed(buffer, 6, 1, 0, 0, 1);
+            }
         }
     }
 
@@ -213,6 +383,35 @@ impl SpriteRenderer {
             }
             Err(error) => {
                 error!("Unable to build pipeline, {:?}", error);
+            }
+        }
+    }
+
+    pub fn rebuild_pipeline_spine(&mut self) {
+        let time = Instant::now();
+        debug!(
+            "Prepare pipeline spine layout={:?} pass={:?}",
+            self.layout, self.pass
+        );
+        let building = Pipeline::new()
+            .layout(self.layout)
+            .vertex(self.pipeline_spine_asset.vertex.module)
+            .fragment(self.pipeline_spine_asset.fragment.module)
+            .pass(self.pass)
+            .build(
+                &self.device,
+                &self.screen.scissors,
+                &self.screen.viewports,
+                &SpriteVertex::ATTRIBUTES,
+                &SpriteVertex::BINDINGS,
+            );
+        match building {
+            Ok(pipeline) => {
+                info!("Build pipeline spine in {:?}", time.elapsed());
+                self.pipeline_spine = pipeline;
+            }
+            Err(error) => {
+                error!("Unable to build pipeline spine, {:?}", error);
             }
         }
     }

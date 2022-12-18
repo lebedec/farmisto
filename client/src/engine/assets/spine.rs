@@ -11,9 +11,3 @@ pub struct SpineAssetData {
     pub skeleton: Arc<SkeletonData>,
     pub animation: Arc<AnimationStateData>,
 }
-
-impl SpineAssetData {
-    pub fn instantiate(&self) -> SkeletonController {
-        SkeletonController::new(self.skeleton.clone(), self.animation.clone())
-    }
-}

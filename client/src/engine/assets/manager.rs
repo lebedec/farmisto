@@ -8,10 +8,11 @@ use std::time::Duration;
 use std::{fs, thread};
 
 use ash::{vk, Device};
-use log::{debug, error, info};
-use rusty_spine::{AnimationStateData, Atlas, SkeletonJson};
+use log::{debug, error, info, warn};
+use rusty_spine::controller::SkeletonController;
+use rusty_spine::{AnimationStateData, Atlas, AttachmentType, SkeletonJson};
 
-use datamap::Storage;
+use datamap::{Operation, Storage};
 
 use crate::engine::assets::asset::{Asset, AssetMap};
 use crate::engine::assets::fs::{FileEvent, FileSystem};
@@ -274,15 +275,17 @@ impl Assets {
             return asset.share();
         }
         info!("begin load spine {}", key);
-        let atlas_path = "assets/spine/boy/spineboy.atlas";
-        let json_path = "assets/spine/boy/spineboy-pro.json";
+        let atlas_path = "assets/spine/lama/skeleton.atlas";
+        let json_path = "assets/spine/lama/skeleton.json";
         let mut atlas = Atlas::new_from_file(atlas_path).unwrap();
 
         let path = PathBuf::from(atlas_path);
         let path_dir = path.parent().unwrap();
 
         for page in atlas.pages_mut() {
-            let page_texture = self.texture(path_dir.join(page.name()));
+            let atlas_path = path_dir.join(page.name());
+            info!("load page atlas {:?}", atlas_path);
+            let page_texture = self.texture(atlas_path);
             page.renderer_object().set(page_texture);
         }
 
@@ -453,33 +456,41 @@ impl Assets {
     fn reload_dictionaries(&mut self) -> Result<(), rusqlite::Error> {
         let changes = self.storage.track_changes::<String>()?;
         for change in changes {
-            match change.entity.as_str() {
-                "FarmerAssetData" => {
-                    let data = self.load_farmer_data(&change.id).unwrap();
-                    self.farmers.get_mut(&change.id).unwrap().update(data);
+            match change.operation {
+                Operation::Update => match change.entity.as_str() {
+                    "FarmerAssetData" => {
+                        let data = self.load_farmer_data(&change.id).unwrap();
+                        self.farmers.get_mut(&change.id).unwrap().update(data);
+                    }
+                    "FarmlandAssetData" | "FarmlandAssetPropItem" => {
+                        let data = self.load_farmland_data(&change.id).unwrap();
+                        self.farmlands.get_mut(&change.id).unwrap().update(data);
+                    }
+                    "TreeAssetData" => {
+                        let data = self.load_tree_data(&change.id).unwrap();
+                        self.trees.get_mut(&change.id).unwrap().update(data);
+                    }
+                    "PropsAssetData" => {
+                        let data = self.load_props_data(&change.id).unwrap();
+                        self.props.get_mut(&change.id).unwrap().update(data);
+                    }
+                    "PipelineAssetData" => {
+                        let data = self.load_pipeline_data(&change.id).unwrap();
+                        self.pipelines.get_mut(&change.id).unwrap().update(data);
+                    }
+                    "SpriteAssetData" => {
+                        let data = self.load_sprite_data(&change.id).unwrap();
+                        self.sprites.get_mut(&change.id).unwrap().update(data);
+                    }
+                    _ => {
+                        error!("Handle of {:?} not implemented yet", change)
+                    }
+                },
+                Operation::Insert => {
+                    warn!("Insert of {} not implemented yet", change.entity);
                 }
-                "FarmlandAssetData" | "FarmlandAssetPropItem" => {
-                    let data = self.load_farmland_data(&change.id).unwrap();
-                    self.farmlands.get_mut(&change.id).unwrap().update(data);
-                }
-                "TreeAssetData" => {
-                    let data = self.load_tree_data(&change.id).unwrap();
-                    self.trees.get_mut(&change.id).unwrap().update(data);
-                }
-                "PropsAssetData" => {
-                    let data = self.load_props_data(&change.id).unwrap();
-                    self.props.get_mut(&change.id).unwrap().update(data);
-                }
-                "PipelineAssetData" => {
-                    let data = self.load_pipeline_data(&change.id).unwrap();
-                    self.pipelines.get_mut(&change.id).unwrap().update(data);
-                }
-                "SpriteAssetData" => {
-                    let data = self.load_sprite_data(&change.id).unwrap();
-                    self.sprites.get_mut(&change.id).unwrap().update(data);
-                }
-                _ => {
-                    error!("Handle of {:?} not implemented yet", change)
+                Operation::Delete => {
+                    warn!("Delete of {} not implemented yet", change.entity);
                 }
             }
         }

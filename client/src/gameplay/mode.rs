@@ -1,6 +1,6 @@
 use crate::engine::animatoro::{AnimationAsset, Machine, State, StateId};
 use crate::engine::armature::{PoseBuffer, PoseUniform};
-use crate::engine::sprites::SpriteRenderer;
+use crate::engine::sprites::{SpineSpriteController, SpriteRenderer};
 use crate::engine::{Input, SpineAsset, TextureAsset};
 use crate::gameplay::camera::Camera;
 use crate::gameplay::objects::{BarrierHint, FarmerBehaviour, FarmlandBehaviour, TreeBehaviour};
@@ -32,8 +32,8 @@ pub struct Gameplay {
 }
 
 pub struct Farmer2d {
-    pub spine: SpineAsset,
-    pub skeleton: SkeletonController,
+    pub asset: SpineAsset,
+    pub sprite: SpineSpriteController,
 }
 
 impl Gameplay {
@@ -52,7 +52,9 @@ impl Gameplay {
         }
     }
 
-    pub fn handle_server_responses(&mut self, assets: &mut Assets, renderer: &mut SceneRenderer) {
+    pub fn handle_server_responses(&mut self, frame: &mut Frame) {
+        let assets = &mut frame.assets;
+        let renderer = &mut frame.scene;
         for response in self.client.responses() {
             match response {
                 GameResponse::Heartbeat => {}
@@ -137,6 +139,10 @@ impl Gameplay {
                                     "Appear farmer {:?}({}) kind='{}' at {:?}",
                                     id, player, kind.name, position
                                 );
+
+                                let asset = assets.spine(&kind.name);
+                                let sprite = frame.sprites.instantiate(&asset);
+                                self.farmers2d.push(Farmer2d { asset, sprite });
 
                                 let asset = assets.farmer(&kind.name);
 
@@ -287,7 +293,9 @@ impl Gameplay {
             );
         }
         for farmer in self.farmers2d.iter_mut() {
-            farmer.skeleton.update(input.time);
+            farmer.sprite.skeleton.update(input.time);
+            let renderables = farmer.sprite.skeleton.renderables();
+            /*
             let renderables = farmer.skeleton.renderables();
             for (index, rend) in renderables.iter().enumerate() {
                 let slot = farmer
@@ -305,7 +313,7 @@ impl Gameplay {
                 //     rend.vertices,
                 //     rend.uvs
                 // );
-            }
+            }*/
         }
     }
 
@@ -324,6 +332,10 @@ impl Gameplay {
                 512.0 + tree.position.z * 32.0,
             ];
             renderer.draw(&sprite, position)
+        }
+
+        for farmer in &self.farmers2d {
+            renderer.draw_spine(&farmer.sprite);
         }
     }
 
@@ -364,15 +376,12 @@ impl Gameplay {
 }
 
 impl Mode for Gameplay {
-    fn start(&mut self, assets: &mut Assets) {
-        let spine = assets.spine("boy");
-        let skeleton = spine.instantiate();
-        self.farmers2d.push(Farmer2d { spine, skeleton });
+    fn start(&mut self, _assets: &mut Assets) {
         self.knowledge.load_game_knowledge();
     }
 
-    fn update(&mut self, frame: Frame) {
-        self.handle_server_responses(frame.assets, frame.scene);
+    fn update(&mut self, mut frame: Frame) {
+        self.handle_server_responses(&mut frame);
         self.handle_user_input(&frame.input);
         self.animate(&frame.input);
         self.render(frame.scene);

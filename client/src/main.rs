@@ -43,14 +43,14 @@ impl App for Application {
         Self { mode }
     }
 
-    fn update(&mut self, context: Frame) {
+    fn update(&mut self, frame: Frame) {
         if let Some(next) = self.mode.transition() {
             info!("Finish {:?}", self.mode.name());
             self.mode.finish();
             self.mode = next;
             info!("Start {:?}", self.mode.name());
-            self.mode.start(context.assets);
+            self.mode.start(frame.assets);
         }
-        self.mode.update(context);
+        self.mode.update(frame);
     }
 }
