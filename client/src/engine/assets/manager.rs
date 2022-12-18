@@ -289,7 +289,7 @@ impl Assets {
             page.renderer_object().set(page_texture);
         }
 
-        let skeleton_json = SkeletonJson::new(Arc::new(atlas));
+        let mut skeleton_json = SkeletonJson::new(Arc::new(atlas));
         let skeleton = Arc::new(skeleton_json.read_skeleton_data_file(json_path).unwrap());
         let animation = Arc::new(AnimationStateData::new(skeleton.clone()));
 

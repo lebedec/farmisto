@@ -142,6 +142,7 @@ impl Gameplay {
 
                                 let asset = assets.spine(&kind.name);
                                 let sprite = frame.sprites.instantiate(&asset);
+
                                 self.farmers2d.push(Farmer2d { asset, sprite });
 
                                 let asset = assets.farmer(&kind.name);
@@ -294,6 +295,7 @@ impl Gameplay {
         }
         for farmer in self.farmers2d.iter_mut() {
             farmer.sprite.skeleton.update(input.time);
+
             let renderables = farmer.sprite.skeleton.renderables();
             /*
             let renderables = farmer.skeleton.renderables();

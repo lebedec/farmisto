@@ -325,6 +325,8 @@ impl IndexBuffer {
 #[derive(Clone, Copy)]
 pub struct VertexBuffer {
     buffer: vk::Buffer,
+    device_memory: vk::DeviceMemory,
+    device_size: vk::DeviceSize,
 }
 
 impl VertexBuffer {
@@ -338,7 +340,7 @@ impl VertexBuffer {
         device_memory_properties: &vk::PhysicalDeviceMemoryProperties,
         vertices: Vec<T>,
     ) -> Self {
-        let (buffer, device_memory, memory_size) = create_buffer(
+        let (buffer, device_memory, device_size) = create_buffer(
             device,
             (vertices.len() * std::mem::size_of::<T>()) as u64,
             vk::BufferUsageFlags::VERTEX_BUFFER,
@@ -349,17 +351,42 @@ impl VertexBuffer {
         // WRITE
         let ptr = unsafe {
             device
-                .map_memory(device_memory, 0, memory_size, vk::MemoryMapFlags::empty())
+                .map_memory(device_memory, 0, device_size, vk::MemoryMapFlags::empty())
                 .unwrap()
         };
         let mut alignment =
-            unsafe { ash::util::Align::new(ptr, std::mem::align_of::<T>() as u64, memory_size) };
+            unsafe { ash::util::Align::new(ptr, std::mem::align_of::<T>() as u64, device_size) };
         alignment.copy_from_slice(&vertices);
         unsafe {
             device.unmap_memory(device_memory);
         }
 
-        Self { buffer }
+        Self {
+            buffer,
+            device_memory,
+            device_size,
+        }
+    }
+
+    pub fn update<T: Copy>(&self, vertices: Vec<T>, device: &Device) {
+        // WRITE
+        let ptr = unsafe {
+            device
+                .map_memory(
+                    self.device_memory,
+                    0,
+                    self.device_size,
+                    vk::MemoryMapFlags::empty(),
+                )
+                .unwrap()
+        };
+        let mut alignment = unsafe {
+            ash::util::Align::new(ptr, std::mem::align_of::<T>() as u64, self.device_size)
+        };
+        alignment.copy_from_slice(&vertices);
+        unsafe {
+            device.unmap_memory(self.device_memory);
+        }
     }
 }
 

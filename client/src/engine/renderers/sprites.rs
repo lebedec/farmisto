@@ -6,6 +6,7 @@ use crate::engine::{
 };
 use crate::Assets;
 use std::hint::spin_loop;
+use std::thread;
 
 use ash::{vk, Device};
 use glam::{vec3, Mat4};
@@ -188,7 +189,11 @@ impl SpriteRenderer {
     }
 
     pub fn instantiate(&mut self, spine: &SpineAsset) -> SpineSpriteController {
-        let skeleton = SkeletonController::new(spine.skeleton.clone(), spine.animation.clone());
+        let mut skeleton = SkeletonController::new(spine.skeleton.clone(), spine.animation.clone());
+        skeleton
+            .animation_state
+            .set_animation_by_name(0, "default", true)
+            .unwrap();
         let mut buffers = vec![];
         let mut index_buffers = vec![];
         let mut textures = vec![];
@@ -268,6 +273,60 @@ impl SpriteRenderer {
         }
     }
 
+    pub fn update_spine_buffers(&mut self, controller: &SpineSpriteController) {
+        for index in 0..controller.skeleton.skeleton.slots_count() {
+            let slot = controller
+                .skeleton
+                .skeleton
+                .draw_order_at_index(index)
+                .unwrap();
+            let buffer = controller.buffers[index as usize];
+            let index_buffer = controller.buffers[index as usize];
+            if let Some(attachment) = slot.attachment() {
+                match attachment.attachment_type() {
+                    AttachmentType::Region => {
+                        let region = attachment.as_region().unwrap();
+                        // info!(
+                        //     "{}: UPDATE REGION {} {}x{}",
+                        //     slot.data().name(),
+                        //     attachment.name(),
+                        //     region.width(),
+                        //     region.height()
+                        // );
+
+                        let mut spine_vertices = vec![0.0; 8];
+                        unsafe {
+                            region.compute_world_vertices(&slot, &mut spine_vertices, 0, 2);
+                        }
+                        let spine_uvs = region.uvs();
+                        let mut vertices = vec![];
+                        for i in 0..4 {
+                            vertices.push(SpriteVertex {
+                                position: [spine_vertices[i * 2], -spine_vertices[i * 2 + 1]],
+                                uv: [spine_uvs[i * 2], 1.0 - spine_uvs[i * 2 + 1]], // inverse
+                            });
+                        }
+                        // info!("vert {:?}", vertices);
+                        buffer.update(vertices, &self.device);
+                    }
+                    AttachmentType::Mesh => {
+                        let mesh = attachment.as_mesh().unwrap();
+                        info!(
+                            "{}: UPDATE MESH {} {}x{}",
+                            slot.data().name(),
+                            attachment.name(),
+                            mesh.width(),
+                            mesh.height()
+                        )
+                    }
+                    attachment_type => {
+                        error!("Unknown attachment type {:?}", attachment_type)
+                    }
+                }
+            }
+        }
+    }
+
     pub fn draw_spine(&mut self, sprite: &SpineSpriteController) {
         let mut textures = vec![];
         for texture in sprite.textures.iter() {
@@ -280,6 +339,7 @@ impl SpriteRenderer {
             )[0];
             textures.push(tex);
         }
+        self.update_spine_buffers(sprite);
         self.spine_sprites.push(SpineSprite {
             buffers: sprite.buffers.clone(),
             index_buffers: sprite.index_buffers.clone(),
@@ -356,6 +416,8 @@ impl SpriteRenderer {
                 device.cmd_draw_indexed(buffer, 6, 1, 0, 0, 1);
             }
         }
+
+        thread::sleep_ms(10);
     }
 
     pub fn rebuild_pipeline(&mut self) {
