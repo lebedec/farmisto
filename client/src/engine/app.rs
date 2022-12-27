@@ -3,13 +3,28 @@ use crate::engine::scene::SceneRenderer;
 use crate::engine::sprites::SpriteRenderer;
 use crate::engine::{Assets, Input};
 use ash::vk;
+use std::io::{BufReader, Write};
+use std::net::TcpListener;
 
 use libfmod::ffi::{FMOD_INIT_NORMAL, FMOD_STUDIO_INIT_NORMAL, FMOD_VERSION};
 use libfmod::{SpeakerMode, Studio};
 use log::info;
 
+use serde::de::Unexpected::Str;
 use std::sync::Arc;
-use std::time::Instant;
+use std::thread;
+use std::time::{Duration, Instant};
+
+use prometheus::{IntCounter, IntGauge};
+
+use lazy_static::lazy_static;
+use prometheus::{register_int_counter, register_int_gauge};
+
+lazy_static! {
+    static ref METRIC_FRAME: IntCounter = register_int_counter!("app_frame", "frame").unwrap();
+    static ref METRIC_COUNTER: IntCounter =
+        register_int_counter!("app_counter", "counter").unwrap();
+}
 
 pub struct Frame<'c> {
     pub input: Input,
@@ -162,7 +177,36 @@ pub fn startup<A: App>(title: String) {
 
         let mut time = Instant::now();
         let mut input = Input::new(window_size);
+
+        thread::spawn(|| {
+            let encoder = prometheus::TextEncoder::new();
+            let listener = TcpListener::bind("127.0.0.1:9091").unwrap();
+            for stream in listener.incoming() {
+                let mut stream = stream.unwrap();
+                let status_line = "HTTP/1.1 200 OK";
+                let mut contents = String::new();
+                let metric_families = prometheus::gather();
+                encoder
+                    .encode_utf8(&metric_families, &mut contents)
+                    .unwrap();
+                let length = contents.len();
+                let response =
+                    format!("{status_line}\r\nContent-Length: {length}\r\n\r\n{contents}");
+                stream.write_all(response.as_bytes()).unwrap();
+            }
+            // loop {
+            //     thread::sleep(Duration::from_secs(1));
+            //     let metric_families = prometheus::gather();
+            //     encoder.encode_utf8(&metric_families, &mut buffer).unwrap();
+            //     println!("value: {}", A_INT_COUNTER.get());
+            //     println!("{}", buffer);
+            //     buffer.clear();
+            // }
+        });
+
         loop {
+            METRIC_FRAME.inc();
+            METRIC_COUNTER.inc();
             assets.update();
             studio.update().unwrap();
 
@@ -178,7 +222,7 @@ pub fn startup<A: App>(title: String) {
                 break;
             }
 
-            scene_renderer.update();
+            //scene_renderer.update();
             sprites_renderer.update();
             let (present_index, _) = base
                 .swapchain_loader
@@ -190,7 +234,7 @@ pub fn startup<A: App>(title: String) {
                 )
                 .unwrap();
 
-            scene_renderer.present_index = present_index;
+            //scene_renderer.present_index = present_index;
             sprites_renderer.present_index = present_index;
 
             app.update(Frame {
@@ -238,7 +282,7 @@ pub fn startup<A: App>(title: String) {
                             vk::SubpassContents::INLINE,
                         );
 
-                        scene_renderer.render(device, buffer);
+                        //scene_renderer.render(device, buffer);
                         sprites_renderer.render(device, buffer);
 
                         device.cmd_end_render_pass(buffer);

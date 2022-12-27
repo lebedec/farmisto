@@ -17,6 +17,22 @@ use rusty_spine::controller::SkeletonController;
 use sdl2::keyboard::Keycode;
 use server::LocalServerThread;
 use std::collections::HashMap;
+use std::time::Instant;
+
+use prometheus::{Counter, Histogram, IntCounter, IntGauge};
+
+use lazy_static::lazy_static;
+use prometheus::{register_counter, register_histogram, register_int_counter, register_int_gauge};
+
+lazy_static! {
+    static ref METRIC_ANIMATION_SECONDS: Histogram =
+        register_histogram!("gameplay_animation_seconds", "gameplay_animation_seconds").unwrap();
+    static ref METRIC_DRAW_REQUEST_SECONDS: Histogram = register_histogram!(
+        "gameplay_draw_request_seconds",
+        "gameplay_draw_request_seconds"
+    )
+    .unwrap();
+}
 
 pub struct Gameplay {
     _server: Option<LocalServerThread>,
@@ -34,6 +50,7 @@ pub struct Gameplay {
 pub struct Farmer2d {
     pub asset: SpineAsset,
     pub sprite: SpineSpriteController,
+    pub position: [f32; 2],
 }
 
 impl Gameplay {
@@ -141,9 +158,22 @@ impl Gameplay {
                                 );
 
                                 let asset = assets.spine(&kind.name);
-                                let sprite = frame.sprites.instantiate(&asset);
 
-                                self.farmers2d.push(Farmer2d { asset, sprite });
+                                info!("TEST 2d");
+
+                                for y in 0..15 {
+                                    for x in 0..25 {
+                                        let asset = asset.share();
+                                        let sprite = frame.sprites.instantiate(&asset);
+                                        let position =
+                                            [60.0 * (x + 1) as f32, 65.0 * (y + 1) as f32];
+                                        self.farmers2d.push(Farmer2d {
+                                            asset,
+                                            sprite,
+                                            position,
+                                        });
+                                    }
+                                }
 
                                 let asset = assets.farmer(&kind.name);
 
@@ -293,40 +323,19 @@ impl Gameplay {
                 farmer.estimated_position.y,
             );
         }
-        for farmer in self.farmers2d.iter_mut() {
-            farmer.sprite.skeleton.update(input.time);
-
-            let renderables = farmer.sprite.skeleton.renderables();
-            /*
-            let renderables = farmer.skeleton.renderables();
-            for (index, rend) in renderables.iter().enumerate() {
-                let slot = farmer
-                    .skeleton
-                    .skeleton
-                    .slot_at_index(rend.slot_index)
-                    .unwrap();
-                let ptr = rend.attachment_renderer_object.unwrap();
-                let asset: &TextureAsset = unsafe { &*(ptr as *const TextureAsset) };
-                // info!(
-                //     "{}:{} i{:?} vert{:?} uv{:?}",
-                //     index,
-                //     slot.data().name(),
-                //     rend.indices,
-                //     rend.vertices,
-                //     rend.uvs
-                // );
-            }*/
-        }
+        METRIC_ANIMATION_SECONDS.observe_closure_duration(|| {
+            for farmer in self.farmers2d.iter_mut() {
+                farmer.sprite.skeleton.update(input.time);
+            }
+        });
     }
 
     pub fn render2d(&self, renderer: &mut SpriteRenderer, assets: &mut Assets) {
         renderer.clear();
         renderer.look_at();
         renderer.draw(&assets.sprite("test"), [512.0, 512.0]);
-
         let mut trees: Vec<&TreeBehaviour> = self.trees.values().collect();
         trees.sort_by_key(|tree| tree.position.z as i32);
-
         for tree in trees {
             let sprite = assets.sprite(&tree.kind.name);
             let position = [
@@ -335,10 +344,11 @@ impl Gameplay {
             ];
             renderer.draw(&sprite, position)
         }
-
-        for farmer in &self.farmers2d {
-            renderer.draw_spine(&farmer.sprite);
-        }
+        METRIC_DRAW_REQUEST_SECONDS.observe_closure_duration(|| {
+            for farmer in &self.farmers2d {
+                renderer.draw_spine(&farmer.sprite, farmer.position);
+            }
+        });
     }
 
     pub fn render(&self, renderer: &mut SceneRenderer) {

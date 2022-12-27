@@ -17,6 +17,16 @@ use rusty_spine::controller::SkeletonController;
 use rusty_spine::AttachmentType;
 use std::time::Instant;
 
+use prometheus::{Histogram, IntCounter, IntGauge};
+
+use lazy_static::lazy_static;
+use prometheus::{register_histogram, register_int_counter, register_int_gauge};
+
+lazy_static! {
+    static ref METRIC_RENDER_SECONDS: Histogram =
+        register_histogram!("sprites_render_seconds", "sprites_render_seconds").unwrap();
+}
+
 pub struct SpriteRenderer {
     pub device: Device,
     pub device_memory: vk::PhysicalDeviceMemoryProperties,
@@ -198,6 +208,8 @@ impl SpriteRenderer {
         let mut index_buffers = vec![];
         let mut textures = vec![];
 
+        skeleton.skeleton.set_scale([0.25, 0.25]);
+
         let vertices: Vec<SpriteVertex> = vec![];
 
         for index in 0..skeleton.skeleton.slots_count() {
@@ -327,7 +339,7 @@ impl SpriteRenderer {
         }
     }
 
-    pub fn draw_spine(&mut self, sprite: &SpineSpriteController) {
+    pub fn draw_spine(&mut self, sprite: &SpineSpriteController, position: [f32; 2]) {
         let mut textures = vec![];
         for texture in sprite.textures.iter() {
             let tex = self.material_slot.describe(
@@ -343,8 +355,8 @@ impl SpriteRenderer {
         self.spine_sprites.push(SpineSprite {
             buffers: sprite.buffers.clone(),
             index_buffers: sprite.index_buffers.clone(),
-            textures: textures,
-            position: [512.0, 512.0],
+            textures,
+            position,
         })
     }
 
@@ -386,6 +398,9 @@ impl SpriteRenderer {
             device.cmd_draw(buffer, SPRITE_VERTICES.len() as u32, 1, 0, 0);
         }
 
+        // SPINE
+
+        let t1 = Instant::now();
         device.cmd_bind_pipeline(buffer, vk::PipelineBindPoint::GRAPHICS, self.pipeline_spine);
         for sprite in self.spine_sprites.iter() {
             for i in 0..sprite.buffers.len() {
@@ -416,6 +431,7 @@ impl SpriteRenderer {
                 device.cmd_draw_indexed(buffer, 6, 1, 0, 0, 1);
             }
         }
+        METRIC_RENDER_SECONDS.observe(t1.elapsed().as_secs_f64());
 
         thread::sleep_ms(10);
     }

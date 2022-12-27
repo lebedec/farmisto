@@ -15,7 +15,7 @@ take on planet environment challenges.
 
 - [client](client)
   
-  Is a game engine primarily designed 
+  Game engine primarily designed 
   for game development with "hot reload" experience for editing game scenes.
   Includes a rendering for 2D or 3D graphics, sound, animation,
   AI configuration tools, networking, localization support.
@@ -25,6 +25,9 @@ take on planet environment challenges.
 - [database](database)
 - [assets](assets)
 - [tools](tools)
+
+  Suite supports the entirety of the game development process — external editors formats import and export, 
+  performance monitoring, instrumentation, scripting to customize the game creation scenarios, etc.
 
 
 ## Design Principles
