@@ -109,7 +109,7 @@ fn spawn_loader(
                             &device,
                             pool,
                             queue.clone(),
-                            &fs::read(&path).unwrap(),
+                            path.as_os_str().to_str().unwrap(),
                         );
                         result.send(AssetPayload::Texture { path, data }).unwrap();
                     }
@@ -175,14 +175,14 @@ impl Assets {
             &device,
             pool,
             queue.clone(),
-            include_bytes!("./fallback/texture.png"),
+            "./assets/fallback/texture.png",
         );
         let textures_white = TextureAsset::from_data(Arc::new(RefCell::new(
             TextureAssetData::create_and_read_image(
                 &device,
                 pool,
                 queue.clone(),
-                include_bytes!("./fallback/white.png"),
+                "./assets/fallback/white.png",
             ),
         )));
         let textures = HashMap::new();
@@ -275,8 +275,8 @@ impl Assets {
             return asset.share();
         }
         info!("begin load spine {}", key);
-        let atlas_path = "assets/spine/lama/skeleton.atlas";
-        let json_path = "assets/spine/lama/skeleton.json";
+        let atlas_path = "assets/spine/lama/lama.atlas";
+        let json_path = "assets/spine/lama/lama.json";
         let mut atlas = Atlas::new_from_file(atlas_path).unwrap();
 
         let path = PathBuf::from(atlas_path);

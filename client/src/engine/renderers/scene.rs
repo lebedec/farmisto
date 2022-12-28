@@ -160,7 +160,7 @@ impl SceneRenderer {
 
         let material_data = ShaderDataSet::create(
             device.clone(),
-            4,
+            4, // TODO:  Unable to allocate 2 descriptors of type VK_DESCRIPTOR_TYPE_COMBINED_IMAGE_SA
             vk::ShaderStageFlags::FRAGMENT,
             [vk::DescriptorType::COMBINED_IMAGE_SAMPLER],
         );

@@ -1,3 +1,16 @@
+use std::hint::spin_loop;
+use std::thread;
+use std::time::Instant;
+
+use ash::{vk, Device};
+use glam::{vec3, Mat4};
+use lazy_static::lazy_static;
+use log::{debug, error, info};
+use rusty_spine::controller::SkeletonController;
+use rusty_spine::AttachmentType;
+
+use game::physics::SpaceId;
+
 use crate::engine::armature::{PoseBuffer, PoseUniform};
 use crate::engine::base::{Pipeline, Screen, ShaderData, ShaderDataSet};
 use crate::engine::uniform::{CameraUniform, UniformBuffer};
@@ -5,26 +18,11 @@ use crate::engine::{
     IndexBuffer, PipelineAsset, ShaderAsset, SpineAsset, SpriteAsset, TextureAsset, VertexBuffer,
 };
 use crate::Assets;
-use std::hint::spin_loop;
-use std::thread;
-
-use ash::{vk, Device};
-use glam::{vec3, Mat4};
-use log::{debug, error, info};
-
-use game::physics::SpaceId;
-use rusty_spine::controller::SkeletonController;
-use rusty_spine::AttachmentType;
-use std::time::Instant;
-
-use prometheus::{Histogram, IntCounter, IntGauge};
-
-use lazy_static::lazy_static;
-use prometheus::{register_histogram, register_int_counter, register_int_gauge};
 
 lazy_static! {
-    static ref METRIC_RENDER_SECONDS: Histogram =
-        register_histogram!("sprites_render_seconds", "sprites_render_seconds").unwrap();
+    static ref METRIC_RENDER_SECONDS: prometheus::Histogram =
+        prometheus::register_histogram!("sprites_render_seconds", "sprites_render_seconds")
+            .unwrap();
 }
 
 pub struct SpriteRenderer {
@@ -49,16 +47,18 @@ pub struct SpriteRenderer {
 
 pub struct SpineSpriteController {
     pub skeleton: SkeletonController,
-    pub buffers: Vec<VertexBuffer>,
-    pub index_buffers: Vec<IndexBuffer>,
-    pub textures: Vec<TextureAsset>,
+    pub mega_buffer: VertexBuffer,
+    pub mega_index_buffer: IndexBuffer,
+    pub mega_texture: TextureAsset,
+    pub counters: Vec<(u32, u32)>,
 }
 
 pub struct SpineSprite {
-    buffers: Vec<VertexBuffer>,
-    index_buffers: Vec<IndexBuffer>,
-    textures: Vec<vk::DescriptorSet>,
+    buffer: VertexBuffer,
+    index_buffer: IndexBuffer,
+    texture: vk::DescriptorSet,
     position: [f32; 2],
+    pub counters: Vec<(u32, u32)>,
 }
 
 impl SpriteRenderer {
@@ -96,8 +96,20 @@ impl SpriteRenderer {
 
     pub fn draw(&mut self, asset: &SpriteAsset, position: [f32; 2]) {
         let texture = &asset.texture;
+        let image_w = asset.texture.width() as f32;
+        let image_h = asset.texture.height() as f32;
+        let [sprite_x, sprite_y] = asset.position;
+        let [sprite_w, sprite_h] = asset.size;
+        let x = sprite_x / image_w;
+        let y = sprite_y / image_h;
+        let w = sprite_w / image_w;
+        let h = sprite_h / image_h;
         self.sprites.push(Sprite {
-            asset: asset.share(),
+            uniform: SpriteUniform {
+                position,
+                size: asset.size,
+                coords: [x, y, w, h],
+            },
             texture: self.material_slot.describe(
                 texture.id(),
                 vec![[
@@ -105,7 +117,23 @@ impl SpriteRenderer {
                     ShaderData::from(&self.lut_texture),
                 ]],
             )[0],
-            position,
+        })
+    }
+
+    pub fn draw_texture(&mut self, texture: &TextureAsset, position: [f32; 2]) {
+        self.sprites.push(Sprite {
+            uniform: SpriteUniform {
+                position,
+                size: [texture.width() as f32, texture.height() as f32],
+                coords: [0.0, 0.0, 1.0, 1.0],
+            },
+            texture: self.material_slot.describe(
+                texture.id(),
+                vec![[
+                    ShaderData::from(texture),
+                    ShaderData::from(&self.lut_texture),
+                ]],
+            )[0],
         })
     }
 
@@ -148,7 +176,7 @@ impl SpriteRenderer {
 
         let material_data = ShaderDataSet::create(
             device.clone(),
-            4,
+            8,
             vk::ShaderStageFlags::FRAGMENT,
             [
                 vk::DescriptorType::COMBINED_IMAGE_SAMPLER,
@@ -204,61 +232,58 @@ impl SpriteRenderer {
             .animation_state
             .set_animation_by_name(0, "default", true)
             .unwrap();
-        let mut buffers = vec![];
-        let mut index_buffers = vec![];
-        let mut textures = vec![];
 
-        skeleton.skeleton.set_scale([0.25, 0.25]);
+        // skeleton.skeleton.set_scale([0.25, 0.25]);
 
-        let vertices: Vec<SpriteVertex> = vec![];
+        let mut mega_vertices: Vec<SpriteVertex> = vec![];
+        let mut mega_indices: Vec<u32> = vec![];
+        let mut mega_counters: Vec<(u32, u32)> = vec![];
 
+        // TODO: get texture atlas 1:1 (atlas:sprite)
+        let slot = skeleton.skeleton.draw_order_at_index(0).unwrap();
+        let mega_texture = unsafe {
+            let attachment = slot.attachment().unwrap();
+            let region = attachment.as_region().unwrap();
+            let mut obj = region.renderer_object();
+            let mut obj2 = obj.get_atlas_region();
+            let page = obj2.unwrap();
+            let mut obj3 = page.page();
+            let mut obj4 = obj3.renderer_object();
+            let texture: &mut TextureAsset = obj4.get_unchecked();
+            texture.clone()
+        };
+
+        let mut index_offset = 0;
         for index in 0..skeleton.skeleton.slots_count() {
             let slot = skeleton.skeleton.draw_order_at_index(index).unwrap();
             if let Some(attachment) = slot.attachment() {
                 match attachment.attachment_type() {
                     AttachmentType::Region => {
                         let region = attachment.as_region().unwrap();
-                        info!(
-                            "{}: REGION {} {}x{}",
-                            slot.data().name(),
-                            attachment.name(),
-                            region.width(),
-                            region.height()
-                        );
+                        // info!(
+                        //     "{}: spine REGION {} {}x{}",
+                        //     slot.data().name(),
+                        //     attachment.name(),
+                        //     region.width(),
+                        //     region.height()
+                        // );
 
                         let mut spine_vertices = vec![0.0; 8];
                         unsafe {
                             region.compute_world_vertices(&slot, &mut spine_vertices, 0, 2);
                         }
                         let spine_uvs = region.uvs();
-                        let mut vertices = vec![];
                         for i in 0..4 {
-                            vertices.push(SpriteVertex {
+                            mega_vertices.push(SpriteVertex {
                                 position: [spine_vertices[i * 2], -spine_vertices[i * 2 + 1]],
                                 uv: [spine_uvs[i * 2], 1.0 - spine_uvs[i * 2 + 1]], // inverse
-                            });
+                            })
                         }
+                        let indices = [0, 1, 2, 2, 3, 0].map(|index| index + index_offset);
+                        mega_indices.extend_from_slice(&indices);
+                        mega_counters.push((4, 6)); // 4 vertex, 6 indices
 
-                        unsafe {
-                            let mut obj = region.renderer_object();
-                            let mut obj2 = obj.get_atlas_region();
-                            let page = obj2.unwrap();
-                            let mut obj3 = page.page();
-                            let mut obj4 = obj3.renderer_object();
-                            let texture: &mut TextureAsset = obj4.get_unchecked();
-                            textures.push(texture.clone());
-                        }
-
-                        //
-                        //info!("VERTICES: {:?}", vertices);
-                        let buffer =
-                            VertexBuffer::create(&self.device, &self.device_memory, vertices);
-                        buffers.push(buffer);
-
-                        let indices = vec![0, 1, 2, 2, 3, 0];
-                        let buffer =
-                            IndexBuffer::create(&self.device, &self.device_memory, indices);
-                        index_buffers.push(buffer);
+                        index_offset += 4;
                     }
                     AttachmentType::Mesh => {
                         let mesh = attachment.as_mesh().unwrap();
@@ -277,49 +302,43 @@ impl SpriteRenderer {
             }
         }
 
+        let mega_buffer = VertexBuffer::create(&self.device, &self.device_memory, mega_vertices);
+
+        let mega_index_buffer =
+            IndexBuffer::create(&self.device, &self.device_memory, mega_indices);
+
         SpineSpriteController {
             skeleton,
-            buffers,
-            index_buffers,
-            textures,
+            mega_buffer,
+            mega_index_buffer,
+            mega_texture,
+            counters: mega_counters,
         }
     }
 
     pub fn update_spine_buffers(&mut self, controller: &SpineSpriteController) {
+        let mut mega_vertices = vec![];
         for index in 0..controller.skeleton.skeleton.slots_count() {
             let slot = controller
                 .skeleton
                 .skeleton
                 .draw_order_at_index(index)
                 .unwrap();
-            let buffer = controller.buffers[index as usize];
-            let index_buffer = controller.buffers[index as usize];
             if let Some(attachment) = slot.attachment() {
                 match attachment.attachment_type() {
                     AttachmentType::Region => {
                         let region = attachment.as_region().unwrap();
-                        // info!(
-                        //     "{}: UPDATE REGION {} {}x{}",
-                        //     slot.data().name(),
-                        //     attachment.name(),
-                        //     region.width(),
-                        //     region.height()
-                        // );
-
                         let mut spine_vertices = vec![0.0; 8];
                         unsafe {
                             region.compute_world_vertices(&slot, &mut spine_vertices, 0, 2);
                         }
                         let spine_uvs = region.uvs();
-                        let mut vertices = vec![];
                         for i in 0..4 {
-                            vertices.push(SpriteVertex {
+                            mega_vertices.push(SpriteVertex {
                                 position: [spine_vertices[i * 2], -spine_vertices[i * 2 + 1]],
                                 uv: [spine_uvs[i * 2], 1.0 - spine_uvs[i * 2 + 1]], // inverse
                             });
                         }
-                        // info!("vert {:?}", vertices);
-                        buffer.update(vertices, &self.device);
                     }
                     AttachmentType::Mesh => {
                         let mesh = attachment.as_mesh().unwrap();
@@ -337,26 +356,24 @@ impl SpriteRenderer {
                 }
             }
         }
+        controller.mega_buffer.update(mega_vertices, &self.device);
     }
 
     pub fn draw_spine(&mut self, sprite: &SpineSpriteController, position: [f32; 2]) {
-        let mut textures = vec![];
-        for texture in sprite.textures.iter() {
-            let tex = self.material_slot.describe(
+        self.update_spine_buffers(sprite);
+        let texture = &sprite.mega_texture;
+        self.spine_sprites.push(SpineSprite {
+            buffer: sprite.mega_buffer.clone(),
+            index_buffer: sprite.mega_index_buffer.clone(),
+            texture: self.material_slot.describe(
                 texture.id(),
                 vec![[
                     ShaderData::from(texture),
                     ShaderData::from(&self.lut_texture),
                 ]],
-            )[0];
-            textures.push(tex);
-        }
-        self.update_spine_buffers(sprite);
-        self.spine_sprites.push(SpineSprite {
-            buffers: sprite.buffers.clone(),
-            index_buffers: sprite.index_buffers.clone(),
-            textures,
+            )[0],
             position,
+            counters: sprite.counters.clone(),
         })
     }
 
@@ -393,7 +410,7 @@ impl SpriteRenderer {
                 self.layout,
                 vk::ShaderStageFlags::VERTEX,
                 0,
-                bytemuck::bytes_of(&sprite.uniform()),
+                bytemuck::bytes_of(&sprite.uniform),
             );
             device.cmd_draw(buffer, SPRITE_VERTICES.len() as u32, 1, 0, 0);
         }
@@ -402,34 +419,34 @@ impl SpriteRenderer {
 
         let t1 = Instant::now();
         device.cmd_bind_pipeline(buffer, vk::PipelineBindPoint::GRAPHICS, self.pipeline_spine);
-        for sprite in self.spine_sprites.iter() {
-            for i in 0..sprite.buffers.len() {
-                let b = sprite.buffers[i];
-                let t = sprite.textures[i];
-                let i = sprite.index_buffers[i];
-                device.cmd_bind_descriptor_sets(
-                    buffer,
-                    vk::PipelineBindPoint::GRAPHICS,
-                    self.layout,
-                    1,
-                    &[t],
-                    &[],
-                );
-                device.cmd_bind_vertex_buffers(buffer, 0, &[b.bind()], &[0]);
-                device.cmd_bind_index_buffer(buffer, i.bind(), 0, vk::IndexType::UINT32);
-                device.cmd_push_constants(
-                    buffer,
-                    self.layout,
-                    vk::ShaderStageFlags::VERTEX,
-                    0,
-                    bytemuck::bytes_of(&SpriteUniform {
-                        position: sprite.position,
-                        size: [1.0, 1.0],
-                        coords: [0.0, 0.0, 0.0, 0.0],
-                    }),
-                );
-                device.cmd_draw_indexed(buffer, 6, 1, 0, 0, 1);
-            }
+        for (index, sprite) in self.spine_sprites.iter().enumerate() {
+            device.cmd_bind_descriptor_sets(
+                buffer,
+                vk::PipelineBindPoint::GRAPHICS,
+                self.layout,
+                1,
+                &[sprite.texture],
+                &[],
+            );
+            device.cmd_bind_vertex_buffers(buffer, 0, &[sprite.buffer.bind()], &[0]);
+            device.cmd_bind_index_buffer(
+                buffer,
+                sprite.index_buffer.bind(),
+                0,
+                vk::IndexType::UINT32,
+            );
+            device.cmd_push_constants(
+                buffer,
+                self.layout,
+                vk::ShaderStageFlags::VERTEX,
+                0,
+                bytemuck::bytes_of(&SpriteUniform {
+                    position: sprite.position,
+                    size: [1.0, 1.0],
+                    coords: [0.0, 0.0, 0.0, 0.0],
+                }),
+            );
+            device.cmd_draw_indexed(buffer, (sprite.counters.len() * 6) as u32, 1, 0, 0, 1);
         }
         METRIC_RENDER_SECONDS.observe(t1.elapsed().as_secs_f64());
 
@@ -496,29 +513,8 @@ impl SpriteRenderer {
 }
 
 pub struct Sprite {
-    asset: SpriteAsset,
+    uniform: SpriteUniform,
     texture: vk::DescriptorSet,
-    position: [f32; 2],
-}
-
-impl Sprite {
-    #[inline]
-    pub fn uniform(&self) -> SpriteUniform {
-        let asset = &self.asset;
-        let image_w = asset.texture.width() as f32;
-        let image_h = asset.texture.height() as f32;
-        let [sprite_x, sprite_y] = asset.position;
-        let [sprite_w, sprite_h] = asset.size;
-        let x = sprite_x / image_w;
-        let y = sprite_y / image_h;
-        let w = sprite_w / image_w;
-        let h = sprite_h / image_h;
-        SpriteUniform {
-            position: self.position,
-            size: asset.size,
-            coords: [x, y, w, h],
-        }
-    }
 }
 
 #[derive(Debug, Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]

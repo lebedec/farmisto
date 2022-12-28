@@ -13,6 +13,7 @@ pub mod gameplay;
 pub mod intro;
 pub mod menu;
 pub mod mode;
+pub mod monitoring;
 
 fn main() {
     let start = Instant::now();

@@ -1,5 +1,6 @@
 use crate::engine::TextureAsset;
 use ash::{vk, Device};
+use log::error;
 use std::collections::HashMap;
 use std::ptr;
 
@@ -65,6 +66,7 @@ impl<const B: usize> ShaderDataSet<B> {
         if let Some(descriptors) = self.descriptors.get(&id) {
             return descriptors.clone();
         }
+        error!("ALLOCATE! {}", id);
         let layouts = vec![self.layout; writes.len()];
         let allocation = vk::DescriptorSetAllocateInfo::builder()
             .descriptor_pool(self.pool)

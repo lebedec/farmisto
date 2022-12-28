@@ -1,13 +1,35 @@
 use crate::engine::base::{create_buffer, index_memory_type, Queue};
 use crate::engine::commands::Single;
 
+use crate::monitoring::Timer;
 use ash::vk::Handle;
 use ash::{vk, Device};
+use lazy_static::lazy_static;
 use log::debug;
 use std::cell::RefCell;
+use std::ops::Deref;
 use std::sync::Arc;
 use std::time::Instant;
-use std::{io, ptr};
+use std::{fs, io, ptr};
+
+lazy_static! {
+    static ref METRIC_LOADING_SECONDS: prometheus::HistogramVec =
+        prometheus::register_histogram_vec!(
+            "texture_loading_seconds",
+            "texture_loading_seconds",
+            &["path", "stage"]
+        )
+        .unwrap();
+}
+
+#[repr(i64)]
+enum LoadingStage {
+    FileRead = 1,
+    Decode = 2,
+    Buffering = 3,
+    Transition = 4,
+    Complete = 5,
+}
 
 #[derive(Clone)]
 pub struct TextureAsset {
@@ -93,11 +115,8 @@ impl TextureAssetData {
             p_queue_family_indices: ptr::null(),
             initial_layout: vk::ImageLayout::UNDEFINED,
         };
-
         let image = unsafe { device.create_image(&image_create_info, None).unwrap() };
-
         let memory = unsafe { device.get_image_memory_requirements(image) };
-
         let memory_type_index =
             index_memory_type(&memory, memory_properties, memory_flags).unwrap();
 
@@ -106,16 +125,12 @@ impl TextureAssetData {
             memory_type_index,
             ..Default::default()
         };
-
         let memory = unsafe { device.allocate_memory(&memory_allocate_info, None).unwrap() };
-
         unsafe {
             device.bind_image_memory(image, memory, 0).unwrap();
         }
-
         let view = Self::create_image_view(device, image, format);
         let sampler = Self::create_texture_sampler(device);
-
         Self {
             width,
             height,
@@ -130,28 +145,22 @@ impl TextureAssetData {
         device: &Device,
         command_pool: vk::CommandPool,
         queue: Arc<Queue>,
-        data: &[u8],
+        path: &str,
     ) -> Self {
-        let t1 = Instant::now();
-        // let mut decoder = png::Decoder::new(io::Cursor::new(data));
-        // decoder.set_transformations(png::Transformations::normalize_to_color8());
-        // let mut reader = decoder.read_info().unwrap();
-        // let mut buf = vec![0; reader.output_buffer_size()];
-        // let info = reader.next_frame(&mut buf).unwrap();
-        // let (image_width, image_height) = (info.width, info.height);
-        // let image_data_len = info.buffer_size();
-        // let image_data = buf.as_ptr();
+        let mut timer = Timer::now();
+        let data = fs::read(&path).unwrap();
+        timer.record2(path, "io", &METRIC_LOADING_SECONDS);
 
-        let image_object = image::load_from_memory(data).unwrap();
+        let image_object = image::load_from_memory(&data).unwrap();
         let image_object = image_object.flipv();
         let (image_width, image_height) = (image_object.width(), image_object.height());
         let image_data = image_object.to_rgba8();
         let image_data_len = image_data.len();
         let image_data = image_data.as_ptr();
+        timer.record2(path, "decode", &METRIC_LOADING_SECONDS);
 
         let image_size =
             (std::mem::size_of::<u8>() as u32 * image_width * image_height * 4) as vk::DeviceSize;
-
         let (staging_buffer, staging_buffer_memory, _size) = create_buffer(
             device,
             image_size,
@@ -159,7 +168,6 @@ impl TextureAssetData {
             vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
             &queue.device_memory,
         );
-
         unsafe {
             let data_ptr = device
                 .map_memory(
@@ -171,12 +179,11 @@ impl TextureAssetData {
                 .expect("Failed to Map Memory") as *mut u8;
 
             data_ptr.copy_from_nonoverlapping(image_data, image_data_len);
-
             device.unmap_memory(staging_buffer_memory);
         }
+        timer.record2(path, "buffering", &METRIC_LOADING_SECONDS);
 
         let format = vk::Format::R8G8B8A8_UNORM;
-
         let image = Self::create(
             device,
             image_width,
@@ -187,15 +194,6 @@ impl TextureAssetData {
             vk::MemoryPropertyFlags::DEVICE_LOCAL,
             &queue.device_memory,
         );
-
-        debug!(
-            "Image {}x{} created at {:?}",
-            image_width,
-            image_height,
-            t1.elapsed()
-        );
-
-        let t1 = Instant::now();
         let submit_queue = queue.handle.lock().unwrap();
         Self::transition_image_layout(
             device,
@@ -206,7 +204,6 @@ impl TextureAssetData {
             vk::ImageLayout::UNDEFINED,
             vk::ImageLayout::TRANSFER_DST_OPTIMAL,
         );
-
         Self::copy_buffer_to_image(
             device,
             command_pool,
@@ -216,7 +213,6 @@ impl TextureAssetData {
             image_width,
             image_height,
         );
-
         Self::transition_image_layout(
             device,
             command_pool,
@@ -226,14 +222,11 @@ impl TextureAssetData {
             vk::ImageLayout::TRANSFER_DST_OPTIMAL,
             vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
         );
-
         unsafe {
             device.destroy_buffer(staging_buffer, None);
             device.free_memory(staging_buffer_memory, None);
         }
-
-        debug!("SUBMIT IMAGE QUEUE: {:?}", t1.elapsed());
-
+        timer.record2(path, "transition", &METRIC_LOADING_SECONDS);
         image
     }
 
@@ -382,8 +375,8 @@ impl TextureAssetData {
             s_type: vk::StructureType::SAMPLER_CREATE_INFO,
             p_next: ptr::null(),
             flags: vk::SamplerCreateFlags::empty(),
-            mag_filter: vk::Filter::NEAREST,
-            min_filter: vk::Filter::NEAREST,
+            mag_filter: vk::Filter::LINEAR,
+            min_filter: vk::Filter::LINEAR,
             mipmap_mode: vk::SamplerMipmapMode::LINEAR,
             address_mode_u: vk::SamplerAddressMode::REPEAT,
             address_mode_v: vk::SamplerAddressMode::REPEAT,

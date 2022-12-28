@@ -45,6 +45,7 @@ pub struct Gameplay {
     pub farmers: HashMap<FarmerId, FarmerBehaviour>,
     pub camera: Camera,
     pub farmers2d: Vec<Farmer2d>,
+    pub backgrounds: Vec<TextureAsset>,
 }
 
 pub struct Farmer2d {
@@ -66,6 +67,7 @@ impl Gameplay {
             farmers: Default::default(),
             camera: Camera::new(),
             farmers2d: vec![],
+            backgrounds: vec![],
         }
     }
 
@@ -161,12 +163,12 @@ impl Gameplay {
 
                                 info!("TEST 2d");
 
-                                for y in 0..15 {
-                                    for x in 0..25 {
+                                for y in 0..1 {
+                                    for x in 0..1 {
                                         let asset = asset.share();
                                         let sprite = frame.sprites.instantiate(&asset);
                                         let position =
-                                            [60.0 * (x + 1) as f32, 65.0 * (y + 1) as f32];
+                                            [640.0 + 80.0 * x as f32, 640.0 + 80.0 * y as f32];
                                         self.farmers2d.push(Farmer2d {
                                             asset,
                                             sprite,
@@ -333,6 +335,9 @@ impl Gameplay {
     pub fn render2d(&self, renderer: &mut SpriteRenderer, assets: &mut Assets) {
         renderer.clear();
         renderer.look_at();
+        for background in &self.backgrounds {
+            renderer.draw_texture(&background, [1024.0, 1024.0]);
+        }
         renderer.draw(&assets.sprite("test"), [512.0, 512.0]);
         let mut trees: Vec<&TreeBehaviour> = self.trees.values().collect();
         trees.sort_by_key(|tree| tree.position.z as i32);
@@ -388,8 +393,10 @@ impl Gameplay {
 }
 
 impl Mode for Gameplay {
-    fn start(&mut self, _assets: &mut Assets) {
+    fn start(&mut self, assets: &mut Assets) {
         self.knowledge.load_game_knowledge();
+        self.backgrounds
+            .push(assets.texture("assets/texture/background.png"))
     }
 
     fn update(&mut self, mut frame: Frame) {
