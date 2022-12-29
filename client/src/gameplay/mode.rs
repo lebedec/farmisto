@@ -52,6 +52,7 @@ pub struct Farmer2d {
     pub asset: SpineAsset,
     pub sprite: SpineSpriteController,
     pub position: [f32; 2],
+    pub variant: u32,
 }
 
 impl Gameplay {
@@ -163,16 +164,25 @@ impl Gameplay {
 
                                 info!("TEST 2d");
 
-                                for y in 0..1 {
-                                    for x in 0..1 {
+                                let max_y = 8;
+                                let max_x = 14;
+                                for y in 0..max_y {
+                                    for x in 0..max_x {
                                         let asset = asset.share();
-                                        let sprite = frame.sprites.instantiate(&asset);
-                                        let position =
-                                            [640.0 + 80.0 * x as f32, 640.0 + 80.0 * y as f32];
+                                        let variant = x + y * max_x;
+                                        let head = format!("head/head-{}", variant % 4);
+                                        let tile = format!("tail/tail-{}", variant % 3);
+                                        let sprite =
+                                            frame.sprites.instantiate(&asset, [head, tile]);
+                                        let position = [
+                                            64.0 + 128.0 + 256.0 * x as f32,
+                                            64.0 + 256.0 + 256.0 * y as f32,
+                                        ];
                                         self.farmers2d.push(Farmer2d {
                                             asset,
                                             sprite,
                                             position,
+                                            variant,
                                         });
                                     }
                                 }
@@ -327,6 +337,16 @@ impl Gameplay {
         }
         METRIC_ANIMATION_SECONDS.observe_closure_duration(|| {
             for farmer in self.farmers2d.iter_mut() {
+                if farmer.variant < 10 {
+                    let scale = farmer.variant as f32 / 10.0;
+                    let mut bone = farmer
+                        .sprite
+                        .skeleton
+                        .skeleton
+                        .find_bone_mut("root")
+                        .unwrap();
+                    bone.set_scale([0.75 + scale * 0.5, 0.75 + scale * 0.5]);
+                }
                 farmer.sprite.skeleton.update(input.time);
             }
         });
@@ -396,7 +416,7 @@ impl Mode for Gameplay {
     fn start(&mut self, assets: &mut Assets) {
         self.knowledge.load_game_knowledge();
         self.backgrounds.push(assets.sprite("bg128.png"));
-        self.backgrounds.push(assets.sprite("lama-ref-384.png"));
+        //self.backgrounds.push(assets.sprite("lama-ref-384.png"));
     }
 
     fn update(&mut self, mut frame: Frame) {

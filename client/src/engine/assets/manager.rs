@@ -304,12 +304,11 @@ impl Assets {
         let path = PathBuf::from(atlas_path);
         let path_dir = path.parent().unwrap();
 
-        for page in atlas.pages_mut() {
-            let atlas_path = path_dir.join(page.name());
-            info!("load page atlas {:?}", atlas_path);
-            let page_texture = self.texture(atlas_path);
-            page.renderer_object().set(page_texture);
-        }
+        // TODO: support multiple atlases
+        let first_page = atlas.pages_mut().next().unwrap();
+        let atlas_path = path_dir.join(first_page.name());
+        info!("load page atlas {:?}", atlas_path);
+        let atlas_texture = self.texture(atlas_path);
 
         let mut skeleton_json = SkeletonJson::new(Arc::new(atlas));
         let skeleton = Arc::new(skeleton_json.read_skeleton_data_file(json_path).unwrap());
@@ -319,6 +318,7 @@ impl Assets {
         let data = SpineAssetData {
             animation,
             skeleton,
+            atlas: atlas_texture,
         };
         let asset = SpineAsset::from(data);
         self.spines.insert(key.to_string(), asset.share());

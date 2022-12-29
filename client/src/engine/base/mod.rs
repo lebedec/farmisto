@@ -174,7 +174,7 @@ impl Base {
     pub fn new(
         window_width: u32,
         window_height: u32,
-        window: Arc<Window>,
+        window: &Window,
         sdl_extension_names: Vec<&str>,
     ) -> Self {
         unsafe {

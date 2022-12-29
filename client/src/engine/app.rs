@@ -20,6 +20,7 @@ use prometheus::{IntCounter, IntGauge};
 use lazy_static::lazy_static;
 use prometheus::{register_int_counter, register_int_gauge};
 use sdl2::keyboard::Keycode;
+use sdl2::keyboard::Keycode::K;
 
 lazy_static! {
     static ref METRIC_FRAME: IntCounter = register_int_counter!("app_frame", "frame").unwrap();
@@ -49,9 +50,10 @@ pub fn startup<A: App>(title: String) {
     let video = system.video().unwrap();
     #[cfg(windows)]
     let window_size = [1920, 1080];
+    let mut windowed = true;
     #[cfg(unix)]
     let window_size = [960, 540];
-    let window = video
+    let mut window = video
         .window(&title, window_size[0], window_size[1])
         .allow_highdpi()
         //.fullscreen()
@@ -65,17 +67,12 @@ pub fn startup<A: App>(title: String) {
         video.display_dpi(0).unwrap(),
     );
     info!("SDL Vulkan drawable: {:?}", window.vulkan_drawable_size());
-    let window = Arc::new(window);
+    // let mut window = Arc::new(window);
     let mut event_pump = system.event_pump().unwrap();
     let instance_extensions: Vec<&'static str> = window.vulkan_instance_extensions().unwrap();
     info!("SDL Vulkan extensions: {:?}", instance_extensions);
 
-    let base = Base::new(
-        window_size[0],
-        window_size[1],
-        window.clone(),
-        instance_extensions,
-    );
+    let base = Base::new(window_size[0], window_size[1], &window, instance_extensions);
 
     info!("FMOD expected version: {:#08x}", FMOD_VERSION);
     let studio = Studio::create().unwrap();
@@ -225,6 +222,16 @@ pub fn startup<A: App>(title: String) {
                 break;
             }
 
+            if input.pressed(Keycode::Return) {
+                if windowed {
+                    window.set_size(1920 * 2, 1080 * 2).unwrap();
+                    windowed = false;
+                } else {
+                    window.set_size(1920, 1080).unwrap();
+                    windowed = true;
+                }
+            }
+
             if input.pressed(Keycode::Z) {
                 sprites_renderer.zoom += 0.1;
                 info!("ZOOM: {}", sprites_renderer.zoom);
@@ -309,9 +316,17 @@ pub fn startup<A: App>(title: String) {
                     .swapchains(&swapchains)
                     .image_indices(&image_indices);
 
-                base.swapchain_loader
-                    .queue_present(*present_queue, &present_info)
-                    .unwrap();
+                let present = base
+                    .swapchain_loader
+                    .queue_present(*present_queue, &present_info);
+
+                match present {
+                    Ok(suboptimal) => {}
+                    Err(vk::Result::ERROR_OUT_OF_DATE_KHR) => {
+                        // recreate KHR
+                    }
+                    Err(error) => panic!("present error {:?}", error),
+                }
 
                 // let frame_time = time.elapsed();
                 // if frame_time.as_millis() > 0 {

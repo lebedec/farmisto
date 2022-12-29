@@ -7,7 +7,7 @@ use glam::{vec3, Mat4};
 use lazy_static::lazy_static;
 use log::{debug, error, info};
 use rusty_spine::controller::SkeletonController;
-use rusty_spine::AttachmentType;
+use rusty_spine::{AttachmentType, Skin};
 
 use game::physics::SpaceId;
 
@@ -236,32 +236,29 @@ impl SpriteRenderer {
         renderer
     }
 
-    pub fn instantiate(&mut self, spine: &SpineAsset) -> SpineSpriteController {
+    pub fn instantiate(
+        &mut self,
+        spine: &SpineAsset,
+        features: [String; 2],
+    ) -> SpineSpriteController {
         let mut skeleton = SkeletonController::new(spine.skeleton.clone(), spine.animation.clone());
+
+        let [head, tail] = features;
+        let mut skin = Skin::new("lama-dynamic-848");
+        let head = spine.skeleton.find_skin(&head).unwrap();
+        let tail = spine.skeleton.find_skin(&tail).unwrap();
+        skin.add_skin(&head);
+        skin.add_skin(&tail);
+        skeleton.skeleton.set_skin(&skin);
+
         skeleton
             .animation_state
             .set_animation_by_name(0, "default", true)
             .unwrap();
 
-        // skeleton.skeleton.set_scale([0.25, 0.25]);
-
         let mut mega_vertices: Vec<SpriteVertex> = vec![];
         let mut mega_indices: Vec<u32> = vec![];
         let mut mega_counters: Vec<(u32, u32)> = vec![];
-
-        // TODO: get texture atlas 1:1 (atlas:sprite)
-        let slot = skeleton.skeleton.draw_order_at_index(0).unwrap();
-        let mega_texture = unsafe {
-            let attachment = slot.attachment().unwrap();
-            let region = attachment.as_region().unwrap();
-            let mut obj = region.renderer_object();
-            let mut obj2 = obj.get_atlas_region();
-            let page = obj2.unwrap();
-            let mut obj3 = page.page();
-            let mut obj4 = obj3.renderer_object();
-            let texture: &mut TextureAsset = obj4.get_unchecked();
-            texture.clone()
-        };
 
         let mut index_offset = 0;
         for index in 0..skeleton.skeleton.slots_count() {
@@ -321,7 +318,7 @@ impl SpriteRenderer {
             skeleton,
             mega_buffer,
             mega_index_buffer,
-            mega_texture,
+            mega_texture: spine.atlas.clone(),
             counters: mega_counters,
         }
     }
