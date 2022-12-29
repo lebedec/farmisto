@@ -43,6 +43,7 @@ pub struct SpriteRenderer {
     pub material_slot: ShaderDataSet<2>,
     lut_texture: TextureAsset,
     screen: Screen,
+    pub zoom: f32,
 }
 
 pub struct SpineSpriteController {
@@ -72,7 +73,14 @@ impl SpriteRenderer {
                 vec3(0.0, 0.0, 0.0),
                 vec3(0.0, -1.0, 0.0), // Vulkan Y: bottom screen
             ),
-            proj: Mat4::orthographic_rh_gl(0.0, width, height, 0.0, 0.0, 100.0),
+            proj: Mat4::orthographic_rh_gl(
+                0.0,
+                width * self.zoom,
+                height * self.zoom,
+                0.0,
+                0.0,
+                100.0,
+            ),
         };
         self.camera_buffer
             .update(self.present_index as usize, uniform);
@@ -94,7 +102,7 @@ impl SpriteRenderer {
         }
     }
 
-    pub fn draw(&mut self, asset: &SpriteAsset, position: [f32; 2]) {
+    pub fn draw_sprite(&mut self, asset: &SpriteAsset, position: [f32; 2]) {
         let texture = &asset.texture;
         let image_w = asset.texture.width() as f32;
         let image_h = asset.texture.height() as f32;
@@ -110,30 +118,31 @@ impl SpriteRenderer {
                 size: asset.size,
                 coords: [x, y, w, h],
             },
-            texture: self.material_slot.describe(
-                texture.id(),
-                vec![[
-                    ShaderData::from(texture),
-                    ShaderData::from(&self.lut_texture),
-                ]],
-            )[0],
+            texture: self.material_slot.describe(vec![[
+                ShaderData::Texture(vk::DescriptorImageInfo {
+                    sampler: asset.sampler.handle,
+                    image_view: texture.view(),
+                    image_layout: vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
+                }),
+                ShaderData::from(&self.lut_texture),
+            ]])[0],
         })
     }
 
     pub fn draw_texture(&mut self, texture: &TextureAsset, position: [f32; 2]) {
         self.sprites.push(Sprite {
             uniform: SpriteUniform {
-                position,
+                position: [
+                    position[0] + texture.widthf() / 2.0,
+                    position[1] + texture.heightf() / 2.0,
+                ],
                 size: [texture.width() as f32, texture.height() as f32],
                 coords: [0.0, 0.0, 1.0, 1.0],
             },
-            texture: self.material_slot.describe(
-                texture.id(),
-                vec![[
-                    ShaderData::from(texture),
-                    ShaderData::from(&self.lut_texture),
-                ]],
-            )[0],
+            texture: self.material_slot.describe(vec![[
+                ShaderData::from(texture),
+                ShaderData::from(&self.lut_texture),
+            ]])[0],
         })
     }
 
@@ -162,14 +171,13 @@ impl SpriteRenderer {
             [vk::DescriptorType::UNIFORM_BUFFER],
         );
         let descriptor_sets = scene_data.describe(
-            0,
             (0..swapchain)
                 .map(|index| {
-                    [ShaderData::Uniform([vk::DescriptorBufferInfo {
+                    [ShaderData::Uniform(vk::DescriptorBufferInfo {
                         buffer: camera_buffer.buffers[index],
                         offset: 0,
                         range: std::mem::size_of::<CameraUniform>() as u64,
-                    }])]
+                    })]
                 })
                 .collect(),
         );
@@ -220,6 +228,7 @@ impl SpriteRenderer {
             material_slot: material_data,
             lut_texture,
             screen,
+            zoom: 2.0,
         };
         renderer.rebuild_pipeline();
         renderer.rebuild_pipeline_spine();
@@ -365,13 +374,10 @@ impl SpriteRenderer {
         self.spine_sprites.push(SpineSprite {
             buffer: sprite.mega_buffer.clone(),
             index_buffer: sprite.mega_index_buffer.clone(),
-            texture: self.material_slot.describe(
-                texture.id(),
-                vec![[
-                    ShaderData::from(texture),
-                    ShaderData::from(&self.lut_texture),
-                ]],
-            )[0],
+            texture: self.material_slot.describe(vec![[
+                ShaderData::from(texture),
+                ShaderData::from(&self.lut_texture),
+            ]])[0],
             position,
             counters: sprite.counters.clone(),
         })
@@ -446,7 +452,7 @@ impl SpriteRenderer {
                     coords: [0.0, 0.0, 0.0, 0.0],
                 }),
             );
-            device.cmd_draw_indexed(buffer, (sprite.counters.len() * 6) as u32, 1, 0, 0, 1);
+            // device.cmd_draw_indexed(buffer, (sprite.counters.len() * 6) as u32, 1, 0, 0, 1);
         }
         METRIC_RENDER_SECONDS.observe(t1.elapsed().as_secs_f64());
 

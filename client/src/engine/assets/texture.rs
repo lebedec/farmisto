@@ -57,6 +57,23 @@ impl TextureAsset {
         self.data.borrow().height
     }
 
+    pub fn size(&self) -> [f32; 2] {
+        [
+            self.data.borrow().width as f32,
+            self.data.borrow().height as f32,
+        ]
+    }
+
+    #[inline]
+    pub fn widthf(&self) -> f32 {
+        self.data.borrow().width as f32
+    }
+
+    #[inline]
+    pub fn heightf(&self) -> f32 {
+        self.data.borrow().height as f32
+    }
+
     #[inline]
     pub fn id(&self) -> u64 {
         self.data.borrow().view.as_raw()

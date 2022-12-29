@@ -5,9 +5,10 @@ use std::path::{Path, PathBuf};
 use std::sync::mpsc::{channel, Receiver, Sender};
 use std::sync::{Arc, RwLock};
 use std::time::Duration;
-use std::{fs, thread};
+use std::{fs, ptr, thread};
 
 use ash::{vk, Device};
+use lazy_static::lazy_static;
 use log::{debug, error, info, warn};
 use rusty_spine::controller::SkeletonController;
 use rusty_spine::{AnimationStateData, Atlas, AttachmentType, SkeletonJson};
@@ -21,10 +22,20 @@ use crate::engine::base::Queue;
 use crate::engine::{
     FarmerAsset, FarmerAssetData, FarmlandAsset, FarmlandAssetData, FarmlandAssetPropItem,
     MeshAsset, MeshAssetData, PipelineAsset, PipelineAssetData, PropsAsset, PropsAssetData,
-    ShaderAsset, ShaderAssetData, SpineAsset, SpineAssetData, SpriteAsset, SpriteAssetData,
-    TextureAsset, TextureAssetData,
+    SamplerAsset, SamplerAssetData, ShaderAsset, ShaderAssetData, SpineAsset, SpineAssetData,
+    SpriteAsset, SpriteAssetData, TextureAsset, TextureAssetData,
 };
 use crate::ShaderCompiler;
+
+lazy_static! {
+    static ref METRIC_REQUESTS_TOTAL: prometheus::IntCounterVec =
+        prometheus::register_int_counter_vec!(
+            "asset_requests_total",
+            "asset_requests_total",
+            &["type", "key"]
+        )
+        .unwrap();
+}
 
 pub struct Assets {
     pub storage: Storage,
@@ -50,6 +61,7 @@ pub struct Assets {
     farmers: HashMap<String, FarmerAsset>,
     pipelines: HashMap<String, PipelineAsset>,
     sprites: HashMap<String, SpriteAsset>,
+    samplers: HashMap<String, SamplerAsset>,
     spines: HashMap<String, SpineAsset>,
 
     queue: Arc<Queue>,
@@ -235,11 +247,15 @@ impl Assets {
             farmers: Default::default(),
             pipelines: Default::default(),
             sprites: Default::default(),
+            samplers: Default::default(),
             spines: Default::default(),
         }
     }
 
     pub fn shader<P: AsRef<Path>>(&mut self, path: P) -> ShaderAsset {
+        METRIC_REQUESTS_TOTAL
+            .with_label_values(&["shader", path.as_ref().to_str().unwrap()])
+            .inc();
         let path = fs::canonicalize(path).unwrap();
         if let Some(shader) = self.shaders.get(&path) {
             return shader.share();
@@ -251,6 +267,9 @@ impl Assets {
     }
 
     pub fn texture<P: AsRef<Path>>(&mut self, path: P) -> TextureAsset {
+        METRIC_REQUESTS_TOTAL
+            .with_label_values(&["texture", path.as_ref().to_str().unwrap()])
+            .inc();
         let path = fs::canonicalize(path).unwrap();
         if let Some(texture) = self.textures.get(&path) {
             return texture.clone();
@@ -271,6 +290,9 @@ impl Assets {
     }
 
     pub fn spine(&mut self, key: &str) -> SpineAsset {
+        METRIC_REQUESTS_TOTAL
+            .with_label_values(&["spine", key])
+            .inc();
         if let Some(asset) = self.spines.get(key) {
             return asset.share();
         }
@@ -304,6 +326,9 @@ impl Assets {
     }
 
     pub fn mesh<P: AsRef<Path>>(&mut self, path: P) -> MeshAsset {
+        METRIC_REQUESTS_TOTAL
+            .with_label_values(&["mesh", path.as_ref().to_str().unwrap()])
+            .inc();
         let path = fs::canonicalize(path).unwrap();
         if let Some(mesh) = self.meshes.get(&path) {
             return mesh.clone();
@@ -315,6 +340,9 @@ impl Assets {
     }
 
     pub fn sprite(&mut self, name: &str) -> SpriteAsset {
+        METRIC_REQUESTS_TOTAL
+            .with_label_values(&["sprite", name])
+            .inc();
         match self.sprites.get(name) {
             Some(asset) => asset.share(),
             None => {
@@ -324,7 +352,23 @@ impl Assets {
         }
     }
 
+    pub fn sampler(&mut self, name: &str) -> SamplerAsset {
+        METRIC_REQUESTS_TOTAL
+            .with_label_values(&["sampler", name])
+            .inc();
+        match self.samplers.get(name) {
+            Some(asset) => asset.share(),
+            None => {
+                let data = self.create_sampler_from_data(name).unwrap();
+                self.samplers.publish(name, data)
+            }
+        }
+    }
+
     pub fn pipeline(&mut self, name: &str) -> PipelineAsset {
+        METRIC_REQUESTS_TOTAL
+            .with_label_values(&["pipeline", name])
+            .inc();
         match self.pipelines.get(name) {
             Some(asset) => asset.share(),
             None => {
@@ -335,6 +379,9 @@ impl Assets {
     }
 
     pub fn tree(&mut self, name: &str) -> TreeAsset {
+        METRIC_REQUESTS_TOTAL
+            .with_label_values(&["tree", name])
+            .inc();
         match self.trees.get(name) {
             Some(asset) => asset.share(),
             None => {
@@ -345,6 +392,9 @@ impl Assets {
     }
 
     pub fn farmland(&mut self, name: &str) -> FarmlandAsset {
+        METRIC_REQUESTS_TOTAL
+            .with_label_values(&["farmland", name])
+            .inc();
         match self.farmlands.get(name) {
             Some(asset) => asset.share(),
             None => {
@@ -355,6 +405,9 @@ impl Assets {
     }
 
     pub fn farmer(&mut self, name: &str) -> FarmerAsset {
+        METRIC_REQUESTS_TOTAL
+            .with_label_values(&["farmer", name])
+            .inc();
         match self.farmers.get(name) {
             Some(asset) => asset.share(),
             None => {
@@ -365,6 +418,9 @@ impl Assets {
     }
 
     pub fn props(&mut self, name: &str) -> PropsAsset {
+        METRIC_REQUESTS_TOTAL
+            .with_label_values(&["props", name])
+            .inc();
         match self.props.get(name) {
             Some(asset) => asset.share(),
             None => {
@@ -443,8 +499,91 @@ impl Assets {
             texture: self.texture(texture),
             position: entry.get("position")?,
             size: entry.get("size")?,
+            sampler: self.sampler(entry.get("sampler")?),
         };
         Ok(data)
+    }
+
+    pub fn create_sampler_from_data(
+        &mut self,
+        id: &str,
+    ) -> Result<SamplerAssetData, serde_json::Error> {
+        let entry = self.storage.fetch_one::<SamplerAssetData>(id);
+        let sampler_create_info = vk::SamplerCreateInfo {
+            s_type: vk::StructureType::SAMPLER_CREATE_INFO,
+            p_next: ptr::null(),
+            flags: vk::SamplerCreateFlags::empty(),
+            mag_filter: match entry.get_string("mag_filter")? {
+                "NEAREST" => vk::Filter::NEAREST,
+                "LINEAR" => vk::Filter::LINEAR,
+                _ => vk::Filter::NEAREST,
+            },
+            min_filter: match entry.get_string("min_filter")? {
+                "NEAREST" => vk::Filter::NEAREST,
+                "LINEAR" => vk::Filter::LINEAR,
+                _ => vk::Filter::NEAREST,
+            },
+            mipmap_mode: match entry.get_string("mipmap_mode")? {
+                "NEAREST" => vk::SamplerMipmapMode::NEAREST,
+                "LINEAR" => vk::SamplerMipmapMode::LINEAR,
+                _ => vk::SamplerMipmapMode::NEAREST,
+            },
+            address_mode_u: match entry.get_string("address_mode_u")? {
+                "REPEAT" => vk::SamplerAddressMode::REPEAT,
+                "MIRRORED_REPEAT" => vk::SamplerAddressMode::MIRRORED_REPEAT,
+                "CLAMP_TO_EDGE" => vk::SamplerAddressMode::CLAMP_TO_EDGE,
+                "CLAMP_TO_BORDER" => vk::SamplerAddressMode::CLAMP_TO_BORDER,
+                _ => vk::SamplerAddressMode::REPEAT,
+            },
+            address_mode_v: match entry.get_string("address_mode_v")? {
+                "REPEAT" => vk::SamplerAddressMode::REPEAT,
+                "MIRRORED_REPEAT" => vk::SamplerAddressMode::MIRRORED_REPEAT,
+                "CLAMP_TO_EDGE" => vk::SamplerAddressMode::CLAMP_TO_EDGE,
+                "CLAMP_TO_BORDER" => vk::SamplerAddressMode::CLAMP_TO_BORDER,
+                _ => vk::SamplerAddressMode::REPEAT,
+            },
+            address_mode_w: match entry.get_string("address_mode_w")? {
+                "REPEAT" => vk::SamplerAddressMode::REPEAT,
+                "MIRRORED_REPEAT" => vk::SamplerAddressMode::MIRRORED_REPEAT,
+                "CLAMP_TO_EDGE" => vk::SamplerAddressMode::CLAMP_TO_EDGE,
+                "CLAMP_TO_BORDER" => vk::SamplerAddressMode::CLAMP_TO_BORDER,
+                _ => vk::SamplerAddressMode::REPEAT,
+            },
+            mip_lod_bias: entry.get("mip_lod_bias")?,
+            anisotropy_enable: entry.get("anisotropy_enable")?,
+            max_anisotropy: entry.get("max_anisotropy")?,
+            compare_enable: entry.get("compare_enable")?,
+            compare_op: match entry.get_string("compare_op")? {
+                "NEVER" => vk::CompareOp::NEVER,
+                "LESS" => vk::CompareOp::LESS,
+                "EQUAL" => vk::CompareOp::EQUAL,
+                "LESS_OR_EQUAL" => vk::CompareOp::LESS_OR_EQUAL,
+                "GREATER" => vk::CompareOp::GREATER,
+                "NOT_EQUAL" => vk::CompareOp::NOT_EQUAL,
+                "GREATER_OR_EQUAL" => vk::CompareOp::GREATER_OR_EQUAL,
+                "ALWAYS" => vk::CompareOp::ALWAYS,
+                _ => vk::CompareOp::ALWAYS,
+            },
+            min_lod: entry.get("min_lod")?,
+            max_lod: entry.get("max_lod")?,
+            border_color: match entry.get_string("border_color")? {
+                "FLOAT_TRANSPARENT_BLACK" => vk::BorderColor::FLOAT_TRANSPARENT_BLACK,
+                "INT_TRANSPARENT_BLACK" => vk::BorderColor::INT_TRANSPARENT_BLACK,
+                "FLOAT_OPAQUE_BLACK" => vk::BorderColor::FLOAT_OPAQUE_BLACK,
+                "INT_OPAQUE_BLACK" => vk::BorderColor::INT_OPAQUE_BLACK,
+                "FLOAT_OPAQUE_WHITE" => vk::BorderColor::FLOAT_OPAQUE_WHITE,
+                "INT_OPAQUE_WHITE" => vk::BorderColor::INT_OPAQUE_WHITE,
+                _ => vk::BorderColor::INT_OPAQUE_BLACK,
+            },
+            unnormalized_coordinates: entry.get("unnormalized_coordinates")?,
+        };
+        let handle = unsafe {
+            self.queue
+                .device
+                .create_sampler(&sampler_create_info, None)
+                .expect("Failed to create Sampler!")
+        };
+        Ok(SamplerAssetData { handle })
     }
 
     fn require_update(&mut self, kind: AssetKind, path: PathBuf) {
@@ -481,6 +620,10 @@ impl Assets {
                     "SpriteAssetData" => {
                         let data = self.load_sprite_data(&change.id).unwrap();
                         self.sprites.get_mut(&change.id).unwrap().update(data);
+                    }
+                    "SamplerAssetData" => {
+                        let data = self.create_sampler_from_data(&change.id).unwrap();
+                        self.samplers.get_mut(&change.id).unwrap().update(data);
                     }
                     _ => {
                         error!("Handle of {:?} not implemented yet", change)

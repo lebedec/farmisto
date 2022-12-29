@@ -1,13 +1,13 @@
 use crate::engine::animatoro::{AnimationAsset, Machine, State, StateId};
 use crate::engine::armature::{PoseBuffer, PoseUniform};
 use crate::engine::sprites::{SpineSpriteController, SpriteRenderer};
-use crate::engine::{Input, SpineAsset, TextureAsset};
+use crate::engine::{Input, SpineAsset, SpriteAsset, TextureAsset};
 use crate::gameplay::camera::Camera;
 use crate::gameplay::objects::{BarrierHint, FarmerBehaviour, FarmlandBehaviour, TreeBehaviour};
 use crate::{Assets, Frame, Mode, SceneRenderer};
 use datamap::Storage;
 use game::api::{Action, Event, GameResponse, PlayerRequest};
-use game::math::detect_collision;
+use game::math::{detect_collision, VectorMath};
 use game::model::{FarmerId, FarmlandId, TreeId};
 use game::Game;
 use glam::{Mat4, Vec2, Vec3};
@@ -45,7 +45,7 @@ pub struct Gameplay {
     pub farmers: HashMap<FarmerId, FarmerBehaviour>,
     pub camera: Camera,
     pub farmers2d: Vec<Farmer2d>,
-    pub backgrounds: Vec<TextureAsset>,
+    pub backgrounds: Vec<SpriteAsset>,
 }
 
 pub struct Farmer2d {
@@ -336,8 +336,9 @@ impl Gameplay {
         renderer.clear();
         renderer.look_at();
         for background in &self.backgrounds {
-            renderer.draw_texture(&background, [1024.0, 1024.0]);
+            renderer.draw_sprite(&background, background.size.mul(0.5));
         }
+        /*
         renderer.draw(&assets.sprite("test"), [512.0, 512.0]);
         let mut trees: Vec<&TreeBehaviour> = self.trees.values().collect();
         trees.sort_by_key(|tree| tree.position.z as i32);
@@ -348,7 +349,7 @@ impl Gameplay {
                 512.0 + tree.position.z * 32.0,
             ];
             renderer.draw(&sprite, position)
-        }
+        }*/
         METRIC_DRAW_REQUEST_SECONDS.observe_closure_duration(|| {
             for farmer in &self.farmers2d {
                 renderer.draw_spine(&farmer.sprite, farmer.position);
@@ -385,7 +386,6 @@ impl Gameplay {
                 Mat4::from_translation(farmer.rendering_position),
                 &farmer.asset.mesh,
                 &farmer.asset.texture,
-                42,
                 &farmer.machine.pose_buffer,
             );
         }
@@ -395,8 +395,8 @@ impl Gameplay {
 impl Mode for Gameplay {
     fn start(&mut self, assets: &mut Assets) {
         self.knowledge.load_game_knowledge();
-        self.backgrounds
-            .push(assets.texture("assets/texture/background.png"))
+        self.backgrounds.push(assets.sprite("bg128.png"));
+        self.backgrounds.push(assets.sprite("lama-ref-384.png"));
     }
 
     fn update(&mut self, mut frame: Frame) {

@@ -19,6 +19,7 @@ use prometheus::{IntCounter, IntGauge};
 
 use lazy_static::lazy_static;
 use prometheus::{register_int_counter, register_int_gauge};
+use sdl2::keyboard::Keycode;
 
 lazy_static! {
     static ref METRIC_FRAME: IntCounter = register_int_counter!("app_frame", "frame").unwrap();
@@ -53,7 +54,8 @@ pub fn startup<A: App>(title: String) {
     let window = video
         .window(&title, window_size[0], window_size[1])
         .allow_highdpi()
-        .position(1920, 0)
+        //.fullscreen()
+        //.position(1920, 0)
         .vulkan()
         .build()
         .unwrap();
@@ -220,6 +222,15 @@ pub fn startup<A: App>(title: String) {
 
             if input.terminating {
                 break;
+            }
+
+            if input.pressed(Keycode::Z) {
+                sprites_renderer.zoom += 0.1;
+                info!("ZOOM: {}", sprites_renderer.zoom);
+            }
+            if input.pressed(Keycode::X) {
+                sprites_renderer.zoom -= 0.1;
+                info!("ZOOM: {}", sprites_renderer.zoom);
             }
 
             //scene_renderer.update();

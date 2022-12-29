@@ -1,8 +1,23 @@
 use crate::engine::TextureAsset;
+use ash::vk::Handle;
 use ash::{vk, Device};
+use lazy_static::lazy_static;
 use log::error;
+use std::collections::hash_map::DefaultHasher;
 use std::collections::HashMap;
+use std::hash::{Hash, Hasher};
 use std::ptr;
+use std::ptr::hash;
+
+lazy_static! {
+    static ref METRIC_DESCRIBES_TOTAL: prometheus::IntCounterVec =
+        prometheus::register_int_counter_vec!(
+            "shader_describes_total",
+            "shader_describes_total",
+            &["cache"]
+        )
+        .unwrap();
+}
 
 pub struct ShaderDataSet<const B: usize> {
     device: Device,
@@ -13,27 +28,45 @@ pub struct ShaderDataSet<const B: usize> {
 }
 
 pub enum ShaderData {
-    Texture([vk::DescriptorImageInfo; 1]),
-    Uniform([vk::DescriptorBufferInfo; 1]),
+    Texture(vk::DescriptorImageInfo),
+    Uniform(vk::DescriptorBufferInfo),
 }
 
 impl From<&TextureAsset> for ShaderData {
     fn from(texture: &TextureAsset) -> Self {
-        ShaderData::Texture([vk::DescriptorImageInfo {
+        ShaderData::Texture(vk::DescriptorImageInfo {
             sampler: texture.sampler(),
             image_view: texture.view(),
             image_layout: vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
-        }])
+        })
     }
 }
 
 impl From<&mut TextureAsset> for ShaderData {
     fn from(texture: &mut TextureAsset) -> Self {
-        ShaderData::Texture([vk::DescriptorImageInfo {
+        ShaderData::Texture(vk::DescriptorImageInfo {
             sampler: texture.sampler(),
             image_view: texture.view(),
             image_layout: vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
-        }])
+        })
+    }
+}
+
+impl ShaderData {
+    pub fn id(&self) -> u64 {
+        let mut hasher = DefaultHasher::new();
+        match self {
+            ShaderData::Texture(info) => {
+                let id = [info.sampler.as_raw(), info.image_view.as_raw()];
+                id.hash(&mut hasher);
+                hasher.finish()
+            }
+            ShaderData::Uniform(info) => {
+                let id = info.buffer.as_raw();
+                id.hash(&mut hasher);
+                hasher.finish()
+            }
+        }
     }
 }
 
@@ -62,11 +95,25 @@ impl<const B: usize> ShaderDataSet<B> {
         }
     }
 
-    pub fn describe(&mut self, id: u64, writes: Vec<[ShaderData; B]>) -> Vec<vk::DescriptorSet> {
+    fn identify_writes(&self, writes: &Vec<[ShaderData; B]>) -> u64 {
+        let mut hasher = DefaultHasher::new();
+        let mut ids = vec![];
+        for write in writes {
+            for data in write {
+                ids.push(data.id());
+            }
+        }
+        ids.hash(&mut hasher);
+        hasher.finish()
+    }
+
+    pub fn describe(&mut self, writes: Vec<[ShaderData; B]>) -> Vec<vk::DescriptorSet> {
+        let id = self.identify_writes(&writes);
         if let Some(descriptors) = self.descriptors.get(&id) {
+            METRIC_DESCRIBES_TOTAL.with_label_values(&["hit"]).inc();
             return descriptors.clone();
         }
-        error!("ALLOCATE! {}", id);
+        METRIC_DESCRIBES_TOTAL.with_label_values(&["miss"]).inc();
         let layouts = vec![self.layout; writes.len()];
         let allocation = vk::DescriptorSetAllocateInfo::builder()
             .descriptor_pool(self.pool)
@@ -94,11 +141,11 @@ impl<const B: usize> ShaderDataSet<B> {
                     descriptor_count: 1,
                     descriptor_type,
                     p_image_info: match data {
-                        ShaderData::Texture(info) => info.as_ptr(),
+                        ShaderData::Texture(info) => info,
                         _ => ptr::null(),
                     },
                     p_buffer_info: match data {
-                        ShaderData::Uniform(info) => info.as_ptr(),
+                        ShaderData::Uniform(info) => info,
                         _ => ptr::null(),
                     },
                     p_texel_buffer_view: ptr::null(),

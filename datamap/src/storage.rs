@@ -23,6 +23,15 @@ impl Entry {
         let index = *self.columns.get(index).unwrap();
         T::deserialize(&self.values[index])
     }
+
+    pub fn get_string(&self, index: &str) -> Result<&str, serde_json::Error> {
+        self.get(index)
+    }
+
+    pub fn get_bool(&self, index: &str) -> Result<bool, serde_json::Error> {
+        let value: i32 = self.get(index)?;
+        Ok(value == 1)
+    }
 }
 
 impl Storage {
@@ -158,37 +167,34 @@ impl Storage {
     }
 
     pub fn setup_tracking(&self) -> Result<(), rusqlite::Error> {
-        if std::env::var("SETUP_TRACKING").is_err() {
-            return Ok(());
-        }
-
-        let tracking_table = "drop table if exists sql_tracking;
-        create table sql_tracking (
+        let tracking_table = "-- drop table if exists sql_tracking;
+        create table if not exists sql_tracking (
             timestamp integer primary key autoincrement,
             entity text not null,
             id blob not null,
             operation text not null
-        );";
+        );
+        delete from sql_tracking;";
         self.connection.execute_batch(tracking_table)?;
 
-        let insert = "drop trigger if exists on_<table>_insert;
-        create trigger on_<table>_insert
+        let insert = "-- drop trigger if exists on_<table>_insert;
+        create trigger if not exists on_<table>_insert
         after insert on <table>
         begin
             insert into sql_tracking (entity, id, operation)
             values ('<table>', new.id, 'Insert');
         end;";
 
-        let update = "drop trigger if exists on_<table>_update;
-        create trigger on_<table>_update
+        let update = "-- drop trigger if exists on_<table>_update;
+        create trigger if not exists on_<table>_update
         after update on <table>
         begin
             insert into sql_tracking (entity, id, operation)
             values ('<table>', new.id, 'Update');
         end;";
 
-        let delete = "drop trigger if exists on_<table>_delete;
-        create trigger on_<table>_delete
+        let delete = "-- drop trigger if exists on_<table>_delete;
+        create trigger if not exists on_<table>_delete
         after delete on <table>
         begin
             insert into sql_tracking (entity, id, operation)

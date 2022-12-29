@@ -55,14 +55,13 @@ impl SceneRenderer {
             transform,
             mesh: mesh.clone(),
             texture: texture.clone(),
-            texture_bind: self.material_data.describe(
-                texture.id(),
-                vec![[ShaderData::Texture([vk::DescriptorImageInfo {
+            texture_bind: self.material_data.describe(vec![[ShaderData::Texture(
+                vk::DescriptorImageInfo {
                     sampler: texture.sampler(),
                     image_view: texture.view(),
                     image_layout: vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
-                }])]],
-            )[0],
+                },
+            )]])[0],
             pose_data: None,
         })
     }
@@ -72,30 +71,26 @@ impl SceneRenderer {
         transform: Mat4,
         mesh: &MeshAsset,
         texture: &TextureAsset,
-        pose_id: u64,
         pose_buffer: &PoseBuffer,
     ) {
         self.objects.push(SceneObject {
             transform,
             mesh: mesh.clone(),
             texture: texture.clone(),
-            texture_bind: self.material_data.describe(
-                texture.id(),
-                vec![[ShaderData::Texture([vk::DescriptorImageInfo {
+            texture_bind: self.material_data.describe(vec![[ShaderData::Texture(
+                vk::DescriptorImageInfo {
                     sampler: texture.sampler(),
                     image_view: texture.view(),
                     image_layout: vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
-                }])]],
-            )[0],
+                },
+            )]])[0],
             pose_data: Some(
-                self.object_data.describe(
-                    pose_id,
-                    vec![[ShaderData::Uniform([vk::DescriptorBufferInfo {
+                self.object_data
+                    .describe(vec![[ShaderData::Uniform(vk::DescriptorBufferInfo {
                         buffer: pose_buffer.buffers[0],
                         offset: 0,
                         range: std::mem::size_of::<PoseUniform>() as u64,
-                    }])]],
-                )[0],
+                    })]])[0],
             ),
         })
     }
@@ -122,14 +117,13 @@ impl SceneRenderer {
             [vk::DescriptorType::UNIFORM_BUFFER],
         );
         let descriptor_sets = scene_data.describe(
-            0,
             (0..swapchain)
                 .map(|index| {
-                    [ShaderData::Uniform([vk::DescriptorBufferInfo {
+                    [ShaderData::Uniform(vk::DescriptorBufferInfo {
                         buffer: camera_buffer.buffers[index],
                         offset: 0,
                         range: std::mem::size_of::<CameraUniform>() as u64,
-                    }])]
+                    })]
                 })
                 .collect(),
         );
@@ -149,14 +143,12 @@ impl SceneRenderer {
                 bones: [Mat4::IDENTITY; 64],
             },
         );
-        let static_pose = object_data.describe(
-            0,
-            vec![[ShaderData::Uniform([vk::DescriptorBufferInfo {
+        let static_pose =
+            object_data.describe(vec![[ShaderData::Uniform(vk::DescriptorBufferInfo {
                 buffer: pose_buffer.buffers[0],
                 offset: 0,
                 range: std::mem::size_of::<PoseUniform>() as u64,
-            }])]],
-        )[0];
+            })]])[0];
 
         let material_data = ShaderDataSet::create(
             device.clone(),
