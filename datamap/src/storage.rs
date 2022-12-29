@@ -174,7 +174,7 @@ impl Storage {
             id blob not null,
             operation text not null
         );
-        delete from sql_tracking;";
+        delete from sql_tracking where id is not null;";
         self.connection.execute_batch(tracking_table)?;
 
         let insert = "-- drop trigger if exists on_<table>_insert;
