@@ -297,8 +297,8 @@ impl Assets {
             return asset.share();
         }
         info!("begin load spine {}", key);
-        let atlas_path = "assets/spine/lama/lama.atlas";
-        let json_path = "assets/spine/lama/lama.json";
+        let atlas_path = "assets/spine/lama384/lama.atlas";
+        let json_path = "assets/spine/lama384/lama.json";
         let mut atlas = Atlas::new_from_file(atlas_path).unwrap();
 
         let path = PathBuf::from(atlas_path);

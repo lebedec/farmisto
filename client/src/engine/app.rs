@@ -173,6 +173,7 @@ pub fn startup<A: App>(title: String) {
             base.present_images.len(),
             renderpass,
             &mut assets,
+            2160.0 / window_size[1] as f32, // reference resolution 4K
         );
 
         let mut app = A::start(&mut assets);

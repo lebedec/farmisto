@@ -153,6 +153,7 @@ impl SpriteRenderer {
         swapchain: usize,
         pass: vk::RenderPass,
         assets: &mut Assets,
+        zoom: f32,
     ) -> Self {
         let lut_texture = assets.texture("./assets/texture/lut-night.png");
         let pipeline_asset = assets.pipeline("sprites");
@@ -228,7 +229,7 @@ impl SpriteRenderer {
             material_slot: material_data,
             lut_texture,
             screen,
-            zoom: 2.0,
+            zoom,
         };
         renderer.rebuild_pipeline();
         renderer.rebuild_pipeline_spine();
@@ -452,7 +453,7 @@ impl SpriteRenderer {
                     coords: [0.0, 0.0, 0.0, 0.0],
                 }),
             );
-            // device.cmd_draw_indexed(buffer, (sprite.counters.len() * 6) as u32, 1, 0, 0, 1);
+            device.cmd_draw_indexed(buffer, (sprite.counters.len() * 6) as u32, 1, 0, 0, 1);
         }
         METRIC_RENDER_SECONDS.observe(t1.elapsed().as_secs_f64());
 
