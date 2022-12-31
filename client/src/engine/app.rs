@@ -58,6 +58,7 @@ pub fn startup<A: App>(title: String) {
         .allow_highdpi()
         //.fullscreen()
         //.position(1920, 0)
+        .borderless()
         .vulkan()
         .build()
         .unwrap();
@@ -72,7 +73,7 @@ pub fn startup<A: App>(title: String) {
     let instance_extensions: Vec<&'static str> = window.vulkan_instance_extensions().unwrap();
     info!("SDL Vulkan extensions: {:?}", instance_extensions);
 
-    let base = Base::new(window_size[0], window_size[1], &window, instance_extensions);
+    let mut base = Base::new(window_size[0], window_size[1], &window, instance_extensions);
 
     info!("FMOD expected version: {:#08x}", FMOD_VERSION);
     let studio = Studio::create().unwrap();
@@ -135,6 +136,7 @@ pub fn startup<A: App>(title: String) {
             .create_render_pass(&renderpass_create_info, None)
             .unwrap();
 
+        // TODO: recreate !
         let framebuffers: Vec<vk::Framebuffer> = base
             .present_image_views
             .iter()
@@ -159,7 +161,7 @@ pub fn startup<A: App>(title: String) {
             &base.device,
             &base.queue.device_memory,
             base.screen.clone(),
-            base.present_images.len(),
+            base.present_image_views.len(),
             renderpass,
             &mut assets,
         );
@@ -167,7 +169,7 @@ pub fn startup<A: App>(title: String) {
             &base.device,
             &base.queue.device_memory,
             base.screen.clone(),
-            base.present_images.len(),
+            base.present_image_views.len(),
             renderpass,
             &mut assets,
             2160.0 / window_size[1] as f32, // reference resolution 4K
@@ -243,17 +245,24 @@ pub fn startup<A: App>(title: String) {
 
             //scene_renderer.update();
             sprites_renderer.update();
-            let (present_index, _) = base
-                .swapchain_loader
-                .acquire_next_image(
-                    base.swapchain,
-                    std::u64::MAX,
-                    base.present_complete_semaphore,
-                    vk::Fence::null(),
-                )
-                .unwrap();
 
-            //scene_renderer.present_index = present_index;
+            let present_index = match base.swapchain_loader.acquire_next_image(
+                base.swapchain,
+                std::u64::MAX,
+                base.present_complete_semaphore,
+                vk::Fence::null(),
+            ) {
+                Ok((present_index, _)) => present_index,
+                Err(vk::Result::ERROR_OUT_OF_DATE_KHR) => {
+                    let (width, height) = window.size();
+                    base.recreate_swapchain(width, height);
+                    continue;
+                }
+                Err(error) => {
+                    panic!("Presenation error {:?}", error);
+                }
+            };
+
             sprites_renderer.present_index = present_index;
 
             app.update(Frame {
@@ -283,9 +292,8 @@ pub fn startup<A: App>(title: String) {
                 .render_area(base.screen.resolution.into())
                 .clear_values(&clear_values);
 
-            {
+            let present = {
                 let present_queue = base.queue.handle.lock().unwrap();
-
                 submit_commands(
                     &base.device,
                     base.draw_command_buffer,
@@ -315,23 +323,16 @@ pub fn startup<A: App>(title: String) {
                     .wait_semaphores(&wait_semaphors) // &base.rendering_complete_semaphore)
                     .swapchains(&swapchains)
                     .image_indices(&image_indices);
+                base.swapchain_loader
+                    .queue_present(*present_queue, &present_info)
+            };
 
-                let present = base
-                    .swapchain_loader
-                    .queue_present(*present_queue, &present_info);
-
-                match present {
-                    Ok(suboptimal) => {}
-                    Err(vk::Result::ERROR_OUT_OF_DATE_KHR) => {
-                        // recreate KHR
-                    }
-                    Err(error) => panic!("present error {:?}", error),
+            match present {
+                Ok(suboptimal) => {}
+                Err(vk::Result::ERROR_OUT_OF_DATE_KHR) => {
+                    // recreate KHR
                 }
-
-                // let frame_time = time.elapsed();
-                // if frame_time.as_millis() > 0 {
-                //     warn!("Frame time: {:?}s", frame_time)
-                // }
+                Err(error) => panic!("present error {:?}", error),
             }
         }
     }

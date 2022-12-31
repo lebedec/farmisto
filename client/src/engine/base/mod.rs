@@ -3,6 +3,7 @@ extern crate ash;
 use std::borrow::Cow;
 use std::default::Default;
 use std::ffi::CStr;
+use std::mem::swap;
 use std::ops::Drop;
 use std::os::raw::c_char;
 use std::sync::{Arc, Mutex};
@@ -11,12 +12,12 @@ use ash::extensions::{
     ext::DebugUtils,
     khr::{Surface, Swapchain},
 };
-use ash::vk::Handle;
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 use ash::vk::KhrPortabilitySubsetFn;
+use ash::vk::{Handle, PhysicalDevice};
 use ash::{vk, Entry};
 pub use ash::{Device, Instance};
-use log::{log, Level};
+use log::{info, log, Level};
 use sdl2::video::Window;
 
 pub use pipeline::*;
@@ -141,6 +142,7 @@ pub struct Base {
     pub instance: Instance,
     pub device: Device,
     pub surface_loader: Surface,
+    pub surface: vk::SurfaceKHR,
     pub swapchain_loader: Swapchain,
     pub debug_utils_loader: DebugUtils,
     pub debug_call_back: vk::DebugUtilsMessengerEXT,
@@ -152,7 +154,6 @@ pub struct Base {
     pub screen: Screen,
 
     pub swapchain: vk::SwapchainKHR,
-    pub present_images: Vec<vk::Image>,
     pub present_image_views: Vec<vk::ImageView>,
 
     pub pool: vk::CommandPool,
@@ -319,41 +320,46 @@ impl Base {
                 },
                 _ => surface_capabilities.current_extent,
             };
-            let pre_transform = if surface_capabilities
-                .supported_transforms
-                .contains(vk::SurfaceTransformFlagsKHR::IDENTITY)
-            {
-                vk::SurfaceTransformFlagsKHR::IDENTITY
-            } else {
-                surface_capabilities.current_transform
-            };
-            let present_modes = surface_loader
-                .get_physical_device_surface_present_modes(physical_device, surface)
-                .unwrap();
-            let present_mode = present_modes
-                .iter()
-                .cloned()
-                .find(|&mode| mode == vk::PresentModeKHR::MAILBOX)
-                .unwrap_or(vk::PresentModeKHR::FIFO);
             let swapchain_loader = Swapchain::new(&instance, &device);
+            //
+            // let swapchain_create_info = vk::SwapchainCreateInfoKHR::builder()
+            //     .surface(surface)
+            //     .min_image_count(desired_image_count)
+            //     .image_color_space(surface_format.color_space)
+            //     .image_format(surface_format.format)
+            //     .image_extent(surface_resolution)
+            //     .image_usage(vk::ImageUsageFlags::COLOR_ATTACHMENT)
+            //     .image_sharing_mode(vk::SharingMode::EXCLUSIVE)
+            //     .pre_transform(pre_transform)
+            //     .composite_alpha(vk::CompositeAlphaFlagsKHR::OPAQUE)
+            //     .present_mode(present_mode)
+            //     .clipped(true)
+            //     .image_array_layers(1);
+            //
+            // let swapchain = swapchain_loader
+            //     .create_swapchain(&swapchain_create_info, None)
+            //     .unwrap();
+            //
+            let swapchain = Self::create_swapchain(
+                &instance,
+                &surface_loader,
+                surface,
+                physical_device,
+                &device,
+                window_width,
+                window_height,
+            );
 
-            let swapchain_create_info = vk::SwapchainCreateInfoKHR::builder()
-                .surface(surface)
-                .min_image_count(desired_image_count)
-                .image_color_space(surface_format.color_space)
-                .image_format(surface_format.format)
-                .image_extent(surface_resolution)
-                .image_usage(vk::ImageUsageFlags::COLOR_ATTACHMENT)
-                .image_sharing_mode(vk::SharingMode::EXCLUSIVE)
-                .pre_transform(pre_transform)
-                .composite_alpha(vk::CompositeAlphaFlagsKHR::OPAQUE)
-                .present_mode(present_mode)
-                .clipped(true)
-                .image_array_layers(1);
+            let present_image_views = Self::create_present_images(
+                swapchain,
+                &instance,
+                &surface_loader,
+                surface,
+                physical_device,
+                &device,
+            );
 
-            let swapchain = swapchain_loader
-                .create_swapchain(&swapchain_create_info, None)
-                .unwrap();
+            // command buffer
 
             let pool_create_info = vk::CommandPoolCreateInfo::builder()
                 .flags(vk::CommandPoolCreateFlags::RESET_COMMAND_BUFFER)
@@ -372,30 +378,6 @@ impl Base {
             let setup_command_buffer = command_buffers[0];
             let draw_command_buffer = command_buffers[1];
 
-            let present_images = swapchain_loader.get_swapchain_images(swapchain).unwrap();
-            let present_image_views: Vec<vk::ImageView> = present_images
-                .iter()
-                .map(|&image| {
-                    let create_view_info = vk::ImageViewCreateInfo::builder()
-                        .view_type(vk::ImageViewType::TYPE_2D)
-                        .format(surface_format.format)
-                        .components(vk::ComponentMapping {
-                            r: vk::ComponentSwizzle::R,
-                            g: vk::ComponentSwizzle::G,
-                            b: vk::ComponentSwizzle::B,
-                            a: vk::ComponentSwizzle::A,
-                        })
-                        .subresource_range(vk::ImageSubresourceRange {
-                            aspect_mask: vk::ImageAspectFlags::COLOR,
-                            base_mip_level: 0,
-                            level_count: 1,
-                            base_array_layer: 0,
-                            layer_count: 1,
-                        })
-                        .image(image);
-                    device.create_image_view(&create_view_info, None).unwrap()
-                })
-                .collect();
             let device_memory_properties =
                 instance.get_physical_device_memory_properties(physical_device);
             let depth_image_create_info = vk::ImageCreateInfo::builder()
@@ -521,7 +503,6 @@ impl Base {
                 screen,
                 swapchain_loader,
                 swapchain,
-                present_images,
                 present_image_views,
                 pool,
                 draw_command_buffer,
@@ -536,9 +517,176 @@ impl Base {
                 debug_utils_loader,
                 depth_image_memory,
                 queue,
+                surface,
             }
         }
     }
+
+    fn create_present_images(
+        swapchain: vk::SwapchainKHR,
+        instance: &Instance,
+        surface_loader: &Surface,
+        surface: vk::SurfaceKHR,
+        physical_device: PhysicalDevice,
+        device: &Device,
+    ) -> Vec<vk::ImageView> {
+        let surface_format = unsafe {
+            surface_loader
+                .get_physical_device_surface_formats(physical_device, surface)
+                .unwrap()[0]
+        };
+        let swapchain_loader = Swapchain::new(&instance, &device);
+        let present_images = unsafe { swapchain_loader.get_swapchain_images(swapchain).unwrap() };
+        present_images
+            .iter()
+            .map(|&image| {
+                let components = vk::ComponentMapping {
+                    r: vk::ComponentSwizzle::R,
+                    g: vk::ComponentSwizzle::G,
+                    b: vk::ComponentSwizzle::B,
+                    a: vk::ComponentSwizzle::A,
+                };
+                let subresource_range = vk::ImageSubresourceRange {
+                    aspect_mask: vk::ImageAspectFlags::COLOR,
+                    base_mip_level: 0,
+                    level_count: 1,
+                    base_array_layer: 0,
+                    layer_count: 1,
+                };
+                let create_view_info = vk::ImageViewCreateInfo::builder()
+                    .view_type(vk::ImageViewType::TYPE_2D)
+                    .format(surface_format.format)
+                    .components(components)
+                    .subresource_range(subresource_range)
+                    .image(image);
+                unsafe { device.create_image_view(&create_view_info, None).unwrap() }
+            })
+            .collect()
+    }
+
+    fn create_swapchain(
+        instance: &Instance,
+        surface_loader: &Surface,
+        surface: vk::SurfaceKHR,
+        physical_device: PhysicalDevice,
+        device: &Device,
+        window_width: u32,
+        window_height: u32,
+    ) -> vk::SwapchainKHR {
+        let surface_format = unsafe {
+            surface_loader
+                .get_physical_device_surface_formats(physical_device, surface)
+                .unwrap()[0]
+        };
+        let caps = unsafe {
+            surface_loader
+                .get_physical_device_surface_capabilities(physical_device, surface)
+                .unwrap()
+        };
+        let mut min_image_count = caps.min_image_count + 1;
+        if caps.max_image_count > 0 && min_image_count > caps.max_image_count {
+            min_image_count = caps.max_image_count;
+        }
+        let image_extent = match caps.current_extent.width {
+            std::u32::MAX => vk::Extent2D {
+                width: window_width,
+                height: window_height,
+            },
+            _ => caps.current_extent,
+        };
+        let pre_transform = if caps
+            .supported_transforms
+            .contains(vk::SurfaceTransformFlagsKHR::IDENTITY)
+        {
+            vk::SurfaceTransformFlagsKHR::IDENTITY
+        } else {
+            caps.current_transform
+        };
+        let present_modes = unsafe {
+            surface_loader
+                .get_physical_device_surface_present_modes(physical_device, surface)
+                .unwrap()
+        };
+        let present_mode = present_modes
+            .iter()
+            .cloned()
+            .find(|&mode| mode == vk::PresentModeKHR::MAILBOX)
+            .unwrap_or(vk::PresentModeKHR::FIFO);
+        let swapchain_loader = Swapchain::new(&instance, &device);
+        let swapchain_create_info = vk::SwapchainCreateInfoKHR::builder()
+            .surface(surface)
+            .min_image_count(min_image_count)
+            .image_color_space(surface_format.color_space)
+            .image_format(surface_format.format)
+            .image_extent(image_extent)
+            .image_usage(vk::ImageUsageFlags::COLOR_ATTACHMENT)
+            .image_sharing_mode(vk::SharingMode::EXCLUSIVE)
+            .pre_transform(pre_transform)
+            .composite_alpha(vk::CompositeAlphaFlagsKHR::OPAQUE)
+            .present_mode(present_mode)
+            .clipped(true)
+            .image_array_layers(1);
+        unsafe {
+            swapchain_loader
+                .create_swapchain(&swapchain_create_info, None)
+                .unwrap()
+        }
+    }
+
+    pub fn recreate_swapchain(&mut self, window_width: u32, window_height: u32) {
+        info!("Re-creates swapchain {}x{}", window_width, window_height);
+        unsafe {
+            self.device.device_wait_idle().unwrap();
+            for &image_view in self.present_image_views.iter() {
+                self.device.destroy_image_view(image_view, None);
+            }
+            self.device.destroy_command_pool(self.pool, None);
+            self.swapchain_loader
+                .destroy_swapchain(self.swapchain, None);
+        }
+
+        self.swapchain = Self::create_swapchain(
+            &self.instance,
+            &self.surface_loader,
+            self.surface,
+            self.physical_device,
+            &self.device,
+            window_width,
+            window_height,
+        );
+        self.present_image_views = Self::create_present_images(
+            self.swapchain,
+            &self.instance,
+            &self.surface_loader,
+            self.surface,
+            self.physical_device,
+            &self.device,
+        );
+    }
+
+    /*
+    fn recreate_swap_chain(&mut self) {
+        let (swap_chain, images) = Self::create_swap_chain(
+            &self.instance,
+            &self.surface,
+            self.physical_device_index,
+            &self.device,
+            &self.graphics_queue,
+            &self.present_queue,
+            Some(self.swap_chain.clone()),
+        );
+        self.swap_chain = swap_chain;
+        self.swap_chain_images = images;
+        self.render_pass = Self::create_render_pass(&self.device, self.swap_chain.format());
+        self.graphics_pipeline = Self::create_graphics_pipeline(
+            &self.device,
+            self.swap_chain.dimensions(),
+            &self.render_pass,
+        );
+        self.swap_chain_framebuffers =
+            Self::create_framebuffers(&self.swap_chain_images, &self.render_pass);
+        self.create_command_buffers();
+    }*/
 }
 
 impl Drop for Base {

@@ -208,7 +208,7 @@
           "editorMode": "code",
           "expr": "rate(sprites_render_seconds_sum[10s]) / rate(sprites_render_seconds_count[10s])",
           "hide": false,
-          "legendFormat": "render",
+          "legendFormat": "render-{{pipeline}}",
           "range": true,
           "refId": "C"
         }
@@ -500,6 +500,6 @@
   "timezone": "",
   "title": "Farmisto",
   "uid": "HgXVi5p4z",
-  "version": 4,
+  "version": 6,
   "weekStart": ""
 }

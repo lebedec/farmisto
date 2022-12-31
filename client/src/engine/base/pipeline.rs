@@ -1,5 +1,135 @@
+use crate::engine::base::{Screen, ShaderDataSet};
+use crate::engine::sprites::SpriteVertex;
+use crate::engine::PipelineAsset;
 use ash::{vk, Device};
+use bytemuck::NoUninit;
+use log::{error, info};
 use std::ffi::CStr;
+use std::marker::PhantomData;
+use std::time::Instant;
+
+pub struct MyPipeline<const M: usize, C> {
+    device: Device,
+    asset: PipelineAsset,
+    pub handle: vk::Pipeline,
+    pub layout: vk::PipelineLayout,
+    pass: vk::RenderPass,
+    pub camera: ShaderDataSet<1>,
+    pub material: ShaderDataSet<M>,
+    _constants: PhantomData<C>,
+}
+
+impl<const M: usize, C> MyPipeline<M, C>
+where
+    C: NoUninit,
+{
+    pub fn build(asset: PipelineAsset, pass: vk::RenderPass) -> MyPipelineBuilder<M, C> {
+        MyPipelineBuilder::new(asset, pass)
+    }
+
+    pub fn push_constants(&self, constants: C, buffer: vk::CommandBuffer) {
+        unsafe {
+            self.device.cmd_push_constants(
+                buffer,
+                self.layout,
+                vk::ShaderStageFlags::VERTEX | vk::ShaderStageFlags::FRAGMENT,
+                0,
+                bytemuck::bytes_of(&constants),
+            );
+        }
+    }
+
+    pub fn update(&mut self, device: &Device, screen: &Screen) {
+        if self.asset.changed {
+            self.rebuild(device, screen);
+            self.asset.changed = false;
+        }
+    }
+
+    pub fn rebuild(&mut self, device: &Device, screen: &Screen) {
+        let time = Instant::now();
+        let building = Pipeline::new()
+            .layout(self.layout)
+            .vertex(self.asset.vertex.module)
+            .fragment(self.asset.fragment.module)
+            .pass(self.pass)
+            .build(
+                &device,
+                &screen.scissors,
+                &screen.viewports,
+                &SpriteVertex::ATTRIBUTES,
+                &SpriteVertex::BINDINGS,
+            );
+        match building {
+            Ok(handle) => {
+                info!("Build pipeline in {:?}", time.elapsed());
+                self.handle = handle;
+            }
+            Err(error) => {
+                error!("Unable to build pipeline, {:?}", error);
+            }
+        }
+    }
+}
+
+pub struct MyPipelineBuilder<const M: usize, C> {
+    asset: PipelineAsset,
+    pass: vk::RenderPass,
+    camera: [vk::DescriptorType; 1],
+    material: Option<[vk::DescriptorType; M]>,
+    _constants: PhantomData<C>,
+}
+
+impl<const M: usize, C: NoUninit> MyPipelineBuilder<M, C> {
+    pub fn new(asset: PipelineAsset, pass: vk::RenderPass) -> Self {
+        Self {
+            asset,
+            pass,
+            camera: [vk::DescriptorType::UNIFORM_BUFFER],
+            material: None,
+            _constants: Default::default(),
+        }
+    }
+
+    pub fn material(mut self, bindings: [vk::DescriptorType; M]) -> Self {
+        self.material = Some(bindings);
+        self
+    }
+
+    pub fn build(self, device: &Device, screen: &Screen) -> MyPipeline<M, C> {
+        let swapchain = 0;
+        let camera =
+            ShaderDataSet::create(device.clone(), 1, vk::ShaderStageFlags::VERTEX, self.camera);
+        let material = ShaderDataSet::create(
+            device.clone(),
+            8,
+            vk::ShaderStageFlags::FRAGMENT,
+            self.material.unwrap(),
+        );
+        let push_constant_ranges = [vk::PushConstantRange {
+            stage_flags: vk::ShaderStageFlags::VERTEX | vk::ShaderStageFlags::FRAGMENT,
+            offset: 0,
+            size: std::mem::size_of::<C>() as u32,
+        }];
+        let sets = [camera.layout, material.layout];
+        let layout_info = vk::PipelineLayoutCreateInfo::builder()
+            .set_layouts(&sets)
+            .push_constant_ranges(&push_constant_ranges);
+        let layout = unsafe { device.create_pipeline_layout(&layout_info, None).unwrap() };
+        let mut pipeline = MyPipeline {
+            device: device.clone(),
+            asset: self.asset,
+            handle: vk::Pipeline::null(),
+            layout,
+            pass: self.pass,
+            camera,
+            material,
+            _constants: Default::default(),
+        };
+        pipeline.rebuild(device, screen);
+        pipeline
+    }
+}
 
 pub struct Pipeline {
     layout: vk::PipelineLayout,

@@ -23,6 +23,7 @@ use prometheus::{Counter, Histogram, IntCounter, IntGauge};
 
 use lazy_static::lazy_static;
 use prometheus::{register_counter, register_histogram, register_int_counter, register_int_gauge};
+use sdl2::sys::rand;
 
 lazy_static! {
     static ref METRIC_ANIMATION_SECONDS: Histogram =
@@ -166,14 +167,30 @@ impl Gameplay {
 
                                 let max_y = 8;
                                 let max_x = 14;
+                                let colors = [
+                                    [1.00, 1.00, 1.00, 1.0],
+                                    [0.64, 0.49, 0.40, 1.0],
+                                    [0.45, 0.40, 0.36, 1.0],
+                                    [0.80, 0.52, 0.29, 1.0],
+                                ];
+                                let pool = 256;
+                                let mut variant = 0;
                                 for y in 0..max_y {
                                     for x in 0..max_x {
+                                        let c0 = variant / 64;
+                                        let c1 = (variant % 64) / 16;
+                                        let c2 = (variant % 16) / 4;
+                                        let c3 = variant % 4;
+                                        variant = ((5 * variant) + 1) % pool;
                                         let asset = asset.share();
                                         let variant = x + y * max_x;
                                         let head = format!("head/head-{}", variant % 4);
                                         let tile = format!("tail/tail-{}", variant % 3);
-                                        let sprite =
-                                            frame.sprites.instantiate(&asset, [head, tile]);
+                                        let sprite = frame.sprites.instantiate(
+                                            &asset,
+                                            [head, tile],
+                                            [colors[c0], colors[c1], colors[c2], colors[c3]],
+                                        );
                                         let position = [
                                             64.0 + 128.0 + 256.0 * x as f32,
                                             64.0 + 256.0 + 256.0 * y as f32,
@@ -337,16 +354,16 @@ impl Gameplay {
         }
         METRIC_ANIMATION_SECONDS.observe_closure_duration(|| {
             for farmer in self.farmers2d.iter_mut() {
-                if farmer.variant < 10 {
-                    let scale = farmer.variant as f32 / 10.0;
-                    let mut bone = farmer
-                        .sprite
-                        .skeleton
-                        .skeleton
-                        .find_bone_mut("root")
-                        .unwrap();
-                    bone.set_scale([0.75 + scale * 0.5, 0.75 + scale * 0.5]);
-                }
+                // if farmer.variant < 10 {
+                //     let scale = farmer.variant as f32 / 10.0;
+                //     let mut bone = farmer
+                //         .sprite
+                //         .skeleton
+                //         .skeleton
+                //         .find_bone_mut("root")
+                //         .unwrap();
+                //     bone.set_scale([0.75 + scale * 0.5, 0.75 + scale * 0.5]);
+                // }
                 farmer.sprite.skeleton.update(input.time);
             }
         });
@@ -355,9 +372,9 @@ impl Gameplay {
     pub fn render2d(&self, renderer: &mut SpriteRenderer, assets: &mut Assets) {
         renderer.clear();
         renderer.look_at();
-        for background in &self.backgrounds {
-            renderer.draw_sprite(&background, background.size.mul(0.5));
-        }
+        // for background in &self.backgrounds {
+        //     renderer.draw_sprite(&background, background.size.mul(0.5));
+        // }
         /*
         renderer.draw(&assets.sprite("test"), [512.0, 512.0]);
         let mut trees: Vec<&TreeBehaviour> = self.trees.values().collect();
