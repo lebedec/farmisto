@@ -21,6 +21,7 @@ use lazy_static::lazy_static;
 use prometheus::{register_int_counter, register_int_gauge};
 use sdl2::keyboard::Keycode;
 use sdl2::keyboard::Keycode::K;
+use sdl2::video::FullscreenType;
 
 lazy_static! {
     static ref METRIC_FRAME: IntCounter = register_int_counter!("app_frame", "frame").unwrap();
@@ -49,12 +50,9 @@ pub fn startup<A: App>(title: String) {
     let system = sdl2::init().unwrap();
     let video = system.video().unwrap();
     #[cfg(windows)]
-    let window_size = [1920, 1080];
     let mut windowed = true;
-    #[cfg(unix)]
-    let window_size = [960, 540];
     let mut window = video
-        .window(&title, window_size[0], window_size[1])
+        .window(&title, 1920, 1080)
         .allow_highdpi()
         //.fullscreen()
         //.position(1920, 0)
@@ -73,7 +71,7 @@ pub fn startup<A: App>(title: String) {
     let instance_extensions: Vec<&'static str> = window.vulkan_instance_extensions().unwrap();
     info!("SDL Vulkan extensions: {:?}", instance_extensions);
 
-    let mut base = Base::new(window_size[0], window_size[1], &window, instance_extensions);
+    let mut base = Base::new(&window, instance_extensions);
 
     info!("FMOD expected version: {:#08x}", FMOD_VERSION);
     let studio = Studio::create().unwrap();
@@ -86,74 +84,8 @@ pub fn startup<A: App>(title: String) {
         .unwrap();
 
     unsafe {
-        let renderpass_attachments = [
-            vk::AttachmentDescription {
-                format: base.screen.format(),
-                samples: vk::SampleCountFlags::TYPE_1,
-                load_op: vk::AttachmentLoadOp::CLEAR,
-                store_op: vk::AttachmentStoreOp::STORE,
-                final_layout: vk::ImageLayout::PRESENT_SRC_KHR,
-                ..Default::default()
-            },
-            vk::AttachmentDescription {
-                format: vk::Format::D16_UNORM,
-                samples: vk::SampleCountFlags::TYPE_1,
-                load_op: vk::AttachmentLoadOp::CLEAR,
-                initial_layout: vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-                final_layout: vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-                ..Default::default()
-            },
-        ];
-        let color_attachment_refs = [vk::AttachmentReference {
-            attachment: 0,
-            layout: vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
-        }];
-        let depth_attachment_ref = vk::AttachmentReference {
-            attachment: 1,
-            layout: vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
-        };
-        let dependencies = [vk::SubpassDependency {
-            src_subpass: vk::SUBPASS_EXTERNAL,
-            src_stage_mask: vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
-            dst_access_mask: vk::AccessFlags::COLOR_ATTACHMENT_READ
-                | vk::AccessFlags::COLOR_ATTACHMENT_WRITE,
-            dst_stage_mask: vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
-            ..Default::default()
-        }];
-
-        let subpass = vk::SubpassDescription::builder()
-            .color_attachments(&color_attachment_refs)
-            .depth_stencil_attachment(&depth_attachment_ref)
-            .pipeline_bind_point(vk::PipelineBindPoint::GRAPHICS);
-
-        let renderpass_create_info = vk::RenderPassCreateInfo::builder()
-            .attachments(&renderpass_attachments)
-            .subpasses(std::slice::from_ref(&subpass))
-            .dependencies(&dependencies);
-
-        let renderpass = base
-            .device
-            .create_render_pass(&renderpass_create_info, None)
-            .unwrap();
-
-        // TODO: recreate !
-        let framebuffers: Vec<vk::Framebuffer> = base
-            .present_image_views
-            .iter()
-            .map(|&present_image_view| {
-                let framebuffer_attachments = [present_image_view, base.depth_image_view];
-                let frame_buffer_create_info = vk::FramebufferCreateInfo::builder()
-                    .render_pass(renderpass)
-                    .attachments(&framebuffer_attachments)
-                    .width(base.screen.width())
-                    .height(base.screen.height())
-                    .layers(1);
-
-                base.device
-                    .create_framebuffer(&frame_buffer_create_info, None)
-                    .unwrap()
-            })
-            .collect();
+        let mut renderpass = Base::create_render_pass(&base.device, &base.screen);
+        base.recreate_frame_buffers(renderpass);
 
         let mut assets = Assets::new(base.device.clone(), base.pool, base.queue.clone());
 
@@ -172,13 +104,13 @@ pub fn startup<A: App>(title: String) {
             base.present_image_views.len(),
             renderpass,
             &mut assets,
-            2160.0 / window_size[1] as f32, // reference resolution 4K
+            2160.0 / base.screen.height() as f32, // reference resolution 4K
         );
 
         let mut app = A::start(&mut assets);
 
         let mut time = Instant::now();
-        let mut input = Input::new(window_size);
+        let mut input = Input::new(base.screen.size());
 
         thread::spawn(|| {
             let encoder = prometheus::TextEncoder::new();
@@ -196,14 +128,6 @@ pub fn startup<A: App>(title: String) {
                     format!("{status_line}\r\nContent-Length: {length}\r\n\r\n{contents}");
                 stream.write_all(response.as_bytes()).unwrap();
             }
-            // loop {
-            //     thread::sleep(Duration::from_secs(1));
-            //     let metric_families = prometheus::gather();
-            //     encoder.encode_utf8(&metric_families, &mut buffer).unwrap();
-            //     println!("value: {}", A_INT_COUNTER.get());
-            //     println!("{}", buffer);
-            //     buffer.clear();
-            // }
         });
 
         loop {
@@ -227,9 +151,11 @@ pub fn startup<A: App>(title: String) {
             if input.pressed(Keycode::Return) {
                 if windowed {
                     window.set_size(1920 * 2, 1080 * 2).unwrap();
+                    window.set_fullscreen(FullscreenType::Desktop).unwrap();
                     windowed = false;
                 } else {
                     window.set_size(1920, 1080).unwrap();
+                    window.set_fullscreen(FullscreenType::Off).unwrap();
                     windowed = true;
                 }
             }
@@ -254,8 +180,26 @@ pub fn startup<A: App>(title: String) {
             ) {
                 Ok((present_index, _)) => present_index,
                 Err(vk::Result::ERROR_OUT_OF_DATE_KHR) => {
-                    let (width, height) = window.size();
-                    base.recreate_swapchain(width, height);
+                    base.recreate_swapchain(renderpass);
+
+                    scene_renderer = SceneRenderer::create(
+                        &base.device,
+                        &base.queue.device_memory,
+                        base.screen.clone(),
+                        base.present_image_views.len(),
+                        renderpass,
+                        &mut assets,
+                    );
+                    sprites_renderer = SpriteRenderer::create(
+                        &base.device,
+                        &base.queue.device_memory,
+                        base.screen.clone(),
+                        base.present_image_views.len(),
+                        renderpass,
+                        &mut assets,
+                        2160.0 / base.screen.height() as f32, // reference resolution 4K
+                    );
+
                     continue;
                 }
                 Err(error) => {
@@ -286,14 +230,16 @@ pub fn startup<A: App>(title: String) {
                     },
                 },
             ];
+            // info!("Begins render");
             let render_begin = vk::RenderPassBeginInfo::builder()
                 .render_pass(renderpass)
-                .framebuffer(framebuffers[present_index as usize])
-                .render_area(base.screen.resolution.into())
+                .framebuffer(base.framebuffers[present_index as usize])
+                .render_area(base.screen.resolution().into())
                 .clear_values(&clear_values);
 
             let present = {
                 let present_queue = base.queue.handle.lock().unwrap();
+                // info!("Begins submit commands");
                 submit_commands(
                     &base.device,
                     base.draw_command_buffer,
@@ -303,6 +249,7 @@ pub fn startup<A: App>(title: String) {
                     &[base.present_complete_semaphore],
                     &[base.rendering_complete_semaphore],
                     |device, buffer| {
+                        // info!("Begins render pass");
                         device.cmd_begin_render_pass(
                             buffer,
                             &render_begin,
@@ -312,6 +259,7 @@ pub fn startup<A: App>(title: String) {
                         //scene_renderer.render(device, buffer);
                         sprites_renderer.render(device, buffer);
 
+                        // info!("End render pass");
                         device.cmd_end_render_pass(buffer);
                     },
                 );
@@ -323,6 +271,7 @@ pub fn startup<A: App>(title: String) {
                     .wait_semaphores(&wait_semaphors) // &base.rendering_complete_semaphore)
                     .swapchains(&swapchains)
                     .image_indices(&image_indices);
+                // info!("Presents");
                 base.swapchain_loader
                     .queue_present(*present_queue, &present_info)
             };

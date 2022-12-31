@@ -40,7 +40,7 @@ pub struct SpriteRenderer {
     lut_texture: TextureAsset,
     coloration_texture: TextureAsset,
     coloration_sampler: SamplerAsset,
-    screen: Screen,
+    pub screen: Screen,
     pub zoom: f32,
 }
 

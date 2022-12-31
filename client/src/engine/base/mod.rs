@@ -28,108 +28,6 @@ mod pipeline;
 mod screen;
 mod shader;
 
-#[allow(clippy::too_many_arguments)]
-pub fn submit_commands<F: FnOnce(&Device, vk::CommandBuffer)>(
-    device: &Device,
-    command_buffer: vk::CommandBuffer,
-    command_buffer_reuse_fence: vk::Fence,
-    submit_queue: vk::Queue,
-    wait_mask: &[vk::PipelineStageFlags],
-    wait_semaphores: &[vk::Semaphore],
-    signal_semaphores: &[vk::Semaphore],
-    f: F,
-) {
-    unsafe {
-        device
-            .wait_for_fences(&[command_buffer_reuse_fence], true, std::u64::MAX)
-            .expect("Wait for fence failed.");
-
-        device
-            .reset_fences(&[command_buffer_reuse_fence])
-            .expect("Reset fences failed.");
-
-        device
-            .reset_command_buffer(
-                command_buffer,
-                vk::CommandBufferResetFlags::RELEASE_RESOURCES,
-            )
-            .expect("Reset command buffer failed.");
-
-        let command_buffer_begin_info = vk::CommandBufferBeginInfo::builder()
-            .flags(vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT);
-
-        device
-            .begin_command_buffer(command_buffer, &command_buffer_begin_info)
-            .expect("Begin commandbuffer");
-        f(device, command_buffer);
-        device
-            .end_command_buffer(command_buffer)
-            .expect("End commandbuffer");
-
-        let command_buffers = vec![command_buffer];
-
-        let submit_info = vk::SubmitInfo::builder()
-            .wait_semaphores(wait_semaphores)
-            .wait_dst_stage_mask(wait_mask)
-            .command_buffers(&command_buffers)
-            .signal_semaphores(signal_semaphores)
-            .build();
-
-        device
-            .queue_submit(submit_queue, &[submit_info], command_buffer_reuse_fence)
-            .expect("queue submit failed.");
-    }
-}
-
-unsafe extern "system" fn vulkan_debug_callback(
-    message_severity: vk::DebugUtilsMessageSeverityFlagsEXT,
-    _message_type: vk::DebugUtilsMessageTypeFlagsEXT,
-    p_callback_data: *const vk::DebugUtilsMessengerCallbackDataEXT,
-    _user_data: *mut std::os::raw::c_void,
-) -> vk::Bool32 {
-    let callback_data = *p_callback_data;
-    // let message_id_number: i32 = callback_data.message_id_number as i32;
-    //
-    // let message_id_name = if callback_data.p_message_id_name.is_null() {
-    //     Cow::from("")
-    // } else {
-    //     CStr::from_ptr(callback_data.p_message_id_name).to_string_lossy()
-    // };
-
-    let message = if callback_data.p_message.is_null() {
-        Cow::from("")
-    } else {
-        CStr::from_ptr(callback_data.p_message).to_string_lossy()
-    };
-
-    let level = match message_severity {
-        vk::DebugUtilsMessageSeverityFlagsEXT::VERBOSE => Level::Debug,
-        vk::DebugUtilsMessageSeverityFlagsEXT::INFO => Level::Info,
-        vk::DebugUtilsMessageSeverityFlagsEXT::WARNING => Level::Warn,
-        vk::DebugUtilsMessageSeverityFlagsEXT::ERROR => Level::Error,
-        _ => Level::Error,
-    };
-
-    log!(level, "{}", message);
-
-    vk::FALSE
-}
-
-pub fn index_memory_type(
-    memory_req: &vk::MemoryRequirements,
-    memory_prop: &vk::PhysicalDeviceMemoryProperties,
-    flags: vk::MemoryPropertyFlags,
-) -> Option<u32> {
-    memory_prop.memory_types[..memory_prop.memory_type_count as _]
-        .iter()
-        .enumerate()
-        .find(|(index, memory_type)| {
-            (1 << index) & memory_req.memory_type_bits != 0
-                && memory_type.property_flags & flags == flags
-        })
-        .map(|(index, _memory_type)| index as _)
-}
-
 pub struct Queue {
     pub device: Device,
     pub device_memory: vk::PhysicalDeviceMemoryProperties,
@@ -141,20 +39,16 @@ pub struct Base {
     pub entry: Entry,
     pub instance: Instance,
     pub device: Device,
-    pub surface_loader: Surface,
-    pub surface: vk::SurfaceKHR,
+
     pub swapchain_loader: Swapchain,
     pub debug_utils_loader: DebugUtils,
     pub debug_call_back: vk::DebugUtilsMessengerEXT,
-
     pub physical_device: vk::PhysicalDevice,
-
     pub queue: Arc<Queue>,
-
     pub screen: Screen,
-
     pub swapchain: vk::SwapchainKHR,
     pub present_image_views: Vec<vk::ImageView>,
+    pub framebuffers: Vec<vk::Framebuffer>,
 
     pub pool: vk::CommandPool,
     pub draw_command_buffer: vk::CommandBuffer,
@@ -172,12 +66,7 @@ pub struct Base {
 }
 
 impl Base {
-    pub fn new(
-        window_width: u32,
-        window_height: u32,
-        window: &Window,
-        sdl_extension_names: Vec<&str>,
-    ) -> Self {
+    pub fn new(window: &Window, sdl_extension_names: Vec<&str>) -> Self {
         unsafe {
             let mut extension_names = vec![DebugUtils::name().as_ptr()];
             extension_names.extend(
@@ -241,11 +130,13 @@ impl Base {
             let debug_call_back = debug_utils_loader
                 .create_debug_utils_messenger(&debug_info, None)
                 .unwrap();
+
             let surface = vk::SurfaceKHR::from_raw(surface_handle);
+            let surface_loader = Surface::new(&entry, &instance);
+
             let pdevices = instance
                 .enumerate_physical_devices()
                 .expect("Physical device error");
-            let surface_loader = Surface::new(&entry, &instance);
             let (physical_device, queue_family_index) = pdevices
                 .iter()
                 .find_map(|pdevice| {
@@ -271,6 +162,9 @@ impl Base {
                         })
                 })
                 .expect("Couldn't find suitable device.");
+
+            let screen = Screen::new(surface, surface_loader, physical_device);
+
             let queue_family_index = queue_family_index as u32;
             let device_extension_names_raw = [
                 Swapchain::name().as_ptr(),
@@ -300,64 +194,11 @@ impl Base {
 
             let present_queue = device.get_device_queue(queue_family_index as u32, 0);
 
-            let surface_format = surface_loader
-                .get_physical_device_surface_formats(physical_device, surface)
-                .unwrap()[0];
-
-            let surface_capabilities = surface_loader
-                .get_physical_device_surface_capabilities(physical_device, surface)
-                .unwrap();
-            let mut desired_image_count = surface_capabilities.min_image_count + 1;
-            if surface_capabilities.max_image_count > 0
-                && desired_image_count > surface_capabilities.max_image_count
-            {
-                desired_image_count = surface_capabilities.max_image_count;
-            }
-            let surface_resolution = match surface_capabilities.current_extent.width {
-                std::u32::MAX => vk::Extent2D {
-                    width: window_width,
-                    height: window_height,
-                },
-                _ => surface_capabilities.current_extent,
-            };
             let swapchain_loader = Swapchain::new(&instance, &device);
-            //
-            // let swapchain_create_info = vk::SwapchainCreateInfoKHR::builder()
-            //     .surface(surface)
-            //     .min_image_count(desired_image_count)
-            //     .image_color_space(surface_format.color_space)
-            //     .image_format(surface_format.format)
-            //     .image_extent(surface_resolution)
-            //     .image_usage(vk::ImageUsageFlags::COLOR_ATTACHMENT)
-            //     .image_sharing_mode(vk::SharingMode::EXCLUSIVE)
-            //     .pre_transform(pre_transform)
-            //     .composite_alpha(vk::CompositeAlphaFlagsKHR::OPAQUE)
-            //     .present_mode(present_mode)
-            //     .clipped(true)
-            //     .image_array_layers(1);
-            //
-            // let swapchain = swapchain_loader
-            //     .create_swapchain(&swapchain_create_info, None)
-            //     .unwrap();
-            //
-            let swapchain = Self::create_swapchain(
-                &instance,
-                &surface_loader,
-                surface,
-                physical_device,
-                &device,
-                window_width,
-                window_height,
-            );
+            let swapchain = Self::create_swapchain(&instance, &screen, &device);
 
-            let present_image_views = Self::create_present_images(
-                swapchain,
-                &instance,
-                &surface_loader,
-                surface,
-                physical_device,
-                &device,
-            );
+            let present_image_views =
+                Self::create_present_images(swapchain, &instance, &screen, &device);
 
             // command buffer
 
@@ -380,37 +221,6 @@ impl Base {
 
             let device_memory_properties =
                 instance.get_physical_device_memory_properties(physical_device);
-            let depth_image_create_info = vk::ImageCreateInfo::builder()
-                .image_type(vk::ImageType::TYPE_2D)
-                .format(vk::Format::D16_UNORM)
-                .extent(surface_resolution.into())
-                .mip_levels(1)
-                .array_layers(1)
-                .samples(vk::SampleCountFlags::TYPE_1)
-                .tiling(vk::ImageTiling::OPTIMAL)
-                .usage(vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT)
-                .sharing_mode(vk::SharingMode::EXCLUSIVE);
-
-            let depth_image = device.create_image(&depth_image_create_info, None).unwrap();
-            let depth_image_memory_req = device.get_image_memory_requirements(depth_image);
-            let depth_image_memory_index = index_memory_type(
-                &depth_image_memory_req,
-                &device_memory_properties,
-                vk::MemoryPropertyFlags::DEVICE_LOCAL,
-            )
-            .expect("Unable to find suitable memory index for depth image.");
-
-            let depth_image_allocate_info = vk::MemoryAllocateInfo::builder()
-                .allocation_size(depth_image_memory_req.size)
-                .memory_type_index(depth_image_memory_index);
-
-            let depth_image_memory = device
-                .allocate_memory(&depth_image_allocate_info, None)
-                .unwrap();
-
-            device
-                .bind_image_memory(depth_image, depth_image_memory, 0)
-                .expect("Unable to bind depth image memory");
 
             let fence_create_info =
                 vk::FenceCreateInfo::builder().flags(vk::FenceCreateFlags::SIGNALED);
@@ -421,6 +231,10 @@ impl Base {
             let setup_commands_reuse_fence = device
                 .create_fence(&fence_create_info, None)
                 .expect("Create fence failed.");
+
+            let depth_image = Self::create_depth_image(&instance, &screen, &device);
+            let (depth_image_view, depth_image_memory) =
+                Self::create_depth_image_view(&instance, &screen, &device, depth_image);
 
             submit_commands(
                 &device,
@@ -460,22 +274,6 @@ impl Base {
                 },
             );
 
-            let depth_image_view_info = vk::ImageViewCreateInfo::builder()
-                .subresource_range(
-                    vk::ImageSubresourceRange::builder()
-                        .aspect_mask(vk::ImageAspectFlags::DEPTH)
-                        .level_count(1)
-                        .layer_count(1)
-                        .build(),
-                )
-                .image(depth_image)
-                .format(depth_image_create_info.format)
-                .view_type(vk::ImageViewType::TYPE_2D);
-
-            let depth_image_view = device
-                .create_image_view(&depth_image_view_info, None)
-                .unwrap();
-
             let semaphore_create_info = vk::SemaphoreCreateInfo::default();
 
             let present_complete_semaphore = device
@@ -492,49 +290,132 @@ impl Base {
                 family: queue_family_index,
             });
 
-            let screen = Screen::new(surface, surface_format, surface_resolution);
-
             Base {
                 entry,
                 instance,
                 device,
                 physical_device,
-                surface_loader,
                 screen,
                 swapchain_loader,
                 swapchain,
                 present_image_views,
+                framebuffers: vec![],
                 pool,
                 draw_command_buffer,
                 setup_command_buffer,
                 depth_image,
                 depth_image_view,
+                depth_image_memory,
                 present_complete_semaphore,
                 rendering_complete_semaphore,
                 draw_commands_reuse_fence,
                 setup_commands_reuse_fence,
                 debug_call_back,
                 debug_utils_loader,
-                depth_image_memory,
                 queue,
-                surface,
             }
+        }
+    }
+
+    pub unsafe fn create_depth_image(
+        instance: &Instance,
+        screen: &Screen,
+        device: &Device,
+    ) -> vk::Image {
+        let device_memory_properties =
+            instance.get_physical_device_memory_properties(screen.physical_device());
+
+        let depth_image_create_info = vk::ImageCreateInfo::builder()
+            .image_type(vk::ImageType::TYPE_2D)
+            .format(vk::Format::D16_UNORM)
+            .extent(screen.resolution().into())
+            .mip_levels(1)
+            .array_layers(1)
+            .samples(vk::SampleCountFlags::TYPE_1)
+            .tiling(vk::ImageTiling::OPTIMAL)
+            .usage(vk::ImageUsageFlags::DEPTH_STENCIL_ATTACHMENT)
+            .sharing_mode(vk::SharingMode::EXCLUSIVE);
+
+        device.create_image(&depth_image_create_info, None).unwrap()
+    }
+
+    pub unsafe fn create_depth_image_view(
+        instance: &Instance,
+        screen: &Screen,
+        device: &Device,
+        depth_image: vk::Image,
+    ) -> (vk::ImageView, vk::DeviceMemory) {
+        let device_memory_properties =
+            instance.get_physical_device_memory_properties(screen.physical_device());
+
+        let depth_image_memory_req = device.get_image_memory_requirements(depth_image);
+        let depth_image_memory_index = index_memory_type(
+            &depth_image_memory_req,
+            &device_memory_properties,
+            vk::MemoryPropertyFlags::DEVICE_LOCAL,
+        )
+        .expect("Unable to find suitable memory index for depth image.");
+
+        let depth_image_allocate_info = vk::MemoryAllocateInfo::builder()
+            .allocation_size(depth_image_memory_req.size)
+            .memory_type_index(depth_image_memory_index);
+
+        let depth_image_memory = device
+            .allocate_memory(&depth_image_allocate_info, None)
+            .unwrap();
+
+        device
+            .bind_image_memory(depth_image, depth_image_memory, 0)
+            .expect("Unable to bind depth image memory");
+
+        let depth_image_view_info = vk::ImageViewCreateInfo::builder()
+            .subresource_range(
+                vk::ImageSubresourceRange::builder()
+                    .aspect_mask(vk::ImageAspectFlags::DEPTH)
+                    .level_count(1)
+                    .layer_count(1)
+                    .build(),
+            )
+            .image(depth_image)
+            .format(vk::Format::D16_UNORM)
+            .view_type(vk::ImageViewType::TYPE_2D);
+
+        let depth_image_view = device
+            .create_image_view(&depth_image_view_info, None)
+            .unwrap();
+
+        (depth_image_view, depth_image_memory)
+    }
+
+    pub fn recreate_frame_buffers(&mut self, renderpass: vk::RenderPass) {
+        info!("Recreates frame buffers {:?}", self.screen.resolution());
+        unsafe {
+            self.framebuffers = self
+                .present_image_views
+                .iter()
+                .map(|&present_image_view| {
+                    let framebuffer_attachments = [present_image_view, self.depth_image_view];
+                    let frame_buffer_create_info = vk::FramebufferCreateInfo::builder()
+                        .render_pass(renderpass)
+                        .attachments(&framebuffer_attachments)
+                        .width(self.screen.width())
+                        .height(self.screen.height())
+                        .layers(1);
+                    self.device
+                        .create_framebuffer(&frame_buffer_create_info, None)
+                        .unwrap()
+                })
+                .collect();
         }
     }
 
     fn create_present_images(
         swapchain: vk::SwapchainKHR,
         instance: &Instance,
-        surface_loader: &Surface,
-        surface: vk::SurfaceKHR,
-        physical_device: PhysicalDevice,
+        screen: &Screen,
         device: &Device,
     ) -> Vec<vk::ImageView> {
-        let surface_format = unsafe {
-            surface_loader
-                .get_physical_device_surface_formats(physical_device, surface)
-                .unwrap()[0]
-        };
+        let surface_format = screen.format();
         let swapchain_loader = Swapchain::new(&instance, &device);
         let present_images = unsafe { swapchain_loader.get_swapchain_images(swapchain).unwrap() };
         present_images
@@ -564,49 +445,22 @@ impl Base {
             .collect()
     }
 
-    fn create_swapchain(
-        instance: &Instance,
-        surface_loader: &Surface,
-        surface: vk::SurfaceKHR,
-        physical_device: PhysicalDevice,
-        device: &Device,
-        window_width: u32,
-        window_height: u32,
-    ) -> vk::SwapchainKHR {
-        let surface_format = unsafe {
-            surface_loader
-                .get_physical_device_surface_formats(physical_device, surface)
-                .unwrap()[0]
-        };
-        let caps = unsafe {
-            surface_loader
-                .get_physical_device_surface_capabilities(physical_device, surface)
-                .unwrap()
-        };
-        let mut min_image_count = caps.min_image_count + 1;
-        if caps.max_image_count > 0 && min_image_count > caps.max_image_count {
-            min_image_count = caps.max_image_count;
+    fn create_swapchain(instance: &Instance, screen: &Screen, device: &Device) -> vk::SwapchainKHR {
+        let surface_format = screen.format();
+        let surface_caps = screen.get_capabilities();
+        let mut min_image_count = surface_caps.min_image_count + 1;
+        if surface_caps.max_image_count > 0 && min_image_count > surface_caps.max_image_count {
+            min_image_count = surface_caps.max_image_count;
         }
-        let image_extent = match caps.current_extent.width {
-            std::u32::MAX => vk::Extent2D {
-                width: window_width,
-                height: window_height,
-            },
-            _ => caps.current_extent,
-        };
-        let pre_transform = if caps
+        let pre_transform = if surface_caps
             .supported_transforms
             .contains(vk::SurfaceTransformFlagsKHR::IDENTITY)
         {
             vk::SurfaceTransformFlagsKHR::IDENTITY
         } else {
-            caps.current_transform
+            surface_caps.current_transform
         };
-        let present_modes = unsafe {
-            surface_loader
-                .get_physical_device_surface_present_modes(physical_device, surface)
-                .unwrap()
-        };
+        let present_modes = screen.present_modes();
         let present_mode = present_modes
             .iter()
             .cloned()
@@ -614,11 +468,11 @@ impl Base {
             .unwrap_or(vk::PresentModeKHR::FIFO);
         let swapchain_loader = Swapchain::new(&instance, &device);
         let swapchain_create_info = vk::SwapchainCreateInfoKHR::builder()
-            .surface(surface)
+            .surface(screen.surface())
             .min_image_count(min_image_count)
             .image_color_space(surface_format.color_space)
             .image_format(surface_format.format)
-            .image_extent(image_extent)
+            .image_extent(screen.resolution())
             .image_usage(vk::ImageUsageFlags::COLOR_ATTACHMENT)
             .image_sharing_mode(vk::SharingMode::EXCLUSIVE)
             .pre_transform(pre_transform)
@@ -633,35 +487,100 @@ impl Base {
         }
     }
 
-    pub fn recreate_swapchain(&mut self, window_width: u32, window_height: u32) {
-        info!("Re-creates swapchain {}x{}", window_width, window_height);
+    pub fn create_render_pass(device: &Device, screen: &Screen) -> vk::RenderPass {
+        let renderpass_attachments = [
+            vk::AttachmentDescription {
+                format: screen.format().format,
+                samples: vk::SampleCountFlags::TYPE_1,
+                load_op: vk::AttachmentLoadOp::CLEAR,
+                store_op: vk::AttachmentStoreOp::STORE,
+                final_layout: vk::ImageLayout::PRESENT_SRC_KHR,
+                ..Default::default()
+            },
+            vk::AttachmentDescription {
+                format: vk::Format::D16_UNORM,
+                samples: vk::SampleCountFlags::TYPE_1,
+                load_op: vk::AttachmentLoadOp::CLEAR,
+                initial_layout: vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+                final_layout: vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+                ..Default::default()
+            },
+        ];
+        let color_attachment_refs = [vk::AttachmentReference {
+            attachment: 0,
+            layout: vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
+        }];
+        let depth_attachment_ref = vk::AttachmentReference {
+            attachment: 1,
+            layout: vk::ImageLayout::DEPTH_STENCIL_ATTACHMENT_OPTIMAL,
+        };
+        let dependencies = [vk::SubpassDependency {
+            src_subpass: vk::SUBPASS_EXTERNAL,
+            src_stage_mask: vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
+            dst_access_mask: vk::AccessFlags::COLOR_ATTACHMENT_READ
+                | vk::AccessFlags::COLOR_ATTACHMENT_WRITE,
+            dst_stage_mask: vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
+            ..Default::default()
+        }];
+
+        let subpass = vk::SubpassDescription::builder()
+            .color_attachments(&color_attachment_refs)
+            .depth_stencil_attachment(&depth_attachment_ref)
+            .pipeline_bind_point(vk::PipelineBindPoint::GRAPHICS);
+
+        let renderpass_create_info = vk::RenderPassCreateInfo::builder()
+            .attachments(&renderpass_attachments)
+            .subpasses(std::slice::from_ref(&subpass))
+            .dependencies(&dependencies);
+
+        unsafe {
+            device
+                .create_render_pass(&renderpass_create_info, None)
+                .unwrap()
+        }
+    }
+
+    pub unsafe fn recreate_swapchain(&mut self, renderpass: vk::RenderPass) {
+        info!("Recreates swapchain");
         unsafe {
             self.device.device_wait_idle().unwrap();
+            self.device.free_memory(self.depth_image_memory, None);
+            self.device.destroy_image_view(self.depth_image_view, None);
+            // self.device.destroy_image(self.depth_image, None);
+            for &framebuffer in self.framebuffers.iter() {
+                self.device.destroy_framebuffer(framebuffer, None);
+            }
             for &image_view in self.present_image_views.iter() {
                 self.device.destroy_image_view(image_view, None);
             }
-            self.device.destroy_command_pool(self.pool, None);
             self.swapchain_loader
                 .destroy_swapchain(self.swapchain, None);
         }
+        self.screen.resize();
+        self.swapchain = Self::create_swapchain(&self.instance, &self.screen, &self.device);
+        self.present_image_views =
+            Self::create_present_images(self.swapchain, &self.instance, &self.screen, &self.device);
 
-        self.swapchain = Self::create_swapchain(
-            &self.instance,
-            &self.surface_loader,
-            self.surface,
-            self.physical_device,
-            &self.device,
-            window_width,
-            window_height,
-        );
-        self.present_image_views = Self::create_present_images(
-            self.swapchain,
-            &self.instance,
-            &self.surface_loader,
-            self.surface,
-            self.physical_device,
-            &self.device,
-        );
+        // DEPTH IMAGE RECREATE
+        // let depth_image =
+        //     unsafe { Self::create_depth_image(&self.instance, &self.screen, &self.device) };
+        // let (depth_image_view, depth_image_memory) = unsafe {
+        //     Self::create_depth_image_view(&self.instance, &self.screen, &self.device, depth_image)
+        // };
+        // self.depth_image = depth_image;
+        // self.depth_image_view = depth_image_view;
+        // self.depth_image_memory = depth_image_memory;
+
+        info!("Recreate depth image");
+        let depth_image = Self::create_depth_image(&self.instance, &self.screen, &self.device);
+        let (depth_image_view, depth_image_memory) =
+            Self::create_depth_image_view(&self.instance, &self.screen, &self.device, depth_image);
+        self.depth_image = depth_image;
+        self.depth_image_view = depth_image_view;
+        self.depth_image_memory = depth_image_memory;
+
+        self.recreate_frame_buffers(renderpass);
+        info!("Done");
     }
 
     /*
@@ -711,7 +630,8 @@ impl Drop for Base {
             self.swapchain_loader
                 .destroy_swapchain(self.swapchain, None);
             self.device.destroy_device(None);
-            self.surface_loader
+            self.screen
+                .surface_loader
                 .destroy_surface(self.screen.surface(), None);
             self.debug_utils_loader
                 .destroy_debug_utils_messenger(self.debug_call_back, None);
@@ -752,4 +672,112 @@ pub fn create_buffer(
     }
 
     (buffer, device_memory, memory.size)
+}
+
+#[allow(clippy::too_many_arguments)]
+pub fn submit_commands<F: FnOnce(&Device, vk::CommandBuffer)>(
+    device: &Device,
+    command_buffer: vk::CommandBuffer,
+    command_buffer_reuse_fence: vk::Fence,
+    submit_queue: vk::Queue,
+    wait_mask: &[vk::PipelineStageFlags],
+    wait_semaphores: &[vk::Semaphore],
+    signal_semaphores: &[vk::Semaphore],
+    f: F,
+) {
+    unsafe {
+        // info!("wait_for_fences");
+        device
+            .wait_for_fences(&[command_buffer_reuse_fence], true, std::u64::MAX)
+            .expect("Wait for fence failed.");
+
+        // info!("reset_fences");
+        device
+            .reset_fences(&[command_buffer_reuse_fence])
+            .expect("Reset fences failed.");
+
+        // info!("reset_command_buffer {:?}", command_buffer);
+        device
+            .reset_command_buffer(
+                command_buffer,
+                vk::CommandBufferResetFlags::RELEASE_RESOURCES,
+            )
+            .expect("Reset command buffer failed.");
+
+        let command_buffer_begin_info = vk::CommandBufferBeginInfo::builder()
+            .flags(vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT);
+
+        // info!("begin_command_buffer");
+        device
+            .begin_command_buffer(command_buffer, &command_buffer_begin_info)
+            .expect("Begin command buffer");
+
+        f(device, command_buffer);
+
+        device
+            .end_command_buffer(command_buffer)
+            .expect("End command buffer");
+
+        let command_buffers = vec![command_buffer];
+
+        let submit_info = vk::SubmitInfo::builder()
+            .wait_semaphores(wait_semaphores)
+            .wait_dst_stage_mask(wait_mask)
+            .command_buffers(&command_buffers)
+            .signal_semaphores(signal_semaphores)
+            .build();
+
+        device
+            .queue_submit(submit_queue, &[submit_info], command_buffer_reuse_fence)
+            .expect("queue submit failed.");
+    }
+}
+
+unsafe extern "system" fn vulkan_debug_callback(
+    message_severity: vk::DebugUtilsMessageSeverityFlagsEXT,
+    _message_type: vk::DebugUtilsMessageTypeFlagsEXT,
+    p_callback_data: *const vk::DebugUtilsMessengerCallbackDataEXT,
+    _user_data: *mut std::os::raw::c_void,
+) -> vk::Bool32 {
+    let callback_data = *p_callback_data;
+    // let message_id_number: i32 = callback_data.message_id_number as i32;
+    //
+    // let message_id_name = if callback_data.p_message_id_name.is_null() {
+    //     Cow::from("")
+    // } else {
+    //     CStr::from_ptr(callback_data.p_message_id_name).to_string_lossy()
+    // };
+
+    let message = if callback_data.p_message.is_null() {
+        Cow::from("")
+    } else {
+        CStr::from_ptr(callback_data.p_message).to_string_lossy()
+    };
+
+    let level = match message_severity {
+        vk::DebugUtilsMessageSeverityFlagsEXT::VERBOSE => Level::Debug,
+        vk::DebugUtilsMessageSeverityFlagsEXT::INFO => Level::Info,
+        vk::DebugUtilsMessageSeverityFlagsEXT::WARNING => Level::Warn,
+        vk::DebugUtilsMessageSeverityFlagsEXT::ERROR => Level::Error,
+        _ => Level::Error,
+    };
+
+    log!(level, "{}", message);
+
+    vk::FALSE
+}
+
+pub fn index_memory_type(
+    memory_req: &vk::MemoryRequirements,
+    memory_prop: &vk::PhysicalDeviceMemoryProperties,
+    flags: vk::MemoryPropertyFlags,
+) -> Option<u32> {
+    memory_prop.memory_types[..memory_prop.memory_type_count as _]
+        .iter()
+        .enumerate()
+        .find(|(index, memory_type)| {
+            (1 << index) & memory_req.memory_type_bits != 0
+                && memory_type.property_flags & flags == flags
+        })
+        .map(|(index, _memory_type)| index as _)
 }
