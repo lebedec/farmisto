@@ -8,7 +8,7 @@ use std::ffi::CStr;
 use std::marker::PhantomData;
 use std::time::Instant;
 
-pub struct MyPipeline<const M: usize, C> {
+pub struct MyPipeline<const M: usize, C, const D: usize> {
     device: Device,
     asset: PipelineAsset,
     pub handle: vk::Pipeline,
@@ -16,14 +16,15 @@ pub struct MyPipeline<const M: usize, C> {
     pass: vk::RenderPass,
     pub camera: ShaderDataSet<1>,
     pub material: ShaderDataSet<M>,
+    pub data: Option<ShaderDataSet<D>>,
     _constants: PhantomData<C>,
 }
 
-impl<const M: usize, C> MyPipeline<M, C>
+impl<const M: usize, C, const D: usize> MyPipeline<M, C, D>
 where
     C: NoUninit,
 {
-    pub fn build(asset: PipelineAsset, pass: vk::RenderPass) -> MyPipelineBuilder<M, C> {
+    pub fn build(asset: PipelineAsset, pass: vk::RenderPass) -> MyPipelineBuilder<M, C, D> {
         MyPipelineBuilder::new(asset, pass)
     }
 
@@ -72,21 +73,23 @@ where
     }
 }
 
-pub struct MyPipelineBuilder<const M: usize, C> {
+pub struct MyPipelineBuilder<const M: usize, C, const D: usize> {
     asset: PipelineAsset,
     pass: vk::RenderPass,
     camera: [vk::DescriptorType; 1],
     material: Option<[vk::DescriptorType; M]>,
+    data: Option<[vk::DescriptorType; D]>,
     _constants: PhantomData<C>,
 }
 
-impl<const M: usize, C: NoUninit> MyPipelineBuilder<M, C> {
+impl<const M: usize, C: NoUninit, const D: usize> MyPipelineBuilder<M, C, D> {
     pub fn new(asset: PipelineAsset, pass: vk::RenderPass) -> Self {
         Self {
             asset,
             pass,
             camera: [vk::DescriptorType::UNIFORM_BUFFER],
             material: None,
+            data: None,
             _constants: Default::default(),
         }
     }
@@ -96,7 +99,12 @@ impl<const M: usize, C: NoUninit> MyPipelineBuilder<M, C> {
         self
     }
 
-    pub fn build(self, device: &Device, screen: &Screen) -> MyPipeline<M, C> {
+    pub fn data(mut self, bindings: [vk::DescriptorType; D]) -> Self {
+        self.data = Some(bindings);
+        self
+    }
+
+    pub fn build(self, device: &Device, screen: &Screen) -> MyPipeline<M, C, D> {
         let swapchain = 0;
         let camera =
             ShaderDataSet::create(device.clone(), 1, vk::ShaderStageFlags::VERTEX, self.camera);
@@ -106,12 +114,26 @@ impl<const M: usize, C: NoUninit> MyPipelineBuilder<M, C> {
             vk::ShaderStageFlags::FRAGMENT,
             self.material.unwrap(),
         );
+
         let push_constant_ranges = [vk::PushConstantRange {
             stage_flags: vk::ShaderStageFlags::VERTEX | vk::ShaderStageFlags::FRAGMENT,
             offset: 0,
             size: std::mem::size_of::<C>() as u32,
         }];
-        let sets = [camera.layout, material.layout];
+        let mut sets = vec![camera.layout, material.layout];
+        let data = match self.data {
+            None => None,
+            Some(bindings) => {
+                let data = ShaderDataSet::create(
+                    device.clone(),
+                    1,
+                    vk::ShaderStageFlags::VERTEX | vk::ShaderStageFlags::FRAGMENT, // vertex ?
+                    bindings,
+                );
+                sets.push(data.layout);
+                Some(data)
+            }
+        };
         let layout_info = vk::PipelineLayoutCreateInfo::builder()
             .set_layouts(&sets)
             .push_constant_ranges(&push_constant_ranges);
@@ -124,6 +146,7 @@ impl<const M: usize, C: NoUninit> MyPipelineBuilder<M, C> {
             pass: self.pass,
             camera,
             material,
+            data,
             _constants: Default::default(),
         };
         pipeline.rebuild(device, screen);

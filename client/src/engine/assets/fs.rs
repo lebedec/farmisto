@@ -74,6 +74,8 @@ impl FileSystem {
             .spawn()
             .expect("failed to spawn powershell file watcher");
 
+        info!("Starts file system watcher pid={}", process.id());
+
         let mut reader = BufReader::new(process.stdout.unwrap());
         let shared_events = Arc::new(RwLock::new(HashMap::new()));
         let thread_events = shared_events.clone();

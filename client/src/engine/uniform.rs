@@ -13,6 +13,7 @@ pub struct UniformBuffer {
     device: Device,
     pub buffers: Vec<vk::Buffer>,
     memory: Vec<vk::DeviceMemory>,
+    memory_size: Vec<vk::DeviceSize>,
 }
 
 impl UniformBuffer {
@@ -44,21 +45,44 @@ impl UniformBuffer {
             buffers,
             memory,
             device,
+            memory_size,
         }
     }
 
-    pub fn update<T>(&self, current: usize, value: T) {
-        let values = [value];
-        let buffer_size = (std::mem::size_of::<T>() * values.len()) as u64;
-        let device_memory = self.memory[current];
-
+    pub fn update<T: Copy>(&self, current: usize, value: T) {
+        let ptr = unsafe {
+            self.device
+                .map_memory(
+                    self.memory[current],
+                    0,
+                    self.memory_size[current],
+                    vk::MemoryMapFlags::empty(),
+                )
+                .unwrap()
+        };
+        let mut alignment = unsafe {
+            ash::util::Align::new(
+                ptr,
+                std::mem::align_of::<T>() as u64,
+                self.memory_size[current],
+            )
+        };
+        alignment.copy_from_slice(&[value]);
         unsafe {
-            let ptr = self
-                .device
-                .map_memory(device_memory, 0, buffer_size, vk::MemoryMapFlags::empty())
-                .unwrap() as *mut T;
-            ptr.copy_from_nonoverlapping(values.as_ptr(), values.len());
-            self.device.unmap_memory(device_memory);
+            self.device.unmap_memory(self.memory[current]);
         }
+
+        // let values = [value];
+        // let buffer_size = (std::mem::size_of::<T>() * values.len()) as u64;
+        // let device_memory = self.memory[current];
+        //
+        // unsafe {
+        //     let ptr = self
+        //         .device
+        //         .map_memory(device_memory, 0, buffer_size, vk::MemoryMapFlags::empty())
+        //         .unwrap() as *mut T;
+        //     ptr.copy_from_nonoverlapping(values.as_ptr(), values.len());
+        //     self.device.unmap_memory(device_memory);
+        // }
     }
 }

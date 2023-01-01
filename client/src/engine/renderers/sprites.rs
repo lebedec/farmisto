@@ -32,14 +32,17 @@ pub struct SpriteRenderer {
     pub device_memory: vk::PhysicalDeviceMemoryProperties,
     sprites: Vec<Sprite>,
     spine_sprites: Vec<SpineSprite>,
-    my_spine_pipeline: MyPipeline<2, SpinePushConstants>,
-    my_ground_pipeline: MyPipeline<1, SpritePushConstants>,
+    my_spine_pipeline: MyPipeline<2, SpinePushConstants, 0>,
+    my_ground_pipeline: MyPipeline<1, SpritePushConstants, 1>,
     camera_buffer: UniformBuffer,
+    ground_buffer: UniformBuffer,
     vertex_buffer: VertexBuffer,
     pub present_index: u32,
     lut_texture: TextureAsset,
     coloration_texture: TextureAsset,
     coloration_sampler: SamplerAsset,
+    ground_texture: TextureAsset,
+    ground_sampler: SamplerAsset,
     pub screen: Screen,
     pub zoom: f32,
 }
@@ -57,9 +60,14 @@ impl SpriteRenderer {
         let lut_texture = assets.texture("./assets/texture/lut-night.png");
         let coloration_texture = assets.texture("./assets/spine/lama384/coloration.png");
         let coloration_sampler = assets.sampler("coloration");
+        let ground_texture = assets.texture("./assets/texture/ground-structure.png");
+        let ground_sampler = assets.sampler("ground-texture");
         //
         let camera_buffer =
             UniformBuffer::create::<CameraUniform>(device.clone(), device_memory, swapchain);
+
+        let ground_buffer =
+            UniformBuffer::create::<GroundUniform>(device.clone(), device_memory, swapchain);
 
         let vertex_buffer = VertexBuffer::create(device, device_memory, SPRITE_VERTICES.to_vec());
 
@@ -72,6 +80,7 @@ impl SpriteRenderer {
 
         let my_ground_pipeline = MyPipeline::build(assets.pipeline("ground"), pass)
             .material([vk::DescriptorType::COMBINED_IMAGE_SAMPLER])
+            .data([vk::DescriptorType::UNIFORM_BUFFER])
             .build(device, &screen);
 
         Self {
@@ -82,11 +91,14 @@ impl SpriteRenderer {
             my_spine_pipeline,
             my_ground_pipeline,
             camera_buffer,
+            ground_buffer,
             vertex_buffer,
             present_index: 0,
             lut_texture,
             coloration_texture,
             coloration_sampler,
+            ground_texture,
+            ground_sampler,
             screen,
             zoom,
         }
@@ -379,6 +391,104 @@ impl SpriteRenderer {
                 })]])[0];
 
         // GROUND
+        self.ground_buffer.update(
+            self.present_index as usize,
+            GroundUniform {
+                map: [
+                    [
+                        g(0.9),
+                        g(0.8),
+                        g(0.7),
+                        g(0.6),
+                        g(0.5),
+                        g(0.4),
+                        g(0.3),
+                        g(0.2),
+                    ],
+                    [
+                        g(1.0),
+                        g(1.0),
+                        g(1.0),
+                        g(1.0),
+                        g(1.0),
+                        g(1.0),
+                        g(1.0),
+                        g(1.0),
+                    ],
+                    [
+                        g(0.1),
+                        g(0.0),
+                        g(0.0),
+                        g(0.0),
+                        g(0.0),
+                        g(0.0),
+                        g(0.0),
+                        g(0.0),
+                    ],
+                    [
+                        g(0.0),
+                        g(0.0),
+                        g(0.0),
+                        g(0.0),
+                        g(0.0),
+                        g(0.0),
+                        g(0.0),
+                        g(0.0),
+                    ],
+                    [
+                        g(0.0),
+                        g(0.0),
+                        g(0.0),
+                        g(0.0),
+                        g(0.0),
+                        g(0.0),
+                        g(0.0),
+                        g(0.0),
+                    ],
+                    [
+                        g(0.0),
+                        g(0.0),
+                        g(0.0),
+                        g(0.0),
+                        g(0.0),
+                        g(0.0),
+                        g(0.0),
+                        g(0.0),
+                    ],
+                    [
+                        g(1.0),
+                        g(0.1),
+                        g(0.5),
+                        g(0.0),
+                        g(0.5),
+                        g(0.7),
+                        g(1.0),
+                        g(0.0),
+                    ],
+                    [
+                        g(0.0),
+                        g(0.0),
+                        g(0.0),
+                        g(0.0),
+                        g(0.0),
+                        g(0.0),
+                        g(0.0),
+                        g(0.0),
+                    ],
+                ],
+            },
+        );
+        let ground_descriptor = self
+            .my_ground_pipeline
+            .data
+            .as_mut()
+            .unwrap()
+            .describe(vec![[ShaderData::Uniform(vk::DescriptorBufferInfo {
+                buffer: self.ground_buffer.buffers[0],
+                offset: 0,
+                range: std::mem::size_of::<GroundUniform>() as u64,
+            })]])[0];
+
         let mut timer = Timer::now();
         device.cmd_bind_pipeline(
             buffer,
@@ -403,10 +513,18 @@ impl SpriteRenderer {
                 .my_ground_pipeline
                 .material
                 .describe(vec![[ShaderData::Texture(vk::DescriptorImageInfo {
-                    sampler: self.coloration_sampler.handle,
-                    image_view: self.coloration_texture.view(),
+                    sampler: self.ground_sampler.handle,
+                    image_view: self.ground_texture.view(),
                     image_layout: vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
                 })]])[0]],
+            &[],
+        );
+        device.cmd_bind_descriptor_sets(
+            buffer,
+            vk::PipelineBindPoint::GRAPHICS,
+            self.my_ground_pipeline.layout,
+            2,
+            &[ground_descriptor],
             &[],
         );
         let constants = SpritePushConstants {
@@ -556,3 +674,12 @@ const SPRITE_VERTICES: [SpriteVertex; 6] = [
         uv: [1.0, 0.0],
     },
 ];
+
+#[derive(Clone, Copy)]
+pub struct GroundUniform {
+    pub map: [[[f32; 4]; 8]; 8],
+}
+
+fn g(value: f32) -> [f32; 4] {
+    [value, value, value, value]
+}
