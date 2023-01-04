@@ -1,4 +1,5 @@
 use crate::model::{FarmerId, FarmerKey, FarmlandId, FarmlandKey, TreeId, TreeKey};
+use crate::planting::Cell;
 use std::fmt::Debug;
 
 pub const API_VERSION: &str = "0.1";
@@ -59,6 +60,11 @@ pub enum Event {
     FarmlandAppeared {
         id: FarmlandId,
         kind: FarmlandKey,
+        map: Vec<Vec<Cell>>,
+    },
+    FarmlandUpdated {
+        id: FarmlandId,
+        map: Vec<Vec<Cell>>,
     },
     FarmlandVanished(FarmlandId),
     FarmerAppeared {

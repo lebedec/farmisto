@@ -4,6 +4,7 @@ use crate::engine::{FarmerAsset, FarmlandAsset, TreeAsset};
 use game::collections::Shared;
 use game::math::Collider;
 use game::model::{FarmerId, FarmerKind, FarmlandId, FarmlandKind, TreeId, TreeKind};
+use game::planting::Cell;
 use glam::{Vec2, Vec3};
 
 pub struct FarmerBehaviour {
@@ -32,6 +33,7 @@ pub struct FarmlandBehaviour {
     pub id: FarmlandId,
     pub kind: Shared<FarmlandKind>,
     pub asset: FarmlandAsset,
+    pub map: Vec<Vec<Cell>>,
 }
 
 pub struct TreeBehaviour {

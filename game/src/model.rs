@@ -118,6 +118,12 @@ impl From<FarmlandId> for LandId {
     }
 }
 
+impl From<LandId> for FarmlandId {
+    fn from(id: LandId) -> Self {
+        Self(id.0)
+    }
+}
+
 pub struct Farmland {
     pub id: FarmlandId,
     pub kind: Shared<FarmlandKind>,

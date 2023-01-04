@@ -1,5 +1,5 @@
 use rusqlite::types::{FromSql, ValueRef};
-use rusqlite::{params, Connection, Params};
+use rusqlite::{params, Connection, Params, Row};
 
 use log::info;
 use serde::Deserialize;
@@ -40,6 +40,15 @@ impl Storage {
             connection,
             last_change_timestamp: 0,
         })
+    }
+
+    pub fn open_into(&self) -> Self {
+        Connection::open(self.connection.path().unwrap())
+            .map(|connection| Storage {
+                connection,
+                last_change_timestamp: 0,
+            })
+            .unwrap()
     }
 
     #[inline]
@@ -99,6 +108,30 @@ impl Storage {
             entries.push(entry);
         }
         entries
+    }
+
+    pub fn fetch_all_map<T, M>(&self, map: M) -> Vec<T>
+    where
+        M: FnMut(&Row) -> T,
+    {
+        self.query_map::<T, _, M>([], "", map)
+    }
+
+    fn query_map<T, P: Params, M>(&self, params: P, where_clause: &str, mut map: M) -> Vec<T>
+    where
+        M: FnMut(&Row) -> T,
+    {
+        let table = std::any::type_name::<T>().split("::").last().unwrap();
+        let mut statement = self
+            .connection
+            .prepare(&format!("select * from {} {}", table, where_clause))
+            .unwrap();
+        let mut rows = statement.query(params).unwrap();
+        let mut values = vec![];
+        while let Some(row) = rows.next().unwrap() {
+            values.push(map(row));
+        }
+        values
     }
 
     pub fn select_changes<T>(

@@ -166,7 +166,7 @@ impl TextureAssetData {
     ) -> Self {
         let mut timer = Timer::now();
         let data = fs::read(&path).unwrap();
-        timer.record2(path, "io", &METRIC_LOADING_SECONDS);
+        // timer.record2(path, "io", &METRIC_LOADING_SECONDS);
 
         let image_object = image::load_from_memory(&data).unwrap();
         let image_object = image_object.flipv();
@@ -174,7 +174,7 @@ impl TextureAssetData {
         let image_data = image_object.to_rgba8();
         let image_data_len = image_data.len();
         let image_data = image_data.as_ptr();
-        timer.record2(path, "decode", &METRIC_LOADING_SECONDS);
+        // timer.record2(path, "decode", &METRIC_LOADING_SECONDS);
 
         let image_size =
             (std::mem::size_of::<u8>() as u32 * image_width * image_height * 4) as vk::DeviceSize;
@@ -198,7 +198,7 @@ impl TextureAssetData {
             data_ptr.copy_from_nonoverlapping(image_data, image_data_len);
             device.unmap_memory(staging_buffer_memory);
         }
-        timer.record2(path, "buffering", &METRIC_LOADING_SECONDS);
+        // timer.record2(path, "buffering", &METRIC_LOADING_SECONDS);
 
         let format = vk::Format::R8G8B8A8_UNORM;
         let image = Self::create(
@@ -243,7 +243,7 @@ impl TextureAssetData {
             device.destroy_buffer(staging_buffer, None);
             device.free_memory(staging_buffer_memory, None);
         }
-        timer.record2(path, "transition", &METRIC_LOADING_SECONDS);
+        // timer.record2(path, "transition", &METRIC_LOADING_SECONDS);
         image
     }
 

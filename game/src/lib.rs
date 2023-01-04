@@ -1,5 +1,6 @@
 use datamap::Storage;
 pub use domains::*;
+use log::info;
 
 use crate::api::{Action, Event};
 use crate::model::Farmer;
@@ -17,7 +18,7 @@ use crate::model::TreeKind;
 use crate::model::Universe;
 use crate::model::UniverseSnapshot;
 use crate::physics::{Physics, PhysicsDomain};
-use crate::planting::PlantingDomain;
+use crate::planting::{Planting, PlantingDomain};
 
 pub mod api;
 pub mod collections;
@@ -82,9 +83,11 @@ impl Game {
 
         for farmland in self.universe.farmlands.iter() {
             if snapshot.whole || snapshot.farmlands.contains(&farmland.id) {
+                let land = self.planting.get_land(farmland.id.into()).unwrap();
                 stream.push(Event::FarmlandAppeared {
                     id: farmland.id,
                     kind: farmland.kind.id,
+                    map: land.map.clone(),
                 })
             }
         }
@@ -162,7 +165,13 @@ impl Game {
                 }
             }
         }
-        self.planting.update(time);
+        for event in self.planting.update(time) {
+            match event {
+                Planting::LandChanged { id, map } => {
+                    events.push(Event::FarmlandUpdated { id: id.into(), map })
+                }
+            }
+        }
         events
     }
 }

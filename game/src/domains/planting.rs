@@ -33,9 +33,12 @@ pub struct LandKind {
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct LandId(pub usize);
 
+pub type Cell = [f32; 2];
+
 pub struct Land {
     pub id: LandId,
     pub kind: Shared<LandKind>,
+    pub map: Vec<Vec<Cell>>,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
@@ -57,11 +60,29 @@ pub struct Plant {
     pub land: LandId,
 }
 
-pub enum Planting {}
+pub enum Planting {
+    LandChanged { id: LandId, map: Vec<Vec<Cell>> },
+}
 
 impl PlantingDomain {
-    pub fn update(&mut self, _time: f32) -> Vec<Planting> {
-        let mut _events = vec![];
-        _events
+    pub fn get_land(&self, id: LandId) -> Option<&Land> {
+        self.lands.iter().find(|land| land.id == id)
+    }
+
+    pub fn update(&mut self, time: f32) -> Vec<Planting> {
+        let mut events = vec![];
+        for land in self.lands.iter_mut() {
+            for row in land.map.iter_mut() {
+                for cell in row.iter_mut() {
+                    let [capacity, moisture] = *cell;
+                    *cell = [capacity, (moisture - 0.1 * time).max(0.0)];
+                }
+            }
+            events.push(Planting::LandChanged {
+                id: land.id,
+                map: land.map.clone(),
+            })
+        }
+        events
     }
 }

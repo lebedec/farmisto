@@ -57,7 +57,8 @@ create table LandKind
 create table Land
 (
     id   integer primary key,
-    kind integer not null references LandKind
+    kind integer             not null references LandKind,
+    map  blob collate binary not null
 );
 
 create table PlantKind

@@ -7,7 +7,9 @@ create table FarmerAssetData
 
 create table FarmlandAssetData
 (
-    id text primary key unique
+    id      text primary key unique,
+    texture text not null,
+    sampler text not null references SamplerAssetData
 );
 
 create table PropsAssetData
@@ -46,7 +48,7 @@ create table SpriteAssetData
     texture  text not null,
     position json not null,
     size     json not null,
-    sampler text not null references SamplerAssetData
+    sampler  text not null references SamplerAssetData
 );
 
 create table SamplerAssetData

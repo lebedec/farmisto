@@ -8,14 +8,16 @@ pub struct SyncReceiver {
     pub reader: TcpStream,
 }
 
+const HEADER_LENGTH: usize = 4;
+
 impl SyncReceiver {
-    pub fn receive<T: Decode>(&mut self) -> Option<T> {
-        let mut buffer = [0_u8; 2];
+    pub fn receive<T: Decode>(&mut self) -> Option<(usize, T)> {
+        let mut buffer = [0_u8; HEADER_LENGTH];
         if let Err(error) = self.reader.read_exact(&mut buffer) {
             error!("Unable to receive because of header read, {}", error);
             return None;
         }
-        let length = u16::from_be_bytes(buffer) as usize;
+        let length = u32::from_be_bytes(buffer) as usize;
 
         let mut buffer = vec![0; length];
         if let Err(error) = self.reader.read_exact(buffer.as_mut_slice()) {
@@ -23,7 +25,7 @@ impl SyncReceiver {
             return None;
         }
         match decode(buffer.as_slice()) {
-            Ok(response) => Some(response),
+            Ok(response) => Some((HEADER_LENGTH + length, response)),
             Err(error) => {
                 error!("Unable to receive because of deserialization, {}", error);
                 None
@@ -37,8 +39,8 @@ pub struct SyncSender {
 }
 
 impl SyncSender {
-    pub fn send_body(&mut self, body: Vec<u8>) -> Option<()> {
-        let header = match u16::try_from(body.len()) {
+    pub fn send_body(&mut self, body: Vec<u8>) -> Option<usize> {
+        let header = match u32::try_from(body.len()) {
             Ok(body_length) => body_length.to_be_bytes(),
             Err(error) => {
                 error!("Unable to send because of body length {}", error);
@@ -53,14 +55,11 @@ impl SyncSender {
             error!("Unable to send because of body write, {}", error);
             None
         } else {
-            if body.len() > 100 {
-                info!("Sent {} bytes body", body.len());
-            }
-            Some(())
+            Some(HEADER_LENGTH + body.len())
         }
     }
 
-    pub fn send<T: Encode>(&mut self, value: &T) -> Option<()> {
+    pub fn send<T: Encode>(&mut self, value: &T) -> Option<usize> {
         match encode(value) {
             Ok(body) => self.send_body(body),
             Err(error) => {

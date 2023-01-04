@@ -122,7 +122,7 @@ impl Gameplay {
                             Event::TreeUpdated { id } => {
                                 info!("Update tree {:?} [not implemented yet]", id);
                             }
-                            Event::FarmlandAppeared { id, kind } => {
+                            Event::FarmlandAppeared { id, kind, map } => {
                                 let kind = self
                                     .knowledge
                                     .universe
@@ -135,8 +135,19 @@ impl Gameplay {
 
                                 let asset = assets.farmland(&kind.name);
 
-                                self.farmlands
-                                    .insert(id, FarmlandBehaviour { id, kind, asset });
+                                self.farmlands.insert(
+                                    id,
+                                    FarmlandBehaviour {
+                                        id,
+                                        kind,
+                                        asset,
+                                        map,
+                                    },
+                                );
+                            }
+                            Event::FarmlandUpdated { id, map } => {
+                                let farmland = self.farmlands.get_mut(&id).unwrap();
+                                farmland.map = map;
                             }
                             Event::FarmlandVanished(id) => {
                                 info!("Vanish farmland {:?}", id);
@@ -387,6 +398,13 @@ impl Gameplay {
             ];
             renderer.draw(&sprite, position)
         }*/
+        for farmland in self.farmlands.values() {
+            renderer.draw_ground(
+                farmland.asset.texture.clone(),
+                farmland.asset.sampler.share(),
+                &farmland.map,
+            )
+        }
         METRIC_DRAW_REQUEST_SECONDS.observe_closure_duration(|| {
             for farmer in &self.farmers2d {
                 renderer.draw_spine(&farmer.sprite, farmer.position);

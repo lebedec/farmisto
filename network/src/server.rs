@@ -1,5 +1,6 @@
 use crate::transfer::{encode, SyncReceiver, SyncSender};
 use game::api::{GameResponse, LoginResult, PlayerRequest, API_VERSION};
+use lazy_static::lazy_static;
 use log::{error, info, warn};
 use std::collections::HashMap;
 use std::net::TcpListener;
@@ -9,6 +10,14 @@ use std::sync::mpsc::{channel, Receiver, RecvTimeoutError, Sender};
 use std::sync::Arc;
 use std::thread;
 use std::time::Duration;
+
+lazy_static! {
+    static ref METRIC_SERVER_SENT_BYTES: prometheus::IntCounter =
+        prometheus::register_int_counter!("server_sent_bytes", "server_sent_bytes").unwrap();
+    static ref METRIC_SERVER_RECEIVED_BYTES: prometheus::IntCounter =
+        prometheus::register_int_counter!("server_received_bytes", "server_received_bytes")
+            .unwrap();
+}
 
 pub struct Player {
     name: String,
@@ -187,13 +196,16 @@ fn spawn_listener(
 
                 // authorization blocks new player connections,
                 // (should be super fast)
-                let request: Option<PlayerRequest> = receiver.receive();
+                let request: Option<(_, PlayerRequest)> = receiver.receive();
                 let player = match request {
-                    Some(PlayerRequest::Login {
-                        version,
-                        player,
-                        password,
-                    }) => {
+                    Some((
+                        _,
+                        PlayerRequest::Login {
+                            version,
+                            player,
+                            password,
+                        },
+                    )) => {
                         if version != API_VERSION {
                             warn!(
                                 "Unable to authorize '{}' {}, version mismatch {} != {}",
@@ -239,7 +251,8 @@ fn spawn_listener(
                 let player_disconnection = disconnection.clone();
                 thread::spawn(move || {
                     info!("Start player '{}' requests thread", player_id);
-                    while let Some(request) = receiver.receive() {
+                    while let Some((bytes, request)) = receiver.receive() {
+                        METRIC_SERVER_RECEIVED_BYTES.inc_by(bytes as u64);
                         if requests_sender.send(request).is_err() {
                             error!("Unable to receive request, server not working");
                             break;
@@ -271,9 +284,14 @@ fn spawn_listener(
                                 break;
                             }
                         };
-                        if sender.send_body(response).is_none() {
-                            error!("Unable to send response, network error");
-                            break;
+                        match sender.send_body(response) {
+                            Some(bytes) => {
+                                METRIC_SERVER_SENT_BYTES.inc_by(bytes as u64);
+                            }
+                            None => {
+                                error!("Unable to send response, network error");
+                                break;
+                            }
                         }
                     }
                     info!("Stop player '{}' responses thread", player_id);

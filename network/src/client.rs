@@ -1,10 +1,19 @@
 use crate::transfer::{SyncReceiver, SyncSender};
 use game::api::{GameResponse, LoginResult, PlayerRequest, API_VERSION};
+use lazy_static::lazy_static;
 use log::{error, info};
 use std::net::{SocketAddr, TcpStream};
 use std::sync::mpsc::{channel, Receiver, RecvTimeoutError, Sender, TryIter};
 use std::thread;
 use std::time::{Duration, Instant};
+
+lazy_static! {
+    static ref METRIC_SENT_BYTES: prometheus::IntCounter =
+        prometheus::register_int_counter!("client_sent_bytes", "client_sent_bytes").unwrap();
+    static ref METRIC_RECEIVED_BYTES: prometheus::IntCounter =
+        prometheus::register_int_counter!("client_received_bytes", "client_received_bytes")
+            .unwrap();
+}
 
 pub struct TcpClient {
     pub player: String,
@@ -40,9 +49,9 @@ impl TcpClient {
                 password,
             };
             sender.send(&authorization).unwrap();
-            let response: Option<GameResponse> = receiver.receive();
+            let response: Option<(_, GameResponse)> = receiver.receive();
             match response {
-                Some(GameResponse::Login { result }) if result == LoginResult::Success => {
+                Some((_, GameResponse::Login { result })) if result == LoginResult::Success => {
                     info!("Authorization successful");
                 }
                 _ => {
@@ -57,7 +66,8 @@ impl TcpClient {
                     let time = Instant::now();
                     loop {
                         match receiver.receive() {
-                            Some(response) => {
+                            Some((bytes, response)) => {
+                                METRIC_RECEIVED_BYTES.inc_by(bytes as u64);
                                 responses.push(response);
                             }
                             None => {
@@ -104,9 +114,14 @@ impl TcpClient {
                         }
                     }
                     for request in requests {
-                        if sender.send(&request).is_none() {
-                            error!("Unable to send request, network error");
-                            break;
+                        match sender.send(&request) {
+                            Some(bytes) => {
+                                METRIC_SENT_BYTES.inc_by(bytes as u64);
+                            }
+                            None => {
+                                error!("Unable to send request, network error");
+                                break;
+                            }
                         }
                     }
                 }

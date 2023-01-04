@@ -119,6 +119,7 @@ pub fn startup<A: App>(title: String) {
                 let mut stream = stream.unwrap();
                 let status_line = "HTTP/1.1 200 OK";
                 let mut contents = String::new();
+                let t1 = Instant::now();
                 let metric_families = prometheus::gather();
                 encoder
                     .encode_utf8(&metric_families, &mut contents)
