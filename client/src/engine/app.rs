@@ -138,6 +138,8 @@ pub fn startup<A: App>(title: String) {
             studio.update().unwrap();
 
             input.reset();
+            input.zoom = sprites_renderer.zoom;
+            input.window = base.screen.size().map(|value| value as f32);
             input.time = time.elapsed().as_secs_f32();
             time = Instant::now();
             // info!("et: {}", input.time);

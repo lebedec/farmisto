@@ -23,6 +23,7 @@ use prometheus::{Counter, Histogram, IntCounter, IntGauge};
 
 use lazy_static::lazy_static;
 use prometheus::{register_counter, register_histogram, register_int_counter, register_int_gauge};
+use sdl2::render::Texture;
 use sdl2::sys::rand;
 
 lazy_static! {
@@ -46,7 +47,7 @@ pub struct Gameplay {
     pub farmers: HashMap<FarmerId, FarmerBehaviour>,
     pub camera: Camera,
     pub farmers2d: Vec<Farmer2d>,
-    pub backgrounds: Vec<SpriteAsset>,
+    pub cursor: Option<SpriteAsset>,
 }
 
 pub struct Farmer2d {
@@ -69,7 +70,7 @@ impl Gameplay {
             farmers: Default::default(),
             camera: Camera::new(),
             farmers2d: vec![],
-            backgrounds: vec![],
+            cursor: None,
         }
     }
 
@@ -380,24 +381,17 @@ impl Gameplay {
         });
     }
 
-    pub fn render2d(&self, renderer: &mut SpriteRenderer, assets: &mut Assets) {
+    pub fn render2d(&self, frame: &mut Frame) {
+        let renderer = &mut frame.sprites;
         renderer.clear();
         renderer.look_at();
-        // for background in &self.backgrounds {
-        //     renderer.draw_sprite(&background, background.size.mul(0.5));
-        // }
-        /*
-        renderer.draw(&assets.sprite("test"), [512.0, 512.0]);
-        let mut trees: Vec<&TreeBehaviour> = self.trees.values().collect();
-        trees.sort_by_key(|tree| tree.position.z as i32);
-        for tree in trees {
-            let sprite = assets.sprite(&tree.kind.name);
-            let position = [
-                512.0 + tree.position.x * 32.0,
-                512.0 + tree.position.z * 32.0,
-            ];
-            renderer.draw(&sprite, position)
-        }*/
+        if let Some(cursor) = &self.cursor {
+            let [x, y] = frame.input.mouse_position().position;
+            let x = (x / 128.0).floor() * 128.0 + 64.0;
+            let y = (y / 128.0).floor() * 128.0 + 64.0;
+            renderer.draw_sprite(cursor, [x, y]);
+        }
+
         for farmland in self.farmlands.values() {
             renderer.draw_ground(
                 farmland.asset.texture.clone(),
@@ -450,15 +444,14 @@ impl Gameplay {
 impl Mode for Gameplay {
     fn start(&mut self, assets: &mut Assets) {
         self.knowledge.load_game_knowledge();
-        self.backgrounds.push(assets.sprite("bg128.png"));
-        //self.backgrounds.push(assets.sprite("lama-ref-384.png"));
+        self.cursor = Some(assets.sprite("cursor"));
     }
 
     fn update(&mut self, mut frame: Frame) {
         self.handle_server_responses(&mut frame);
         self.handle_user_input(&frame.input);
         self.animate(&frame.input);
-        self.render(frame.scene);
-        self.render2d(frame.sprites, frame.assets);
+        // self.render(frame.scene);
+        self.render2d(&mut frame);
     }
 }

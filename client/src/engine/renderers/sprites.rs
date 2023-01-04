@@ -32,18 +32,23 @@ lazy_static! {
 pub struct SpriteRenderer {
     pub device: Device,
     pub device_memory: vk::PhysicalDeviceMemoryProperties,
-    sprites: Vec<Sprite>,
-    spine_sprites: Vec<SpineSprite>,
+
     my_spine_pipeline: MyPipeline<2, SpinePushConstants, 0>,
+    spine_sprites: Vec<SpineSprite>,
+    coloration_texture: TextureAsset,
+    coloration_sampler: SamplerAsset,
+
     my_ground_pipeline: MyPipeline<1, SpritePushConstants, 1>,
+    ground_sprites: Vec<GroundSprite>,
+
+    my_sprite_pipeline: MyPipeline<1, SpritePushConstants, 1>,
+    sprites: Vec<Sprite>,
+
     camera_buffer: UniformBuffer,
     ground_buffer: UniformBuffer,
     vertex_buffer: VertexBuffer,
     pub present_index: u32,
     lut_texture: TextureAsset,
-    coloration_texture: TextureAsset,
-    coloration_sampler: SamplerAsset,
-    ground_sprites: Vec<GroundSprite>,
     pub screen: Screen,
     pub zoom: f32,
 }
@@ -82,6 +87,10 @@ impl SpriteRenderer {
             .data([vk::DescriptorType::UNIFORM_BUFFER])
             .build(device, &screen);
 
+        let my_sprite_pipeline = MyPipeline::build(assets.pipeline("sprites"), pass)
+            .material([vk::DescriptorType::COMBINED_IMAGE_SAMPLER])
+            .build(device, &screen);
+
         Self {
             device: device.clone(),
             device_memory: device_memory.clone(),
@@ -99,6 +108,7 @@ impl SpriteRenderer {
             ground_sprites: vec![],
             screen,
             zoom,
+            my_sprite_pipeline,
         }
     }
 
@@ -134,6 +144,7 @@ impl SpriteRenderer {
     pub fn update(&mut self) {
         self.my_spine_pipeline.update(&self.device, &self.screen);
         self.my_ground_pipeline.update(&self.device, &self.screen);
+        self.my_sprite_pipeline.update(&self.device, &self.screen);
     }
 
     pub fn draw_sprite(&mut self, asset: &SpriteAsset, position: [f32; 2]) {
@@ -152,13 +163,12 @@ impl SpriteRenderer {
                 size: asset.size,
                 coords: [x, y, w, h],
             },
-            texture_descriptor: self.my_spine_pipeline.material.describe(vec![[
+            texture_descriptor: self.my_sprite_pipeline.material.describe(vec![[
                 ShaderData::Texture(vk::DescriptorImageInfo {
                     sampler: asset.sampler.handle,
                     image_view: texture.view(),
                     image_layout: vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
                 }),
-                ShaderData::from(&self.lut_texture),
             ]])[0],
         })
     }
@@ -357,47 +367,10 @@ impl SpriteRenderer {
     }
 
     pub unsafe fn render(&mut self, device: &Device, buffer: vk::CommandBuffer) {
+        let mut timer = Timer::now();
+
         device.cmd_set_viewport(buffer, 0, &self.screen.viewports);
         device.cmd_set_scissor(buffer, 0, &self.screen.scissors);
-        // device.cmd_bind_pipeline(buffer, vk::PipelineBindPoint::GRAPHICS, self.pipeline);
-        // let camera_descriptor =
-        //     self.camera_data_set
-        //         .describe(vec![[ShaderData::Uniform(vk::DescriptorBufferInfo {
-        //             buffer: self.camera_buffer.buffers[0],
-        //             offset: 0,
-        //             range: std::mem::size_of::<CameraUniform>() as u64,
-        //         })]])[0];
-        // device.cmd_bind_descriptor_sets(
-        //     buffer,
-        //     vk::PipelineBindPoint::GRAPHICS,
-        //     self.layout,
-        //     0,
-        //     &[camera_descriptor],
-        //     &[],
-        // );
-        // device.cmd_bind_vertex_buffers(buffer, 0, &[self.vertex_buffer.bind()], &[0]);
-        // let mut previous_texture = Default::default();
-        // for sprite in self.sprites.iter() {
-        //     if previous_texture != sprite.texture_descriptor {
-        //         previous_texture = sprite.texture_descriptor;
-        //         device.cmd_bind_descriptor_sets(
-        //             buffer,
-        //             vk::PipelineBindPoint::GRAPHICS,
-        //             self.layout,
-        //             1,
-        //             &[sprite.texture_descriptor],
-        //             &[],
-        //         );
-        //     }
-        //     // device.cmd_push_constants(
-        //     //     buffer,
-        //     //     self.layout,
-        //     //     vk::ShaderStageFlags::VERTEX,
-        //     //     0,
-        //     //     bytemuck::bytes_of(&sprite.uniform),
-        //     // );
-        //     // device.cmd_draw(buffer, SPRITE_VERTICES.len() as u32, 1, 0, 0);
-        // }
 
         // TODO: SHARED descriptor
         let camera_descriptor =
@@ -409,7 +382,6 @@ impl SpriteRenderer {
                     range: std::mem::size_of::<CameraUniform>() as u64,
                 })]])[0];
 
-        let mut timer = Timer::now();
         // GROUND
         for ground in &self.ground_sprites {
             self.ground_buffer
@@ -472,6 +444,40 @@ impl SpriteRenderer {
         }
         timer.record("ground", &METRIC_RENDER_SECONDS);
 
+        // STATIC
+        device.cmd_bind_pipeline(
+            buffer,
+            vk::PipelineBindPoint::GRAPHICS,
+            self.my_sprite_pipeline.handle,
+        );
+        device.cmd_bind_descriptor_sets(
+            buffer,
+            vk::PipelineBindPoint::GRAPHICS,
+            self.my_sprite_pipeline.layout,
+            0,
+            &[camera_descriptor],
+            &[],
+        );
+        device.cmd_bind_vertex_buffers(buffer, 0, &[self.vertex_buffer.bind()], &[0]);
+        let mut previous_texture = Default::default();
+        for sprite in self.sprites.iter() {
+            if previous_texture != sprite.texture_descriptor {
+                previous_texture = sprite.texture_descriptor;
+                device.cmd_bind_descriptor_sets(
+                    buffer,
+                    vk::PipelineBindPoint::GRAPHICS,
+                    self.my_sprite_pipeline.layout,
+                    1,
+                    &[sprite.texture_descriptor],
+                    &[],
+                );
+            }
+            self.my_sprite_pipeline
+                .push_constants(sprite.uniform, buffer);
+            device.cmd_draw(buffer, SPRITE_VERTICES.len() as u32, 1, 0, 0);
+        }
+        timer.record("static", &METRIC_RENDER_SECONDS);
+
         // SPINE
         device.cmd_bind_pipeline(
             buffer,
@@ -507,7 +513,7 @@ impl SpriteRenderer {
                 colors: sprite.colors,
             };
             self.my_spine_pipeline.push_constants(constants, buffer);
-            // device.cmd_draw_indexed(buffer, (sprite.counters.len() * 6) as u32, 1, 0, 0, 1);
+            device.cmd_draw_indexed(buffer, (sprite.counters.len() * 6) as u32, 1, 0, 0, 1);
         }
         timer.record("spine", &METRIC_RENDER_SECONDS);
 
@@ -620,8 +626,4 @@ const SPRITE_VERTICES: [SpriteVertex; 6] = [
 #[derive(Clone, Copy)]
 pub struct GroundUniform {
     pub map: [[[f32; 4]; 28]; 16],
-}
-
-fn g(value: f32) -> [f32; 4] {
-    [value, value, value, value]
 }

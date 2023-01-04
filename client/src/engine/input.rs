@@ -13,6 +13,7 @@ pub struct Input {
     key_down: HashSet<Keycode>,
     pub terminating: bool,
     pub window: [f32; 2],
+    pub zoom: f32,
 }
 
 #[derive(Clone, Copy, Default)]
@@ -32,6 +33,7 @@ impl Input {
             key_down: Default::default(),
             terminating: false,
             window: window.map(|value| value as f32),
+            zoom: 1.0,
         }
     }
 
@@ -62,11 +64,13 @@ impl Input {
             Event::TextEditing { .. } => {}
             Event::TextInput { .. } => {}
             Event::MouseMotion { x, y, .. } => {
+                let x = x as f32 * self.zoom;
+                let y = y as f32 * self.zoom;
                 self.mouse_viewport = [
-                    (2.0 * x as f32) / self.window[0] - 1.0,
-                    1.0 - (2.0 * y as f32) / self.window[1],
+                    (2.0 * x) / self.window[0] - 1.0,
+                    1.0 - (2.0 * y) / self.window[1],
                 ];
-                self.mouse_position = [x as f32, y as f32];
+                self.mouse_position = [x, y];
             }
             Event::MouseButtonDown { .. } => {}
             Event::MouseButtonUp { mouse_btn, .. } => {
