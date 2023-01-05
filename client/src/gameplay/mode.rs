@@ -10,7 +10,7 @@ use game::api::{Action, Event, GameResponse, PlayerRequest};
 use game::math::{detect_collision, VectorMath};
 use game::model::{FarmerId, FarmlandId, TreeId};
 use game::Game;
-use glam::{Mat4, Vec2, Vec3};
+use glam::{vec3, Mat4, Vec2, Vec3};
 use log::{error, info};
 use network::TcpClient;
 use rusty_spine::controller::SkeletonController;
@@ -59,6 +59,8 @@ pub struct Farmer2d {
 
 impl Gameplay {
     pub fn new(server: Option<LocalServerThread>, client: TcpClient) -> Self {
+        let mut camera = Camera::new();
+        camera.eye = vec3(0.0, 0.0, -1.0);
         Self {
             _server: server,
             client,
@@ -68,7 +70,7 @@ impl Gameplay {
             farmlands: Default::default(),
             trees: HashMap::new(),
             farmers: Default::default(),
-            camera: Camera::new(),
+            camera,
             farmers2d: vec![],
             cursor: None,
         }
@@ -384,11 +386,11 @@ impl Gameplay {
     pub fn render2d(&self, frame: &mut Frame) {
         let renderer = &mut frame.sprites;
         renderer.clear();
-        renderer.look_at();
+        renderer.look_at(self.camera.eye);
         if let Some(cursor) = &self.cursor {
             let [x, y] = frame.input.mouse_position().position;
-            let x = (x / 128.0).floor() * 128.0 + 64.0;
-            let y = (y / 128.0).floor() * 128.0 + 64.0;
+            let x = ((x + self.camera.eye.x) / 128.0).floor() * 128.0 + 64.0;
+            let y = ((y - self.camera.eye.y) / 128.0).floor() * 128.0 + 64.0;
             renderer.draw_sprite(cursor, [x, y]);
         }
 

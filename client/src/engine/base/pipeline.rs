@@ -107,7 +107,7 @@ impl<const M: usize, C: NoUninit, const D: usize> MyPipelineBuilder<M, C, D> {
     pub fn build(self, device: &Device, screen: &Screen) -> MyPipeline<M, C, D> {
         let swapchain = 0;
         let camera =
-            ShaderDataSet::create(device.clone(), 1, vk::ShaderStageFlags::VERTEX, self.camera);
+            ShaderDataSet::create(device.clone(), 3, vk::ShaderStageFlags::VERTEX, self.camera);
         let material = ShaderDataSet::create(
             device.clone(),
             8,
@@ -126,7 +126,7 @@ impl<const M: usize, C: NoUninit, const D: usize> MyPipelineBuilder<M, C, D> {
             Some(bindings) => {
                 let data = ShaderDataSet::create(
                     device.clone(),
-                    1,
+                    3,
                     vk::ShaderStageFlags::VERTEX | vk::ShaderStageFlags::FRAGMENT, // vertex ?
                     bindings,
                 );

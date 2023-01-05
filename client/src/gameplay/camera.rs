@@ -52,10 +52,10 @@ impl Camera {
             offset.x += 1.0;
         }
         if input.down(Keycode::W) {
-            offset.y -= 1.0;
+            offset.y += 1.0;
         }
         if input.down(Keycode::S) {
-            offset.y += 1.0;
+            offset.y -= 1.0;
         }
         if input.down(Keycode::R) {
             offset.z += 1.0;
@@ -64,7 +64,7 @@ impl Camera {
             offset.z -= 1.0;
         }
 
-        self.eye += offset.normalize_or_zero() * input.time * 10.0;
+        self.eye += offset.normalize_or_zero() * input.time * 1024.0;
     }
 
     pub fn uniform(&self, width: f32, height: f32) -> CameraUniform {
