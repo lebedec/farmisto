@@ -3,6 +3,7 @@ pub use domains::*;
 use log::info;
 
 use crate::api::{Action, Event};
+use crate::building::BuildingDomain;
 use crate::model::Farmer;
 use crate::model::FarmerId;
 
@@ -31,6 +32,7 @@ pub struct Game {
     pub universe: Universe,
     physics: PhysicsDomain,
     planting: PlantingDomain,
+    building: BuildingDomain,
     storage: Storage,
 }
 
@@ -40,6 +42,7 @@ impl Game {
             universe: Universe::default(),
             physics: PhysicsDomain::default(),
             planting: PlantingDomain::default(),
+            building: BuildingDomain::default(),
             storage,
         }
     }

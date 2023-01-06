@@ -117,6 +117,13 @@ impl Storage {
         self.query_map::<T, _, M>([], "", map)
     }
 
+    pub fn fetch_one_map<T, M>(&self, id: &str, map: M) -> T
+    where
+        M: FnMut(&Row) -> T,
+    {
+        self.query_map::<T, _, M>([id], "where id = ?", map).remove(0)
+    }
+
     fn query_map<T, P: Params, M>(&self, params: P, where_clause: &str, mut map: M) -> Vec<T>
     where
         M: FnMut(&Row) -> T,

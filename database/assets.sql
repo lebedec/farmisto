@@ -48,7 +48,11 @@ create table SpriteAssetData
     texture  text not null,
     position json not null,
     size     json not null,
-    sampler  text not null references SamplerAssetData
+    sampler  text not null references SamplerAssetData,
+    pivot    json not null default '[
+      0.5,
+      0.5
+    ]'
 );
 
 create table SamplerAssetData

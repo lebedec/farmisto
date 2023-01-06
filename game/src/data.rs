@@ -3,6 +3,7 @@ use std::io::Cursor;
 
 use datamap::{Entry, Operation};
 
+use crate::building::{Platform, PlatformId, PlatformKey, PlatformKind};
 use crate::collections::Shared;
 use crate::model::{FarmerKey, FarmlandKey, TreeKey, UniverseSnapshot};
 use crate::physics::{
@@ -345,6 +346,38 @@ impl Game {
                 .clone(),
             position: entry.get("position")?,
             space: SpaceId(space),
+        };
+        Ok(data)
+    }
+
+    // building
+
+    pub(crate) fn load_platform_kind(
+        &mut self,
+        entry: Entry,
+    ) -> Result<PlatformKind, serde_json::Error> {
+        let id = entry.get("id")?;
+        let data = PlatformKind {
+            id: PlatformKey(id),
+            name: entry.get("name")?,
+        };
+        Ok(data)
+    }
+
+    pub(crate) fn load_platform(
+        &mut self,
+        row: &rusqlite::Row,
+    ) -> Result<Platform, rusqlite::Error> {
+        let id = row.get("id")?;
+        let kind = row.get("kind")?;
+        let data = Platform {
+            id: PlatformId(id),
+            kind: self
+                .building
+                .known_platforms
+                .get(&PlatformKey(kind))
+                .unwrap()
+                .clone(),
         };
         Ok(data)
     }

@@ -8,4 +8,5 @@ pub struct SpriteAssetData {
     pub position: [f32; 2],
     pub size: [f32; 2],
     pub sampler: SamplerAsset,
+    pub pivot: [f32; 2],
 }

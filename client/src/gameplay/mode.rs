@@ -48,6 +48,7 @@ pub struct Gameplay {
     pub camera: Camera,
     pub farmers2d: Vec<Farmer2d>,
     pub cursor: Option<SpriteAsset>,
+    pub building_tiles: Vec<SpriteAsset>,
 }
 
 pub struct Farmer2d {
@@ -73,6 +74,7 @@ impl Gameplay {
             camera,
             farmers2d: vec![],
             cursor: None,
+            building_tiles: vec![],
         }
     }
 
@@ -368,16 +370,6 @@ impl Gameplay {
         }
         METRIC_ANIMATION_SECONDS.observe_closure_duration(|| {
             for farmer in self.farmers2d.iter_mut() {
-                // if farmer.variant < 10 {
-                //     let scale = farmer.variant as f32 / 10.0;
-                //     let mut bone = farmer
-                //         .sprite
-                //         .skeleton
-                //         .skeleton
-                //         .find_bone_mut("root")
-                //         .unwrap();
-                //     bone.set_scale([0.75 + scale * 0.5, 0.75 + scale * 0.5]);
-                // }
                 farmer.sprite.skeleton.update(input.time);
             }
         });
@@ -387,13 +379,32 @@ impl Gameplay {
         let renderer = &mut frame.sprites;
         renderer.clear();
         renderer.look_at(self.camera.eye);
+
+        // building
+        renderer.draw_sprite(&self.building_tiles[0], [128.0, 512.0]);
+        renderer.draw_sprite(&self.building_tiles[1], [256.0, 512.0]);
+        renderer.draw_sprite(&self.building_tiles[2], [384.0, 512.0]);
+        renderer.draw_sprite(&self.building_tiles[3], [512.0, 512.0]);
+        renderer.draw_sprite(&self.building_tiles[4], [640.0, 512.0]);
+        renderer.draw_sprite(&self.building_tiles[5], [768.0, 512.0]);
+
+        renderer.draw_sprite(&self.building_tiles[6], [128.0, 640.0]);
+        renderer.draw_sprite(&self.building_tiles[7], [256.0, 640.0]); // floor
+        renderer.draw_sprite(&self.building_tiles[8], [768.0, 640.0]);
+
+        renderer.draw_sprite(&self.building_tiles[9], [128.0, 768.0]);
+        renderer.draw_sprite(&self.building_tiles[10], [256.0, 768.0]);
+        renderer.draw_sprite(&self.building_tiles[11], [384.0, 768.0]);
+        renderer.draw_sprite(&self.building_tiles[12], [512.0, 768.0]);
+        renderer.draw_sprite(&self.building_tiles[13], [640.0, 768.0]);
+        renderer.draw_sprite(&self.building_tiles[14], [768.0, 768.0]);
+
         if let Some(cursor) = &self.cursor {
             let [x, y] = frame.input.mouse_position().position;
             let x = ((x + self.camera.eye.x) / 128.0).floor() * 128.0 + 64.0;
             let y = ((y - self.camera.eye.y) / 128.0).floor() * 128.0 + 64.0;
             renderer.draw_sprite(cursor, [x, y]);
         }
-
         for farmland in self.farmlands.values() {
             renderer.draw_ground(
                 farmland.asset.texture.clone(),
@@ -447,6 +458,23 @@ impl Mode for Gameplay {
     fn start(&mut self, assets: &mut Assets) {
         self.knowledge.load_game_knowledge();
         self.cursor = Some(assets.sprite("cursor"));
+        self.building_tiles = vec![
+            assets.sprite("b0"),
+            assets.sprite("b1"),
+            assets.sprite("b2"),
+            assets.sprite("b3"),
+            assets.sprite("b4"),
+            assets.sprite("b5"),
+            assets.sprite("b6"),
+            assets.sprite("b7"),
+            assets.sprite("b8"),
+            assets.sprite("be0"),
+            assets.sprite("be1"),
+            assets.sprite("be2"),
+            assets.sprite("be3"),
+            assets.sprite("be4"),
+            assets.sprite("be5"),
+        ]
     }
 
     fn update(&mut self, mut frame: Frame) {

@@ -1,6 +1,7 @@
-use crate::engine::base::{Screen, ShaderDataSet};
+use crate::engine::base::{Screen, ShaderData, ShaderDataSet};
 use crate::engine::sprites::SpriteVertex;
 use crate::engine::PipelineAsset;
+use ash::vk::{ImageView, Sampler};
 use ash::{vk, Device};
 use bytemuck::NoUninit;
 use log::{error, info};
@@ -26,6 +27,51 @@ where
 {
     pub fn build(asset: PipelineAsset, pass: vk::RenderPass) -> MyPipelineBuilder<M, C, D> {
         MyPipelineBuilder::new(asset, pass)
+    }
+
+    pub fn bind_camera(
+        &mut self,
+        camera_descriptor: vk::DescriptorSet,
+        device: &Device,
+        buffer: vk::CommandBuffer,
+    ) {
+        unsafe {
+            device.cmd_bind_descriptor_sets(
+                buffer,
+                vk::PipelineBindPoint::GRAPHICS,
+                self.layout,
+                0,
+                &[camera_descriptor],
+                &[],
+            );
+        }
+    }
+
+    pub fn bind_material(
+        &mut self,
+        textures: [(Sampler, ImageView); M],
+        device: &Device,
+        buffer: vk::CommandBuffer,
+    ) {
+        let descriptor = self
+            .material
+            .describe(vec![textures.map(|(sampler, image_view)| {
+                ShaderData::Texture(vk::DescriptorImageInfo {
+                    sampler,
+                    image_view,
+                    image_layout: vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
+                })
+            })])[0];
+        unsafe {
+            device.cmd_bind_descriptor_sets(
+                buffer,
+                vk::PipelineBindPoint::GRAPHICS,
+                self.layout,
+                1,
+                &[descriptor],
+                &[],
+            );
+        }
     }
 
     pub fn push_constants(&self, constants: C, buffer: vk::CommandBuffer) {

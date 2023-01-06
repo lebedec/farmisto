@@ -10,6 +10,7 @@ use std::{fs, ptr, thread};
 use ash::{vk, Device};
 use lazy_static::lazy_static;
 use log::{debug, error, info, warn};
+use rusqlite::types::{FromSql, FromSqlResult, ValueRef};
 use rusty_spine::controller::SkeletonController;
 use rusty_spine::{AnimationStateData, Atlas, AttachmentType, SkeletonJson};
 
@@ -483,6 +484,7 @@ impl Assets {
             position: entry.get("position")?,
             size: entry.get("size")?,
             sampler: self.sampler(entry.get("sampler")?),
+            pivot: entry.get("pivot")?,
         };
         Ok(data)
     }
