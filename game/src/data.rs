@@ -388,10 +388,12 @@ impl Game {
         let mut map = [[PlatformCell::default(); 120]; 120];
         for y in 0..size_y {
             for x in 0..size_x {
-                let [wall, inner, _, _]: [u8; 4] = unpacker.read();
+                let [wall, inner, door, window]: [u8; 4] = unpacker.read();
                 map[y as usize][x as usize] = PlatformCell {
                     wall: wall == 1,
                     inner: inner == 1,
+                    door: door == 1,
+                    window: window == 1,
                     shape: 0,
                 };
             }

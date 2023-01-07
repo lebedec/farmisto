@@ -156,7 +156,7 @@ impl SpriteRenderer {
         self.sprite_pipeline.update(&self.device, &self.screen);
     }
 
-    pub fn draw_sprite(&mut self, asset: &SpriteAsset, position: [f32; 2]) {
+    pub fn draw_sprite(&mut self, asset: &SpriteAsset, position: [f32; 2], highlight: f32) {
         let texture = &asset.texture;
         let image_w = asset.texture.width() as f32;
         let image_h = asset.texture.height() as f32;
@@ -172,6 +172,7 @@ impl SpriteRenderer {
                 size: asset.size,
                 coords: [x, y, w, h],
                 pivot: asset.pivot,
+                highlight,
             },
             texture_descriptor: self.sprite_pipeline.material.describe(vec![[
                 ShaderData::Texture(vk::DescriptorImageInfo {
@@ -552,6 +553,7 @@ pub struct SpritePushConstants {
     pub size: [f32; 2],
     pub coords: [f32; 4],
     pub pivot: [f32; 2],
+    pub highlight: f32,
 }
 
 #[derive(Debug, Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]

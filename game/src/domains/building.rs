@@ -10,6 +10,8 @@ pub struct PlatformKey(pub usize);
 pub struct PlatformCell {
     pub wall: bool,
     pub inner: bool,
+    pub door: bool,
+    pub window: bool,
     pub shape: usize,
 }
 pub type Cell = [usize; 2];
@@ -40,9 +42,11 @@ pub fn encode_platform_map(
     for line in map {
         data.push(
             line.map(|cell| {
-                let wall = if cell.wall { "2" } else { "0" };
+                let wall = if cell.wall { "1" } else { "0" };
                 let inner = if cell.inner { "1" } else { "0" };
-                [wall, inner].join("").parse().unwrap()
+                let door = if cell.door { "1" } else { "0" };
+                let window = if cell.window { "1" } else { "0" };
+                [wall, inner, door, window].join("").parse().unwrap()
             })
             .to_vec(),
         );
@@ -57,12 +61,16 @@ pub fn decode_platform_map(data: Vec<Vec<u32>>) -> Vec<Vec<PlatformCell>> {
             line.iter()
                 .map(|code| {
                     let mut code = code.to_string();
-                    let wall = code.chars().nth(0) == Some('2');
+                    let wall = code.chars().nth(0) == Some('1');
                     let inner = code.chars().nth(1) == Some('1');
+                    let door = code.chars().nth(2) == Some('1');
+                    let window = code.chars().nth(3) == Some('1');
 
                     PlatformCell {
                         wall,
                         inner,
+                        door,
+                        window,
                         shape: 0,
                     }
                 })

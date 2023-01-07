@@ -37,6 +37,7 @@ def generate_platform(land_id: int, user_define: List[str]):
             wall = 0
             inner = 0
             door = 0
+            window = 0
             if y < len(user_define) and x < len(user_define[y]):
                 code = user_define[y][x]
                 if code == '=':
@@ -45,11 +46,15 @@ def generate_platform(land_id: int, user_define: List[str]):
                 if code == '#':
                     wall = 1
                     inner = 0
-                if code == 'O':
+                if code == '0':
                     wall = 1
                     inner = 0
                     door = 1
-            data.write(struct.pack('BBBB', *[wall, inner, door, 0]))
+                if code == 'o':
+                    wall = 1
+                    inner = 0
+                    window = 1
+            data.write(struct.pack('BBBB', *[wall, inner, door, window]))
     data = data.getvalue()
     print('data length', len(data))
     connection = sqlite3.connect('../../assets/database.sqlite')
@@ -65,11 +70,23 @@ if __name__ == '__main__':
     #     '9876543277777777777777012'
     # ])
     generate_platform(1, [
-        '..........',
-        '..........',
-        '..#===#...',
-        '..#...==#.',
-        '..#.....#.',
-        '..##O####.',
-        '..........'
+        '......................',
+        '......................',
+        '..............########',
+        '..............#...0..#',
+        '..#=o=#.......#...#..#',
+        '..o...==0=#...##0o#0##',
+        '..#.......0...#...0..#',
+        '..##0#o####...##0#####.',
+        '......................',
+        '........#ooooooo0#....',
+        '........o........#....',
+        '........o........#....',
+        '........o..####..#....',
+        '........o..#..#..#....',
+        '........0..#..#..#....',
+        '........#..##0#..#....',
+        '........#........#....',
+        '........##########....',
+        '......................',
     ])

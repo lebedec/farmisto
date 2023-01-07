@@ -410,6 +410,10 @@ impl Gameplay {
         // renderer.draw_sprite(&self.building_tiles[13], [640.0, 768.0]);
         // renderer.draw_sprite(&self.building_tiles[14], [768.0, 768.0]);
 
+        let [cursor_x, cursor_y] = frame.input.mouse_position().position;
+        let cursor_x = ((cursor_x + self.camera.eye.x) / 128.0).floor() as usize;
+        let cursor_y = ((cursor_y - self.camera.eye.y) / 128.0).floor() as usize;
+
         for farmland in self.farmlands.values() {
             renderer.draw_ground(
                 farmland.asset.texture.clone(),
@@ -443,10 +447,10 @@ impl Gameplay {
                             (false, false, true, false) => Neighbors::WE,
                             (false, false, false, false) => Neighbors::Full,
                         };
-                        let tile = match neighbors {
+                        let mut tile = match neighbors {
                             Neighbors::WE => &self.building_tiles[0],
                             Neighbors::NS => &self.building_tiles[1],
-                            Neighbors::Full => &self.building_tiles[1],
+                            Neighbors::Full => &self.building_tiles[2],
                             Neighbors::NW => &self.building_tiles[3],
                             Neighbors::NE => &self.building_tiles[4],
                             Neighbors::SE => &self.building_tiles[5],
@@ -456,16 +460,50 @@ impl Gameplay {
                             Neighbors::ESW => &self.building_tiles[9],
                             Neighbors::WNE => &self.building_tiles[10],
                         };
-                        renderer.draw_sprite(tile, [x as f32 * 128.0, 128.0 + y as f32 * 128.0]);
+
+                        if cell.door {
+                            tile = match neighbors {
+                                Neighbors::NS => &self.building_tiles[12],
+                                _ => &self.building_tiles[11],
+                            }
+                        }
+                        if cell.window {
+                            tile = match neighbors {
+                                Neighbors::NS => &self.building_tiles[14],
+                                _ => &self.building_tiles[13],
+                            };
+                        }
+
+                        // half
+                        if y == (cursor_y + 1) as usize && neighbors == Neighbors::WE {
+                            tile = &self.building_tiles[15];
+                            if cell.door {
+                                tile = &self.building_tiles[16];
+                            }
+                            if cell.window {
+                                tile = &self.building_tiles[17];
+                            }
+                        }
+
+                        let highlight = if y == cursor_y as usize && x == cursor_x as usize {
+                            1.5
+                        } else {
+                            1.0
+                        };
+
+                        renderer.draw_sprite(
+                            tile,
+                            [x as f32 * 128.0, 128.0 + y as f32 * 128.0],
+                            highlight,
+                        );
                     }
                 }
             }
         }
         if let Some(cursor) = &self.cursor {
-            let [x, y] = frame.input.mouse_position().position;
-            let x = ((x + self.camera.eye.x) / 128.0).floor() * 128.0 + 64.0;
-            let y = ((y - self.camera.eye.y) / 128.0).floor() * 128.0 + 64.0;
-            renderer.draw_sprite(cursor, [x, y]);
+            let cursor_x = cursor_x as f32 * 128.0 + 64.0;
+            let cursor_y = cursor_y as f32 * 128.0 + 64.0;
+            renderer.draw_sprite(cursor, [cursor_x, cursor_y], 1.0);
         }
         METRIC_DRAW_REQUEST_SECONDS.observe_closure_duration(|| {
             for farmer in &self.farmers2d {
@@ -525,6 +563,13 @@ impl Mode for Gameplay {
             assets.sprite("b-nes"),
             assets.sprite("b-esw"),
             assets.sprite("b-wne"),
+            assets.sprite("b-door-we"),
+            assets.sprite("b-door-ns"),
+            assets.sprite("b-window-we"),
+            assets.sprite("b-window-ns"),
+            assets.sprite("b-we-half"),
+            assets.sprite("b-door-we-half"),
+            assets.sprite("b-window-we-half"),
         ]
     }
 
@@ -537,6 +582,7 @@ impl Mode for Gameplay {
     }
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Neighbors {
     WE,
     NS,
