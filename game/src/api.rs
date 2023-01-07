@@ -37,6 +37,7 @@ pub enum Action {
     DoSomething,
     DoAnything { id: usize, position: [f32; 2] },
     MoveFarmer { destination: [f32; 2] },
+    BuildWall { cell: [usize; 2] },
 }
 
 #[derive(bincode::Encode, bincode::Decode)]
@@ -61,6 +62,11 @@ pub enum Event {
         id: FarmlandId,
         kind: FarmlandKey,
         map: Vec<Vec<Cell>>,
+        platform: Vec<Vec<u32>>,
+    },
+    FarmlandPlatformUpdated {
+        id: FarmlandId,
+        platform: Vec<Vec<u32>>,
     },
     FarmlandUpdated {
         id: FarmlandId,

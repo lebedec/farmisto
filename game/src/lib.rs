@@ -1,9 +1,8 @@
 use datamap::Storage;
 pub use domains::*;
-use log::info;
 
 use crate::api::{Action, Event};
-use crate::building::BuildingDomain;
+use crate::building::{encode_platform_map, Building, BuildingDomain, PlatformId};
 use crate::model::Farmer;
 use crate::model::FarmerId;
 
@@ -53,7 +52,7 @@ impl Game {
         _action_id: usize,
         action: Action,
     ) -> Vec<Event> {
-        let mut _events = vec![];
+        let mut events = vec![];
         match action {
             Action::DoSomething => {}
             Action::DoAnything { .. } => {}
@@ -72,8 +71,51 @@ impl Game {
                     }
                 }
             }
+            Action::BuildWall { cell } => {
+                let platform_id = PlatformId(0);
+                let my_events = self.building.create_wall(platform_id, cell);
+                for event in my_events {
+                    match event {
+                        Building::PlatformChanged { platform, map } => {
+                            events.push(Event::FarmlandPlatformUpdated {
+                                id: platform.into(),
+                                platform: encode_platform_map(map),
+                            })
+                        }
+                    }
+                }
+            }
         }
-        _events
+        events
+    }
+
+    pub fn update(&mut self, time: f32) -> Vec<Event> {
+        let mut events = vec![];
+        for event in self.physics.update(time) {
+            match event {
+                Physics::BodyPositionChanged { id, position, .. } => {
+                    if let Some(farmer) = self
+                        .universe
+                        .farmers
+                        .iter()
+                        .find(|farmer| id == farmer.id.into())
+                    {
+                        events.push(Event::FarmerMoved {
+                            id: farmer.id,
+                            position,
+                        })
+                    }
+                }
+            }
+        }
+        for event in self.planting.update(time) {
+            match event {
+                Planting::LandChanged { id, map } => {
+                    events.push(Event::FarmlandUpdated { id: id.into(), map })
+                }
+            }
+        }
+        events
     }
 
     /// # Safety
@@ -87,10 +129,12 @@ impl Game {
         for farmland in self.universe.farmlands.iter() {
             if snapshot.whole || snapshot.farmlands.contains(&farmland.id) {
                 let land = self.planting.get_land(farmland.id.into()).unwrap();
+                let platform = self.building.get_platform(farmland.id.into()).unwrap();
                 stream.push(Event::FarmlandAppeared {
                     id: farmland.id,
                     kind: farmland.kind.id,
                     map: land.map.clone(),
+                    platform: encode_platform_map(platform.map),
                 })
             }
         }
@@ -147,34 +191,5 @@ impl Game {
     pub fn load_game_full(&mut self) {
         self.load_game_knowledge();
         self.load_game_state();
-    }
-
-    pub fn update(&mut self, time: f32) -> Vec<Event> {
-        let mut events = vec![];
-        for event in self.physics.update(time) {
-            match event {
-                Physics::BodyPositionChanged { id, position, .. } => {
-                    if let Some(farmer) = self
-                        .universe
-                        .farmers
-                        .iter()
-                        .find(|farmer| id == farmer.id.into())
-                    {
-                        events.push(Event::FarmerMoved {
-                            id: farmer.id,
-                            position,
-                        })
-                    }
-                }
-            }
-        }
-        for event in self.planting.update(time) {
-            match event {
-                Planting::LandChanged { id, map } => {
-                    events.push(Event::FarmlandUpdated { id: id.into(), map })
-                }
-            }
-        }
-        events
     }
 }

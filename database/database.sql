@@ -5,6 +5,8 @@ PRAGMA
 PRAGMA
     recursive_triggers = false;
 
+-- physics
+
 create table SpaceKind
 (
     id   integer primary key,
@@ -48,6 +50,8 @@ create table Barrier
     position json    not null
 );
 
+-- planting
+
 create table LandKind
 (
     id   integer primary key,
@@ -75,6 +79,23 @@ create table Plant
     land integer not null references Land
 );
 
+-- building
+
+create table PlatformKind
+(
+    id   integer primary key,
+    name text not null
+);
+
+create table Platform
+(
+    id   integer primary key,
+    kind integer             not null references PlatformKind,
+    map  blob collate binary not null
+);
+
+-- universe
+
 create table TreeKind
 (
     id      integer primary key,
@@ -91,15 +112,16 @@ create table Tree
 
 create table FarmlandKind
 (
-    id    integer primary key,
-    name  text    not null,
-    space integer not null references SpaceKind,
-    land  integer not null references LandKind
+    id       integer primary key,
+    name     text    not null,
+    space    integer not null references SpaceKind,
+    land     integer not null references LandKind,
+    platform integer not null references PlatformKind
 );
 
 create table Farmland
 (
-    id   integer primary key references Space references Land,
+    id   integer primary key references Space references Land references Platform,
     kind integer not null references FarmlandKind
 );
 

@@ -4,7 +4,7 @@ from io import BytesIO
 from typing import List
 
 
-def generate_map(land_id: int, user_define: List[str]):
+def generate_land(land_id: int, user_define: List[str]):
     data = BytesIO()
     size_y = 120
     size_x = 120
@@ -26,10 +26,50 @@ def generate_map(land_id: int, user_define: List[str]):
     connection.commit()
 
 
+def generate_platform(land_id: int, user_define: List[str]):
+    data = BytesIO()
+    size_y = 120
+    size_x = 120
+    data.write(struct.pack('II', *[size_y, size_x]))
+    print(struct.pack('II', *[size_y, size_x]))
+    for y in range(size_y):
+        for x in range(size_x):
+            wall = 0
+            inner = 0
+            door = 0
+            if y < len(user_define) and x < len(user_define[y]):
+                code = user_define[y][x]
+                if code == '=':
+                    wall = 1
+                    inner = 1
+                if code == '#':
+                    wall = 1
+                    inner = 0
+                if code == 'O':
+                    wall = 1
+                    inner = 0
+                    door = 1
+            data.write(struct.pack('BBBB', *[wall, inner, door, 0]))
+    data = data.getvalue()
+    print('data length', len(data))
+    connection = sqlite3.connect('../../assets/database.sqlite')
+    connection.execute('update Platform set map = ? where id = ?', [data, land_id])
+    connection.commit()
+
+
 if __name__ == '__main__':
-    generate_map(1, [
-        '0123456777777777777777012',
-        '9999999977777777777777012',
-        '1111111177777777777777012',
-        '9876543277777777777777012'
+    # generate_land(1, [
+    #     '0123456777777777777777012',
+    #     '9999999977777777777777012',
+    #     '1111111177777777777777012',
+    #     '9876543277777777777777012'
+    # ])
+    generate_platform(1, [
+        '..........',
+        '..........',
+        '..#===#...',
+        '..#...==#.',
+        '..#.....#.',
+        '..##O####.',
+        '..........'
     ])

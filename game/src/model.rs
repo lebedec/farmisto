@@ -1,4 +1,5 @@
 use std::collections::{HashMap, HashSet};
+use crate::building::PlatformId;
 
 use crate::collections::Shared;
 use crate::physics::{BarrierId, BarrierKey, BodyId, BodyKey, SpaceId, SpaceKey};
@@ -118,8 +119,20 @@ impl From<FarmlandId> for LandId {
     }
 }
 
+impl From<FarmlandId> for PlatformId {
+    fn from(id: FarmlandId) -> Self {
+        Self(id.0)
+    }
+}
+
 impl From<LandId> for FarmlandId {
     fn from(id: LandId) -> Self {
+        Self(id.0)
+    }
+}
+
+impl From<PlatformId> for FarmlandId {
+    fn from(id: PlatformId) -> Self {
         Self(id.0)
     }
 }

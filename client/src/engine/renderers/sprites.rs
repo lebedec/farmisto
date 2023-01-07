@@ -506,7 +506,7 @@ impl SpriteRenderer {
                 vk::IndexType::UINT32,
             );
             self.spine_pipeline.push_constants(sprite.constants, buffer);
-            device.cmd_draw_indexed(buffer, (sprite.counters.len() * 6) as u32, 1, 0, 0, 1);
+            // device.cmd_draw_indexed(buffer, (sprite.counters.len() * 6) as u32, 1, 0, 0, 1);
         }
         timer.record("spine", &METRIC_RENDER_SECONDS);
 

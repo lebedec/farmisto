@@ -3,14 +3,14 @@ use std::io::Cursor;
 
 use datamap::{Entry, Operation};
 
-use crate::building::{Platform, PlatformId, PlatformKey, PlatformKind};
+use crate::building::{Platform, PlatformCell, PlatformId, PlatformKey, PlatformKind};
 use crate::collections::Shared;
 use crate::model::{FarmerKey, FarmlandKey, TreeKey, UniverseSnapshot};
 use crate::physics::{
     Barrier, BarrierId, BarrierKey, BarrierKind, Body, BodyId, BodyKey, BodyKind, Space, SpaceId,
     SpaceKey, SpaceKind,
 };
-use crate::planting::{Cell, Land, LandId, LandKey, LandKind, Plant, PlantId, PlantKey, PlantKind};
+use crate::planting::{Land, LandId, LandKey, LandKind, Plant, PlantId, PlantKey, PlantKind};
 use crate::{
     Farmer, FarmerId, FarmerKind, Farmland, FarmlandId, FarmlandKind, Game, Tree, TreeId, TreeKind,
 };
@@ -101,6 +101,13 @@ impl Game {
                 .insert(plant.id, Shared::new(plant));
         }
 
+        for entry in self.storage.fetch_all::<PlatformKind>().into_iter() {
+            let platform = self.load_platform_kind(entry).unwrap();
+            self.building
+                .known_platforms
+                .insert(platform.id, Shared::new(platform));
+        }
+
         for entry in self.storage.fetch_all::<TreeKind>().into_iter() {
             let tree = self.load_tree_kind(entry).unwrap();
             self.universe.known.trees.insert(tree.id, Shared::new(tree));
@@ -148,6 +155,11 @@ impl Game {
             let plant = self.load_plant(entry).unwrap();
             self.planting.plants[plant.land.0].push(plant);
         }
+        // building
+        self.building.platforms = self
+            .storage
+            .open_into()
+            .fetch_all_map(|row| self.load_platform(row).unwrap());
         // models
         self.universe.trees = self
             .storage
@@ -370,6 +382,20 @@ impl Game {
     ) -> Result<Platform, rusqlite::Error> {
         let id = row.get("id")?;
         let kind = row.get("kind")?;
+        let map: Vec<u8> = row.get("map")?;
+        let mut unpacker = Unpacker::new(map);
+        let [size_y, size_x]: [u32; 2] = unpacker.read();
+        let mut map = [[PlatformCell::default(); 120]; 120];
+        for y in 0..size_y {
+            for x in 0..size_x {
+                let [wall, inner, _, _]: [u8; 4] = unpacker.read();
+                map[y as usize][x as usize] = PlatformCell {
+                    wall: wall == 1,
+                    inner: inner == 1,
+                    shape: 0,
+                };
+            }
+        }
         let data = Platform {
             id: PlatformId(id),
             kind: self
@@ -378,6 +404,8 @@ impl Game {
                 .get(&PlatformKey(kind))
                 .unwrap()
                 .clone(),
+            map,
+            segments: vec![],
         };
         Ok(data)
     }
