@@ -1,3 +1,4 @@
+use crate::engine::Frame;
 use crate::menu::Menu;
 use crate::Mode;
 
@@ -10,7 +11,7 @@ impl Intro {
 }
 
 impl Mode for Intro {
-    fn transition(&self) -> Option<Box<dyn Mode>> {
+    fn transition(&self, _frame: &mut Frame) -> Option<Box<dyn Mode>> {
         Some(Menu::new())
     }
 }

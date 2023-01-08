@@ -38,19 +38,17 @@ struct Application {
 }
 
 impl App for Application {
-    fn start(assets: &mut Assets) -> Self {
+    fn start(_assets: &mut Assets) -> Self {
         let mut mode = Intro::new();
-        mode.start(assets);
         Self { mode }
     }
 
-    fn update(&mut self, frame: Frame) {
-        if let Some(next) = self.mode.transition() {
+    fn update(&mut self, frame: &mut Frame) {
+        if let Some(next) = self.mode.transition(frame) {
             info!("Finish {:?}", self.mode.name());
             self.mode.finish();
-            self.mode = next;
             info!("Start {:?}", self.mode.name());
-            self.mode.start(frame.assets);
+            self.mode = next;
         }
         self.mode.update(frame);
     }

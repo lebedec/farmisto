@@ -6,12 +6,10 @@ pub trait Mode {
     }
 
     #[allow(unused_variables)]
-    fn start(&mut self, assets: &mut Assets) {}
+    fn update(&mut self, frame: &mut Frame) {}
 
     #[allow(unused_variables)]
-    fn update(&mut self, context: Frame) {}
-
-    fn transition(&self) -> Option<Box<dyn Mode>> {
+    fn transition(&self, frame: &mut Frame) -> Option<Box<dyn Mode>> {
         None
     }
 

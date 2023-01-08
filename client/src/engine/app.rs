@@ -39,7 +39,7 @@ pub struct Frame<'c> {
 
 pub trait App {
     fn start(assets: &mut Assets) -> Self;
-    fn update(&mut self, frame: Frame);
+    fn update(&mut self, frame: &mut Frame);
 }
 
 pub fn startup<A: App>(title: String) {
@@ -212,7 +212,7 @@ pub fn startup<A: App>(title: String) {
 
             sprites_renderer.present_index = present_index;
 
-            app.update(Frame {
+            app.update(&mut Frame {
                 input: input.clone(),
                 scene: &mut scene_renderer,
                 sprites: &mut sprites_renderer,

@@ -1,40 +1,35 @@
 use crate::engine::animatoro::{AnimationAsset, Machine, State, StateId};
 use crate::engine::armature::{PoseBuffer, PoseUniform};
-use crate::engine::sprites::{SpineSpriteController, SpriteRenderer};
-use crate::engine::{Input, SpineAsset, SpriteAsset, TextureAsset};
+use crate::engine::sprites::SpineSpriteController;
+use crate::engine::{Input, SpineAsset, SpriteAsset};
 use crate::gameplay::camera::Camera;
 use crate::gameplay::objects::{BarrierHint, FarmerBehaviour, FarmlandBehaviour, TreeBehaviour};
-use crate::{Assets, Frame, Mode, SceneRenderer};
+use crate::{Frame, Mode, SceneRenderer};
 use datamap::Storage;
 use game::api::{Action, Event, GameResponse, PlayerRequest};
-use game::math::{detect_collision, VectorMath};
+use game::math::detect_collision;
 use game::model::{FarmerId, FarmlandId, TreeId};
 use game::Game;
 use glam::{vec3, Mat4, Vec2, Vec3};
 use log::{error, info};
 use network::TcpClient;
-use rusty_spine::controller::SkeletonController;
 use sdl2::keyboard::Keycode;
 use server::LocalServerThread;
 use std::collections::HashMap;
-use std::time::Instant;
-
-use prometheus::{Counter, Histogram, IntCounter, IntGauge};
 
 use game::building::decode_platform_map;
 use lazy_static::lazy_static;
-use prometheus::{register_counter, register_histogram, register_int_counter, register_int_gauge};
-use sdl2::render::Texture;
-use sdl2::sys::rand;
 
 lazy_static! {
-    static ref METRIC_ANIMATION_SECONDS: Histogram =
-        register_histogram!("gameplay_animation_seconds", "gameplay_animation_seconds").unwrap();
-    static ref METRIC_DRAW_REQUEST_SECONDS: Histogram = register_histogram!(
-        "gameplay_draw_request_seconds",
-        "gameplay_draw_request_seconds"
-    )
-    .unwrap();
+    static ref METRIC_ANIMATION_SECONDS: prometheus::Histogram =
+        prometheus::register_histogram!("gameplay_animation_seconds", "gameplay_animation_seconds")
+            .unwrap();
+    static ref METRIC_DRAW_REQUEST_SECONDS: prometheus::Histogram =
+        prometheus::register_histogram!(
+            "gameplay_draw_request_seconds",
+            "gameplay_draw_request_seconds"
+        )
+        .unwrap();
 }
 
 pub struct Gameplay {
@@ -48,34 +43,69 @@ pub struct Gameplay {
     pub farmers: HashMap<FarmerId, FarmerBehaviour>,
     pub camera: Camera,
     pub farmers2d: Vec<Farmer2d>,
-    pub cursor: Option<SpriteAsset>,
+    pub cursor: SpriteAsset,
+    pub players: Vec<SpriteAsset>,
+    pub players_index: usize,
     pub building_tiles: Vec<SpriteAsset>,
 }
 
-pub struct Farmer2d {
-    pub asset: SpineAsset,
-    pub sprite: SpineSpriteController,
-    pub position: [f32; 2],
-    pub variant: u32,
-}
-
 impl Gameplay {
-    pub fn new(server: Option<LocalServerThread>, client: TcpClient) -> Self {
+    pub fn new(server: Option<LocalServerThread>, client: TcpClient, frame: &mut Frame) -> Self {
+        let assets = &mut frame.assets;
         let mut camera = Camera::new();
         camera.eye = vec3(0.0, 0.0, -1.0);
+
+        let mut knowledge = Game::new(Storage::open("./assets/database.sqlite").unwrap());
+        knowledge.load_game_knowledge();
+        let cursor = assets.sprite("cursor");
+        let players = vec![
+            assets.sprite("player"),
+            assets.sprite("player-2"),
+            assets.sprite("player-3"),
+            assets.sprite("player-4"),
+        ];
+        let building_tiles = vec![
+            assets.sprite("b-we"),
+            assets.sprite("b-ns"),
+            assets.sprite("b-full"),
+            assets.sprite("b-nw"),
+            assets.sprite("b-ne"),
+            assets.sprite("b-se"),
+            assets.sprite("b-sw"),
+            assets.sprite("b-wns"),
+            assets.sprite("b-nes"),
+            assets.sprite("b-esw"), // 9
+            assets.sprite("b-wne"),
+            assets.sprite("b-door-we"),
+            assets.sprite("b-door-ns"),
+            assets.sprite("b-window-we"),
+            assets.sprite("b-window-ns"),
+            assets.sprite("b-we-half"),
+            assets.sprite("b-door-we-half"),
+            assets.sprite("b-window-we-half"), // 17
+            assets.sprite("b-we-before-door-exp"),
+            assets.sprite("b-we-door-exp"),
+            assets.sprite("b-we-after-door-exp"), // 20
+            assets.sprite("b-we-before-door-exp-half"),
+            assets.sprite("b-we-door-exp-half"),
+            assets.sprite("b-we-after-door-exp-half"),
+        ];
+
         Self {
             _server: server,
             client,
             action_id: 0,
-            knowledge: Game::new(Storage::open("./assets/database.sqlite").unwrap()),
+            knowledge,
             barriers: Default::default(),
             farmlands: Default::default(),
             trees: HashMap::new(),
             farmers: Default::default(),
             camera,
             farmers2d: vec![],
-            cursor: None,
-            building_tiles: vec![],
+            cursor,
+            players,
+            building_tiles,
+            players_index: 0,
         }
     }
 
@@ -333,6 +363,9 @@ impl Gameplay {
                 action_id: self.action_id,
             })
         }
+        if input.pressed(Keycode::Tab) {
+            self.players_index = (self.players_index + 1) % self.players.len();
+        }
         if let Some(farmer) = self
             .farmers
             .values_mut()
@@ -391,25 +424,6 @@ impl Gameplay {
         renderer.clear();
         renderer.look_at(self.camera.eye);
 
-        // building
-        // renderer.draw_sprite(&self.building_tiles[0], [128.0, 512.0]);
-        // renderer.draw_sprite(&self.building_tiles[1], [256.0, 512.0]);
-        // renderer.draw_sprite(&self.building_tiles[2], [384.0, 512.0]);
-        // renderer.draw_sprite(&self.building_tiles[3], [512.0, 512.0]);
-        // renderer.draw_sprite(&self.building_tiles[4], [640.0, 512.0]);
-        // renderer.draw_sprite(&self.building_tiles[5], [768.0, 512.0]);
-        //
-        // renderer.draw_sprite(&self.building_tiles[6], [128.0, 640.0]);
-        // renderer.draw_sprite(&self.building_tiles[7], [256.0, 640.0]); // floor
-        // renderer.draw_sprite(&self.building_tiles[8], [768.0, 640.0]);
-        //
-        // renderer.draw_sprite(&self.building_tiles[9], [128.0, 768.0]);
-        // renderer.draw_sprite(&self.building_tiles[10], [256.0, 768.0]);
-        // renderer.draw_sprite(&self.building_tiles[11], [384.0, 768.0]);
-        // renderer.draw_sprite(&self.building_tiles[12], [512.0, 768.0]);
-        // renderer.draw_sprite(&self.building_tiles[13], [640.0, 768.0]);
-        // renderer.draw_sprite(&self.building_tiles[14], [768.0, 768.0]);
-
         let [cursor_x, cursor_y] = frame.input.mouse_position().position;
         let cursor_x = ((cursor_x + self.camera.eye.x) / 128.0).floor() as usize;
         let cursor_y = ((cursor_y - self.camera.eye.y) / 128.0).floor() as usize;
@@ -464,7 +478,7 @@ impl Gameplay {
                         if cell.door {
                             tile = match neighbors {
                                 Neighbors::NS => &self.building_tiles[12],
-                                _ => &self.building_tiles[11],
+                                _ => &self.building_tiles[19], // 11 small
                             }
                         }
                         if cell.window {
@@ -474,14 +488,31 @@ impl Gameplay {
                             };
                         }
 
+                        let is_half =
+                            (y == (cursor_y + 1) || y == (cursor_y)) && neighbors == Neighbors::WE;
+
                         // half
-                        if y == (cursor_y + 1) as usize && neighbors == Neighbors::WE {
+                        if is_half {
                             tile = &self.building_tiles[15];
                             if cell.door {
-                                tile = &self.building_tiles[16];
+                                tile = &self.building_tiles[22]; // 16 small
                             }
                             if cell.window {
                                 tile = &self.building_tiles[17];
+                            }
+                        }
+
+                        // exp
+                        if neighbors == Neighbors::WE && line[x - 1].door {
+                            tile = &self.building_tiles[20];
+                            if is_half {
+                                tile = &self.building_tiles[23];
+                            }
+                        }
+                        if neighbors == Neighbors::WE && line[x + 1].door {
+                            tile = &self.building_tiles[18];
+                            if is_half {
+                                tile = &self.building_tiles[21];
                             }
                         }
 
@@ -497,14 +528,21 @@ impl Gameplay {
                             highlight,
                         );
                     }
+
+                    if x == cursor_x && y == cursor_y {
+                        let [cursor_x, cursor_y] = frame.input.mouse_position().position;
+                        renderer.draw_sprite(
+                            &self.players[self.players_index],
+                            [cursor_x + self.camera.eye.x, cursor_y - self.camera.eye.y],
+                            1.0,
+                        );
+                    }
                 }
             }
         }
-        if let Some(cursor) = &self.cursor {
-            let cursor_x = cursor_x as f32 * 128.0 + 64.0;
-            let cursor_y = cursor_y as f32 * 128.0 + 64.0;
-            renderer.draw_sprite(cursor, [cursor_x, cursor_y], 1.0);
-        }
+        let cursor_x = cursor_x as f32 * 128.0 + 64.0;
+        let cursor_y = cursor_y as f32 * 128.0 + 64.0;
+        renderer.draw_sprite(&self.cursor, [cursor_x, cursor_y], 1.0);
         METRIC_DRAW_REQUEST_SECONDS.observe_closure_duration(|| {
             for farmer in &self.farmers2d {
                 renderer.draw_spine(&farmer.sprite, farmer.position);
@@ -548,38 +586,20 @@ impl Gameplay {
 }
 
 impl Mode for Gameplay {
-    fn start(&mut self, assets: &mut Assets) {
-        self.knowledge.load_game_knowledge();
-        self.cursor = Some(assets.sprite("cursor"));
-        self.building_tiles = vec![
-            assets.sprite("b-we"),
-            assets.sprite("b-ns"),
-            assets.sprite("b-full"),
-            assets.sprite("b-nw"),
-            assets.sprite("b-ne"),
-            assets.sprite("b-se"),
-            assets.sprite("b-sw"),
-            assets.sprite("b-wns"),
-            assets.sprite("b-nes"),
-            assets.sprite("b-esw"),
-            assets.sprite("b-wne"),
-            assets.sprite("b-door-we"),
-            assets.sprite("b-door-ns"),
-            assets.sprite("b-window-we"),
-            assets.sprite("b-window-ns"),
-            assets.sprite("b-we-half"),
-            assets.sprite("b-door-we-half"),
-            assets.sprite("b-window-we-half"),
-        ]
-    }
-
-    fn update(&mut self, mut frame: Frame) {
-        self.handle_server_responses(&mut frame);
+    fn update(&mut self, frame: &mut Frame) {
+        self.handle_server_responses(frame);
         self.handle_user_input(&frame.input);
         self.animate(&frame.input);
         // self.render(frame.scene);
-        self.render2d(&mut frame);
+        self.render2d(frame);
     }
+}
+
+pub struct Farmer2d {
+    pub asset: SpineAsset,
+    pub sprite: SpineSpriteController,
+    pub position: [f32; 2],
+    pub variant: u32,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]

@@ -21,7 +21,7 @@ impl Menu {
 }
 
 impl Mode for Menu {
-    fn update(&mut self, frame: Frame) {
+    fn update(&mut self, frame: &mut Frame) {
         let input = &frame.input;
 
         if input.pressed(Keycode::E) {
@@ -39,7 +39,7 @@ impl Mode for Menu {
         }
     }
 
-    fn transition(&self) -> Option<Box<dyn Mode>> {
+    fn transition(&self, frame: &mut Frame) -> Option<Box<dyn Mode>> {
         if let Some(player) = self.host.as_ref() {
             let config = Configuration {
                 host: player.clone(),
@@ -48,12 +48,13 @@ impl Mode for Menu {
             };
             let server = LocalServerThread::spawn(config);
             let client = TcpClient::connect(&server.address, player.clone(), None).unwrap();
-            let gameplay = Gameplay::new(Some(server), client);
+            let gameplay = Gameplay::new(Some(server), client, frame);
             return Some(Box::new(gameplay));
         }
         if let Some(player) = self.join.as_ref() {
             let client = TcpClient::connect("127.0.0.1:8080", player.to_string(), None).unwrap();
-            return Some(Box::new(Gameplay::new(None, client)));
+            let gameplay = Gameplay::new(None, client, frame);
+            return Some(Box::new(gameplay));
         }
         None
     }
