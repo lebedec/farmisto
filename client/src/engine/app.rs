@@ -233,59 +233,82 @@ pub fn startup<A: App>(title: String) {
                     },
                 },
             ];
-            // info!("Begins render");
-            let render_begin = vk::RenderPassBeginInfo::builder()
-                .render_pass(renderpass)
-                .framebuffer(base.framebuffers[present_index as usize])
-                .render_area(base.screen.resolution().into())
-                .clear_values(&clear_values);
-
+            let present_queue = base.queue.handle.lock().unwrap();
+            let frame_command_buffer = base.command_buffers[present_index as usize];
             let present = {
-                let present_queue = base.queue.handle.lock().unwrap();
-                // info!("Begins submit commands");
-                submit_commands(
-                    &base.device,
-                    base.draw_command_buffer,
-                    base.draw_commands_reuse_fence,
-                    *present_queue,
-                    &[vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT],
-                    &[base.present_complete_semaphore],
-                    &[base.rendering_complete_semaphore],
-                    |device, buffer| {
-                        // info!("Begins render pass");
-                        device.cmd_begin_render_pass(
-                            buffer,
-                            &render_begin,
-                            vk::SubpassContents::INLINE,
-                        );
+                let render_begin = vk::RenderPassBeginInfo::builder()
+                    .render_pass(renderpass)
+                    .framebuffer(base.framebuffers[present_index as usize])
+                    .render_area(base.screen.resolution().into())
+                    .clear_values(&clear_values);
+                base.begin_commands(frame_command_buffer).unwrap();
+                sprites_renderer.render2(&base.device, frame_command_buffer, &render_begin);
+                base.end_commands(frame_command_buffer, *present_queue)
+                    .unwrap();
 
-                        //scene_renderer.render(device, buffer);
-                        sprites_renderer.render(device, buffer);
-
-                        // info!("End render pass");
-                        device.cmd_end_render_pass(buffer);
-                    },
-                );
-                //let mut present_info_err = mem::zeroed();
-                let wait_semaphors = [base.rendering_complete_semaphore];
+                let wait_semaphores = [base.rendering_complete_semaphore];
                 let swapchains = [base.swapchain];
                 let image_indices = [present_index];
                 let present_info = vk::PresentInfoKHR::builder()
-                    .wait_semaphores(&wait_semaphors) // &base.rendering_complete_semaphore)
+                    .wait_semaphores(&wait_semaphores)
                     .swapchains(&swapchains)
                     .image_indices(&image_indices);
-                // info!("Presents");
                 base.swapchain_loader
                     .queue_present(*present_queue, &present_info)
             };
-
             match present {
                 Ok(suboptimal) => {}
                 Err(vk::Result::ERROR_OUT_OF_DATE_KHR) => {
-                    // recreate KHR
+                    // TODO: recreate swapchain
                 }
                 Err(error) => panic!("present error {:?}", error),
             }
+
+            // info!("Begins render");
+            // let render_begin = vk::RenderPassBeginInfo::builder()
+            //     .render_pass(renderpass)
+            //     .framebuffer(base.framebuffers[present_index as usize])
+            //     .render_area(base.screen.resolution().into())
+            //     .clear_values(&clear_values);
+            // let present = {
+            //     let present_queue = base.queue.handle.lock().unwrap();
+            //     // info!("Begins submit commands");
+            //     submit_commands(
+            //         &base.device,
+            //         base.command_buffers[present_index as usize],
+            //         base.draw_commands_reuse_fence,
+            //         *present_queue,
+            //         &[vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT],
+            //         &[base.present_complete_semaphore],
+            //         &[base.rendering_complete_semaphore],
+            //         |device, buffer| {
+            //             // info!("Begins render pass");
+            //             device.cmd_begin_render_pass(
+            //                 buffer,
+            //                 &render_begin,
+            //                 vk::SubpassContents::INLINE,
+            //             );
+            //
+            //             //scene_renderer.render(device, buffer);
+            //             sprites_renderer.render(device, buffer);
+            //
+            //             // info!("End render pass");
+            //             device.cmd_end_render_pass(buffer);
+            //         },
+            //     );
+            //
+            //     //let mut present_info_err = mem::zeroed();
+            //     let wait_semaphors = [base.rendering_complete_semaphore];
+            //     let swapchains = [base.swapchain];
+            //     let image_indices = [present_index];
+            //     let present_info = vk::PresentInfoKHR::builder()
+            //         .wait_semaphores(&wait_semaphors) // &base.rendering_complete_semaphore)
+            //         .swapchains(&swapchains)
+            //         .image_indices(&image_indices);
+            //     // info!("Presents");
+            //     base.swapchain_loader
+            //         .queue_present(*present_queue, &present_info)
+            // };
         }
     }
 }

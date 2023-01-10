@@ -130,6 +130,11 @@ impl Screen {
     }
 
     #[inline]
+    pub fn size_f32(&self) -> [f32; 2] {
+        [self.resolution.width as f32, self.resolution.height as f32]
+    }
+
+    #[inline]
     pub fn width(&self) -> u32 {
         self.resolution.width
     }

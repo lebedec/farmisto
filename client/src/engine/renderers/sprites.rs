@@ -1,6 +1,4 @@
-use std::thread;
-use std::time::Instant;
-
+use ash::prelude::VkResult;
 use ash::{vk, Device};
 use game::math::VectorMath;
 use game::planting::Cell;
@@ -9,10 +7,8 @@ use lazy_static::lazy_static;
 use log::{error, info};
 use rusty_spine::controller::SkeletonController;
 use rusty_spine::{AttachmentType, Skin};
-use sdl2::render::Texture;
 
-use crate::engine::armature::PoseUniform;
-use crate::engine::base::{MyPipeline, Screen, ShaderData, ShaderDataSet};
+use crate::engine::base::{index_memory_type, MyPipeline, Screen, ShaderData, ShaderDataSet};
 use crate::engine::uniform::{CameraUniform, UniformBuffer};
 use crate::engine::{
     IndexBuffer, SamplerAsset, ShaderAsset, SpineAsset, SpriteAsset, TextureAsset, VertexBuffer,
@@ -54,7 +50,13 @@ pub struct SpriteRenderer {
     sprites: Vec<Sprite>,
     sprite_vertex_buffer: VertexBuffer,
 
-    lut_texture: TextureAsset,
+    light_map_pipeline: MyPipeline<1, SpritePushConstants, 1>,
+    light_map_framebuffer: vk::Framebuffer,
+    light_map_render_pass: vk::RenderPass,
+    light_map_sampler: SamplerAsset,
+    light_map_view: vk::ImageView,
+    lights: Vec<Sprite>,
+    lights_texture: SpriteAsset,
 }
 
 impl SpriteRenderer {
@@ -77,47 +79,179 @@ impl SpriteRenderer {
         let ground_buffer =
             UniformBuffer::create::<GroundUniform>(device.clone(), device_memory, swapchain);
 
-        let vertex_buffer = VertexBuffer::create(device, device_memory, SPRITE_VERTICES.to_vec());
+        let sprite_vertex_buffer =
+            VertexBuffer::create(device, device_memory, SPRITE_VERTICES.to_vec());
 
-        let my_spine_pipeline = MyPipeline::build(assets.pipeline("spines"), pass)
+        let spine_pipeline = MyPipeline::build(assets.pipeline("spines"), pass)
             .material([
                 vk::DescriptorType::COMBINED_IMAGE_SAMPLER,
                 vk::DescriptorType::COMBINED_IMAGE_SAMPLER,
             ])
             .build(device, &screen);
 
-        let my_ground_pipeline = MyPipeline::build(assets.pipeline("ground"), pass)
+        let ground_pipeline = MyPipeline::build(assets.pipeline("ground"), pass)
             .material([vk::DescriptorType::COMBINED_IMAGE_SAMPLER])
             .data([vk::DescriptorType::UNIFORM_BUFFER])
             .build(device, &screen);
         let ground_vertex_buffer =
             VertexBuffer::create(device, device_memory, GROUND_VERTICES.to_vec());
 
-        let my_sprite_pipeline = MyPipeline::build(assets.pipeline("sprites"), pass)
+        let sprite_pipeline = MyPipeline::build(assets.pipeline("sprites"), pass)
             .material([vk::DescriptorType::COMBINED_IMAGE_SAMPLER])
             .build(device, &screen);
 
-        Self {
+        let (light_map_view, light_map_render_pass, light_map_framebuffer) =
+            Self::create_light_map(device, device_memory).unwrap();
+
+        let light_map_pipeline =
+            MyPipeline::build(assets.pipeline("light-map"), light_map_render_pass)
+                .material([vk::DescriptorType::COMBINED_IMAGE_SAMPLER])
+                .build(device, &screen);
+
+        let mut renderer = Self {
             device: device.clone(),
             device_memory: device_memory.clone(),
             sprites: vec![],
             spine_sprites: vec![],
-            spine_pipeline: my_spine_pipeline,
-            ground_pipeline: my_ground_pipeline,
+            spine_pipeline,
+            ground_pipeline,
             camera_buffer,
             ground_buffer,
-            sprite_vertex_buffer: vertex_buffer,
+            sprite_vertex_buffer,
             present_index: 0,
-            lut_texture,
+            light_map_pipeline,
+            light_map_framebuffer,
+            light_map_render_pass,
             coloration_texture,
             coloration_sampler,
             ground_sprites: vec![],
             screen,
             zoom,
-            sprite_pipeline: my_sprite_pipeline,
+            sprite_pipeline,
             ground_vertex_buffer,
             camera_position: [0.0, 0.0],
+            light_map_sampler: assets.sampler("light-map"),
+            light_map_view,
+            lights: vec![],
+            lights_texture: assets.sprite("light-test"),
+        };
+
+        renderer
+    }
+
+    pub fn create_light_map(
+        device: &Device,
+        device_memory: &vk::PhysicalDeviceMemoryProperties,
+    ) -> VkResult<(vk::ImageView, vk::RenderPass, vk::Framebuffer)> {
+        let light_color = vk::ImageCreateInfo::builder()
+            .image_type(vk::ImageType::TYPE_2D)
+            .format(vk::Format::R8G8B8A8_UNORM)
+            .extent(vk::Extent3D {
+                width: 960,
+                height: 540,
+                depth: 1,
+            })
+            .mip_levels(1)
+            .array_layers(1)
+            .samples(vk::SampleCountFlags::TYPE_1)
+            .tiling(vk::ImageTiling::OPTIMAL)
+            .usage(vk::ImageUsageFlags::COLOR_ATTACHMENT | vk::ImageUsageFlags::SAMPLED);
+        let light_color = unsafe { device.create_image(&light_color, None)? };
+
+        let memory = unsafe { device.get_image_memory_requirements(light_color) };
+        let memory_type_index = index_memory_type(
+            &memory,
+            device_memory,
+            vk::MemoryPropertyFlags::DEVICE_LOCAL,
+        )
+        .unwrap();
+        let memory_allocate_info = vk::MemoryAllocateInfo {
+            allocation_size: memory.size,
+            memory_type_index,
+            ..Default::default()
+        };
+        let memory = unsafe { device.allocate_memory(&memory_allocate_info, None)? };
+        unsafe {
+            device.bind_image_memory(light_color, memory, 0)?;
         }
+
+        let light_color_view = vk::ImageViewCreateInfo::builder()
+            .view_type(vk::ImageViewType::TYPE_2D)
+            .format(vk::Format::R8G8B8A8_UNORM)
+            .components(vk::ComponentMapping {
+                r: vk::ComponentSwizzle::IDENTITY,
+                g: vk::ComponentSwizzle::IDENTITY,
+                b: vk::ComponentSwizzle::IDENTITY,
+                a: vk::ComponentSwizzle::IDENTITY,
+            })
+            .subresource_range(vk::ImageSubresourceRange {
+                aspect_mask: vk::ImageAspectFlags::COLOR,
+                base_mip_level: 0,
+                level_count: 1,
+                base_array_layer: 0,
+                layer_count: 1,
+            })
+            .image(light_color);
+        let light_color_view = unsafe { device.create_image_view(&light_color_view, None)? };
+
+        let renderpass_attachments = [vk::AttachmentDescription {
+            flags: Default::default(),
+            format: vk::Format::R8G8B8A8_UNORM,
+            samples: vk::SampleCountFlags::TYPE_1,
+            load_op: vk::AttachmentLoadOp::CLEAR,
+            store_op: vk::AttachmentStoreOp::STORE,
+            stencil_load_op: vk::AttachmentLoadOp::DONT_CARE,
+            stencil_store_op: vk::AttachmentStoreOp::DONT_CARE,
+            initial_layout: vk::ImageLayout::UNDEFINED,
+            final_layout: vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
+        }];
+        let color_attachment_refs = [vk::AttachmentReference {
+            attachment: 0,
+            layout: vk::ImageLayout::COLOR_ATTACHMENT_OPTIMAL,
+        }];
+        let subpass = vk::SubpassDescription::builder()
+            .color_attachments(&color_attachment_refs)
+            .pipeline_bind_point(vk::PipelineBindPoint::GRAPHICS);
+        let dependencies = [
+            vk::SubpassDependency {
+                src_subpass: vk::SUBPASS_EXTERNAL,
+                dst_subpass: 0,
+                src_stage_mask: vk::PipelineStageFlags::FRAGMENT_SHADER,
+                dst_stage_mask: vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
+                src_access_mask: vk::AccessFlags::SHADER_READ,
+                dst_access_mask: vk::AccessFlags::COLOR_ATTACHMENT_WRITE,
+                dependency_flags: vk::DependencyFlags::BY_REGION,
+            },
+            vk::SubpassDependency {
+                src_subpass: 0,
+                dst_subpass: vk::SUBPASS_EXTERNAL,
+                src_stage_mask: vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
+                dst_stage_mask: vk::PipelineStageFlags::FRAGMENT_SHADER,
+                src_access_mask: vk::AccessFlags::COLOR_ATTACHMENT_WRITE,
+                dst_access_mask: vk::AccessFlags::SHADER_READ,
+                dependency_flags: vk::DependencyFlags::BY_REGION,
+            },
+        ];
+        let renderpass_create_info = vk::RenderPassCreateInfo::builder()
+            .attachments(&renderpass_attachments)
+            .subpasses(std::slice::from_ref(&subpass))
+            .dependencies(&dependencies);
+        let render_pass = unsafe {
+            device
+                .create_render_pass(&renderpass_create_info, None)
+                .unwrap()
+        };
+
+        let attachments = [light_color_view];
+        let framebuffer = vk::FramebufferCreateInfo::builder()
+            .render_pass(render_pass)
+            .attachments(&attachments)
+            .width(960)
+            .height(540)
+            .layers(1);
+        let framebuffer = unsafe { device.create_framebuffer(&framebuffer, None)? };
+
+        Ok((light_color_view, render_pass, framebuffer))
     }
 
     pub fn look_at(&mut self, target: Vec3) {
@@ -372,6 +506,113 @@ impl SpriteRenderer {
         controller.mega_buffer.update(mega_vertices, &self.device);
     }
 
+    pub unsafe fn render2(
+        &mut self,
+        device: &Device,
+        buffer: vk::CommandBuffer,
+        render_begin: &vk::RenderPassBeginInfo,
+    ) {
+        let clear_values = [vk::ClearValue {
+            color: vk::ClearColorValue {
+                float32: [0.43, 0.51, 86.0, 0.2],
+                // float32: [0.43, 0.0, 0.0, 0.2],
+            },
+        }];
+        let render_begin2 = vk::RenderPassBeginInfo::builder()
+            .render_pass(self.light_map_render_pass)
+            .framebuffer(self.light_map_framebuffer)
+            .render_area(
+                vk::Extent2D {
+                    width: 960,
+                    height: 540,
+                }
+                .into(),
+            )
+            .clear_values(&clear_values);
+        device.cmd_begin_render_pass(buffer, &render_begin2, vk::SubpassContents::INLINE);
+        device.cmd_set_viewport(
+            buffer,
+            0,
+            &vec![vk::Viewport {
+                x: 0.0,
+                y: 0.0,
+                width: 960.0 as f32,
+                height: 540.0 as f32,
+                min_depth: 0.0,
+                max_depth: 1.0,
+            }],
+        );
+        device.cmd_set_scissor(
+            buffer,
+            0,
+            &[vk::Extent2D {
+                width: 960,
+                height: 540,
+            }
+            .into()],
+        );
+        let camera_descriptor = self
+            .spine_pipeline
+            .camera
+            .describe(vec![[ShaderData::Uniform(vk::DescriptorBufferInfo {
+                buffer: self.camera_buffer.buffers[self.present_index as usize],
+                offset: 0,
+                range: std::mem::size_of::<CameraUniform>() as u64,
+            })]])[0];
+        device.cmd_bind_pipeline(
+            buffer,
+            vk::PipelineBindPoint::GRAPHICS,
+            self.light_map_pipeline.handle,
+        );
+        device.cmd_bind_descriptor_sets(
+            buffer,
+            vk::PipelineBindPoint::GRAPHICS,
+            self.light_map_pipeline.layout,
+            0,
+            &[camera_descriptor],
+            &[],
+        );
+        device.cmd_bind_vertex_buffers(buffer, 0, &[self.sprite_vertex_buffer.bind()], &[0]);
+        let mut previous_texture = Default::default();
+        self.lights = vec![Sprite {
+            uniform: SpritePushConstants {
+                position: [256.0, 256.0],
+                size: [256.0, 256.0],
+                coords: [0.0, 0.0, 1.0, 1.0],
+                pivot: [0.5, 0.5],
+                highlight: 1.0,
+            },
+            texture_descriptor: self.light_map_pipeline.material.describe(vec![[
+                ShaderData::Texture(vk::DescriptorImageInfo {
+                    sampler: self.lights_texture.sampler.handle,
+                    image_view: self.lights_texture.texture.view(),
+                    image_layout: vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
+                }),
+            ]])[0],
+        }];
+        for light in self.lights.iter() {
+            if previous_texture != light.texture_descriptor {
+                previous_texture = light.texture_descriptor;
+                device.cmd_bind_descriptor_sets(
+                    buffer,
+                    vk::PipelineBindPoint::GRAPHICS,
+                    self.light_map_pipeline.layout,
+                    1,
+                    &[light.texture_descriptor],
+                    &[],
+                );
+            }
+            self.light_map_pipeline
+                .push_constants(light.uniform, buffer);
+            device.cmd_draw(buffer, SPRITE_VERTICES.len() as u32, 1, 0, 0);
+        }
+        device.cmd_end_render_pass(buffer);
+
+        device.cmd_begin_render_pass(buffer, &render_begin, vk::SubpassContents::INLINE);
+        self.render(device, buffer);
+        device.cmd_end_render_pass(buffer);
+    }
+
     pub unsafe fn render(&mut self, device: &Device, buffer: vk::CommandBuffer) {
         let mut timer = Timer::now();
 
@@ -445,6 +686,23 @@ impl SpriteRenderer {
             device.cmd_draw(buffer, GROUND_VERTICES.len() as u32, 1, 0, 0);
         }
         timer.record("ground", &METRIC_RENDER_SECONDS);
+
+        self.sprites.push(Sprite {
+            uniform: SpritePushConstants {
+                position: [0.0, 0.0],
+                size: self.screen.size_f32().mul(self.zoom),
+                coords: [0.0, 0.0, 1.0, 1.0],
+                pivot: [0.0, 0.0],
+                highlight: 1.0,
+            },
+            texture_descriptor: self.sprite_pipeline.material.describe(vec![[
+                ShaderData::Texture(vk::DescriptorImageInfo {
+                    sampler: self.light_map_sampler.handle,
+                    image_view: self.light_map_view,
+                    image_layout: vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
+                }),
+            ]])[0],
+        });
 
         // STATIC
         device.cmd_bind_pipeline(

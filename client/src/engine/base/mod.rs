@@ -12,6 +12,7 @@ use ash::extensions::{
     ext::DebugUtils,
     khr::{Surface, Swapchain},
 };
+use ash::prelude::VkResult;
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 use ash::vk::KhrPortabilitySubsetFn;
 use ash::vk::{Handle, PhysicalDevice};
@@ -51,18 +52,51 @@ pub struct Base {
     pub framebuffers: Vec<vk::Framebuffer>,
 
     pub pool: vk::CommandPool,
-    pub draw_command_buffer: vk::CommandBuffer,
-    pub setup_command_buffer: vk::CommandBuffer,
+    pub command_buffers: Vec<vk::CommandBuffer>,
+    // sync
+    pub draw_commands_reuse_fence: vk::Fence,
+    pub present_complete_semaphore: vk::Semaphore,
+    pub rendering_complete_semaphore: vk::Semaphore,
 
     pub depth_image: vk::Image,
     pub depth_image_view: vk::ImageView,
     pub depth_image_memory: vk::DeviceMemory,
+}
 
-    pub present_complete_semaphore: vk::Semaphore,
-    pub rendering_complete_semaphore: vk::Semaphore,
+impl Base {
+    pub unsafe fn begin_commands(
+        &self,
+        command_buffer: vk::CommandBuffer,
+    ) -> VkResult<vk::CommandBuffer> {
+        let fences = &[self.draw_commands_reuse_fence];
+        self.device.wait_for_fences(fences, true, u64::MAX)?;
+        self.device.reset_fences(fences)?;
+        self.device.reset_command_buffer(
+            command_buffer,
+            vk::CommandBufferResetFlags::RELEASE_RESOURCES,
+        )?;
+        let begin = vk::CommandBufferBeginInfo::builder()
+            .flags(vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT);
+        self.device.begin_command_buffer(command_buffer, &begin)?;
+        Ok(command_buffer)
+    }
 
-    pub draw_commands_reuse_fence: vk::Fence,
-    pub setup_commands_reuse_fence: vk::Fence,
+    pub unsafe fn end_commands(
+        &self,
+        command_buffer: vk::CommandBuffer,
+        submit_queue: vk::Queue,
+    ) -> VkResult<()> {
+        self.device.end_command_buffer(command_buffer)?;
+        let submit_info = vk::SubmitInfo::builder()
+            .wait_semaphores(&[self.present_complete_semaphore])
+            .wait_dst_stage_mask(&[vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT])
+            .command_buffers(&[command_buffer])
+            .signal_semaphores(&[self.rendering_complete_semaphore])
+            .build();
+        self.device
+            .queue_submit(submit_queue, &[submit_info], self.draw_commands_reuse_fence)?;
+        Ok(())
+    }
 }
 
 impl Base {
@@ -201,50 +235,46 @@ impl Base {
                 Self::create_present_images(swapchain, &instance, &screen, &device);
 
             // command buffer
-
             let pool_create_info = vk::CommandPoolCreateInfo::builder()
                 .flags(vk::CommandPoolCreateFlags::RESET_COMMAND_BUFFER)
                 .queue_family_index(queue_family_index);
-
             let pool = device.create_command_pool(&pool_create_info, None).unwrap();
-
             let command_buffer_allocate_info = vk::CommandBufferAllocateInfo::builder()
-                .command_buffer_count(2)
+                .command_buffer_count(present_image_views.len() as u32)
                 .command_pool(pool)
                 .level(vk::CommandBufferLevel::PRIMARY);
-
             let command_buffers = device
                 .allocate_command_buffers(&command_buffer_allocate_info)
                 .unwrap();
-            let setup_command_buffer = command_buffers[0];
-            let draw_command_buffer = command_buffers[1];
 
-            let device_memory_properties =
-                instance.get_physical_device_memory_properties(physical_device);
-
+            // synchronization
             let fence_create_info =
                 vk::FenceCreateInfo::builder().flags(vk::FenceCreateFlags::SIGNALED);
-
             let draw_commands_reuse_fence = device
                 .create_fence(&fence_create_info, None)
                 .expect("Create fence failed.");
-            let setup_commands_reuse_fence = device
-                .create_fence(&fence_create_info, None)
-                .expect("Create fence failed.");
+            let semaphore_create_info = vk::SemaphoreCreateInfo::default();
+            let present_complete_semaphore = device
+                .create_semaphore(&semaphore_create_info, None)
+                .unwrap();
+            let rendering_complete_semaphore = device
+                .create_semaphore(&semaphore_create_info, None)
+                .unwrap();
 
+            // depth
             let depth_image = Self::create_depth_image(&instance, &screen, &device);
             let (depth_image_view, depth_image_memory) =
                 Self::create_depth_image_view(&instance, &screen, &device, depth_image);
 
             submit_commands(
                 &device,
-                setup_command_buffer,
-                setup_commands_reuse_fence,
+                command_buffers[0],
+                draw_commands_reuse_fence,
                 present_queue,
                 &[],
                 &[],
                 &[],
-                |device, setup_command_buffer| {
+                |device, draw_command_buffer| {
                     let layout_transition_barriers = vk::ImageMemoryBarrier::builder()
                         .image(depth_image)
                         .dst_access_mask(
@@ -263,7 +293,7 @@ impl Base {
                         .build();
 
                     device.cmd_pipeline_barrier(
-                        setup_command_buffer,
+                        draw_command_buffer,
                         vk::PipelineStageFlags::BOTTOM_OF_PIPE,
                         vk::PipelineStageFlags::LATE_FRAGMENT_TESTS,
                         vk::DependencyFlags::empty(),
@@ -274,15 +304,8 @@ impl Base {
                 },
             );
 
-            let semaphore_create_info = vk::SemaphoreCreateInfo::default();
-
-            let present_complete_semaphore = device
-                .create_semaphore(&semaphore_create_info, None)
-                .unwrap();
-            let rendering_complete_semaphore = device
-                .create_semaphore(&semaphore_create_info, None)
-                .unwrap();
-
+            let device_memory_properties =
+                instance.get_physical_device_memory_properties(physical_device);
             let queue = Arc::new(Queue {
                 device: device.clone(),
                 device_memory: device_memory_properties,
@@ -301,18 +324,16 @@ impl Base {
                 present_image_views,
                 framebuffers: vec![],
                 pool,
-                draw_command_buffer,
-                setup_command_buffer,
                 depth_image,
                 depth_image_view,
                 depth_image_memory,
                 present_complete_semaphore,
                 rendering_complete_semaphore,
                 draw_commands_reuse_fence,
-                setup_commands_reuse_fence,
                 debug_call_back,
                 debug_utils_loader,
                 queue,
+                command_buffers,
             }
         }
     }
@@ -516,13 +537,14 @@ impl Base {
         };
         let dependencies = [vk::SubpassDependency {
             src_subpass: vk::SUBPASS_EXTERNAL,
+            dst_subpass: 0,
             src_stage_mask: vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
             dst_access_mask: vk::AccessFlags::COLOR_ATTACHMENT_READ
                 | vk::AccessFlags::COLOR_ATTACHMENT_WRITE,
             dst_stage_mask: vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT,
-            ..Default::default()
+            src_access_mask: Default::default(),
+            dependency_flags: Default::default(),
         }];
-
         let subpass = vk::SubpassDescription::builder()
             .color_attachments(&color_attachment_refs)
             .depth_stencil_attachment(&depth_attachment_ref)
@@ -618,8 +640,6 @@ impl Drop for Base {
                 .destroy_semaphore(self.rendering_complete_semaphore, None);
             self.device
                 .destroy_fence(self.draw_commands_reuse_fence, None);
-            self.device
-                .destroy_fence(self.setup_commands_reuse_fence, None);
             self.device.free_memory(self.depth_image_memory, None);
             self.device.destroy_image_view(self.depth_image_view, None);
             self.device.destroy_image(self.depth_image, None);
@@ -678,7 +698,7 @@ pub fn create_buffer(
 pub fn submit_commands<F: FnOnce(&Device, vk::CommandBuffer)>(
     device: &Device,
     command_buffer: vk::CommandBuffer,
-    command_buffer_reuse_fence: vk::Fence,
+    fence: vk::Fence,
     submit_queue: vk::Queue,
     wait_mask: &[vk::PipelineStageFlags],
     wait_semaphores: &[vk::Semaphore],
@@ -686,17 +706,12 @@ pub fn submit_commands<F: FnOnce(&Device, vk::CommandBuffer)>(
     f: F,
 ) {
     unsafe {
-        // info!("wait_for_fences");
         device
-            .wait_for_fences(&[command_buffer_reuse_fence], true, std::u64::MAX)
+            .wait_for_fences(&[fence], true, u64::MAX)
             .expect("Wait for fence failed.");
 
-        // info!("reset_fences");
-        device
-            .reset_fences(&[command_buffer_reuse_fence])
-            .expect("Reset fences failed.");
+        device.reset_fences(&[fence]).expect("Reset fences failed.");
 
-        // info!("reset_command_buffer {:?}", command_buffer);
         device
             .reset_command_buffer(
                 command_buffer,
@@ -707,7 +722,6 @@ pub fn submit_commands<F: FnOnce(&Device, vk::CommandBuffer)>(
         let command_buffer_begin_info = vk::CommandBufferBeginInfo::builder()
             .flags(vk::CommandBufferUsageFlags::ONE_TIME_SUBMIT);
 
-        // info!("begin_command_buffer");
         device
             .begin_command_buffer(command_buffer, &command_buffer_begin_info)
             .expect("Begin command buffer");
@@ -728,7 +742,7 @@ pub fn submit_commands<F: FnOnce(&Device, vk::CommandBuffer)>(
             .build();
 
         device
-            .queue_submit(submit_queue, &[submit_info], command_buffer_reuse_fence)
+            .queue_submit(submit_queue, &[submit_info], fence)
             .expect("queue submit failed.");
     }
 }
