@@ -1,28 +1,51 @@
 use game::building::{
-    BuildingDomain, Platform, PlatformId, PlatformKey, PlatformKind, PLATFORM_SIZE_X,
-    PLATFORM_SIZE_Y,
+    BuildingDomain, PlatformId, PlatformKey, PlatformKind, PLATFORM_SIZE_X, PLATFORM_SIZE_Y,
 };
 use game::collections::Shared;
-use std::borrow::BorrowMut;
 use std::collections::HashMap;
+use std::ptr;
 use std::time::Instant;
-use std::{mem, ptr};
 
 #[derive(Debug)]
 struct Shape {
     pub id: usize,
     pub contour: bool,
     pub y: usize,
-    pub max_y: usize,
-    pub rows: Vec<u16>,
-    pub current: u16,
+    pub rows: Vec<u128>,
+    pub active: bool,
 }
 
-enum Step {
-    Create,
-    Extend { shape: usize },
-    Append { shape: usize },
-    Merge { source: usize, shape: usize },
+pub fn detect_touch(row: u128, shapes: Vec<u128>) -> Vec<u128> {
+    let mut appends = vec![0u128; shapes.len()];
+    let mut value: u128 = row;
+    let mut i = 0;
+    while value != 0 {
+        let skip_zeros = value.leading_zeros();
+        i += skip_zeros;
+        value = value << skip_zeros;
+        // println!("skip to {}", i);
+        let width = value.leading_ones();
+        let val = u128::MAX >> (128 - width);
+        let segment = val << (128 - i - width);
+        // println!("segment {}..{} {:#010b}", i, i + width - 1, segment);
+        let mut any = false;
+        for (index, append) in appends.iter_mut().enumerate() {
+            if index < shapes.len() && shapes[index] & segment != 0 {
+                *append = *append | segment;
+                any = true;
+                continue;
+            }
+        }
+        if !any {
+            appends.push(segment);
+        }
+        i += width;
+        if width == 128 {
+            break;
+        }
+        value = value << width;
+    }
+    appends
 }
 
 #[test]
@@ -34,19 +57,67 @@ fn test_something() {
     println!("value {} {:#016b}", 3 & 2, 3 & 2);
     println!("value {} {:#016b}", 3 & 4, 3 & 4);
 
-    let mut map = [[0u8; 16]; 8];
+    // 01100111000
+    // 00111100000
+    //   1  1
+
+    const MAP_SIZE_X: usize = 128;
+    const MAP_SIZE_Y: usize = 128;
+    let mut map = [[0u8; MAP_SIZE_X]; MAP_SIZE_Y];
+    // let def_map = r#"
+    // . . . . . . . . . .
+    // . . # # # # # # # .
+    // . . # . . . . . # .
+    // . . # . . . . . # .
+    // . . # # # # # # # .
+    // . . . . . . . . . .
+    // "#;
     let def_map = r#"
     . . . . . . . . . . . . . . . .
     . . # # # # # # # . . . . . . .
-    . . # . . # . . # . # # # . . .
-    . . # . . # . . # . . . # . . .
-    . . # # # # # # # . . . # . . .
-    . . # . . # . . # . # . # . . .
-    . . # # # # # # # . # # # . . . 
+    . . # . . . . . # . . . . . . .
+    . . # . # # # . # . # # # . . .
+    . . # . # . # . # . . . # . . .
+    . . # . # # # # # . . . # . . .
+    . . # . . . . . # . # . # . . .
+    . . # # # # # # # . # # # . . .
     . . . . . . . . . . . . . . . .
     "#;
+    let def_map = r#"
+    . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+    . . # # # # # # # . . . . . . # # # # # # . . . . . . . . . . .
+    . . # . . . . . # . . . . . . # . . . . # . . . . . . . . . . .
+    . . # . # # # . # . # # # . . # # # . . # . . . . . . . . . . .
+    . . # . # . # . # . . . # . . . . # . . # . . . . . . . . . . .
+    . . # . # . # . # . . . # . . . . # . . # . . . . . . . . . . .
+    . . # . . . . . # . # . # . . . . # . . # . . . . . . . . . . .
+    . . # # # # # # # . # # # . . . . # . . # . . . . . . . . . . .
+    . . . . . . . . . . . . . . . . . # . . # . . . . . . . . . . .
+    . # # # . # # # # # # . . . . . . # . . # . . . . . . . . . . .
+    . # . # . # . . . . # . . . . . . # . . # . . . . . . . . . . .
+    . # . # # # . . # # # . . . . . . # . . # . . . . . . . . . . .
+    . # . . . . . . # . . . . . . . . # . . # . . . . . . . . . . .
+    . # # . # # # . # . # # # # # # . # . . # . . . . . . . . . . .
+    . . # . # . # . # . . . . . . # . # . . # . . . . . . . . . . .
+    . . # . # # # # # . # # # # . # . # . . # . . . . . . . . . . .
+    . . # . . . . . # . # . . # . # . # . . # . . . . . . . . . . .
+    . . # # # # # # # . # # # # # # . # . . # . . . . . . . . . . .
+    . . . . . . . . . . . . . . . . . # . . # . . . . . . . . . . .
+    . . . . . . . # # # # # # # # # # # . . # # # . . . . . . . . .
+    . . . . . . . # . . . . . . . . . . . . . . # . . . . . . . . .
+    . . . . . . . # # # # # # # # # # # # # # # # . . . . . . . . .
+    . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+    "#;
+    let def_y = def_map.lines().skip(1).count();
+    let def_x = def_map
+        .lines()
+        .skip(1)
+        .nth(0)
+        .unwrap()
+        .trim()
+        .split_whitespace()
+        .count();
     for (y, line) in def_map.lines().skip(1).enumerate() {
-        println!("line {}", line);
         for (x, code) in line.trim().split_whitespace().enumerate() {
             map[y][x] = match code {
                 "#" => 1,
@@ -61,110 +132,155 @@ fn test_something() {
         id: 0,
         contour: false,
         y: 0,
-        max_y: 0,
-        rows: vec![u16::MAX],
-        current: 0,
+        rows: vec![u128::MAX],
+        active: true,
     };
     let mut shapes: Vec<Shape> = vec![exterior_shape];
-    for y in 1..8 {
-        let mut shape_ptr = None;
-
-        for x in 0..16 {
-            let cell = 1 << (16 - x - 1);
+    for y in 1..MAP_SIZE_Y {
+        let mut row = 0;
+        for x in 0..MAP_SIZE_X {
+            let cell = 1u128 << (MAP_SIZE_X - x - 1);
             let contour = map[y][x] == 1;
-            //println!("Y: {}, X: {}, shapes: {:?}", y, x, shapes);
-            let shape_above = shapes
-                .iter_mut()
-                .position(|shape| {
-                    shape.max_y + 1 == y && shape.rows[shape.rows.len() - 1] & cell == cell
-                })
-                .unwrap();
+            if !contour {
+                row = row | cell;
+            }
+        }
 
-            if shape_ptr.is_none() {
-                if shapes[shape_above].contour == contour {
-                    shape_ptr = Some(shape_above);
-                } else {
-                    let shape = Shape {
-                        id: shapes.len(),
-                        contour,
-                        y,
-                        max_y: y - 1,
-                        rows: vec![],
-                        current: cell,
-                    };
-                    shapes.push(shape);
-                    shape_ptr = Some(shapes.len() - 1);
-                }
+        let candidates: Vec<u128> = shapes
+            .iter()
+            .map(|shape| match shape.active {
+                true => *shape.rows.last().unwrap(),
+                false => 0,
+            })
+            .collect();
+        let candidates_n = candidates.len();
+        let touches = detect_touch(row, candidates);
+
+        for i in 0..touches.len() {
+            if i >= candidates_n {
+                shapes.push(Shape {
+                    id: shapes.len(),
+                    contour: false,
+                    y,
+                    rows: vec![touches[i]],
+                    active: true,
+                });
             } else {
-                if shapes[shape_ptr.unwrap()].contour == contour {
-                    if shapes[shape_above].contour == contour && shape_above != shape_ptr.unwrap() {
-                        //println!("begin merge {} to {:?}", shape_above, shape_ptr);
-
-                        let source = shapes.remove(shape_above);
-                        if shape_ptr.unwrap() > shape_above {
-                            shape_ptr = Some(shape_ptr.unwrap() - 1);
-                        }
-
-                        let shape = &mut shapes[shape_ptr.unwrap()];
-                        let offset = source.y as isize - shape.y as isize;
-                        if offset < 0 {
-                            shape.y = source.y;
-                            let mut rows = vec![0; offset.abs() as usize];
-                            rows.extend(&shape.rows);
-                            shape.rows = rows;
-                        }
-                        for (index, row) in source.rows.into_iter().enumerate() {
-                            shape.rows[index] = shape.rows[index] | row;
-                        }
-                        //println!("end");
-                    } else {
-                        // normal
-                    }
+                if touches[i] != 0 {
+                    shapes[i].rows.push(touches[i]);
                 } else {
-                    if shapes[shape_above].contour == contour {
-                        shape_ptr = Some(shape_above);
-                    } else {
-                        let shape = Shape {
-                            id: shapes.len(),
-                            contour,
-                            y,
-                            max_y: y - 1,
-                            rows: vec![],
-                            current: cell,
-                        };
-                        shapes.push(shape);
-                        shape_ptr = Some(shapes.len() - 1);
-                    }
+                    shapes[i].active = false;
                 }
             }
-
-            let shape = &mut shapes[shape_ptr.unwrap()];
-            shape.current = shape.current | cell;
         }
 
-        for mut shape in shapes.iter_mut() {
-            if shape.current != 0 {
-                shape.rows.push(shape.current);
-                shape.max_y = y;
-                shape.current = 0;
-            }
-        }
+        // let mut shape_ptr = None;
+        // for x in 0..MAP_SIZE_X {
+        //     let cell = 1 << (MAP_SIZE_X - x - 1);
+        //     let contour = map[y][x] == 1;
+        //     //println!("Y: {}, X: {}, shapes: {:?}", y, x, shapes);
+        //     let shape_above = shapes
+        //         .iter_mut()
+        //         .position(|shape| {
+        //             shape.max_y + 1 == y && shape.rows[shape.rows.len() - 1] & cell == cell
+        //         })
+        //         .unwrap();
+        //
+        //     if shape_ptr.is_none() {
+        //         if shapes[shape_above].contour == contour {
+        //             shape_ptr = Some(shape_above);
+        //         } else {
+        //             let shape = Shape {
+        //                 id: shapes.len(),
+        //                 contour,
+        //                 y,
+        //                 max_y: y - 1,
+        //                 rows: vec![],
+        //                 current: cell,
+        //             };
+        //             shapes.push(shape);
+        //             shape_ptr = Some(shapes.len() - 1);
+        //         }
+        //     } else {
+        //         if shapes[shape_ptr.unwrap()].contour == contour {
+        //             if shapes[shape_above].contour == contour && shape_above != shape_ptr.unwrap() {
+        //                 let t1 = Instant::now();
+        //                 let source = shapes.remove(shape_above);
+        //                 if shape_ptr.unwrap() > shape_above {
+        //                     shape_ptr = Some(shape_ptr.unwrap() - 1);
+        //                 }
+        //
+        //                 let shape = &mut shapes[shape_ptr.unwrap()];
+        //                 let offset = source.y as isize - shape.y as isize;
+        //                 if offset < 0 {
+        //                     shape.y = source.y;
+        //                     let mut rows = vec![0; offset.abs() as usize];
+        //                     rows.extend(&shape.rows);
+        //                     shape.rows = rows;
+        //                 }
+        //                 for (index, row) in source.rows.into_iter().enumerate() {
+        //                     shape.rows[index] = shape.rows[index] | row;
+        //                 }
+        //             } else {
+        //                 // normal
+        //             }
+        //         } else {
+        //             if shapes[shape_above].contour == contour {
+        //                 shape_ptr = Some(shape_above);
+        //             } else {
+        //                 let shape = Shape {
+        //                     id: shapes.len(),
+        //                     contour,
+        //                     y,
+        //                     max_y: y - 1,
+        //                     rows: vec![],
+        //                     current: cell,
+        //                 };
+        //                 shapes.push(shape);
+        //                 shape_ptr = Some(shapes.len() - 1);
+        //             }
+        //         }
+        //     }
+        //
+        //     let shape = &mut shapes[shape_ptr.unwrap()];
+        //     shape.current = shape.current | cell;
+        // }
+        //
+        // for mut shape in shapes.iter_mut() {
+        //     if shape.current != 0 {
+        //         shape.rows.push(shape.current);
+        //         shape.max_y = y;
+        //         shape.current = 0;
+        //     }
+        // }
     }
 
     println!("elapsed: {}", t1.elapsed().as_secs_f64());
     println!("shapes: {:?}", shapes.len());
     for shape in shapes {
+        // if shape.id == 0 {
+        //     continue;
+        // }
         println!(
-            "shape {} contour: {} interior: {}",
+            "shape {} contour: {} interior: {} (y:{} rows:{})",
             shape.id,
             shape.contour,
-            (shape.id != 0 && !shape.contour)
+            (shape.id != 0 && !shape.contour),
+            shape.y,
+            shape.rows.len()
         );
-        for row in shape.rows {
-            let row = format!("{:#016b}", row)
-                .replace("0", " .")
-                .replace("1", " #");
-            println!("{}", row);
+        for y in 0..def_y {
+            let row = if y >= shape.y && y - shape.y < shape.rows.len() {
+                shape.rows[y - shape.y]
+            } else {
+                0
+            };
+            for x in 0..def_x {
+                let cell = 1 << (MAP_SIZE_X - x - 1);
+                let code = if row & cell == cell { "." } else { "#" };
+                print!(" {}", code);
+            }
+            println!();
         }
     }
 }
