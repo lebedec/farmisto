@@ -1,7 +1,7 @@
 use crate::engine::animatoro::Machine;
 use crate::engine::{FarmerAsset, FarmlandAsset, TreeAsset};
 
-use game::building::PlatformCell;
+use game::building::{PlatformCell, Shape};
 use game::collections::Shared;
 use game::math::Collider;
 use game::model::{FarmerId, FarmerKind, FarmlandId, FarmlandKind, TreeId, TreeKind};
@@ -36,6 +36,7 @@ pub struct FarmlandBehaviour {
     pub asset: FarmlandAsset,
     pub map: Vec<Vec<Cell>>,
     pub platform: Vec<Vec<PlatformCell>>,
+    pub platform_shapes: Vec<Shape>,
 }
 
 pub struct TreeBehaviour {

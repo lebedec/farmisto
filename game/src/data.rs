@@ -385,7 +385,7 @@ impl Game {
         let map: Vec<u8> = row.get("map")?;
         let mut unpacker = Unpacker::new(map);
         let [size_y, size_x]: [u32; 2] = unpacker.read();
-        let mut map = [[PlatformCell::default(); 120]; 120];
+        let mut map = [[PlatformCell::default(); 128]; 128];
         for y in 0..size_y {
             for x in 0..size_x {
                 let [wall, inner, door, window]: [u8; 4] = unpacker.read();
@@ -394,7 +394,6 @@ impl Game {
                     inner: inner == 1,
                     door: door == 1,
                     window: window == 1,
-                    shape: 0,
                 };
             }
         }
@@ -407,7 +406,7 @@ impl Game {
                 .unwrap()
                 .clone(),
             map,
-            segments: vec![],
+            shapes: Platform::calculate_shapes(&map),
         };
         Ok(data)
     }

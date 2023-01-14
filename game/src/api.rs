@@ -1,3 +1,4 @@
+use crate::building::Shape;
 use crate::model::{FarmerId, FarmerKey, FarmlandId, FarmlandKey, TreeId, TreeKey};
 use crate::planting::Cell;
 use std::fmt::Debug;
@@ -63,10 +64,12 @@ pub enum Event {
         kind: FarmlandKey,
         map: Vec<Vec<Cell>>,
         platform: Vec<Vec<u32>>,
+        platform_shapes: Vec<Shape>,
     },
     FarmlandPlatformUpdated {
         id: FarmlandId,
         platform: Vec<Vec<u32>>,
+        platform_shapes: Vec<Shape>,
     },
     FarmlandUpdated {
         id: FarmlandId,

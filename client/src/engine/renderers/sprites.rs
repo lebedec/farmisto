@@ -1,5 +1,6 @@
 use ash::prelude::VkResult;
 use ash::{vk, Device};
+use game::building::{Platform, Shape};
 use game::math::VectorMath;
 use game::planting::Cell;
 use glam::{vec3, Mat4, Vec3};
@@ -46,6 +47,13 @@ pub struct SpriteRenderer {
     ground_vertex_buffer: VertexBuffer,
     ground_buffer: UniformBuffer,
 
+    floor_buffer: UniformBuffer,
+
+    roof_pipeline: MyPipeline<1, GroundPushConstants, 1>,
+    roof_sprites: Vec<GroundSprite>,
+    roof_vertex_buffer: VertexBuffer,
+    roof_buffer: UniformBuffer,
+
     sprite_pipeline: MyPipeline<1, SpritePushConstants, 1>,
     sprites: Vec<Sprite>,
     sprite_vertex_buffer: VertexBuffer,
@@ -76,9 +84,6 @@ impl SpriteRenderer {
         let camera_buffer =
             UniformBuffer::create::<CameraUniform>(device.clone(), device_memory, swapchain);
 
-        let ground_buffer =
-            UniformBuffer::create::<GroundUniform>(device.clone(), device_memory, swapchain);
-
         let sprite_vertex_buffer =
             VertexBuffer::create(device, device_memory, SPRITE_VERTICES.to_vec());
 
@@ -89,11 +94,25 @@ impl SpriteRenderer {
             ])
             .build(device, &screen);
 
+        let ground_buffer =
+            UniformBuffer::create::<GroundUniform>(device.clone(), device_memory, swapchain);
         let ground_pipeline = MyPipeline::build(assets.pipeline("ground"), pass)
             .material([vk::DescriptorType::COMBINED_IMAGE_SAMPLER])
             .data([vk::DescriptorType::UNIFORM_BUFFER])
             .build(device, &screen);
         let ground_vertex_buffer =
+            VertexBuffer::create(device, device_memory, GROUND_VERTICES.to_vec());
+
+        let floor_buffer =
+            UniformBuffer::create::<GroundUniform>(device.clone(), device_memory, swapchain);
+
+        let roof_buffer =
+            UniformBuffer::create::<GroundUniform>(device.clone(), device_memory, swapchain);
+        let roof_pipeline = MyPipeline::build(assets.pipeline("roof"), pass)
+            .material([vk::DescriptorType::COMBINED_IMAGE_SAMPLER])
+            .data([vk::DescriptorType::UNIFORM_BUFFER])
+            .build(device, &screen);
+        let roof_vertex_buffer =
             VertexBuffer::create(device, device_memory, GROUND_VERTICES.to_vec());
 
         let sprite_pipeline = MyPipeline::build(assets.pipeline("sprites"), pass)
@@ -117,6 +136,11 @@ impl SpriteRenderer {
             ground_pipeline,
             camera_buffer,
             ground_buffer,
+            floor_buffer,
+            roof_pipeline,
+            roof_buffer,
+            roof_sprites: vec![],
+            roof_vertex_buffer,
             sprite_vertex_buffer,
             present_index: 0,
             light_map_pipeline,
@@ -282,12 +306,14 @@ impl SpriteRenderer {
         self.sprites.clear();
         self.spine_sprites.clear();
         self.ground_sprites.clear();
+        self.roof_sprites.clear();
     }
 
     pub fn update(&mut self) {
         self.spine_pipeline.update(&self.device, &self.screen);
         self.ground_pipeline.update(&self.device, &self.screen);
         self.sprite_pipeline.update(&self.device, &self.screen);
+        self.roof_pipeline.update(&self.device, &self.screen);
     }
 
     pub fn draw_sprite(&mut self, asset: &SpriteAsset, position: [f32; 2], highlight: f32) {
@@ -339,7 +365,18 @@ impl SpriteRenderer {
         texture: TextureAsset,
         sampler: SamplerAsset,
         input: &Vec<Vec<Cell>>,
+        shapes: &Vec<Shape>,
     ) {
+        let mut global_interior_map = [0u128; Platform::SIZE_Y];
+        for shape in shapes {
+            if shape.id == Shape::EXTERIOR_ID {
+                continue;
+            }
+            for (i, row) in shape.rows.iter().enumerate() {
+                global_interior_map[shape.rows_y + i] = global_interior_map[shape.rows_y + i] | row;
+            }
+        }
+
         const CELL_SIZE: f32 = 128.0;
         let input_size = [input[0].len(), input.len()];
         let [input_size_x, input_size_y] = input_size;
@@ -359,7 +396,13 @@ impl SpriteRenderer {
                 let iy = y + step_y as usize;
                 let ix = x + step_x as usize;
                 let [capacity, moisture] = input[iy][ix];
-                map[y][x] = [capacity, moisture, 0.0, 0.0];
+                let pos = 1 << (Platform::SIZE_X - ix - 1);
+                let visible = if global_interior_map[iy] & pos == pos {
+                    1.0
+                } else {
+                    0.0
+                };
+                map[y][x] = [capacity, moisture, 1.0, 0.0];
             }
         }
         self.ground_sprites.push(GroundSprite {
@@ -370,6 +413,125 @@ impl SpriteRenderer {
                 offset,
                 map_size: [VISIBLE_MAP_X as f32, VISIBLE_MAP_Y as f32],
                 cell_size: [CELL_SIZE as f32, CELL_SIZE as f32],
+                layer: 0.2,
+            },
+        })
+    }
+
+    pub fn draw_floor(
+        &mut self,
+        texture: TextureAsset,
+        sampler: SamplerAsset,
+        input: &Vec<Vec<Cell>>,
+        shapes: &Vec<Shape>,
+    ) {
+        let mut global_interior_map = [0u128; Platform::SIZE_Y];
+        for shape in shapes {
+            if shape.id == Shape::EXTERIOR_ID {
+                continue;
+            }
+            for (i, row) in shape.rows.iter().enumerate() {
+                global_interior_map[shape.rows_y + i] = global_interior_map[shape.rows_y + i] | row;
+            }
+        }
+
+        const CELL_SIZE: f32 = 128.0;
+        let input_size = [input[0].len(), input.len()];
+        let [input_size_x, input_size_y] = input_size;
+        let offset_step = self.camera_position.div(CELL_SIZE).floor();
+        let offset_step = offset_step.clamp(
+            [0.0, 0.0],
+            [
+                (input_size_x - VISIBLE_MAP_X) as f32,
+                (input_size_y - VISIBLE_MAP_Y) as f32,
+            ],
+        );
+        let offset = offset_step.mul(CELL_SIZE);
+        let mut map: [[[f32; 4]; VISIBLE_MAP_X]; VISIBLE_MAP_Y] = Default::default();
+        for y in 0..VISIBLE_MAP_Y {
+            for x in 0..VISIBLE_MAP_X {
+                let [step_x, step_y] = offset_step;
+                let iy = y + step_y as usize;
+                let ix = x + step_x as usize;
+                let [capacity, moisture] = input[iy][ix];
+                let pos = 1 << (Platform::SIZE_X - ix - 1);
+                let visible = if global_interior_map[iy] & pos == pos {
+                    1.0
+                } else {
+                    0.0
+                };
+                map[y][x] = [1.0, 1.0, visible, 0.0];
+            }
+        }
+        self.ground_sprites.push(GroundSprite {
+            texture,
+            sampler,
+            uniform: GroundUniform { map },
+            constants: GroundPushConstants {
+                offset,
+                map_size: [VISIBLE_MAP_X as f32, VISIBLE_MAP_Y as f32],
+                cell_size: [CELL_SIZE as f32, CELL_SIZE as f32],
+                layer: 0.1,
+            },
+        })
+    }
+
+    pub fn draw_roof(
+        &mut self,
+        texture: TextureAsset,
+        sampler: SamplerAsset,
+        input: &Vec<Vec<Cell>>,
+        shapes: &Vec<Shape>,
+        exclude_shape: usize,
+    ) {
+        let mut global_interior_map = [0u128; Platform::SIZE_Y];
+        for shape in shapes {
+            if shape.id == Shape::EXTERIOR_ID || shape.id == exclude_shape {
+                continue;
+            }
+            for (i, row) in shape.rows.iter().enumerate() {
+                global_interior_map[shape.rows_y + i] = global_interior_map[shape.rows_y + i] | row;
+            }
+        }
+
+        const CELL_SIZE: f32 = 128.0;
+        let input_size = [input[0].len(), input.len()];
+        let [input_size_x, input_size_y] = input_size;
+        let offset_step = self.camera_position.div(CELL_SIZE).floor();
+        let offset_step = offset_step.clamp(
+            [0.0, 0.0],
+            [
+                (input_size_x - VISIBLE_MAP_X) as f32,
+                (input_size_y - VISIBLE_MAP_Y) as f32,
+            ],
+        );
+        let roof_offset = [0.0, -2.0].mul(CELL_SIZE);
+        let offset = offset_step.mul(CELL_SIZE).add(roof_offset);
+        let mut map: [[[f32; 4]; VISIBLE_MAP_X]; VISIBLE_MAP_Y] = Default::default();
+        for y in 0..VISIBLE_MAP_Y {
+            for x in 0..VISIBLE_MAP_X {
+                let [step_x, step_y] = offset_step;
+                let iy = y + step_y as usize;
+                let ix = x + step_x as usize;
+                let [capacity, moisture] = input[iy][ix];
+                let pos = 1 << (Platform::SIZE_X - ix - 1);
+                let visible = if global_interior_map[iy] & pos == pos {
+                    1.0
+                } else {
+                    0.0
+                };
+                map[y][x] = [0.0, 1.0, visible, 0.0];
+            }
+        }
+        self.roof_sprites.push(GroundSprite {
+            texture,
+            sampler,
+            uniform: GroundUniform { map },
+            constants: GroundPushConstants {
+                offset,
+                map_size: [VISIBLE_MAP_X as f32, VISIBLE_MAP_Y as f32],
+                cell_size: [CELL_SIZE as f32, CELL_SIZE as f32],
+                layer: 0.0,
             },
         })
     }
@@ -630,20 +792,8 @@ impl SpriteRenderer {
             })]])[0];
 
         // GROUND
-        for ground in &self.ground_sprites {
-            self.ground_buffer
-                .update(self.present_index as usize, ground.uniform);
-            let ground_descriptor =
-                self.ground_pipeline
-                    .data
-                    .as_mut()
-                    .unwrap()
-                    .describe(vec![[ShaderData::Uniform(vk::DescriptorBufferInfo {
-                        buffer: self.ground_buffer.buffers[self.present_index as usize],
-                        offset: 0,
-                        range: std::mem::size_of::<GroundUniform>() as u64,
-                    })]])[0];
 
+        for ground in &self.ground_sprites {
             device.cmd_bind_pipeline(
                 buffer,
                 vk::PipelineBindPoint::GRAPHICS,
@@ -658,6 +808,47 @@ impl SpriteRenderer {
                 &[camera_descriptor],
                 &[],
             );
+
+            if ground.constants.layer == 0.2 {
+                self.ground_buffer
+                    .update(self.present_index as usize, ground.uniform);
+                let ground_descriptor = self.ground_pipeline.data.as_mut().unwrap().describe(vec![
+                    [ShaderData::Uniform(vk::DescriptorBufferInfo {
+                        buffer: self.ground_buffer.buffers[self.present_index as usize],
+                        offset: 0,
+                        range: std::mem::size_of::<GroundUniform>() as u64,
+                    })],
+                ])[0];
+
+                device.cmd_bind_descriptor_sets(
+                    buffer,
+                    vk::PipelineBindPoint::GRAPHICS,
+                    self.ground_pipeline.layout,
+                    2,
+                    &[ground_descriptor],
+                    &[],
+                );
+            } else {
+                self.floor_buffer
+                    .update(self.present_index as usize, ground.uniform);
+                let ground_descriptor = self.ground_pipeline.data.as_mut().unwrap().describe(vec![
+                    [ShaderData::Uniform(vk::DescriptorBufferInfo {
+                        buffer: self.floor_buffer.buffers[self.present_index as usize],
+                        offset: 0,
+                        range: std::mem::size_of::<GroundUniform>() as u64,
+                    })],
+                ])[0];
+
+                device.cmd_bind_descriptor_sets(
+                    buffer,
+                    vk::PipelineBindPoint::GRAPHICS,
+                    self.ground_pipeline.layout,
+                    2,
+                    &[ground_descriptor],
+                    &[],
+                );
+            }
+
             device.cmd_bind_descriptor_sets(
                 buffer,
                 vk::PipelineBindPoint::GRAPHICS,
@@ -673,20 +864,14 @@ impl SpriteRenderer {
                     })]])[0]],
                 &[],
             );
-            device.cmd_bind_descriptor_sets(
-                buffer,
-                vk::PipelineBindPoint::GRAPHICS,
-                self.ground_pipeline.layout,
-                2,
-                &[ground_descriptor],
-                &[],
-            );
             self.ground_pipeline
                 .push_constants(ground.constants, buffer);
             device.cmd_draw(buffer, GROUND_VERTICES.len() as u32, 1, 0, 0);
         }
         timer.record("ground", &METRIC_RENDER_SECONDS);
 
+        /*
+        LIGHTS
         self.sprites.push(Sprite {
             uniform: SpritePushConstants {
                 position: [0.0, 0.0],
@@ -702,7 +887,7 @@ impl SpriteRenderer {
                     image_layout: vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
                 }),
             ]])[0],
-        });
+        });*/
 
         // STATIC
         device.cmd_bind_pipeline(
@@ -765,9 +950,66 @@ impl SpriteRenderer {
                 vk::IndexType::UINT32,
             );
             self.spine_pipeline.push_constants(sprite.constants, buffer);
-            // device.cmd_draw_indexed(buffer, (sprite.counters.len() * 6) as u32, 1, 0, 0, 1);
+            //device.cmd_draw_indexed(buffer, (sprite.counters.len() * 6) as u32, 1, 0, 0, 1);
         }
         timer.record("spine", &METRIC_RENDER_SECONDS);
+
+        // ROOF
+        for roof in &self.roof_sprites {
+            self.roof_buffer
+                .update(self.present_index as usize, roof.uniform);
+            let roof_descriptor =
+                self.roof_pipeline
+                    .data
+                    .as_mut()
+                    .unwrap()
+                    .describe(vec![[ShaderData::Uniform(vk::DescriptorBufferInfo {
+                        buffer: self.roof_buffer.buffers[self.present_index as usize],
+                        offset: 0,
+                        range: std::mem::size_of::<GroundUniform>() as u64,
+                    })]])[0];
+
+            device.cmd_bind_pipeline(
+                buffer,
+                vk::PipelineBindPoint::GRAPHICS,
+                self.roof_pipeline.handle,
+            );
+            device.cmd_bind_vertex_buffers(buffer, 0, &[self.roof_vertex_buffer.bind()], &[0]);
+            device.cmd_bind_descriptor_sets(
+                buffer,
+                vk::PipelineBindPoint::GRAPHICS,
+                self.roof_pipeline.layout,
+                0,
+                &[camera_descriptor],
+                &[],
+            );
+            device.cmd_bind_descriptor_sets(
+                buffer,
+                vk::PipelineBindPoint::GRAPHICS,
+                self.roof_pipeline.layout,
+                1,
+                &[self
+                    .roof_pipeline
+                    .material
+                    .describe(vec![[ShaderData::Texture(vk::DescriptorImageInfo {
+                        sampler: roof.sampler.handle,
+                        image_view: roof.texture.view(),
+                        image_layout: vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
+                    })]])[0]],
+                &[],
+            );
+            device.cmd_bind_descriptor_sets(
+                buffer,
+                vk::PipelineBindPoint::GRAPHICS,
+                self.roof_pipeline.layout,
+                2,
+                &[roof_descriptor],
+                &[],
+            );
+            self.roof_pipeline.push_constants(roof.constants, buffer);
+            device.cmd_draw(buffer, GROUND_VERTICES.len() as u32, 1, 0, 0);
+        }
+        timer.record("roof", &METRIC_RENDER_SECONDS);
 
         // thread::sleep_ms(10);
     }
@@ -820,6 +1062,7 @@ pub struct GroundPushConstants {
     pub offset: [f32; 2],
     pub map_size: [f32; 2],
     pub cell_size: [f32; 2],
+    pub layer: f32,
 }
 
 #[derive(Debug, Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]

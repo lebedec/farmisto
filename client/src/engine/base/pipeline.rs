@@ -172,7 +172,7 @@ impl<const M: usize, C: NoUninit, const D: usize> MyPipelineBuilder<M, C, D> {
             Some(bindings) => {
                 let data = ShaderDataSet::create(
                     device.clone(),
-                    3,
+                    6,
                     vk::ShaderStageFlags::VERTEX | vk::ShaderStageFlags::FRAGMENT, // vertex ?
                     bindings,
                 );

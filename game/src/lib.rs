@@ -76,12 +76,15 @@ impl Game {
                 let my_events = self.building.create_wall(platform_id, cell);
                 for event in my_events {
                     match event {
-                        Building::PlatformChanged { platform, map } => {
-                            events.push(Event::FarmlandPlatformUpdated {
-                                id: platform.into(),
-                                platform: encode_platform_map(map),
-                            })
-                        }
+                        Building::PlatformChanged {
+                            platform,
+                            map,
+                            shapes,
+                        } => events.push(Event::FarmlandPlatformUpdated {
+                            id: platform.into(),
+                            platform: encode_platform_map(map),
+                            platform_shapes: shapes,
+                        }),
                     }
                 }
             }
@@ -135,6 +138,7 @@ impl Game {
                     kind: farmland.kind.id,
                     map: land.map.clone(),
                     platform: encode_platform_map(platform.map),
+                    platform_shapes: platform.shapes.clone(),
                 })
             }
         }

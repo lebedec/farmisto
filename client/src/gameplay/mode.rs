@@ -1,7 +1,7 @@
 use crate::engine::animatoro::{AnimationAsset, Machine, State, StateId};
 use crate::engine::armature::{PoseBuffer, PoseUniform};
 use crate::engine::sprites::SpineSpriteController;
-use crate::engine::{Input, SpineAsset, SpriteAsset};
+use crate::engine::{Input, SpineAsset, SpriteAsset, TextureAsset};
 use crate::gameplay::camera::Camera;
 use crate::gameplay::objects::{BarrierHint, FarmerBehaviour, FarmlandBehaviour, TreeBehaviour};
 use crate::{Frame, Mode, SceneRenderer};
@@ -44,9 +44,11 @@ pub struct Gameplay {
     pub camera: Camera,
     pub farmers2d: Vec<Farmer2d>,
     pub cursor: SpriteAsset,
+    pub cursor_shape: usize,
     pub players: Vec<SpriteAsset>,
     pub players_index: usize,
     pub building_tiles: Vec<SpriteAsset>,
+    pub roof_texture: TextureAsset,
 }
 
 impl Gameplay {
@@ -103,9 +105,11 @@ impl Gameplay {
             camera,
             farmers2d: vec![],
             cursor,
+            cursor_shape: 0,
             players,
             building_tiles,
             players_index: 0,
+            roof_texture: assets.texture("./assets/texture/building-roof-template-2.png"),
         }
     }
 
@@ -158,6 +162,7 @@ impl Gameplay {
                 kind,
                 map,
                 platform,
+                platform_shapes,
             } => {
                 let kind = self
                     .knowledge
@@ -179,6 +184,7 @@ impl Gameplay {
                         asset,
                         map,
                         platform: decode_platform_map(platform),
+                        platform_shapes,
                     },
                 );
             }
@@ -186,9 +192,14 @@ impl Gameplay {
                 let farmland = self.farmlands.get_mut(&id).unwrap();
                 farmland.map = map;
             }
-            Event::FarmlandPlatformUpdated { id, platform } => {
+            Event::FarmlandPlatformUpdated {
+                id,
+                platform,
+                platform_shapes,
+            } => {
                 let farmland = self.farmlands.get_mut(&id).unwrap();
                 farmland.platform = decode_platform_map(platform);
+                farmland.platform_shapes = platform_shapes;
             }
             Event::FarmlandVanished(id) => {
                 info!("Vanish farmland {:?}", id);
@@ -419,7 +430,7 @@ impl Gameplay {
         });
     }
 
-    pub fn render2d(&self, frame: &mut Frame) {
+    pub fn render2d(&mut self, frame: &mut Frame) {
         let renderer = &mut frame.sprites;
         renderer.clear();
         renderer.look_at(self.camera.eye);
@@ -429,10 +440,36 @@ impl Gameplay {
         let cursor_y = ((cursor_y - self.camera.eye.y) / 128.0).floor() as usize;
 
         for farmland in self.farmlands.values() {
+            self.cursor_shape = 0;
+            let cursor_pos = 1 << (128 - cursor_x - 1);
+            for shape in &farmland.platform_shapes {
+                if cursor_y >= shape.rows_y && cursor_y < shape.rows_y + shape.rows.len() {
+                    let row = shape.rows[cursor_y - shape.rows_y];
+                    if row & cursor_pos != 0 {
+                        self.cursor_shape = shape.id;
+                        break;
+                    }
+                }
+            }
+
             renderer.draw_ground(
                 farmland.asset.texture.clone(),
                 farmland.asset.sampler.share(),
                 &farmland.map,
+                &farmland.platform_shapes,
+            );
+            renderer.draw_floor(
+                self.roof_texture.clone(),
+                farmland.asset.sampler.share(),
+                &farmland.map,
+                &farmland.platform_shapes,
+            );
+            renderer.draw_roof(
+                self.roof_texture.clone(),
+                farmland.asset.sampler.share(),
+                &farmland.map,
+                &farmland.platform_shapes,
+                self.cursor_shape,
             );
             for (y, line) in farmland.platform.iter().enumerate() {
                 for (x, cell) in line.iter().enumerate() {
@@ -490,8 +527,8 @@ impl Gameplay {
 
                         let is_half =
                             (y == (cursor_y + 1) || y == (cursor_y)) && neighbors == Neighbors::WE;
-
-                        // half
+                        let is_half = false; // disable
+                                             // half
                         if is_half {
                             tile = &self.building_tiles[15];
                             if cell.door {
