@@ -327,6 +327,7 @@ pub struct VertexBuffer {
     buffer: vk::Buffer,
     device_memory: vk::DeviceMemory,
     device_size: vk::DeviceSize,
+    pub vertices: usize,
 }
 
 impl VertexBuffer {
@@ -365,6 +366,7 @@ impl VertexBuffer {
             buffer,
             device_memory,
             device_size,
+            vertices: vertices.len(),
         }
     }
 

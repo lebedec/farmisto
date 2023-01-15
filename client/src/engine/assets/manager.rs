@@ -469,6 +469,7 @@ impl Assets {
         let fragment: String = entry.get("fragment")?;
         let vertex: String = entry.get("vertex")?;
         let data = PipelineAssetData {
+            name: id.to_string(),
             fragment: self.shader(fragment),
             vertex: self.shader(vertex),
             changed: true,

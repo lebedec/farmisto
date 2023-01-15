@@ -1,13 +1,140 @@
 use crate::engine::base::{Screen, ShaderData, ShaderDataSet};
-use crate::engine::sprites::SpriteVertex;
-use crate::engine::PipelineAsset;
-use ash::vk::{ImageView, Sampler};
+use crate::engine::sprites::{GroundPushConstants, SpriteVertex};
+use crate::engine::{IndexBuffer, PipelineAsset, VertexBuffer};
+use ash::vk::{DescriptorSet, ImageView, Sampler, SpecializationInfo, SpecializationMapEntry};
 use ash::{vk, Device};
 use bytemuck::NoUninit;
+use lazy_static::lazy_static;
 use log::{error, info};
 use std::ffi::CStr;
 use std::marker::PhantomData;
 use std::time::Instant;
+
+lazy_static! {
+    static ref METRIC_DRAW_CALLS: prometheus::IntCounterVec =
+        prometheus::register_int_counter_vec!(
+            "pipeline_draw_calls",
+            "pipeline_draw_calls",
+            &["pipeline"]
+        )
+        .unwrap();
+}
+
+pub struct MyPipelinePerformer<'a, const M: usize, C, const D: usize> {
+    pipeline: &'a mut MyPipeline<M, C, D>,
+    device: Device,
+    buffer: vk::CommandBuffer,
+}
+
+impl<'a, const M: usize, C, const D: usize> MyPipelinePerformer<'a, M, C, D> {}
+
+impl<'a, const M: usize, C, const D: usize> MyPipelinePerformer<'a, M, C, D>
+where
+    C: NoUninit,
+{
+    pub(crate) fn bind_camera(&self, camera_descriptor: DescriptorSet) {
+        unsafe {
+            self.device.cmd_bind_descriptor_sets(
+                self.buffer,
+                vk::PipelineBindPoint::GRAPHICS,
+                self.pipeline.layout,
+                0,
+                &[camera_descriptor],
+                &[],
+            );
+        }
+    }
+
+    pub fn bind_vertex_buffer(&self, vertex_buffer: &VertexBuffer) {
+        unsafe {
+            self.device
+                .cmd_bind_vertex_buffers(self.buffer, 0, &[vertex_buffer.bind()], &[0]);
+        }
+    }
+
+    pub fn bind_index_buffer(&self, index_buffer: &IndexBuffer) {
+        unsafe {
+            self.device.cmd_bind_index_buffer(
+                self.buffer,
+                index_buffer.bind(),
+                0,
+                vk::IndexType::UINT32,
+            );
+        }
+    }
+
+    pub fn bind_material(&mut self, textures: [(Sampler, ImageView); M]) {
+        let descriptor =
+            self.pipeline
+                .material
+                .describe(vec![textures.map(|(sampler, image_view)| {
+                    ShaderData::Texture(vk::DescriptorImageInfo {
+                        sampler,
+                        image_view,
+                        image_layout: vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
+                    })
+                })])[0];
+        self.bind_texture(descriptor);
+    }
+
+    pub fn bind_texture(&mut self, descriptor: vk::DescriptorSet) {
+        unsafe {
+            self.device.cmd_bind_descriptor_sets(
+                self.buffer,
+                vk::PipelineBindPoint::GRAPHICS,
+                self.pipeline.layout,
+                1,
+                &[descriptor],
+                &[],
+            );
+        }
+    }
+
+    pub fn bind_data(&self, data_descriptor: vk::DescriptorSet) {
+        unsafe {
+            self.device.cmd_bind_descriptor_sets(
+                self.buffer,
+                vk::PipelineBindPoint::GRAPHICS,
+                self.pipeline.layout,
+                2,
+                &[data_descriptor],
+                &[],
+            );
+        }
+    }
+
+    pub fn push_constants(&self, constants: C) {
+        unsafe {
+            self.device.cmd_push_constants(
+                self.buffer,
+                self.pipeline.layout,
+                vk::ShaderStageFlags::VERTEX | vk::ShaderStageFlags::FRAGMENT,
+                0,
+                bytemuck::bytes_of(&constants),
+            );
+        }
+    }
+
+    pub fn draw_vertices(&self, vertex_count: usize) {
+        METRIC_DRAW_CALLS
+            .with_label_values(&[&self.pipeline.asset.name])
+            .inc();
+        unsafe {
+            self.device
+                .cmd_draw(self.buffer, vertex_count as u32, 1, 0, 0);
+        }
+    }
+
+    pub fn draw(&self, index_count: usize) {
+        METRIC_DRAW_CALLS
+            .with_label_values(&[&self.pipeline.asset.name])
+            .inc();
+        unsafe {
+            self.device
+                .cmd_draw_indexed(self.buffer, index_count as u32, 1, 0, 0, 1);
+        }
+    }
+}
 
 pub struct MyPipeline<const M: usize, C, const D: usize> {
     device: Device,
@@ -27,6 +154,21 @@ where
 {
     pub fn build(asset: PipelineAsset, pass: vk::RenderPass) -> MyPipelineBuilder<M, C, D> {
         MyPipelineBuilder::new(asset, pass)
+    }
+
+    pub fn perform(
+        &mut self,
+        device: &Device,
+        buffer: vk::CommandBuffer,
+    ) -> MyPipelinePerformer<M, C, D> {
+        unsafe {
+            device.cmd_bind_pipeline(buffer, vk::PipelineBindPoint::GRAPHICS, self.handle);
+        }
+        MyPipelinePerformer {
+            pipeline: self,
+            device: device.clone(),
+            buffer,
+        }
     }
 
     pub fn bind_camera(
@@ -172,7 +314,7 @@ impl<const M: usize, C: NoUninit, const D: usize> MyPipelineBuilder<M, C, D> {
             Some(bindings) => {
                 let data = ShaderDataSet::create(
                     device.clone(),
-                    6,
+                    3 * 1000,
                     vk::ShaderStageFlags::VERTEX | vk::ShaderStageFlags::FRAGMENT, // vertex ?
                     bindings,
                 );
@@ -262,6 +404,8 @@ impl Pipeline {
         bindings: &[vk::VertexInputBindingDescription],
     ) -> Result<vk::Pipeline, PipelineError> {
         let shader_entry_name = unsafe { CStr::from_bytes_with_nul_unchecked(&self.entry_name) };
+        // let specialization = SpecializationInfo::builder()
+        //     .map_entries(&[SpecializationMapEntry::builder().constant_id(0).])
         let shader_stage_create_infos = [
             vk::PipelineShaderStageCreateInfo {
                 module: self.vertex,

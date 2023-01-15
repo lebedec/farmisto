@@ -25,8 +25,6 @@ use sdl2::video::FullscreenType;
 
 lazy_static! {
     static ref METRIC_FRAME: IntCounter = register_int_counter!("app_frame", "frame").unwrap();
-    static ref METRIC_COUNTER: IntCounter =
-        register_int_counter!("app_counter", "counter").unwrap();
 }
 
 pub struct Frame<'c> {
@@ -133,7 +131,6 @@ pub fn startup<A: App>(title: String) {
 
         loop {
             METRIC_FRAME.inc();
-            METRIC_COUNTER.inc();
             assets.update();
             studio.update().unwrap();
 
@@ -210,7 +207,7 @@ pub fn startup<A: App>(title: String) {
                 }
             };
 
-            sprites_renderer.present_index = present_index;
+            sprites_renderer.present_index = present_index as usize;
 
             app.update(&mut Frame {
                 input: input.clone(),

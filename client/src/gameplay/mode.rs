@@ -452,19 +452,19 @@ impl Gameplay {
                 }
             }
 
-            renderer.draw_ground(
+            renderer.render_ground(
                 farmland.asset.texture.clone(),
                 farmland.asset.sampler.share(),
                 &farmland.map,
                 &farmland.platform_shapes,
             );
-            renderer.draw_floor(
+            renderer.render_floor(
                 self.roof_texture.clone(),
                 farmland.asset.sampler.share(),
                 &farmland.map,
                 &farmland.platform_shapes,
             );
-            renderer.draw_roof(
+            renderer.render_roof(
                 self.roof_texture.clone(),
                 farmland.asset.sampler.share(),
                 &farmland.map,
@@ -559,7 +559,7 @@ impl Gameplay {
                             1.0
                         };
 
-                        renderer.draw_sprite(
+                        renderer.render_sprite(
                             tile,
                             [x as f32 * 128.0, 128.0 + y as f32 * 128.0],
                             highlight,
@@ -568,7 +568,7 @@ impl Gameplay {
 
                     if x == cursor_x && y == cursor_y {
                         let [cursor_x, cursor_y] = frame.input.mouse_position().position;
-                        renderer.draw_sprite(
+                        renderer.render_sprite(
                             &self.players[self.players_index],
                             [cursor_x + self.camera.eye.x, cursor_y - self.camera.eye.y],
                             1.0,
@@ -579,10 +579,10 @@ impl Gameplay {
         }
         let cursor_x = cursor_x as f32 * 128.0 + 64.0;
         let cursor_y = cursor_y as f32 * 128.0 + 64.0;
-        renderer.draw_sprite(&self.cursor, [cursor_x, cursor_y], 1.0);
+        renderer.render_sprite(&self.cursor, [cursor_x, cursor_y], 1.0);
         METRIC_DRAW_REQUEST_SECONDS.observe_closure_duration(|| {
             for farmer in &self.farmers2d {
-                renderer.draw_spine(&farmer.sprite, farmer.position);
+                renderer.render_spine(&farmer.sprite, farmer.position, [cursor_x, cursor_y]);
             }
         });
     }
