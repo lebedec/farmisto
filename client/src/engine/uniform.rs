@@ -9,6 +9,12 @@ pub struct CameraUniform {
     pub proj: Mat4,
 }
 
+#[derive(Clone, Copy)]
+pub struct LightUniform {
+    pub color: [[f32; 4]; 512],
+    pub position: [[f32; 4]; 512],
+}
+
 pub struct UniformBuffer {
     device: Device,
     pub buffers: Vec<vk::Buffer>,

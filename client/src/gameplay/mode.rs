@@ -7,7 +7,7 @@ use crate::gameplay::objects::{BarrierHint, FarmerBehaviour, FarmlandBehaviour, 
 use crate::{Frame, Mode, SceneRenderer};
 use datamap::Storage;
 use game::api::{Action, Event, GameResponse, PlayerRequest};
-use game::math::detect_collision;
+use game::math::{detect_collision, VectorMath};
 use game::model::{FarmerId, FarmlandId, TreeId};
 use game::Game;
 use glam::{vec3, Mat4, Vec2, Vec3};
@@ -228,8 +228,8 @@ impl Gameplay {
 
                 info!("TEST 2d");
 
-                let max_y = 8;
-                let max_x = 14;
+                let max_y = 7 * 2;
+                let max_x = 14 * 2;
                 let colors = [
                     [1.00, 1.00, 1.00, 1.0],
                     [0.64, 0.49, 0.40, 1.0],
@@ -255,8 +255,8 @@ impl Gameplay {
                             [colors[c0], colors[c1], colors[c2], colors[c3]],
                         );
                         let position = [
-                            64.0 + 128.0 + 256.0 * x as f32,
-                            64.0 + 256.0 + 256.0 * y as f32,
+                            64.0 + 128.0 + 128.0 * x as f32,
+                            64.0 + 256.0 + 128.0 * y as f32,
                         ];
                         self.farmers2d.push(Farmer2d {
                             asset,
@@ -435,9 +435,14 @@ impl Gameplay {
         renderer.clear();
         renderer.look_at(self.camera.eye);
 
-        let [cursor_x, cursor_y] = frame.input.mouse_position().position;
-        let cursor_x = ((cursor_x + self.camera.eye.x) / 128.0).floor() as usize;
-        let cursor_y = ((cursor_y - self.camera.eye.y) / 128.0).floor() as usize;
+        let mouse_position = frame
+            .input
+            .mouse_position()
+            .position
+            .add([self.camera.eye.x, -self.camera.eye.y]);
+        let [mouse_x, mouse_y] = mouse_position;
+        let cursor_x = (mouse_x / 128.0).floor() as usize;
+        let cursor_y = (mouse_y / 128.0).floor() as usize;
 
         for farmland in self.farmlands.values() {
             self.cursor_shape = 0;
@@ -567,10 +572,9 @@ impl Gameplay {
                     }
 
                     if x == cursor_x && y == cursor_y {
-                        let [cursor_x, cursor_y] = frame.input.mouse_position().position;
                         renderer.render_sprite(
                             &self.players[self.players_index],
-                            [cursor_x + self.camera.eye.x, cursor_y - self.camera.eye.y],
+                            [mouse_x, mouse_y],
                             1.0,
                         );
                     }
@@ -580,11 +584,18 @@ impl Gameplay {
         let cursor_x = cursor_x as f32 * 128.0 + 64.0;
         let cursor_y = cursor_y as f32 * 128.0 + 64.0;
         renderer.render_sprite(&self.cursor, [cursor_x, cursor_y], 1.0);
+
         METRIC_DRAW_REQUEST_SECONDS.observe_closure_duration(|| {
             for farmer in &self.farmers2d {
-                renderer.render_spine(&farmer.sprite, farmer.position, [cursor_x, cursor_y]);
+                renderer.render_spine(&farmer.sprite, farmer.position, [mouse_x, mouse_y]);
             }
         });
+
+        renderer.set_point_light([1.0, 0.0, 0.0, 1.0], 512.0, mouse_position);
+
+        renderer.set_point_light([1.0, 0.0, 0.0, 1.0], 512.0, [1024.0, 256.0]);
+        renderer.set_point_light([0.0, 1.0, 0.0, 1.0], 512.0, [256.0, 1024.0]);
+        renderer.set_point_light([0.0, 0.0, 1.0, 1.0], 512.0, [1024.0, 1024.0]);
     }
 
     pub fn render(&self, renderer: &mut SceneRenderer) {

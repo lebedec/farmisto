@@ -87,15 +87,17 @@ impl Base {
         submit_queue: vk::Queue,
     ) -> VkResult<()> {
         self.device.end_command_buffer(command_buffer)?;
+        let wait_semaphores = [self.present_complete_semaphore];
+        let signal_semaphores = [self.rendering_complete_semaphore];
+        let command_buffers = [command_buffer];
         let submit_info = vk::SubmitInfo::builder()
-            .wait_semaphores(&[self.present_complete_semaphore])
+            .wait_semaphores(&wait_semaphores)
             .wait_dst_stage_mask(&[vk::PipelineStageFlags::COLOR_ATTACHMENT_OUTPUT])
-            .command_buffers(&[command_buffer])
-            .signal_semaphores(&[self.rendering_complete_semaphore])
+            .command_buffers(&command_buffers)
+            .signal_semaphores(&signal_semaphores)
             .build();
         self.device
-            .queue_submit(submit_queue, &[submit_info], self.draw_commands_reuse_fence)?;
-        Ok(())
+            .queue_submit(submit_queue, &[submit_info], self.draw_commands_reuse_fence)
     }
 }
 

@@ -11,7 +11,7 @@ use rusty_spine::{AttachmentType, Skin};
 use sdl2::libc::pipe;
 
 use crate::engine::base::{index_memory_type, MyPipeline, Screen, ShaderData, ShaderDataSet};
-use crate::engine::uniform::{CameraUniform, UniformBuffer};
+use crate::engine::uniform::{CameraUniform, LightUniform, UniformBuffer};
 use crate::engine::{
     IndexBuffer, SamplerAsset, ShaderAsset, SpineAsset, SpriteAsset, TextureAsset, VertexBuffer,
 };
@@ -37,36 +37,37 @@ pub struct SpriteRenderer {
 
     camera_position: [f32; 2],
     camera_buffer: UniformBuffer,
+    global_light_buffer: UniformBuffer,
+    global_lights: Vec<Light>,
 
     spine_pipeline: MyPipeline<2, SpinePushConstants, 1>,
     spines: Vec<Vec<SpineRenderObject>>,
     coloration_texture: TextureAsset,
     coloration_sampler: SamplerAsset,
 
-    ground_pipeline: MyPipeline<1, GroundPushConstants, 1>,
+    ground_pipeline: MyPipeline<1, GroundPushConstants, 2>,
     grounds: Vec<GroundSprite>,
     ground_vertex_buffer: VertexBuffer,
     ground_buffer: UniformBuffer,
 
     floor_buffer: UniformBuffer,
 
-    roof_pipeline: MyPipeline<1, GroundPushConstants, 1>,
+    roof_pipeline: MyPipeline<1, GroundPushConstants, 2>,
     roofs: Vec<GroundSprite>,
     roof_vertex_buffer: VertexBuffer,
     roof_buffer: UniformBuffer,
 
     sprite_pipeline: MyPipeline<1, SpritePushConstants, 1>,
-    sprites: Vec<Vec<Sprite>>,
+    sprites: Vec<Vec<SpriteRenderObject>>,
     sprite_vertex_buffer: VertexBuffer,
 
-    light_map_pipeline: MyPipeline<1, SpritePushConstants, 1>,
-    light_map_framebuffer: vk::Framebuffer,
-    light_map_render_pass: vk::RenderPass,
-    light_map_sampler: SamplerAsset,
-    light_map_view: vk::ImageView,
-    lights: Vec<Sprite>,
-    lights_texture: SpriteAsset,
-
+    // light_map_pipeline: MyPipeline<1, SpritePushConstants, 1>,
+    // light_map_framebuffer: vk::Framebuffer,
+    // light_map_render_pass: vk::RenderPass,
+    // light_map_sampler: SamplerAsset,
+    // light_map_view: vk::ImageView,
+    // lights: Vec<SpriteRenderObject>,
+    // lights_texture: SpriteAsset,
     swapchain: usize,
 }
 
@@ -87,6 +88,9 @@ impl SpriteRenderer {
         let camera_buffer =
             UniformBuffer::create::<CameraUniform>(device.clone(), device_memory, swapchain);
 
+        let global_light_buffer =
+            UniformBuffer::create::<LightUniform>(device.clone(), device_memory, swapchain);
+
         let sprite_vertex_buffer =
             VertexBuffer::create(device, device_memory, SPRITE_VERTICES.to_vec());
 
@@ -102,7 +106,10 @@ impl SpriteRenderer {
             UniformBuffer::create::<GroundUniform>(device.clone(), device_memory, swapchain);
         let ground_pipeline = MyPipeline::build(assets.pipeline("ground"), pass)
             .material([vk::DescriptorType::COMBINED_IMAGE_SAMPLER])
-            .data([vk::DescriptorType::UNIFORM_BUFFER])
+            .data([
+                vk::DescriptorType::UNIFORM_BUFFER,
+                vk::DescriptorType::UNIFORM_BUFFER,
+            ])
             .build(device, &screen);
         let ground_vertex_buffer =
             VertexBuffer::create(device, device_memory, GROUND_VERTICES.to_vec());
@@ -114,22 +121,26 @@ impl SpriteRenderer {
             UniformBuffer::create::<GroundUniform>(device.clone(), device_memory, swapchain);
         let roof_pipeline = MyPipeline::build(assets.pipeline("roof"), pass)
             .material([vk::DescriptorType::COMBINED_IMAGE_SAMPLER])
-            .data([vk::DescriptorType::UNIFORM_BUFFER])
+            .data([
+                vk::DescriptorType::UNIFORM_BUFFER,
+                vk::DescriptorType::UNIFORM_BUFFER,
+            ])
             .build(device, &screen);
         let roof_vertex_buffer =
             VertexBuffer::create(device, device_memory, GROUND_VERTICES.to_vec());
 
         let sprite_pipeline = MyPipeline::build(assets.pipeline("sprites"), pass)
             .material([vk::DescriptorType::COMBINED_IMAGE_SAMPLER])
+            .data([vk::DescriptorType::UNIFORM_BUFFER])
             .build(device, &screen);
 
-        let (light_map_view, light_map_render_pass, light_map_framebuffer) =
-            Self::create_light_map(device, device_memory).unwrap();
-
-        let light_map_pipeline =
-            MyPipeline::build(assets.pipeline("light-map"), light_map_render_pass)
-                .material([vk::DescriptorType::COMBINED_IMAGE_SAMPLER])
-                .build(device, &screen);
+        // let (light_map_view, light_map_render_pass, light_map_framebuffer) =
+        //     Self::create_light_map(device, device_memory).unwrap();
+        //
+        // let light_map_pipeline =
+        //     MyPipeline::build(assets.pipeline("light-map"), light_map_render_pass)
+        //         .material([vk::DescriptorType::COMBINED_IMAGE_SAMPLER])
+        //         .build(device, &screen);
 
         let mut sprites = vec![];
         let mut spines = vec![];
@@ -154,9 +165,9 @@ impl SpriteRenderer {
             roof_vertex_buffer,
             sprite_vertex_buffer,
             present_index: 0,
-            light_map_pipeline,
-            light_map_framebuffer,
-            light_map_render_pass,
+            //light_map_pipeline,
+            //light_map_framebuffer,
+            //light_map_render_pass,
             coloration_texture,
             coloration_sampler,
             grounds: vec![],
@@ -165,11 +176,13 @@ impl SpriteRenderer {
             sprite_pipeline,
             ground_vertex_buffer,
             camera_position: [0.0, 0.0],
-            light_map_sampler: assets.sampler("light-map"),
-            light_map_view,
-            lights: vec![],
-            lights_texture: assets.sprite("light-test"),
+            //light_map_sampler: assets.sampler("light-map"),
+            //light_map_view,
+            // lights: vec![],
+            // lights_texture: assets.sprite("light-test"),
             swapchain,
+            global_light_buffer,
+            global_lights: vec![],
         };
 
         renderer
@@ -333,6 +346,14 @@ impl SpriteRenderer {
         self.roof_pipeline.update(&self.device, &self.screen);
     }
 
+    pub fn set_point_light(&mut self, color: [f32; 4], radius: f32, position: [f32; 2]) {
+        let [x, y] = position;
+        self.global_lights.push(Light {
+            color,
+            position: [x, y, radius, 0.0],
+        })
+    }
+
     pub fn render_sprite(&mut self, asset: &SpriteAsset, position: [f32; 2], highlight: f32) {
         let texture = &asset.texture;
         let image_w = asset.texture.width() as f32;
@@ -343,8 +364,9 @@ impl SpriteRenderer {
         let y = sprite_y / image_h;
         let w = sprite_w / image_w;
         let h = sprite_h / image_h;
+
         let line = (position[1] / 128.0) as usize;
-        self.sprites[line].push(Sprite {
+        self.sprites[line].push(SpriteRenderObject {
             constants: SpritePushConstants {
                 position,
                 size: asset.size,
@@ -427,7 +449,7 @@ impl SpriteRenderer {
             texture: sprite.mega_texture.clone(),
             position,
             colors: sprite.colors,
-            counters: sprite.counters.clone(),
+            meshes: sprite.meshes.clone(),
             constants: SpinePushConstants {
                 colors: sprite.colors,
                 position,
@@ -499,6 +521,11 @@ impl SpriteRenderer {
                     offset: 0,
                     range: std::mem::size_of::<GroundUniform>() as u64,
                 }),
+                ShaderData::Uniform(vk::DescriptorBufferInfo {
+                    buffer: self.global_light_buffer.buffers[self.present_index],
+                    offset: 0,
+                    range: std::mem::size_of::<GroundUniform>() as u64,
+                }),
             ]])[0],
         })
     }
@@ -563,6 +590,11 @@ impl SpriteRenderer {
             data_descriptor: self.ground_pipeline.data.as_mut().unwrap().describe(vec![[
                 ShaderData::Uniform(vk::DescriptorBufferInfo {
                     buffer: self.floor_buffer.buffers[self.present_index],
+                    offset: 0,
+                    range: std::mem::size_of::<GroundUniform>() as u64,
+                }),
+                ShaderData::Uniform(vk::DescriptorBufferInfo {
+                    buffer: self.global_light_buffer.buffers[self.present_index],
                     offset: 0,
                     range: std::mem::size_of::<GroundUniform>() as u64,
                 }),
@@ -635,6 +667,11 @@ impl SpriteRenderer {
                     offset: 0,
                     range: std::mem::size_of::<GroundUniform>() as u64,
                 }),
+                ShaderData::Uniform(vk::DescriptorBufferInfo {
+                    buffer: self.global_light_buffer.buffers[self.present_index],
+                    offset: 0,
+                    range: std::mem::size_of::<GroundUniform>() as u64,
+                }),
             ]])[0],
         })
     }
@@ -662,7 +699,7 @@ impl SpriteRenderer {
 
         let mut mega_vertices: Vec<SpriteVertex> = vec![];
         let mut mega_indices: Vec<u32> = vec![];
-        let mut mega_counters: Vec<(u32, u32)> = vec![];
+        let mut meshes: Vec<usize> = vec![];
 
         let mut index_offset = 0;
         for index in 0..skeleton.skeleton.slots_count() {
@@ -692,19 +729,62 @@ impl SpriteRenderer {
                         }
                         let indices = [0, 1, 2, 2, 3, 0].map(|index| index + index_offset);
                         mega_indices.extend_from_slice(&indices);
-                        mega_counters.push((4, 6)); // 4 vertex, 6 indices
+                        // meshes.push((4, 6)); // 4 vertex, 6 indices
+                        meshes.push(indices.len());
 
                         index_offset += 4;
                     }
                     AttachmentType::Mesh => {
                         let mesh = attachment.as_mesh().unwrap();
-                        info!(
-                            "{}: MESH {} {}x{}",
-                            slot.data().name(),
-                            attachment.name(),
-                            mesh.width(),
-                            mesh.height()
-                        )
+                        let stride = 2;
+                        // info!(
+                        //     "{}: MESH {} {}x{} vertices: {}, indices: {}",
+                        //     slot.data().name(),
+                        //     attachment.name(),
+                        //     mesh.width(),
+                        //     mesh.height(),
+                        //     mesh.world_vertices_length() / stride as i32,
+                        //     mesh.triangles_count()
+                        // );
+                        let spine_vertices_count = mesh.world_vertices_length() as usize;
+                        let mut spine_vertices = vec![0.0; spine_vertices_count];
+                        unsafe {
+                            mesh.compute_world_vertices(
+                                &slot,
+                                0,
+                                spine_vertices_count as i32,
+                                &mut spine_vertices,
+                                0,
+                                stride as i32,
+                            );
+                        }
+                        let uvs_slice =
+                            unsafe { std::slice::from_raw_parts(mesh.uvs(), spine_vertices_count) };
+                        let spine_uvs: Vec<f32> = uvs_slice.to_vec();
+                        let mut vertices = vec![];
+                        for i in 0..(spine_vertices_count / stride) {
+                            vertices.push(SpriteVertex {
+                                position: [
+                                    spine_vertices[i * stride],
+                                    -spine_vertices[i * stride + 1],
+                                ],
+                                uv: [spine_uvs[i * 2], 1.0 - spine_uvs[i * 2 + 1]], // inverse
+                            })
+                        }
+                        let indices_count = mesh.triangles_count() as usize;
+                        let indices_slice =
+                            unsafe { std::slice::from_raw_parts(mesh.triangles(), indices_count) };
+
+                        let indices: Vec<u32> = indices_slice
+                            .iter()
+                            .map(|index| (*index as u32) + index_offset)
+                            .collect();
+
+                        mega_indices.extend_from_slice(&indices);
+                        mega_vertices.extend_from_slice(&vertices);
+                        meshes.push(indices.len());
+
+                        index_offset += vertices.len() as u32;
                     }
                     attachment_type => {
                         error!("Unknown attachment type {:?}", attachment_type)
@@ -729,7 +809,7 @@ impl SpriteRenderer {
             mega_buffer,
             mega_index_buffer,
             mega_texture: spine.atlas.clone(),
-            counters: mega_counters,
+            meshes,
             colors,
             lights_buffer,
         }
@@ -761,13 +841,42 @@ impl SpriteRenderer {
                     }
                     AttachmentType::Mesh => {
                         let mesh = attachment.as_mesh().unwrap();
-                        info!(
-                            "{}: UPDATE MESH {} {}x{}",
-                            slot.data().name(),
-                            attachment.name(),
-                            mesh.width(),
-                            mesh.height()
-                        )
+                        let stride = 2;
+                        // info!(
+                        //     "{}: MESH {} {}x{} vertices: {}, indices: {}",
+                        //     slot.data().name(),
+                        //     attachment.name(),
+                        //     mesh.width(),
+                        //     mesh.height(),
+                        //     mesh.world_vertices_length() / stride as i32,
+                        //     mesh.triangles_count()
+                        // );
+                        let spine_vertices_count = mesh.world_vertices_length() as usize;
+                        let mut spine_vertices = vec![0.0; spine_vertices_count];
+                        unsafe {
+                            mesh.compute_world_vertices(
+                                &slot,
+                                0,
+                                spine_vertices_count as i32,
+                                &mut spine_vertices,
+                                0,
+                                stride as i32,
+                            );
+                        }
+                        let uvs_slice =
+                            unsafe { std::slice::from_raw_parts(mesh.uvs(), spine_vertices_count) };
+                        let spine_uvs: Vec<f32> = uvs_slice.to_vec();
+                        let mut vertices = vec![];
+                        for i in 0..(spine_vertices_count / stride) {
+                            vertices.push(SpriteVertex {
+                                position: [
+                                    spine_vertices[i * stride],
+                                    -spine_vertices[i * stride + 1],
+                                ],
+                                uv: [spine_uvs[i * 2], 1.0 - spine_uvs[i * 2 + 1]], // inverse
+                            })
+                        }
+                        mega_vertices.extend_from_slice(&vertices);
                     }
                     attachment_type => {
                         error!("Unknown attachment type {:?}", attachment_type)
@@ -785,102 +894,102 @@ impl SpriteRenderer {
         render_begin: &vk::RenderPassBeginInfo,
     ) {
         let mut timer = Timer::now();
-        let clear_values = [vk::ClearValue {
-            color: vk::ClearColorValue {
-                float32: [0.43, 0.51, 86.0, 0.2],
-                // float32: [0.43, 0.0, 0.0, 0.2],
-            },
-        }];
-        let render_begin2 = vk::RenderPassBeginInfo::builder()
-            .render_pass(self.light_map_render_pass)
-            .framebuffer(self.light_map_framebuffer)
-            .render_area(
-                vk::Extent2D {
-                    width: 960,
-                    height: 540,
-                }
-                .into(),
-            )
-            .clear_values(&clear_values);
-        device.cmd_begin_render_pass(buffer, &render_begin2, vk::SubpassContents::INLINE);
-        device.cmd_set_viewport(
-            buffer,
-            0,
-            &vec![vk::Viewport {
-                x: 0.0,
-                y: 0.0,
-                width: 960.0 as f32,
-                height: 540.0 as f32,
-                min_depth: 0.0,
-                max_depth: 1.0,
-            }],
-        );
-        device.cmd_set_scissor(
-            buffer,
-            0,
-            &[vk::Extent2D {
-                width: 960,
-                height: 540,
-            }
-            .into()],
-        );
-        let camera_descriptor = self
-            .spine_pipeline
-            .camera
-            .describe(vec![[ShaderData::Uniform(vk::DescriptorBufferInfo {
-                buffer: self.camera_buffer.buffers[self.present_index],
-                offset: 0,
-                range: std::mem::size_of::<CameraUniform>() as u64,
-            })]])[0];
-        device.cmd_bind_pipeline(
-            buffer,
-            vk::PipelineBindPoint::GRAPHICS,
-            self.light_map_pipeline.handle,
-        );
-        device.cmd_bind_descriptor_sets(
-            buffer,
-            vk::PipelineBindPoint::GRAPHICS,
-            self.light_map_pipeline.layout,
-            0,
-            &[camera_descriptor],
-            &[],
-        );
-        device.cmd_bind_vertex_buffers(buffer, 0, &[self.sprite_vertex_buffer.bind()], &[0]);
-        let mut previous_texture = Default::default();
-        self.lights = vec![Sprite {
-            constants: SpritePushConstants {
-                position: [256.0, 256.0],
-                size: [256.0, 256.0],
-                coords: [0.0, 0.0, 1.0, 1.0],
-                pivot: [0.5, 0.5],
-                highlight: 1.0,
-            },
-            texture_descriptor: self.light_map_pipeline.material.describe(vec![[
-                ShaderData::Texture(vk::DescriptorImageInfo {
-                    sampler: self.lights_texture.sampler.handle,
-                    image_view: self.lights_texture.texture.view(),
-                    image_layout: vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
-                }),
-            ]])[0],
-        }];
-        for light in self.lights.iter() {
-            if previous_texture != light.texture_descriptor {
-                previous_texture = light.texture_descriptor;
-                device.cmd_bind_descriptor_sets(
-                    buffer,
-                    vk::PipelineBindPoint::GRAPHICS,
-                    self.light_map_pipeline.layout,
-                    1,
-                    &[light.texture_descriptor],
-                    &[],
-                );
-            }
-            self.light_map_pipeline
-                .push_constants(light.constants, buffer);
-            device.cmd_draw(buffer, SPRITE_VERTICES.len() as u32, 1, 0, 0);
-        }
-        device.cmd_end_render_pass(buffer);
-        timer.record("ligthmap", &METRIC_RENDER_SECONDS);
+        // let clear_values = [vk::ClearValue {
+        //     color: vk::ClearColorValue {
+        //         float32: [0.43, 0.51, 86.0, 0.2],
+        //         // float32: [0.43, 0.0, 0.0, 0.2],
+        //     },
+        // }];
+        // let render_begin2 = vk::RenderPassBeginInfo::builder()
+        //     .render_pass(self.light_map_render_pass)
+        //     .framebuffer(self.light_map_framebuffer)
+        //     .render_area(
+        //         vk::Extent2D {
+        //             width: 960,
+        //             height: 540,
+        //         }
+        //         .into(),
+        //     )
+        //     .clear_values(&clear_values);
+        // device.cmd_begin_render_pass(buffer, &render_begin2, vk::SubpassContents::INLINE);
+        // device.cmd_set_viewport(
+        //     buffer,
+        //     0,
+        //     &vec![vk::Viewport {
+        //         x: 0.0,
+        //         y: 0.0,
+        //         width: 960.0 as f32,
+        //         height: 540.0 as f32,
+        //         min_depth: 0.0,
+        //         max_depth: 1.0,
+        //     }],
+        // );
+        // device.cmd_set_scissor(
+        //     buffer,
+        //     0,
+        //     &[vk::Extent2D {
+        //         width: 960,
+        //         height: 540,
+        //     }
+        //     .into()],
+        // );
+        // let camera_descriptor = self
+        //     .spine_pipeline
+        //     .camera
+        //     .describe(vec![[ShaderData::Uniform(vk::DescriptorBufferInfo {
+        //         buffer: self.camera_buffer.buffers[self.present_index],
+        //         offset: 0,
+        //         range: std::mem::size_of::<CameraUniform>() as u64,
+        //     })]])[0];
+        // device.cmd_bind_pipeline(
+        //     buffer,
+        //     vk::PipelineBindPoint::GRAPHICS,
+        //     self.light_map_pipeline.handle,
+        // );
+        // device.cmd_bind_descriptor_sets(
+        //     buffer,
+        //     vk::PipelineBindPoint::GRAPHICS,
+        //     self.light_map_pipeline.layout,
+        //     0,
+        //     &[camera_descriptor],
+        //     &[],
+        // );
+        // device.cmd_bind_vertex_buffers(buffer, 0, &[self.sprite_vertex_buffer.bind()], &[0]);
+        // let mut previous_texture = Default::default();
+        // self.lights = vec![SpriteRenderObject {
+        //     constants: SpritePushConstants {
+        //         position: [256.0, 256.0],
+        //         size: [256.0, 256.0],
+        //         coords: [0.0, 0.0, 1.0, 1.0],
+        //         pivot: [0.5, 0.5],
+        //         highlight: 1.0,
+        //     },
+        //     texture_descriptor: self.light_map_pipeline.material.describe(vec![[
+        //         ShaderData::Texture(vk::DescriptorImageInfo {
+        //             sampler: self.lights_texture.sampler.handle,
+        //             image_view: self.lights_texture.texture.view(),
+        //             image_layout: vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
+        //         }),
+        //     ]])[0],
+        // }];
+        // for light in self.lights.iter() {
+        //     if previous_texture != light.texture_descriptor {
+        //         previous_texture = light.texture_descriptor;
+        //         device.cmd_bind_descriptor_sets(
+        //             buffer,
+        //             vk::PipelineBindPoint::GRAPHICS,
+        //             self.light_map_pipeline.layout,
+        //             1,
+        //             &[light.texture_descriptor],
+        //             &[],
+        //         );
+        //     }
+        //     self.light_map_pipeline
+        //         .push_constants(light.constants, buffer);
+        //     // device.cmd_draw(buffer, SPRITE_VERTICES.len() as u32, 1, 0, 0);
+        // }
+        // device.cmd_end_render_pass(buffer);
+        // timer.record("ligthmap", &METRIC_RENDER_SECONDS);
 
         device.cmd_begin_render_pass(buffer, &render_begin, vk::SubpassContents::INLINE);
         self.draw(device, buffer);
@@ -889,6 +998,17 @@ impl SpriteRenderer {
 
     pub unsafe fn draw(&mut self, device: &Device, buffer: vk::CommandBuffer) {
         let mut timer = Timer::now();
+        let mut uniform = LightUniform {
+            color: [[1.0; 4]; 512],
+            position: [[0.0; 4]; 512],
+        };
+        let lights = self.global_lights.split_off(0);
+        for (index, light) in lights.into_iter().enumerate() {
+            uniform.color[index] = light.color;
+            uniform.position[index] = light.position;
+        }
+        self.global_light_buffer.update(self.present_index, uniform);
+
         device.cmd_set_viewport(buffer, 0, &self.screen.viewports);
         device.cmd_set_scissor(buffer, 0, &self.screen.scissors);
         // TODO: SHARED descriptor
@@ -900,6 +1020,16 @@ impl SpriteRenderer {
                 offset: 0,
                 range: std::mem::size_of::<CameraUniform>() as u64,
             })]])[0];
+        let lights_descriptor =
+            self.sprite_pipeline
+                .data
+                .as_mut()
+                .unwrap()
+                .describe(vec![[ShaderData::Uniform(vk::DescriptorBufferInfo {
+                    buffer: self.global_light_buffer.buffers[self.present_index],
+                    offset: 0,
+                    range: std::mem::size_of::<LightUniform>() as u64,
+                })]])[0];
 
         let mut pipeline = self.ground_pipeline.perform(device, buffer);
         pipeline.bind_camera(camera_descriptor);
@@ -914,6 +1044,7 @@ impl SpriteRenderer {
 
         for line in 0..128 {
             let mut pipeline = self.sprite_pipeline.perform(device, buffer);
+            pipeline.bind_data(lights_descriptor);
             pipeline.bind_camera(camera_descriptor);
             pipeline.bind_vertex_buffer(&self.sprite_vertex_buffer);
             let mut previous_texture = Default::default();
@@ -941,7 +1072,8 @@ impl SpriteRenderer {
                 ]);
                 pipeline.bind_data(spine.lights_descriptor);
                 pipeline.push_constants(spine.constants);
-                pipeline.draw(spine.counters.len() * 6);
+                let indices: usize = spine.meshes.iter().map(|mesh| *mesh).sum();
+                pipeline.draw(indices);
             }
             // timer.record("spine", &METRIC_RENDER_SECONDS);
         }
@@ -965,7 +1097,7 @@ pub struct SpineSpriteController {
     pub mega_buffer: VertexBuffer,
     pub mega_index_buffer: IndexBuffer,
     pub mega_texture: TextureAsset,
-    pub counters: Vec<(u32, u32)>,
+    pub meshes: Vec<usize>,
     colors: [[f32; 4]; 4],
     lights_buffer: UniformBuffer,
 }
@@ -984,12 +1116,12 @@ pub struct SpineRenderObject {
     texture: TextureAsset,
     position: [f32; 2],
     colors: [[f32; 4]; 4],
-    pub counters: Vec<(u32, u32)>,
+    pub meshes: Vec<usize>,
     constants: SpinePushConstants,
     lights_descriptor: vk::DescriptorSet,
 }
 
-pub struct Sprite {
+pub struct SpriteRenderObject {
     constants: SpritePushConstants,
     texture_descriptor: vk::DescriptorSet,
 }
@@ -1145,4 +1277,9 @@ pub struct GroundUniform {
 pub struct SpineUniform {
     pub color: [[f32; 4]; 16],
     pub position: [[f32; 4]; 16],
+}
+
+pub struct Light {
+    pub color: [f32; 4],
+    pub position: [f32; 4],
 }
