@@ -1,10 +1,15 @@
 use datamap::Storage;
 pub use domains::*;
 
-use crate::api::{Action, Event};
-use crate::building::{encode_platform_map, Building, BuildingDomain, PlatformId};
-use crate::model::Farmer;
-use crate::model::FarmerId;
+use crate::api::ActionError::{
+    ConstructionContainerNotFound, ConstructionContainerNotInitialized,
+    ConstructionContainsUnexpectedItem, FarmerBodyNotFound, PlayerFarmerNotFound,
+};
+use crate::api::{occur, Action, ActionError, Event};
+use crate::building::{encode_platform_map, Building, BuildingDomain, GridId};
+use crate::inventory::{ContainerKey, Function, InventoryDomain};
+use crate::model::{Construction, Farmer};
+use crate::model::{FarmerId, Theodolite, Tile};
 
 use crate::model::FarmerKind;
 use crate::model::Farmland;
@@ -15,7 +20,7 @@ use crate::model::Tree;
 use crate::model::TreeId;
 
 use crate::model::TreeKind;
-use crate::model::Universe;
+use crate::model::UniverseDomain;
 use crate::model::UniverseSnapshot;
 use crate::physics::{Physics, PhysicsDomain};
 use crate::planting::{Planting, PlantingDomain};
@@ -28,20 +33,22 @@ pub mod math;
 pub mod model;
 
 pub struct Game {
-    pub universe: Universe,
+    pub universe: UniverseDomain,
     physics: PhysicsDomain,
     planting: PlantingDomain,
     building: BuildingDomain,
+    inventory: InventoryDomain,
     storage: Storage,
 }
 
 impl Game {
     pub fn new(storage: Storage) -> Self {
         Self {
-            universe: Universe::default(),
+            universe: UniverseDomain::default(),
             physics: PhysicsDomain::default(),
             planting: PlantingDomain::default(),
             building: BuildingDomain::default(),
+            inventory: InventoryDomain::default(),
             storage,
         }
     }
@@ -49,10 +56,17 @@ impl Game {
     pub fn perform_action(
         &mut self,
         player: &String,
-        _action_id: usize,
         action: Action,
-    ) -> Vec<Event> {
+    ) -> Result<Vec<Event>, ActionError> {
         let mut events = vec![];
+        let farmer = self
+            .universe
+            .farmers
+            .iter()
+            .find(|farmer| &farmer.player == player)
+            .ok_or(PlayerFarmerNotFound(player.to_string()))?;
+        let farmer = farmer.id;
+        let farmland = self.universe.farmlands[0].id;
         match action {
             Action::DoSomething => {}
             Action::DoAnything { .. } => {}
@@ -72,24 +86,67 @@ impl Game {
                 }
             }
             Action::BuildWall { cell } => {
-                let platform_id = PlatformId(0);
-                let my_events = self.building.create_wall(platform_id, cell);
-                for event in my_events {
-                    match event {
-                        Building::PlatformChanged {
-                            platform,
-                            map,
-                            shapes,
-                        } => events.push(Event::FarmlandPlatformUpdated {
-                            id: platform.into(),
-                            platform: encode_platform_map(map),
-                            platform_shapes: shapes,
-                        }),
-                    }
+                unimplemented!()
+            }
+            Action::Construct { construction } => {
+                events.extend(self.construct(farmer, farmland, construction)?)
+            }
+        }
+        Ok(events)
+    }
+
+    fn survey(
+        &mut self,
+        farmer: FarmerId,
+        theodolite: Theodolite,
+        target: Tile,
+    ) -> Result<Vec<Event>, ActionError> {
+        let surveying = self
+            .building
+            .survey(theodolite.surveyor, [target.x, target.y])?;
+
+        let container_kind = self
+            .inventory
+            .known_containers
+            .get(&ContainerKey(0))
+            .unwrap();
+        let container_creation = self.inventory.create_container(container_kind.clone())?;
+        let construction_creation = self
+            .universe
+            .aggregate_to_construction(container_creation.container.id, surveying.cell)?;
+
+        let mut events: Vec<Event> = vec![];
+        events.extend(occur(surveying.complete()));
+        events.extend(occur(container_creation.complete()));
+        events.extend(construction_creation.complete());
+        Ok(events)
+    }
+
+    fn construct(
+        &mut self,
+        farmer: FarmerId,
+        farmland: FarmlandId,
+        construction: Construction,
+    ) -> Result<Vec<Event>, ActionError> {
+        let body = self
+            .physics
+            .get_body(farmer.into())
+            .ok_or(FarmerBodyNotFound(farmer))?;
+
+        let usage = self.inventory.use_items_from(construction.container)?;
+
+        let mut keywords = vec![];
+        for item in usage.items() {
+            for function in &item.kind.functions {
+                if let Function::Material { keyword } = function {
+                    keywords.push(keyword);
+                } else {
+                    return Err(ConstructionContainsUnexpectedItem(construction));
                 }
             }
         }
-        events
+
+        Ok(vec![])
     }
 
     pub fn update(&mut self, time: f32) -> Vec<Event> {
@@ -137,8 +194,8 @@ impl Game {
                     id: farmland.id,
                     kind: farmland.kind.id,
                     map: land.map.clone(),
-                    platform: encode_platform_map(platform.map),
-                    platform_shapes: platform.shapes.clone(),
+                    platform: encode_platform_map(platform.cells),
+                    platform_shapes: platform.rooms.clone(),
                 })
             }
         }

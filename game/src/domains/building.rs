@@ -2,28 +2,33 @@ use crate::collections::Shared;
 use std::collections::HashMap;
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
-pub struct PlatformKey(pub usize);
+pub struct GridKey(pub usize);
 
-#[derive(Clone, Copy, Default, Debug)]
-pub struct PlatformCell {
+#[derive(Clone, Copy, PartialEq, Eq, Hash, Default, Debug, bincode::Encode, bincode::Decode)]
+pub struct Material(pub u8);
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
+pub struct GridIndex(pub usize, pub usize);
+
+#[derive(Clone, Copy, Default, Debug, bincode::Encode, bincode::Decode)]
+pub struct Cell {
     pub wall: bool,
     pub inner: bool,
     pub door: bool,
     pub window: bool,
+    pub material: Material,
 }
 
-pub type Cell = [usize; 2];
-
-pub struct PlatformKind {
-    pub id: PlatformKey,
+pub struct GridKind {
+    pub id: GridKey,
     pub name: String,
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
-pub struct PlatformId(pub usize);
+#[derive(Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
+pub struct GridId(pub usize);
 
 #[derive(Debug, Default, Clone, bincode::Encode, bincode::Decode)]
-pub struct Shape {
+pub struct Room {
     pub id: usize,
     pub contour: bool,
     pub rows_y: usize,
@@ -31,69 +36,142 @@ pub struct Shape {
     pub active: bool,
 }
 
-impl Shape {
+impl Room {
     pub const EXTERIOR_ID: usize = 0;
 }
 
-pub struct Platform {
-    pub id: PlatformId,
-    pub kind: Shared<PlatformKind>,
-    pub map: [[PlatformCell; Platform::SIZE_X]; Platform::SIZE_Y],
-    pub shapes: Vec<Shape>,
+pub struct Grid {
+    pub id: GridId,
+    pub kind: Shared<GridKind>,
+    pub cells: [[Cell; Grid::COLUMNS]; Grid::ROWS],
+    pub rooms: Vec<Room>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
+pub struct SurveyorId(usize);
+
+pub struct Surveyor {
+    id: SurveyorId,
+    grid: GridId,
+}
+
+pub struct Surveying<'action> {
+    grid: &'action mut Grid,
+    pub cell: GridIndex,
+}
+
+impl<'action> Surveying<'action> {
+    pub fn complete(self) -> Vec<Building> {
+        let (column, row) = (self.cell.0, self.cell.1);
+        self.grid.cells[column][row].window = true;
+        vec![]
+    }
+}
+
+#[derive(bincode::Encode, bincode::Decode)]
+pub enum Building {
+    GridChanged {
+        grid: GridId,
+        cells: [[Cell; Grid::COLUMNS]; Grid::ROWS],
+        rooms: Vec<Room>,
+    },
+}
+
+#[derive(Debug, bincode::Encode, bincode::Decode)]
+pub enum BuildingError {
+    Occupied { cell: [usize; 2] },
 }
 
 #[derive(Default)]
 pub struct BuildingDomain {
-    pub known_platforms: HashMap<PlatformKey, Shared<PlatformKind>>,
-    pub platforms: Vec<Platform>,
-}
-
-pub enum Building {
-    PlatformChanged {
-        platform: PlatformId,
-        map: [[PlatformCell; Platform::SIZE_X]; Platform::SIZE_Y],
-        shapes: Vec<Shape>,
-    },
+    pub known_grids: HashMap<GridKey, Shared<GridKind>>,
+    pub grids: Vec<Grid>,
+    pub surveyors: Vec<Surveyor>,
 }
 
 impl BuildingDomain {
-    pub fn get_platform(&self, id: PlatformId) -> Option<&Platform> {
-        self.platforms.iter().find(|platform| platform.id == id)
+    pub fn get_platform(&self, id: GridId) -> Option<&Grid> {
+        self.grids.iter().find(|platform| platform.id == id)
     }
 
-    pub fn create_platform(&mut self, id: PlatformId, kind: Shared<PlatformKind>) {
-        self.platforms.push(Platform {
+    #[inline]
+    pub fn get_grid(&self, id: GridId) -> &Grid {
+        &self.grids[id.0]
+    }
+
+    pub fn create_platform(&mut self, id: GridId, kind: Shared<GridKind>) {
+        self.grids.push(Grid {
             id,
             kind,
-            map: [[PlatformCell::default(); Platform::SIZE_X]; Platform::SIZE_Y],
-            shapes: vec![],
+            cells: [[Cell::default(); Grid::COLUMNS]; Grid::ROWS],
+            rooms: vec![],
         })
     }
 
-    pub fn create_wall(&mut self, platform_id: PlatformId, cell: Cell) -> Vec<Building> {
-        let platform = self.platforms.get_mut(platform_id.0).unwrap();
+    #[inline]
+    pub fn create_surveyor(&self, grid: GridId) -> Result<Surveyor, BuildingError> {
+        Ok(Surveyor {
+            id: SurveyorId(self.surveyors.len()),
+            grid,
+        })
+    }
+
+    // #[inline]
+    // pub fn complete_surveyor_creation(&mut self, surveyor: Surveyor) {
+    //     self.surveyors[surveyor.id.0] = surveyor
+    // }
+
+    #[inline]
+    pub fn get_surveyor(&self, id: SurveyorId) -> &Surveyor {
+        &self.surveyors[id.0]
+    }
+
+    pub fn survey(
+        &mut self,
+        surveyor: SurveyorId,
+        cell: [usize; 2],
+    ) -> Result<Surveying, BuildingError> {
+        let surveyor = self.get_surveyor(surveyor).grid.0;
+        let grid = &mut self.grids[surveyor];
+        let [column, row] = cell;
+        if grid.cells[row][column].wall {
+            return Err(BuildingError::Occupied { cell });
+        }
+        Ok(Surveying {
+            grid,
+            cell: GridIndex(column, row),
+        })
+    }
+
+    pub fn create_wall(
+        &mut self,
+        platform_id: GridId,
+        cell: [usize; 2],
+        material: Material,
+    ) -> Vec<Building> {
+        let platform = self.grids.get_mut(platform_id.0).unwrap();
         let [cell_x, cell_y] = cell;
-        platform.map[cell_y][cell_x].wall = true;
-        platform.shapes = Platform::calculate_shapes(&platform.map);
-        vec![Building::PlatformChanged {
-            platform: platform_id,
-            map: platform.map.clone(),
-            shapes: platform.shapes.clone(),
+        platform.cells[cell_y][cell_x].wall = true;
+        platform.rooms = Grid::calculate_shapes(&platform.cells);
+        vec![Building::GridChanged {
+            grid: platform_id,
+            cells: platform.cells.clone(),
+            rooms: platform.rooms.clone(),
         }]
     }
 }
 
-impl Platform {
-    pub const SIZE_X: usize = 128;
-    pub const SIZE_Y: usize = 128;
+impl Grid {
+    pub const COLUMNS: usize = 128;
+    pub const ROWS: usize = 128;
 
-    pub fn default_map() -> [[PlatformCell; Platform::SIZE_X]; Platform::SIZE_Y] {
-        [[PlatformCell::default(); Platform::SIZE_X]; Platform::SIZE_Y]
+    pub fn default_map() -> [[Cell; Grid::COLUMNS]; Grid::ROWS] {
+        [[Cell::default(); Grid::COLUMNS]; Grid::ROWS]
     }
 
-    fn grow_shapes(shapes: &mut Vec<Shape>) {
+    fn grow_shapes(shapes: &mut Vec<Room>) {
         for shape in shapes {
-            if shape.id == Shape::EXTERIOR_ID {
+            if shape.id == Room::EXTERIOR_ID {
                 continue;
             }
             // grow vertically
@@ -132,7 +210,7 @@ impl Platform {
         }
     }
 
-    fn merge_shapes(merges: Vec<[usize; 2]>, mut shapes: Vec<Shape>) -> Vec<Shape> {
+    fn merge_shapes(merges: Vec<[usize; 2]>, mut shapes: Vec<Room>) -> Vec<Room> {
         if !merges.is_empty() {
             let mut to_delete = vec![];
             for [source, destination] in merges {
@@ -170,7 +248,7 @@ impl Platform {
 
     fn apply_expansion(
         y: usize,
-        mut shapes: &mut Vec<Shape>,
+        mut shapes: &mut Vec<Room>,
         shape_id: &mut usize,
         expansions: Vec<u128>,
     ) -> Vec<[usize; 2]> {
@@ -179,7 +257,7 @@ impl Platform {
         let mut trunk = HashMap::new();
         for shape in 0..expansions.len() {
             if shape >= shapes_before {
-                shapes.push(Shape {
+                shapes.push(Room {
                     id: *shape_id,
                     contour: false,
                     rows_y: y,
@@ -240,7 +318,7 @@ impl Platform {
         appends
     }
 
-    pub fn merge_shapes_into_buildings(mut shapes: Vec<Shape>) -> Vec<Shape> {
+    pub fn merge_shapes_into_buildings(mut shapes: Vec<Room>) -> Vec<Room> {
         loop {
             let mut merge = None;
             'collision_detection: for source_index in 1..shapes.len() {
@@ -273,23 +351,21 @@ impl Platform {
         shapes
     }
 
-    pub fn calculate_shapes(
-        map: &[[PlatformCell; Platform::SIZE_X]; Platform::SIZE_Y],
-    ) -> Vec<Shape> {
-        let exterior_shape = Shape {
-            id: Shape::EXTERIOR_ID,
+    pub fn calculate_shapes(map: &[[Cell; Grid::COLUMNS]; Grid::ROWS]) -> Vec<Room> {
+        let exterior_shape = Room {
+            id: Room::EXTERIOR_ID,
             contour: false,
             rows_y: 0,
             rows: vec![u128::MAX],
             active: true,
         };
         let mut unique_id = 1;
-        let mut shapes: Vec<Shape> = vec![exterior_shape];
-        for y in 1..Platform::SIZE_Y {
+        let mut shapes: Vec<Room> = vec![exterior_shape];
+        for y in 1..Grid::ROWS {
             let mut row = 0;
-            for x in 0..Platform::SIZE_X {
+            for x in 0..Grid::COLUMNS {
                 if !map[y][x].wall {
-                    row = row | 1 << (Platform::SIZE_X - x - 1);
+                    row = row | 1 << (Grid::COLUMNS - x - 1);
                 }
             }
             let shapes_above_row: Vec<u128> = shapes
@@ -309,9 +385,7 @@ impl Platform {
     }
 }
 
-pub fn encode_platform_map(
-    map: [[PlatformCell; Platform::SIZE_X]; Platform::SIZE_Y],
-) -> Vec<Vec<u32>> {
+pub fn encode_platform_map(map: [[Cell; Grid::COLUMNS]; Grid::ROWS]) -> Vec<Vec<u32>> {
     let mut data = vec![];
     for line in map {
         data.push(
@@ -328,7 +402,7 @@ pub fn encode_platform_map(
     data
 }
 
-pub fn decode_platform_map(data: Vec<Vec<u32>>) -> Vec<Vec<PlatformCell>> {
+pub fn decode_platform_map(data: Vec<Vec<u32>>) -> Vec<Vec<Cell>> {
     let mut map = vec![];
     for line in data {
         map.push(
@@ -340,11 +414,12 @@ pub fn decode_platform_map(data: Vec<Vec<u32>>) -> Vec<Vec<PlatformCell>> {
                     let door = code.chars().nth(2) == Some('1');
                     let window = code.chars().nth(3) == Some('1');
 
-                    PlatformCell {
+                    Cell {
                         wall,
                         inner,
                         door,
                         window,
+                        material: Default::default(),
                     }
                 })
                 .collect(),

@@ -1,8 +1,7 @@
 use ash::prelude::VkResult;
 use ash::{vk, Device};
-use game::building::{Platform, Shape};
+use game::building::{Grid, Room};
 use game::math::VectorMath;
-use game::planting::Cell;
 use glam::{vec3, Mat4, Vec3};
 use lazy_static::lazy_static;
 use log::{error, info};
@@ -462,12 +461,12 @@ impl SpriteRenderer {
         &mut self,
         texture: TextureAsset,
         sampler: SamplerAsset,
-        input: &Vec<Vec<Cell>>,
-        shapes: &Vec<Shape>,
+        input: &Vec<Vec<[f32; 2]>>,
+        shapes: &Vec<Room>,
     ) {
-        let mut global_interior_map = [0u128; Platform::SIZE_Y];
+        let mut global_interior_map = [0u128; Grid::ROWS];
         for shape in shapes {
-            if shape.id == Shape::EXTERIOR_ID {
+            if shape.id == Room::EXTERIOR_ID {
                 continue;
             }
             for (i, row) in shape.rows.iter().enumerate() {
@@ -494,7 +493,7 @@ impl SpriteRenderer {
                 let iy = y + step_y as usize;
                 let ix = x + step_x as usize;
                 let [capacity, moisture] = input[iy][ix];
-                let pos = 1 << (Platform::SIZE_X - ix - 1);
+                let pos = 1 << (Grid::COLUMNS - ix - 1);
                 let visible = if global_interior_map[iy] & pos == pos {
                     1.0
                 } else {
@@ -534,12 +533,12 @@ impl SpriteRenderer {
         &mut self,
         texture: TextureAsset,
         sampler: SamplerAsset,
-        input: &Vec<Vec<Cell>>,
-        shapes: &Vec<Shape>,
+        input: &Vec<Vec<[f32; 2]>>,
+        shapes: &Vec<Room>,
     ) {
-        let mut global_interior_map = [0u128; Platform::SIZE_Y];
+        let mut global_interior_map = [0u128; Grid::ROWS];
         for shape in shapes {
-            if shape.id == Shape::EXTERIOR_ID {
+            if shape.id == Room::EXTERIOR_ID {
                 continue;
             }
             for (i, row) in shape.rows.iter().enumerate() {
@@ -566,7 +565,7 @@ impl SpriteRenderer {
                 let iy = y + step_y as usize;
                 let ix = x + step_x as usize;
                 let [capacity, moisture] = input[iy][ix];
-                let pos = 1 << (Platform::SIZE_X - ix - 1);
+                let pos = 1 << (Grid::COLUMNS - ix - 1);
                 let visible = if global_interior_map[iy] & pos == pos {
                     1.0
                 } else {
@@ -606,13 +605,13 @@ impl SpriteRenderer {
         &mut self,
         texture: TextureAsset,
         sampler: SamplerAsset,
-        input: &Vec<Vec<Cell>>,
-        shapes: &Vec<Shape>,
+        input: &Vec<Vec<[f32; 2]>>,
+        shapes: &Vec<Room>,
         exclude_shape: usize,
     ) {
-        let mut global_interior_map = [0u128; Platform::SIZE_Y];
+        let mut global_interior_map = [0u128; Grid::ROWS];
         for shape in shapes {
-            if shape.id == Shape::EXTERIOR_ID || shape.id == exclude_shape {
+            if shape.id == Room::EXTERIOR_ID || shape.id == exclude_shape {
                 continue;
             }
             for (i, row) in shape.rows.iter().enumerate() {
@@ -640,7 +639,7 @@ impl SpriteRenderer {
                 let iy = y + step_y as usize;
                 let ix = x + step_x as usize;
                 let [capacity, moisture] = input[iy][ix];
-                let pos = 1 << (Platform::SIZE_X - ix - 1);
+                let pos = 1 << (Grid::COLUMNS - ix - 1);
                 let visible = if global_interior_map[iy] & pos == pos {
                     1.0
                 } else {
@@ -1056,7 +1055,6 @@ impl SpriteRenderer {
                 pipeline.push_constants(sprite.constants);
                 pipeline.draw_vertices(self.sprite_vertex_buffer.vertices);
             }
-            // timer.record("static", &METRIC_RENDER_SECONDS);
 
             let mut pipeline = self.spine_pipeline.perform(device, buffer);
             pipeline.bind_camera(camera_descriptor);
@@ -1073,9 +1071,8 @@ impl SpriteRenderer {
                 pipeline.bind_data(spine.lights_descriptor);
                 pipeline.push_constants(spine.constants);
                 let indices: usize = spine.meshes.iter().map(|mesh| *mesh).sum();
-                pipeline.draw(indices);
+                // pipeline.draw(indices);
             }
-            // timer.record("spine", &METRIC_RENDER_SECONDS);
         }
         timer.record("static+spine", &METRIC_RENDER_SECONDS);
 

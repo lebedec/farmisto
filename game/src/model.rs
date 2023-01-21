@@ -1,7 +1,9 @@
+use crate::api::Event;
+use crate::building::{GridId, GridIndex, Surveyor, SurveyorId};
 use std::collections::{HashMap, HashSet};
-use crate::building::PlatformId;
 
 use crate::collections::Shared;
+use crate::inventory::{ContainerId, ItemId};
 use crate::physics::{BarrierId, BarrierKey, BodyId, BodyKey, SpaceId, SpaceKey};
 use crate::planting::{LandId, LandKey, PlantId, PlantKey};
 
@@ -13,12 +15,46 @@ pub struct KnowledgeBase {
 }
 
 #[derive(Default)]
-pub struct Universe {
+pub struct UniverseDomain {
     pub id: usize,
     pub known: KnowledgeBase,
     pub farmlands: Vec<Farmland>,
     pub trees: Vec<Tree>,
     pub farmers: Vec<Farmer>,
+    pub constructions: Vec<Construction>,
+}
+
+#[derive(Debug, bincode::Encode, bincode::Decode)]
+pub enum UniverseError {}
+
+pub struct ConstructionAggregation<'action> {
+    construction: Construction,
+    constructions: &'action mut Vec<Construction>,
+}
+
+impl<'action> ConstructionAggregation<'action> {
+    pub fn complete(self) -> Vec<Event> {
+        let events = vec![];
+        self.constructions.push(self.construction);
+        events
+    }
+}
+
+impl UniverseDomain {
+    pub(crate) fn aggregate_to_construction(
+        &mut self,
+        container: ContainerId,
+        cell: GridIndex,
+    ) -> Result<ConstructionAggregation, UniverseError> {
+        Ok(ConstructionAggregation {
+            construction: Construction {
+                id: self.constructions.len(),
+                container,
+                cell,
+            },
+            constructions: &mut self.constructions,
+        })
+    }
 }
 
 #[derive(Default)]
@@ -119,7 +155,7 @@ impl From<FarmlandId> for LandId {
     }
 }
 
-impl From<FarmlandId> for PlatformId {
+impl From<FarmlandId> for GridId {
     fn from(id: FarmlandId) -> Self {
         Self(id.0)
     }
@@ -131,8 +167,8 @@ impl From<LandId> for FarmlandId {
     }
 }
 
-impl From<PlatformId> for FarmlandId {
-    fn from(id: PlatformId) -> Self {
+impl From<GridId> for FarmlandId {
+    fn from(id: GridId) -> Self {
         Self(id.0)
     }
 }
@@ -140,4 +176,29 @@ impl From<PlatformId> for FarmlandId {
 pub struct Farmland {
     pub id: FarmlandId,
     pub kind: Shared<FarmlandKind>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
+pub struct Construction {
+    pub id: usize,
+    pub container: ContainerId,
+    pub cell: GridIndex,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
+pub struct Theodolite {
+    pub id: usize,
+    pub surveyor: SurveyorId,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
+pub struct Tile {
+    pub x: usize,
+    pub y: usize,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, bincode::Encode, bincode::Decode)]
+pub struct Position {
+    pub x: f32,
+    pub y: f32,
 }

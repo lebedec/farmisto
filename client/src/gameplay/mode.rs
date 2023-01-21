@@ -238,34 +238,34 @@ impl Gameplay {
                 ];
                 let pool = 256;
                 let mut variant = 0;
-                for y in 0..max_y {
-                    for x in 0..max_x {
-                        let c0 = variant / 64;
-                        let c1 = (variant % 64) / 16;
-                        let c2 = (variant % 16) / 4;
-                        let c3 = variant % 4;
-                        variant = ((5 * variant) + 1) % pool;
-                        let asset = asset.share();
-                        let variant = x + y * max_x;
-                        let head = format!("head/head-{}", variant % 4);
-                        let tile = format!("tail/tail-{}", variant % 3);
-                        let sprite = frame.sprites.instantiate(
-                            &asset,
-                            [head, tile],
-                            [colors[c0], colors[c1], colors[c2], colors[c3]],
-                        );
-                        let position = [
-                            64.0 + 128.0 + 128.0 * x as f32,
-                            64.0 + 256.0 + 128.0 * y as f32,
-                        ];
-                        self.farmers2d.push(Farmer2d {
-                            asset,
-                            sprite,
-                            position,
-                            variant,
-                        });
-                    }
-                }
+                // for y in 0..max_y {
+                //     for x in 0..max_x {
+                //         let c0 = variant / 64;
+                //         let c1 = (variant % 64) / 16;
+                //         let c2 = (variant % 16) / 4;
+                //         let c3 = variant % 4;
+                //         variant = ((5 * variant) + 1) % pool;
+                //         let asset = asset.share();
+                //         let variant = x + y * max_x;
+                //         let head = format!("head/head-{}", variant % 4);
+                //         let tile = format!("tail/tail-{}", variant % 3);
+                //         let sprite = frame.sprites.instantiate(
+                //             &asset,
+                //             [head, tile],
+                //             [colors[c0], colors[c1], colors[c2], colors[c3]],
+                //         );
+                //         let position = [
+                //             64.0 + 128.0 + 128.0 * x as f32,
+                //             64.0 + 256.0 + 128.0 * y as f32,
+                //         ];
+                //         self.farmers2d.push(Farmer2d {
+                //             asset,
+                //             sprite,
+                //             position,
+                //             variant,
+                //         });
+                //     }
+                // }
 
                 let asset = assets.farmer(&kind.name);
 
@@ -344,6 +344,12 @@ impl Gameplay {
                 });
             }
             Event::FarmlandPlatformUpdated { .. } => {}
+            Event::Building(_) => {
+                unimplemented!()
+            }
+            Event::Inventory(_) => {
+                unimplemented!()
+            }
         }
     }
 
@@ -359,6 +365,9 @@ impl Gameplay {
                 }
                 GameResponse::Login { result } => {
                     error!("Unexpected game login response result={:?}", result);
+                }
+                GameResponse::ActionError { action_id, error } => {
+                    error!("Action {} error {:?}", action_id, error);
                 }
             }
         }

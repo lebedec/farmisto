@@ -3,7 +3,7 @@ use std::io::Cursor;
 
 use datamap::{Entry, Operation};
 
-use crate::building::{Platform, PlatformCell, PlatformId, PlatformKey, PlatformKind};
+use crate::building::{Cell, Grid, GridId, GridKey, GridKind};
 use crate::collections::Shared;
 use crate::model::{FarmerKey, FarmlandKey, TreeKey, UniverseSnapshot};
 use crate::physics::{
@@ -101,10 +101,10 @@ impl Game {
                 .insert(plant.id, Shared::new(plant));
         }
 
-        for entry in self.storage.fetch_all::<PlatformKind>().into_iter() {
+        for entry in self.storage.fetch_all::<GridKind>().into_iter() {
             let platform = self.load_platform_kind(entry).unwrap();
             self.building
-                .known_platforms
+                .known_grids
                 .insert(platform.id, Shared::new(platform));
         }
 
@@ -156,7 +156,7 @@ impl Game {
             self.planting.plants[plant.land.0].push(plant);
         }
         // building
-        self.building.platforms = self
+        self.building.grids = self
             .storage
             .open_into()
             .fetch_all_map(|row| self.load_platform(row).unwrap());
@@ -367,46 +367,44 @@ impl Game {
     pub(crate) fn load_platform_kind(
         &mut self,
         entry: Entry,
-    ) -> Result<PlatformKind, serde_json::Error> {
+    ) -> Result<GridKind, serde_json::Error> {
         let id = entry.get("id")?;
-        let data = PlatformKind {
-            id: PlatformKey(id),
+        let data = GridKind {
+            id: GridKey(id),
             name: entry.get("name")?,
         };
         Ok(data)
     }
 
-    pub(crate) fn load_platform(
-        &mut self,
-        row: &rusqlite::Row,
-    ) -> Result<Platform, rusqlite::Error> {
+    pub(crate) fn load_platform(&mut self, row: &rusqlite::Row) -> Result<Grid, rusqlite::Error> {
         let id = row.get("id")?;
         let kind = row.get("kind")?;
         let map: Vec<u8> = row.get("map")?;
         let mut unpacker = Unpacker::new(map);
         let [size_y, size_x]: [u32; 2] = unpacker.read();
-        let mut map = [[PlatformCell::default(); 128]; 128];
+        let mut map = [[Cell::default(); 128]; 128];
         for y in 0..size_y {
             for x in 0..size_x {
                 let [wall, inner, door, window]: [u8; 4] = unpacker.read();
-                map[y as usize][x as usize] = PlatformCell {
+                map[y as usize][x as usize] = Cell {
                     wall: wall == 1,
                     inner: inner == 1,
                     door: door == 1,
                     window: window == 1,
+                    material: Default::default(),
                 };
             }
         }
-        let data = Platform {
-            id: PlatformId(id),
+        let data = Grid {
+            id: GridId(id),
             kind: self
                 .building
-                .known_platforms
-                .get(&PlatformKey(kind))
+                .known_grids
+                .get(&GridKey(kind))
                 .unwrap()
                 .clone(),
-            map,
-            shapes: Platform::calculate_shapes(&map),
+            cells: map,
+            rooms: Grid::calculate_shapes(&map),
         };
         Ok(data)
     }

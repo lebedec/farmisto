@@ -1,5 +1,5 @@
 use datamap::Storage;
-use game::api::{GameResponse, PlayerRequest};
+use game::api::{ActionError, Event, GameResponse, PlayerRequest};
 use game::model::UniverseSnapshot;
 use game::Game;
 use log::info;
@@ -46,8 +46,15 @@ impl LocalServerThread {
                     match request.request {
                         PlayerRequest::Heartbeat => {}
                         PlayerRequest::Perform { action, action_id } => {
-                            let events = game.perform_action(&request.player, action_id, action);
-                            server.broadcast(GameResponse::Events { events });
+                            match game.perform_action(&request.player, action) {
+                                Ok(events) => {
+                                    server.broadcast(GameResponse::Events { events });
+                                }
+                                Err(error) => server.send(
+                                    request.player,
+                                    GameResponse::ActionError { action_id, error },
+                                ),
+                            }
                         }
                         _ => {
                             info!("Request [{}]: {:?}", request.player, request.request);

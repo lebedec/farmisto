@@ -33,12 +33,10 @@ pub struct LandKind {
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct LandId(pub usize);
 
-pub type Cell = [f32; 2];
-
 pub struct Land {
     pub id: LandId,
     pub kind: Shared<LandKind>,
-    pub map: Vec<Vec<Cell>>,
+    pub map: Vec<Vec<[f32; 2]>>,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
@@ -61,7 +59,7 @@ pub struct Plant {
 }
 
 pub enum Planting {
-    LandChanged { id: LandId, map: Vec<Vec<Cell>> },
+    LandChanged { id: LandId, map: Vec<Vec<[f32; 2]>> },
 }
 
 impl PlantingDomain {

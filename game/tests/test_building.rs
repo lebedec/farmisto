@@ -1,13 +1,11 @@
-use game::building::{
-    BuildingDomain, Platform, PlatformCell, PlatformId, PlatformKey, PlatformKind, Shape,
-};
+use game::building::{BuildingDomain, Cell, Grid, GridId, GridKey, GridKind, Room};
 use game::collections::Shared;
 use std::collections::{HashMap, HashSet};
 use std::time::Instant;
 
 #[test]
 fn test_something() {
-    let mut map = Platform::default_map();
+    let mut map = Grid::default_map();
     let def_map = r#"
     . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
     . . # # # # # # # . . . . . . # # # # # # . . . . . . . . . . .
@@ -53,7 +51,7 @@ fn test_something() {
         .count();
     for (y, line) in def_map.lines().skip(1).enumerate() {
         for (x, code) in line.trim().split_whitespace().enumerate() {
-            map[y][x] = PlatformCell {
+            map[y][x] = Cell {
                 wall: code == "#",
                 inner: false,
                 door: false,
@@ -63,7 +61,7 @@ fn test_something() {
     }
 
     let t1 = Instant::now();
-    let shapes = Platform::calculate_shapes(&map);
+    let shapes = Grid::calculate_shapes(&map);
 
     println!("elapsed: {}", t1.elapsed().as_secs_f64());
     println!("shapes: {:?}", shapes.len());
@@ -75,7 +73,7 @@ fn test_something() {
             "shape {} contour:{} interior:{} y:{} rows:{}",
             shape.id,
             shape.contour,
-            (shape.id != Shape::EXTERIOR_ID && !shape.contour),
+            (shape.id != Room::EXTERIOR_ID && !shape.contour),
             shape.rows_y,
             shape.rows.len(),
         );
@@ -87,7 +85,7 @@ fn test_something() {
             };
 
             for x in 0..def_x {
-                let cell = 1 << (Platform::SIZE_X - x - 1);
+                let cell = 1 << (Grid::COLUMNS - x - 1);
                 let code = if row & cell == cell { "." } else { "#" };
                 print!(" {}", code);
             }
@@ -421,8 +419,8 @@ fn test_shapes_in_room_two_divisions() {
 
 struct BuildingTestScenario {
     domain: BuildingDomain,
-    platforms: HashMap<String, PlatformId>,
-    platform_kinds: HashMap<String, PlatformKey>,
+    platforms: HashMap<String, GridId>,
+    platform_kinds: HashMap<String, GridKey>,
 }
 
 impl BuildingTestScenario {
@@ -435,10 +433,10 @@ impl BuildingTestScenario {
     }
 
     pub fn given_platform_kind(mut self, platform_kind: &str) -> Self {
-        let platform_key = PlatformKey(0);
-        self.domain.known_platforms.insert(
+        let platform_key = GridKey(0);
+        self.domain.known_grids.insert(
             platform_key,
-            Shared::new(PlatformKind {
+            Shared::new(GridKind {
                 id: platform_key,
                 name: platform_kind.to_string(),
             }),
@@ -449,12 +447,12 @@ impl BuildingTestScenario {
     }
 
     pub fn given_platform(mut self, kind: &str, platform: &str) -> Self {
-        let platform_id = PlatformId(0);
+        let platform_id = GridId(0);
         let platform_key = self.platform_kinds.get(kind).unwrap();
         self.domain.create_platform(
             platform_id,
             self.domain
-                .known_platforms
+                .known_grids
                 .get(&platform_key)
                 .unwrap()
                 .clone(),
