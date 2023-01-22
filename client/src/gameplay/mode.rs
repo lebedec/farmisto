@@ -8,7 +8,7 @@ use crate::{Frame, Mode, SceneRenderer};
 use datamap::Storage;
 use game::api::{Action, Event, GameResponse, PlayerRequest};
 use game::math::{detect_collision, VectorMath};
-use game::model::{FarmerId, FarmlandId, TreeId};
+use game::model::{Farmer, Farmland, Tree, Universe};
 use game::Game;
 use glam::{vec3, Mat4, Vec2, Vec3};
 use log::{error, info};
@@ -17,7 +17,13 @@ use sdl2::keyboard::Keycode;
 use server::LocalServerThread;
 use std::collections::HashMap;
 
-use game::building::decode_platform_map;
+use game::building::Building;
+use game::model::Universe::{
+    BarrierHintAppeared, FarmerAppeared, FarmerVanished, FarmlandAppeared, FarmlandVanished,
+    TreeAppeared, TreeVanished,
+};
+use game::physics::Physics;
+use game::planting::Planting;
 use lazy_static::lazy_static;
 
 lazy_static! {
@@ -38,9 +44,9 @@ pub struct Gameplay {
     action_id: usize,
     pub knowledge: Game,
     pub barriers: Vec<BarrierHint>,
-    pub farmlands: HashMap<FarmlandId, FarmlandBehaviour>,
-    pub trees: HashMap<TreeId, TreeBehaviour>,
-    pub farmers: HashMap<FarmerId, FarmerBehaviour>,
+    pub farmlands: HashMap<Farmland, FarmlandBehaviour>,
+    pub trees: HashMap<Tree, TreeBehaviour>,
+    pub farmers: HashMap<Farmer, FarmerBehaviour>,
     pub camera: Camera,
     pub farmers2d: Vec<Farmer2d>,
     pub cursor: SpriteAsset,
@@ -114,12 +120,96 @@ impl Gameplay {
     }
 
     pub fn handle_event(&mut self, frame: &mut Frame, event: Event) {
+        match event {
+            Event::Universe(events) => {
+                for event in events {
+                    self.handle_universe_event(frame, event);
+                }
+            }
+            Event::Physics(events) => {}
+            Event::Building(events) => {
+                for event in events {
+                    self.handle_building_event(frame, event);
+                }
+            }
+            Event::Inventory(events) => {}
+            Event::Planting(events) => {
+                for event in events {
+                    self.handle_planting_event(frame, event);
+                }
+            }
+        }
+    }
+
+    pub fn handle_building_event(&mut self, frame: &mut Frame, event: Building) {
         let assets = &mut frame.assets;
         let renderer = &mut frame.scene;
         match event {
-            Event::TreeAppeared {
+            Building::GridChanged { grid, cells, rooms } => {
+                for (farmland, behaviour) in self.farmlands.iter_mut() {
+                    if farmland.grid == grid {
+                        behaviour.cells = cells;
+                        behaviour.rooms = rooms;
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    pub fn handle_planting_event(&mut self, frame: &mut Frame, event: Planting) {
+        let assets = &mut frame.assets;
+        let renderer = &mut frame.scene;
+        match event {
+            Planting::LandChanged { land, map } => {
+                for (farmland, behaviour) in self.farmlands.iter_mut() {
+                    if farmland.land == land {
+                        behaviour.map = map;
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    pub fn handle_physics_event(&mut self, frame: &mut Frame, event: Physics) {
+        let assets = &mut frame.assets;
+        let renderer = &mut frame.scene;
+        match event {
+            Physics::BodyPositionChanged {
                 id,
-                kind,
+                position,
+                space,
+            } => {
+                // FarmerMoved { id, position } => {
+                //     match self.farmers.get_mut(&id) {
+                //         None => {}
+                //         Some(farmer) => {
+                //             let position = Vec2::from(position);
+                //             let rendering =
+                //                 Vec2::new(farmer.rendering_position.x, farmer.rendering_position.z);
+                //             // des
+                //             farmer.last_sync_position = position.into();
+                //             let error = position.distance(rendering);
+                //             if error > 0.25 {
+                //                 // info!(
+                //                 //     "Correct farmer {:?} position (error {}) {} -> {}",
+                //                 //     id, error, farmer.estimated_position, position
+                //                 // );
+                //             };
+                //         }
+                //     }
+                // }
+            }
+        }
+    }
+
+    pub fn handle_universe_event(&mut self, frame: &mut Frame, event: Universe) {
+        let assets = &mut frame.assets;
+        let renderer = &mut frame.scene;
+        match event {
+            TreeAppeared {
+                tree,
                 position,
                 growth,
             } => {
@@ -128,20 +218,20 @@ impl Gameplay {
                     .universe
                     .known
                     .trees
-                    .get(&kind)
+                    .get(&tree.kind)
                     .unwrap()
                     .clone();
                 info!(
                     "Appear tree {:?} kind='{}' at {:?} (g {})",
-                    id, kind.name, position, growth
+                    tree, kind.name, position, growth
                 );
 
                 let prefab = assets.tree(&kind.name);
 
                 self.trees.insert(
-                    id,
+                    tree,
                     TreeBehaviour {
-                        id,
+                        tree,
                         kind,
                         asset: prefab,
                         position: Vec3::new(position[0], 0.0, position[1]),
@@ -149,65 +239,47 @@ impl Gameplay {
                     },
                 );
             }
-            Event::TreeVanished(id) => {
+            TreeVanished(id) => {
                 info!("Vanish tree {:?}", id);
                 self.trees.remove(&id);
                 // self.barriers.remove(&id.into());
             }
-            Event::TreeUpdated { id } => {
-                info!("Update tree {:?} [not implemented yet]", id);
-            }
-            Event::FarmlandAppeared {
-                id,
-                kind,
+            FarmlandAppeared {
+                farmland,
                 map,
-                platform,
-                platform_shapes,
+                cells,
+                rooms,
             } => {
                 let kind = self
                     .knowledge
                     .universe
                     .known
                     .farmlands
-                    .get(&kind)
+                    .get(&farmland.kind)
                     .unwrap()
                     .clone();
-                info!("Appear farmland {:?} kind='{}'", id, kind.name);
+                info!("Appear farmland {:?} kind='{}'", farmland, kind.name);
 
                 let asset = assets.farmland(&kind.name);
 
                 self.farmlands.insert(
-                    id,
+                    farmland,
                     FarmlandBehaviour {
-                        id,
+                        farmland,
                         kind,
                         asset,
                         map,
-                        platform: decode_platform_map(platform),
-                        platform_shapes,
+                        cells,
+                        rooms,
                     },
                 );
             }
-            Event::FarmlandUpdated { id, map } => {
-                let farmland = self.farmlands.get_mut(&id).unwrap();
-                farmland.map = map;
-            }
-            Event::FarmlandPlatformUpdated {
-                id,
-                platform,
-                platform_shapes,
-            } => {
-                let farmland = self.farmlands.get_mut(&id).unwrap();
-                farmland.platform = decode_platform_map(platform);
-                farmland.platform_shapes = platform_shapes;
-            }
-            Event::FarmlandVanished(id) => {
+            FarmlandVanished(id) => {
                 info!("Vanish farmland {:?}", id);
                 self.farmlands.remove(&id);
             }
-            Event::FarmerAppeared {
-                id,
-                kind,
+            FarmerAppeared {
+                farmer,
                 position,
                 player,
             } => {
@@ -216,12 +288,12 @@ impl Gameplay {
                     .universe
                     .known
                     .farmers
-                    .get(&kind)
+                    .get(&farmer.kind)
                     .unwrap()
                     .clone();
                 info!(
                     "Appear farmer {:?}({}) kind='{}' at {:?}",
-                    id, player, kind.name, position
+                    farmer, player, kind.name, position
                 );
 
                 let asset = assets.spine(&kind.name);
@@ -272,9 +344,9 @@ impl Gameplay {
                 info!("Mesh bounds: {:?}", asset.mesh.bounds());
 
                 self.farmers.insert(
-                    id,
+                    farmer,
                     FarmerBehaviour {
-                        id,
+                        farmer,
                         kind,
                         player,
                         asset,
@@ -307,30 +379,11 @@ impl Gameplay {
                     },
                 );
             }
-            Event::FarmerVanished(id) => {
+            FarmerVanished(id) => {
                 info!("Vanish farmer {:?}", id);
                 self.farmers.remove(&id);
             }
-            Event::FarmerMoved { id, position } => {
-                match self.farmers.get_mut(&id) {
-                    None => {}
-                    Some(farmer) => {
-                        let position = Vec2::from(position);
-                        let rendering =
-                            Vec2::new(farmer.rendering_position.x, farmer.rendering_position.z);
-                        // des
-                        farmer.last_sync_position = position.into();
-                        let error = position.distance(rendering);
-                        if error > 0.25 {
-                            // info!(
-                            //     "Correct farmer {:?} position (error {}) {} -> {}",
-                            //     id, error, farmer.estimated_position, position
-                            // );
-                        };
-                    }
-                }
-            }
-            Event::BarrierHintAppeared {
+            BarrierHintAppeared {
                 id,
                 kind,
                 position,
@@ -342,13 +395,6 @@ impl Gameplay {
                     position,
                     bounds,
                 });
-            }
-            Event::FarmlandPlatformUpdated { .. } => {}
-            Event::Building(_) => {
-                unimplemented!()
-            }
-            Event::Inventory(_) => {
-                unimplemented!()
             }
         }
     }
@@ -456,7 +502,7 @@ impl Gameplay {
         for farmland in self.farmlands.values() {
             self.cursor_shape = 0;
             let cursor_pos = 1 << (128 - cursor_x - 1);
-            for shape in &farmland.platform_shapes {
+            for shape in &farmland.rooms {
                 if cursor_y >= shape.rows_y && cursor_y < shape.rows_y + shape.rows.len() {
                     let row = shape.rows[cursor_y - shape.rows_y];
                     if row & cursor_pos != 0 {
@@ -470,29 +516,28 @@ impl Gameplay {
                 farmland.asset.texture.clone(),
                 farmland.asset.sampler.share(),
                 &farmland.map,
-                &farmland.platform_shapes,
+                &farmland.rooms,
             );
             renderer.render_floor(
                 self.roof_texture.clone(),
                 farmland.asset.sampler.share(),
                 &farmland.map,
-                &farmland.platform_shapes,
+                &farmland.rooms,
             );
             renderer.render_roof(
                 self.roof_texture.clone(),
                 farmland.asset.sampler.share(),
                 &farmland.map,
-                &farmland.platform_shapes,
+                &farmland.rooms,
                 self.cursor_shape,
             );
-            for (y, line) in farmland.platform.iter().enumerate() {
+            for (y, line) in farmland.cells.iter().enumerate() {
                 for (x, cell) in line.iter().enumerate() {
                     if cell.wall {
                         let west = x > 0 && line[x - 1].wall;
                         let east = x + 1 < line.len() && line[x + 1].wall;
-                        let north = y > 0 && farmland.platform[y - 1][x].wall;
-                        let south =
-                            y + 1 < farmland.platform.len() && farmland.platform[y + 1][x].wall;
+                        let north = y > 0 && farmland.cells[y - 1][x].wall;
+                        let south = y + 1 < farmland.cells.len() && farmland.cells[y + 1][x].wall;
                         let neighbors = match (west, north, east, south) {
                             (true, true, true, true) => Neighbors::Full,
                             (false, true, false, true) => Neighbors::NS,

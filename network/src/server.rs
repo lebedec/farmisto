@@ -154,7 +154,7 @@ fn spawn_listener(
     authorization: Sender<Player>,
     disconnection: Sender<String>,
 ) {
-    thread::spawn(move || {
+    let listener = move || {
         let address = format!("0.0.0.0:{}", config.port);
         info!(
             "Listen player connections on {:?}, API version is {}",
@@ -249,7 +249,7 @@ fn spawn_listener(
 
                 let player_id = player.name.clone();
                 let player_disconnection = disconnection.clone();
-                thread::spawn(move || {
+                let player_requests = move || {
                     info!("Start player '{}' requests thread", player_id);
                     while let Some((bytes, request)) = receiver.receive() {
                         METRIC_SERVER_RECEIVED_BYTES.inc_by(bytes as u64);
@@ -263,10 +263,14 @@ fn spawn_listener(
                     if player_disconnection.send(player_id).is_err() {
                         error!("Unable to disconnect player, server not working")
                     }
-                });
+                };
+                thread::Builder::new()
+                    .name("player_requests".into())
+                    .spawn(player_requests)
+                    .unwrap();
 
                 let player_id = player.name.clone();
-                thread::spawn(move || {
+                let player_responses = move || {
                     info!("Start player '{}' responses thread", player_id);
 
                     let result = LoginResult::Success;
@@ -295,7 +299,11 @@ fn spawn_listener(
                         }
                     }
                     info!("Stop player '{}' responses thread", player_id);
-                });
+                };
+                thread::Builder::new()
+                    .name("player_responses".into())
+                    .spawn(player_responses)
+                    .unwrap();
 
                 if authorization.send(player).is_err() {
                     error!("Unable to authorize {}, server not working", peer);
@@ -304,7 +312,11 @@ fn spawn_listener(
             }
         }
         info!("Server listener terminated")
-    });
+    };
+    thread::Builder::new()
+        .name("listener".into())
+        .spawn(listener)
+        .unwrap();
 }
 
 #[cfg(unix)]

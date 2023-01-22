@@ -30,7 +30,7 @@ pub struct LandKind {
     pub name: String,
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
 pub struct LandId(pub usize);
 
 pub struct Land {
@@ -48,7 +48,7 @@ pub struct PlantKind {
     pub growth: f32,
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
 pub struct PlantId(pub usize);
 
 #[derive(Clone)]
@@ -58,8 +58,12 @@ pub struct Plant {
     pub land: LandId,
 }
 
+#[derive(Debug, bincode::Encode, bincode::Decode)]
 pub enum Planting {
-    LandChanged { id: LandId, map: Vec<Vec<[f32; 2]>> },
+    LandChanged {
+        land: LandId,
+        map: Vec<Vec<[f32; 2]>>,
+    },
 }
 
 impl PlantingDomain {
@@ -77,7 +81,7 @@ impl PlantingDomain {
                 }
             }
             events.push(Planting::LandChanged {
-                id: land.id,
+                land: land.id,
                 map: land.map.clone(),
             })
         }

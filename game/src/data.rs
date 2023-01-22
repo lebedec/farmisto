@@ -1,76 +1,20 @@
-use log::info;
 use std::io::Cursor;
 
-use datamap::{Entry, Operation};
+use log::info;
+
+use datamap::Entry;
 
 use crate::building::{Cell, Grid, GridId, GridKey, GridKind};
 use crate::collections::Shared;
-use crate::model::{FarmerKey, FarmlandKey, TreeKey, UniverseSnapshot};
+use crate::model::{FarmerKey, FarmlandKey, Player, PlayerId, TreeKey};
 use crate::physics::{
     Barrier, BarrierId, BarrierKey, BarrierKind, Body, BodyId, BodyKey, BodyKind, Space, SpaceId,
     SpaceKey, SpaceKind,
 };
 use crate::planting::{Land, LandId, LandKey, LandKind, Plant, PlantId, PlantKey, PlantKind};
-use crate::{
-    Farmer, FarmerId, FarmerKind, Farmland, FarmlandId, FarmlandKind, Game, Tree, TreeId, TreeKind,
-};
+use crate::{Farmer, FarmerKind, Farmland, FarmlandKind, Game, Tree, TreeKind};
 
 impl Game {
-    pub fn hot_reload(&mut self) -> UniverseSnapshot {
-        // todo:
-        let mut snapshot = UniverseSnapshot::default();
-        let changes = self.storage.track_changes::<usize>().unwrap();
-        for change in changes {
-            match change.entity.as_str() {
-                "Space" => {
-                    match change.operation {
-                        Operation::Insert => {
-                            // let entry = self.storage.fetch_one(change.id);
-                            // let space = self.load_space(entry).unwrap();
-                            // self.physics.spaces.push(space);
-                        }
-                        Operation::Update => {
-                            // let space = self.physics.spaces.get_mut(change.id).unwrap();
-                            // let entry = self.storage.fetch_one(change.id);
-                            // *space = self.load_space(entry).unwrap();
-                        }
-                        Operation::Delete => {
-                            // self.physics.spaces.delete(entry.id)
-                        }
-                    }
-                }
-                "Body" => {}
-                "Barrier" => {}
-                "Tree" => match change.operation {
-                    Operation::Insert | Operation::Update => {
-                        snapshot.trees.insert(TreeId(change.id));
-                    }
-                    Operation::Delete => {
-                        snapshot.trees_to_delete.insert(TreeId(change.id));
-                    }
-                },
-                "Farmland" => match change.operation {
-                    Operation::Insert | Operation::Update => {
-                        snapshot.farmlands.insert(FarmlandId(change.id));
-                    }
-                    Operation::Delete => {
-                        snapshot.farmlands_to_delete.insert(FarmlandId(change.id));
-                    }
-                },
-                "Farmer" => match change.operation {
-                    Operation::Insert | Operation::Update => {
-                        snapshot.farmers.insert(FarmerId(change.id));
-                    }
-                    Operation::Delete => {
-                        snapshot.farmers_to_delete.insert(FarmerId(change.id));
-                    }
-                },
-                _ => {}
-            }
-        }
-        snapshot
-    }
-
     pub fn load_game_knowledge(&mut self) {
         info!("Begin game knowledge loading from ...");
         for entry in self.storage.fetch_all::<SpaceKind>().into_iter() {
@@ -102,18 +46,19 @@ impl Game {
         }
 
         for entry in self.storage.fetch_all::<GridKind>().into_iter() {
-            let platform = self.load_platform_kind(entry).unwrap();
-            self.building
-                .known_grids
-                .insert(platform.id, Shared::new(platform));
+            let grid = self.load_grid_kind(entry).unwrap();
+            self.building.known_grids.insert(grid.id, Shared::new(grid));
         }
 
         for entry in self.storage.fetch_all::<TreeKind>().into_iter() {
             let tree = self.load_tree_kind(entry).unwrap();
             self.universe.known.trees.insert(tree.id, Shared::new(tree));
         }
-        for entry in self.storage.fetch_all::<FarmlandKind>().into_iter() {
-            let farmland = self.load_farmland_kind(entry).unwrap();
+        for farmland in self
+            .storage
+            .open_into()
+            .fetch_all_map(|row| self.load_farmland_kind(row).unwrap())
+        {
             self.universe
                 .known
                 .farmlands
@@ -131,6 +76,8 @@ impl Game {
 
     pub fn load_game_state(&mut self) {
         info!("Begin game state loading from ...");
+        let storage = self.storage.open_into();
+        self.players = storage.fetch_all_map(|row| self.load_player(row).unwrap());
         // physics
         self.physics.spaces = self
             .storage
@@ -159,14 +106,12 @@ impl Game {
         self.building.grids = self
             .storage
             .open_into()
-            .fetch_all_map(|row| self.load_platform(row).unwrap());
+            .fetch_all_map(|row| self.load_grid(row).unwrap());
         // models
         self.universe.trees = self
             .storage
-            .fetch_all::<Tree>()
-            .into_iter()
-            .map(|entry| self.load_tree(entry).unwrap())
-            .collect();
+            .open_into()
+            .fetch_all_map(|row| self.load_tree(row).unwrap());
         self.universe.farmlands = self
             .storage
             .fetch_all::<Farmland>()
@@ -175,27 +120,35 @@ impl Game {
             .collect();
         self.universe.farmers = self
             .storage
-            .fetch_all::<Farmer>()
-            .into_iter()
-            .map(|entry| self.load_farmer(entry).unwrap())
-            .collect();
+            .open_into()
+            .fetch_all_map(|row| self.load_farmer(row).unwrap());
         info!("End game state loading")
     }
 
     pub fn save_game(&mut self) {}
 
+    pub(crate) fn load_player(&mut self, row: &rusqlite::Row) -> Result<Player, rusqlite::Error> {
+        let data = Player {
+            id: PlayerId(row.get("id")?),
+            name: row.get("name")?,
+        };
+        Ok(data)
+    }
+
     pub(crate) fn load_farmland_kind(
         &mut self,
-        entry: Entry,
-    ) -> Result<FarmlandKind, serde_json::Error> {
-        let id = entry.get("id")?;
-        let space = entry.get("space")?;
-        let land = entry.get("land")?;
+        row: &rusqlite::Row,
+    ) -> Result<FarmlandKind, rusqlite::Error> {
+        let id = row.get("id")?;
+        let space = row.get("space")?;
+        let land = row.get("land")?;
+        let grid = row.get("grid")?;
         let data = FarmlandKind {
             id: FarmlandKey(id),
-            name: entry.get("name")?,
+            name: row.get("name")?,
             space: SpaceKey(space),
             land: LandKey(land),
+            grid: GridKey(grid),
         };
         Ok(data)
     }
@@ -203,15 +156,15 @@ impl Game {
     pub(crate) fn load_farmland(&mut self, entry: Entry) -> Result<Farmland, serde_json::Error> {
         let id = entry.get("id")?;
         let kind = entry.get("kind")?;
+        let space = entry.get("space")?;
+        let land = entry.get("land")?;
+        let grid = entry.get("grid")?;
         let data = Farmland {
-            id: FarmlandId(id),
-            kind: self
-                .universe
-                .known
-                .farmlands
-                .get(&FarmlandKey(kind))
-                .unwrap()
-                .clone(),
+            id,
+            kind: FarmlandKey(kind),
+            space: SpaceId(space),
+            land: LandId(land),
+            grid: GridId(grid),
         };
         Ok(data)
     }
@@ -230,19 +183,12 @@ impl Game {
         Ok(data)
     }
 
-    pub(crate) fn load_farmer(&mut self, entry: Entry) -> Result<Farmer, serde_json::Error> {
-        let id = entry.get("id")?;
-        let kind = entry.get("kind")?;
+    pub(crate) fn load_farmer(&mut self, row: &rusqlite::Row) -> Result<Farmer, rusqlite::Error> {
         let data = Farmer {
-            id: FarmerId(id),
-            kind: self
-                .universe
-                .known
-                .farmers
-                .get(&FarmerKey(kind))
-                .unwrap()
-                .clone(),
-            player: entry.get("player")?,
+            id: row.get("id")?,
+            kind: FarmerKey(row.get("kind")?),
+            player: PlayerId(row.get("player")?),
+            body: BodyId(row.get("body")?),
         };
         Ok(data)
     }
@@ -260,18 +206,12 @@ impl Game {
         Ok(data)
     }
 
-    pub(crate) fn load_tree(&mut self, entry: Entry) -> Result<Tree, serde_json::Error> {
-        let id = entry.get("id")?;
-        let kind = entry.get("kind")?;
+    pub(crate) fn load_tree(&mut self, row: &rusqlite::Row) -> Result<Tree, rusqlite::Error> {
         let data = Tree {
-            id: TreeId(id),
-            kind: self
-                .universe
-                .known
-                .trees
-                .get(&TreeKey(kind))
-                .unwrap()
-                .clone(),
+            id: row.get("id")?,
+            kind: TreeKey(row.get("kind")?),
+            plant: PlantId(row.get("plant")?),
+            barrier: BarrierId(row.get("barrier")?),
         };
         Ok(data)
     }
@@ -364,10 +304,7 @@ impl Game {
 
     // building
 
-    pub(crate) fn load_platform_kind(
-        &mut self,
-        entry: Entry,
-    ) -> Result<GridKind, serde_json::Error> {
+    pub(crate) fn load_grid_kind(&mut self, entry: Entry) -> Result<GridKind, serde_json::Error> {
         let id = entry.get("id")?;
         let data = GridKind {
             id: GridKey(id),
@@ -376,25 +313,28 @@ impl Game {
         Ok(data)
     }
 
-    pub(crate) fn load_platform(&mut self, row: &rusqlite::Row) -> Result<Grid, rusqlite::Error> {
+    pub(crate) fn load_grid(&mut self, row: &rusqlite::Row) -> Result<Grid, rusqlite::Error> {
         let id = row.get("id")?;
         let kind = row.get("kind")?;
         let map: Vec<u8> = row.get("map")?;
         let mut unpacker = Unpacker::new(map);
         let [size_y, size_x]: [u32; 2] = unpacker.read();
-        let mut map = [[Cell::default(); 128]; 128];
+        let mut cells = Vec::with_capacity(128);
         for y in 0..size_y {
+            let mut row = Vec::with_capacity(128);
             for x in 0..size_x {
                 let [wall, inner, door, window]: [u8; 4] = unpacker.read();
-                map[y as usize][x as usize] = Cell {
+                row.push(Cell {
                     wall: wall == 1,
                     inner: inner == 1,
                     door: door == 1,
                     window: window == 1,
                     material: Default::default(),
-                };
+                });
             }
+            cells.push(row);
         }
+        let rooms = Grid::calculate_shapes(&cells);
         let data = Grid {
             id: GridId(id),
             kind: self
@@ -403,8 +343,8 @@ impl Game {
                 .get(&GridKey(kind))
                 .unwrap()
                 .clone(),
-            cells: map,
-            rooms: Grid::calculate_shapes(&map),
+            cells,
+            rooms,
         };
         Ok(data)
     }

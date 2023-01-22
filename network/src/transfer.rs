@@ -3,6 +3,7 @@ use bincode::{Decode, Encode};
 use log::{error, info};
 use std::io::{Read, Write};
 use std::net::TcpStream;
+use std::thread;
 
 pub struct SyncReceiver {
     pub reader: TcpStream,
@@ -18,13 +19,12 @@ impl SyncReceiver {
             return None;
         }
         let length = u32::from_be_bytes(buffer) as usize;
-
         let mut buffer = vec![0; length];
         if let Err(error) = self.reader.read_exact(buffer.as_mut_slice()) {
             error!("Unable to receive because of body read, {}", error);
             return None;
         }
-        match decode(buffer.as_slice()) {
+        match decode(&buffer) {
             Ok(response) => Some((HEADER_LENGTH + length, response)),
             Err(error) => {
                 error!("Unable to receive because of deserialization, {}", error);

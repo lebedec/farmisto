@@ -26,7 +26,7 @@ def generate_land(land_id: int, user_define: List[str]):
     connection.commit()
 
 
-def generate_platform(land_id: int, user_define_map: str):
+def generate_grid(land_id: int, user_define_map: str):
     user_define = []
     for line in user_define_map.splitlines(keepends=False):
         line = line.strip().replace(' ', '')
@@ -63,7 +63,7 @@ def generate_platform(land_id: int, user_define_map: str):
     data = data.getvalue()
     print('data length', len(data))
     connection = sqlite3.connect('../../assets/database.sqlite')
-    connection.execute('update Platform set map = ? where id = ?', [data, land_id])
+    connection.execute('update Grid set map = ? where id = ?', [data, land_id])
     connection.commit()
 
 
@@ -74,28 +74,7 @@ if __name__ == '__main__':
     #     '1111111177777777777777012',
     #     '9876543277777777777777012'
     # ])
-    # generate_platform(1, [
-    #     '......................',
-    #     '......................',
-    #     '..............########',
-    #     '..............#...0..#',
-    #     '..#=o=#.......#...#..#',
-    #     '..o...==0=#...##0o#0##',
-    #     '..#.......0...#...0..#',
-    #     '..##0#o####...##0#####.',
-    #     '......................',
-    #     '........#ooooooo0#....',
-    #     '........o........#....',
-    #     '........o........#....',
-    #     '........o..####..#....',
-    #     '........o..#..#..#....',
-    #     '........0..#..#..#....',
-    #     '........#..##0#..#....',
-    #     '........#........#....',
-    #     '........##########....',
-    #     '......................',
-    # ])
-    generate_platform(
+    generate_grid(
         1,
         """
         . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .

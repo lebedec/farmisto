@@ -79,29 +79,32 @@ impl FileSystem {
         let mut reader = BufReader::new(process.stdout.unwrap());
         let shared_events = Arc::new(RwLock::new(HashMap::new()));
         let thread_events = shared_events.clone();
-        thread::spawn(move || loop {
-            let mut line = String::new();
-            if let Err(error) = reader.read_line(&mut line) {
-                error!("watcher.ps1 finished {:?}", error);
-                break;
-            }
-            let line = line.trim();
-            let ext = line.split(".").last().unwrap_or("");
-            if !extensions.contains(&ext) {
-                continue;
-            }
-            let (event, path) = match line.split(":").collect::<Vec<&str>>()[..] {
-                ["Created", path] => (FileEvent::Created, path),
-                ["Changed", path] => (FileEvent::Changed, path),
-                ["Deleted", path] => (FileEvent::Deleted, path),
-                _ => {
-                    error!("invalid watcher event format, {}", line);
+        thread::Builder::new()
+            .name("watch".into())
+            .spawn(move || loop {
+                let mut line = String::new();
+                if let Err(error) = reader.read_line(&mut line) {
+                    error!("watcher.ps1 finished {:?}", error);
+                    break;
+                }
+                let line = line.trim();
+                let ext = line.split(".").last().unwrap_or("");
+                if !extensions.contains(&ext) {
                     continue;
                 }
-            };
-            let path = fs::canonicalize(".").unwrap().join(path.trim());
-            compact_events(thread_events.clone(), path, event);
-        });
+                let (event, path) = match line.split(":").collect::<Vec<&str>>()[..] {
+                    ["Created", path] => (FileEvent::Created, path),
+                    ["Changed", path] => (FileEvent::Changed, path),
+                    ["Deleted", path] => (FileEvent::Deleted, path),
+                    _ => {
+                        error!("invalid watcher event format, {}", line);
+                        continue;
+                    }
+                };
+                let path = fs::canonicalize(".").unwrap().join(path.trim());
+                compact_events(thread_events.clone(), path, event);
+            })
+            .unwrap();
 
         FileSystem {
             events_timer: Instant::now(),

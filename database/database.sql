@@ -5,7 +5,16 @@ PRAGMA
 PRAGMA
     recursive_triggers = false;
 
--- physics
+
+-- Game
+
+create table Player
+(
+    id   integer primary key,
+    name text not null
+);
+
+-- Physics
 
 create table SpaceKind
 (
@@ -50,7 +59,7 @@ create table Barrier
     position json    not null
 );
 
--- planting
+-- Planting
 
 create table LandKind
 (
@@ -79,22 +88,22 @@ create table Plant
     land integer not null references Land
 );
 
--- building
+-- Building
 
-create table PlatformKind
+create table GridKind
 (
     id   integer primary key,
     name text not null
 );
 
-create table Platform
+create table Grid
 (
     id   integer primary key,
-    kind integer             not null references PlatformKind,
+    kind integer             not null references GridKind,
     map  blob collate binary not null
 );
 
--- universe
+-- Universe
 
 create table TreeKind
 (
@@ -106,23 +115,28 @@ create table TreeKind
 
 create table Tree
 (
-    id   integer primary key references Barrier references Plant,
-    kind integer not null references TreeKind
+    id      integer primary key,
+    kind    integer not null references TreeKind,
+    barrier integer not null references Barrier,
+    plant   integer not null references Plant
 );
 
 create table FarmlandKind
 (
-    id       integer primary key,
-    name     text    not null,
-    space    integer not null references SpaceKind,
-    land     integer not null references LandKind,
-    platform integer not null references PlatformKind
+    id    integer primary key,
+    name  text    not null,
+    space integer not null references SpaceKind,
+    land  integer not null references LandKind,
+    grid  integer not null references GridKind
 );
 
 create table Farmland
 (
-    id   integer primary key references Space references Land references Platform,
-    kind integer not null references FarmlandKind
+    id    integer primary key,
+    kind  integer not null references FarmlandKind,
+    space integer not null references Space,
+    land  integer not null references Land,
+    grid  integer not null references Grid
 );
 
 create table FarmerKind
@@ -134,7 +148,8 @@ create table FarmerKind
 
 create table Farmer
 (
-    id     integer primary key references Body,
+    id     integer primary key,
     kind   integer not null references FarmerKind,
-    player text    not null
+    player integer not null references Player,
+    body   integer not null references Body
 );

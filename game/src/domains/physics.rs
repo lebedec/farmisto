@@ -2,9 +2,8 @@ use std::collections::HashMap;
 
 use log::{error, info};
 
-
-use crate::math::{Collider, detect_collision, VectorMath};
 use crate::collections::Shared;
+use crate::math::{detect_collision, Collider, VectorMath};
 
 pub const MAX_SPACES: usize = 128;
 
@@ -38,7 +37,7 @@ pub struct SpaceKind {
     pub name: String,
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
 pub struct SpaceId(pub usize);
 
 pub struct Space {
@@ -55,7 +54,7 @@ pub struct BodyKind {
     pub speed: f32,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
 pub struct BodyId(pub usize);
 
 #[derive(Clone)]
@@ -67,7 +66,7 @@ pub struct Body {
     pub space: SpaceId,
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
 pub struct BarrierKey(pub usize);
 
 pub struct BarrierKind {
@@ -76,7 +75,7 @@ pub struct BarrierKind {
     pub bounds: [f32; 2],
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
 pub struct BarrierId(pub usize);
 
 #[derive(Clone)]
@@ -87,6 +86,7 @@ pub struct Barrier {
     pub space: SpaceId,
 }
 
+#[derive(Debug, bincode::Encode, bincode::Decode)]
 pub enum Physics {
     BodyPositionChanged {
         id: BodyId,
@@ -143,14 +143,12 @@ impl PhysicsDomain {
         let id = BarrierId(10);
         let kind = self.known_barriers.get(&kind).unwrap().clone();
         info!("barrier kind name is {:?}", kind.name);
-        self.barriers[space.0].push(
-            Barrier {
-                id,
-                kind,
-                space,
-                position,
-            },
-        )
+        self.barriers[space.0].push(Barrier {
+            id,
+            kind,
+            space,
+            position,
+        })
     }
 
     pub fn move_body2(&mut self, id: BodyId, direction: [f32; 2]) {

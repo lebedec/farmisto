@@ -110,24 +110,27 @@ pub fn startup<A: App>(title: String) {
         let mut time = Instant::now();
         let mut input = Input::new(base.screen.size());
 
-        thread::spawn(|| {
-            let encoder = prometheus::TextEncoder::new();
-            let listener = TcpListener::bind("127.0.0.1:9091").unwrap();
-            for stream in listener.incoming() {
-                let mut stream = stream.unwrap();
-                let status_line = "HTTP/1.1 200 OK";
-                let mut contents = String::new();
-                let t1 = Instant::now();
-                let metric_families = prometheus::gather();
-                encoder
-                    .encode_utf8(&metric_families, &mut contents)
-                    .unwrap();
-                let length = contents.len();
-                let response =
-                    format!("{status_line}\r\nContent-Length: {length}\r\n\r\n{contents}");
-                stream.write_all(response.as_bytes()).unwrap();
-            }
-        });
+        thread::Builder::new()
+            .name("prometheus".into())
+            .spawn(|| {
+                let encoder = prometheus::TextEncoder::new();
+                let listener = TcpListener::bind("127.0.0.1:9091").unwrap();
+                for stream in listener.incoming() {
+                    let mut stream = stream.unwrap();
+                    let status_line = "HTTP/1.1 200 OK";
+                    let mut contents = String::new();
+                    let t1 = Instant::now();
+                    let metric_families = prometheus::gather();
+                    encoder
+                        .encode_utf8(&metric_families, &mut contents)
+                        .unwrap();
+                    let length = contents.len();
+                    let response =
+                        format!("{status_line}\r\nContent-Length: {length}\r\n\r\n{contents}");
+                    stream.write_all(response.as_bytes()).unwrap();
+                }
+            })
+            .unwrap();
 
         loop {
             METRIC_FRAME.inc();

@@ -1,14 +1,15 @@
 use crate::engine::animatoro::Machine;
 use crate::engine::{FarmerAsset, FarmlandAsset, TreeAsset};
 
-use game::building::{Cell, Room};
+use game::building::{Cell, Grid, Room};
 use game::collections::Shared;
 use game::math::Collider;
-use game::model::{FarmerId, FarmerKind, FarmlandId, FarmlandKind, TreeId, TreeKind};
+use game::model::{Farmer, FarmerKind, Farmland, FarmlandKind, Tree, TreeKind};
+use game::physics::{BarrierId, BarrierKey, BarrierKind};
 use glam::{Vec2, Vec3};
 
 pub struct FarmerBehaviour {
-    pub id: FarmerId,
+    pub farmer: Farmer,
     pub kind: Shared<FarmerKind>,
     pub player: String,
     pub asset: FarmerAsset,
@@ -30,16 +31,16 @@ impl Collider for FarmerBehaviour {
 }
 
 pub struct FarmlandBehaviour {
-    pub id: FarmlandId,
+    pub farmland: Farmland,
     pub kind: Shared<FarmlandKind>,
     pub asset: FarmlandAsset,
     pub map: Vec<Vec<[f32; 2]>>,
-    pub platform: Vec<Vec<Cell>>,
-    pub platform_shapes: Vec<Room>,
+    pub cells: Vec<Vec<Cell>>,
+    pub rooms: Vec<Room>,
 }
 
 pub struct TreeBehaviour {
-    pub id: TreeId,
+    pub tree: Tree,
     pub kind: Shared<TreeKind>,
     pub asset: TreeAsset,
     pub position: Vec3,
@@ -47,8 +48,8 @@ pub struct TreeBehaviour {
 }
 
 pub struct BarrierHint {
-    pub id: usize,
-    pub kind: usize,
+    pub id: BarrierId,
+    pub kind: BarrierKey,
     pub position: [f32; 2],
     pub bounds: [f32; 2],
 }

@@ -24,7 +24,7 @@ pub struct GridKind {
     pub name: String,
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
 pub struct GridId(pub usize);
 
 #[derive(Debug, Default, Clone, bincode::Encode, bincode::Decode)]
@@ -43,7 +43,7 @@ impl Room {
 pub struct Grid {
     pub id: GridId,
     pub kind: Shared<GridKind>,
-    pub cells: [[Cell; Grid::COLUMNS]; Grid::ROWS],
+    pub cells: Vec<Vec<Cell>>,
     pub rooms: Vec<Room>,
 }
 
@@ -72,7 +72,7 @@ impl<'action> Surveying<'action> {
 pub enum Building {
     GridChanged {
         grid: GridId,
-        cells: [[Cell; Grid::COLUMNS]; Grid::ROWS],
+        cells: Vec<Vec<Cell>>,
         rooms: Vec<Room>,
     },
 }
@@ -90,20 +90,16 @@ pub struct BuildingDomain {
 }
 
 impl BuildingDomain {
-    pub fn get_platform(&self, id: GridId) -> Option<&Grid> {
-        self.grids.iter().find(|platform| platform.id == id)
-    }
-
     #[inline]
     pub fn get_grid(&self, id: GridId) -> &Grid {
-        &self.grids[id.0]
+        self.grids.iter().find(|grid| grid.id == id).unwrap()
     }
 
-    pub fn create_platform(&mut self, id: GridId, kind: Shared<GridKind>) {
+    pub fn create_grid(&mut self, id: GridId, kind: Shared<GridKind>) {
         self.grids.push(Grid {
             id,
             kind,
-            cells: [[Cell::default(); Grid::COLUMNS]; Grid::ROWS],
+            cells: vec![vec![Cell::default(); Grid::COLUMNS]; Grid::ROWS],
             rooms: vec![],
         })
     }
@@ -145,18 +141,18 @@ impl BuildingDomain {
 
     pub fn create_wall(
         &mut self,
-        platform_id: GridId,
+        grid_id: GridId,
         cell: [usize; 2],
         material: Material,
     ) -> Vec<Building> {
-        let platform = self.grids.get_mut(platform_id.0).unwrap();
+        let grid = self.grids.get_mut(grid_id.0).unwrap();
         let [cell_x, cell_y] = cell;
-        platform.cells[cell_y][cell_x].wall = true;
-        platform.rooms = Grid::calculate_shapes(&platform.cells);
+        grid.cells[cell_y][cell_x].wall = true;
+        grid.rooms = Grid::calculate_shapes(&grid.cells);
         vec![Building::GridChanged {
-            grid: platform_id,
-            cells: platform.cells.clone(),
-            rooms: platform.rooms.clone(),
+            grid: grid_id,
+            cells: grid.cells.clone(),
+            rooms: grid.rooms.clone(),
         }]
     }
 }
@@ -165,8 +161,8 @@ impl Grid {
     pub const COLUMNS: usize = 128;
     pub const ROWS: usize = 128;
 
-    pub fn default_map() -> [[Cell; Grid::COLUMNS]; Grid::ROWS] {
-        [[Cell::default(); Grid::COLUMNS]; Grid::ROWS]
+    pub fn default_map() -> Vec<Vec<Cell>> {
+        vec![vec![Cell::default(); Grid::COLUMNS]; Grid::ROWS]
     }
 
     fn grow_shapes(shapes: &mut Vec<Room>) {
@@ -351,7 +347,15 @@ impl Grid {
         shapes
     }
 
-    pub fn calculate_shapes(map: &[[Cell; Grid::COLUMNS]; Grid::ROWS]) -> Vec<Room> {
+    pub fn calculate_shapes(map: &Vec<Vec<Cell>>) -> Vec<Room> {
+        // TODO: array on stack increases speed to ~2 times!
+        // let mut map = [[Cell::default(); Grid::COLUMNS]; Grid::ROWS];
+        // for y in 0..Grid::ROWS {
+        //     for x in 0..Grid::COLUMNS {
+        //         map[y][x] = input_map[y][x];
+        //     }
+        // }
+
         let exterior_shape = Room {
             id: Room::EXTERIOR_ID,
             contour: false,
@@ -383,47 +387,4 @@ impl Grid {
         let shapes = Self::merge_shapes_into_buildings(shapes);
         shapes
     }
-}
-
-pub fn encode_platform_map(map: [[Cell; Grid::COLUMNS]; Grid::ROWS]) -> Vec<Vec<u32>> {
-    let mut data = vec![];
-    for line in map {
-        data.push(
-            line.map(|cell| {
-                let wall = if cell.wall { "1" } else { "0" };
-                let inner = if cell.inner { "1" } else { "0" };
-                let door = if cell.door { "1" } else { "0" };
-                let window = if cell.window { "1" } else { "0" };
-                [wall, inner, door, window].join("").parse().unwrap()
-            })
-            .to_vec(),
-        );
-    }
-    data
-}
-
-pub fn decode_platform_map(data: Vec<Vec<u32>>) -> Vec<Vec<Cell>> {
-    let mut map = vec![];
-    for line in data {
-        map.push(
-            line.iter()
-                .map(|code| {
-                    let mut code = code.to_string();
-                    let wall = code.chars().nth(0) == Some('1');
-                    let inner = code.chars().nth(1) == Some('1');
-                    let door = code.chars().nth(2) == Some('1');
-                    let window = code.chars().nth(3) == Some('1');
-
-                    Cell {
-                        wall,
-                        inner,
-                        door,
-                        window,
-                        material: Default::default(),
-                    }
-                })
-                .collect(),
-        );
-    }
-    map
 }

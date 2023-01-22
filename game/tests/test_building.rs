@@ -1,4 +1,4 @@
-use game::building::{BuildingDomain, Cell, Grid, GridId, GridKey, GridKind, Room};
+use game::building::{BuildingDomain, Cell, Grid, GridId, GridKey, GridKind, Material, Room};
 use game::collections::Shared;
 use std::collections::{HashMap, HashSet};
 use std::time::Instant;
@@ -56,6 +56,7 @@ fn test_something() {
                 inner: false,
                 door: false,
                 window: false,
+                material: Default::default(),
             };
         }
     }
@@ -97,10 +98,10 @@ fn test_something() {
 #[test]
 fn test_shapes_in_left_top_corner() {
     BuildingTestScenario::new()
-        .given_platform_kind("regular")
-        .given_platform("regular", "platform")
+        .given_grid_kind("regular")
+        .given_grid("regular", "grid")
         .when_player_builds_on(
-            "platform",
+            "grid",
             r#"
             . . . . . . .
             . # # # # # .
@@ -109,8 +110,8 @@ fn test_shapes_in_left_top_corner() {
             . . . . . . .
             "#,
         )
-        .then_platform_shapes_should_be(
-            "platform",
+        .then_grid_rooms_should_be(
+            "grid",
             r#"
             . . . . . . .
             . a A A A A .
@@ -124,10 +125,10 @@ fn test_shapes_in_left_top_corner() {
 #[test]
 fn test_shapes_in_corners() {
     BuildingTestScenario::new()
-        .given_platform_kind("regular")
-        .given_platform("regular", "platform")
+        .given_grid_kind("regular")
+        .given_grid("regular", "grid")
         .when_player_builds_on(
-            "platform",
+            "grid",
             r#"
             . # # . # # .
             . # . . . # .
@@ -136,8 +137,8 @@ fn test_shapes_in_corners() {
             . # # . # # .
             "#,
         )
-        .then_platform_shapes_should_be(
-            "platform",
+        .then_grid_rooms_should_be(
+            "grid",
             r#"
             . a A . B b .
             . A 3 3 3 B .
@@ -151,10 +152,10 @@ fn test_shapes_in_corners() {
 #[test]
 fn test_shapes_in_incomplete_room() {
     BuildingTestScenario::new()
-        .given_platform_kind("regular")
-        .given_platform("regular", "platform")
+        .given_grid_kind("regular")
+        .given_grid("regular", "grid")
         .when_player_builds_on(
-            "platform",
+            "grid",
             r#"
             . # # # # # .
             . # . . . # .
@@ -164,8 +165,8 @@ fn test_shapes_in_incomplete_room() {
             . . . . . . .
             "#,
         )
-        .then_platform_shapes_should_be(
-            "platform",
+        .then_grid_rooms_should_be(
+            "grid",
             r#"
             . 1 1 1 1 1 .
             . 1 . . . 1 .
@@ -180,10 +181,10 @@ fn test_shapes_in_incomplete_room() {
 #[test]
 fn test_shapes_in_incomplete_complex_room() {
     BuildingTestScenario::new()
-        .given_platform_kind("regular")
-        .given_platform("regular", "platform")
+        .given_grid_kind("regular")
+        .given_grid("regular", "grid")
         .when_player_builds_on(
-            "platform",
+            "grid",
             r#"
             . . . . . . . . . .
             . # # # # # . . . .
@@ -194,8 +195,8 @@ fn test_shapes_in_incomplete_complex_room() {
             . . . . . . . . . .
             "#,
         )
-        .then_platform_shapes_should_be(
-            "platform",
+        .then_grid_rooms_should_be(
+            "grid",
             r#"
             . . . . . . . . . .
             . 1 1 1 1 1 . . . .
@@ -211,10 +212,10 @@ fn test_shapes_in_incomplete_complex_room() {
 #[test]
 fn test_shapes_in_non_convex_room() {
     BuildingTestScenario::new()
-        .given_platform_kind("regular")
-        .given_platform("regular", "platform")
+        .given_grid_kind("regular")
+        .given_grid("regular", "grid")
         .when_player_builds_on(
-            "platform",
+            "grid",
             r#"
             . . . . . . . . .
             . # # # # # # # .
@@ -224,8 +225,8 @@ fn test_shapes_in_non_convex_room() {
             . . . . . . . . .
             "#,
         )
-        .then_platform_shapes_should_be(
-            "platform",
+        .then_grid_rooms_should_be(
+            "grid",
             r#"
             . . . . . . . . .
             . 1 1 1 1 1 1 1 .
@@ -240,10 +241,10 @@ fn test_shapes_in_non_convex_room() {
 #[test]
 fn test_shapes_in_rectangle_room() {
     BuildingTestScenario::new()
-        .given_platform_kind("regular")
-        .given_platform("regular", "platform")
+        .given_grid_kind("regular")
+        .given_grid("regular", "grid")
         .when_player_builds_on(
-            "platform",
+            "grid",
             r#"
             . # # # # # .
             . # . . . # .
@@ -251,8 +252,8 @@ fn test_shapes_in_rectangle_room() {
             . # # # # # .
             "#,
         )
-        .then_platform_shapes_should_be(
-            "platform",
+        .then_grid_rooms_should_be(
+            "grid",
             r#"
             . 1 1 1 1 1 .
             . 1 2 2 2 1 .
@@ -265,10 +266,10 @@ fn test_shapes_in_rectangle_room() {
 #[test]
 fn test_shapes_in_inner_room() {
     BuildingTestScenario::new()
-        .given_platform_kind("regular")
-        .given_platform("regular", "platform")
+        .given_grid_kind("regular")
+        .given_grid("regular", "grid")
         .when_player_builds_on(
-            "platform",
+            "grid",
             r#"
             . # # # # # # # # .
             . # . . . . . . # .
@@ -279,8 +280,8 @@ fn test_shapes_in_inner_room() {
             . # # # # # # # # .
             "#,
         )
-        .then_platform_shapes_should_be(
-            "platform",
+        .then_grid_rooms_should_be(
+            "grid",
             r#"
             . a a a a a a a a .
             . a 2 2 2 2 2 2 a .
@@ -296,10 +297,10 @@ fn test_shapes_in_inner_room() {
 #[test]
 fn test_shapes_in_buildings_enter_each_other() {
     BuildingTestScenario::new()
-        .given_platform_kind("regular")
-        .given_platform("regular", "platform")
+        .given_grid_kind("regular")
+        .given_grid("regular", "grid")
         .when_player_builds_on(
-            "platform",
+            "grid",
             r#"
             . . . . . . . . . .
             . # # # # # # # . .
@@ -315,8 +316,8 @@ fn test_shapes_in_buildings_enter_each_other() {
             . # # # # # # . . .
             "#,
         )
-        .then_platform_shapes_should_be(
-            "platform",
+        .then_grid_rooms_should_be(
+            "grid",
             r#"
             . . . . . . . . . .
             . a a a a a a a . .
@@ -337,10 +338,10 @@ fn test_shapes_in_buildings_enter_each_other() {
 #[test]
 fn test_shapes_in_room_with_top_division() {
     BuildingTestScenario::new()
-        .given_platform_kind("regular")
-        .given_platform("regular", "platform")
+        .given_grid_kind("regular")
+        .given_grid("regular", "grid")
         .when_player_builds_on(
-            "platform",
+            "grid",
             r#"
             . # # # # # # .
             . # . . # . # .
@@ -349,8 +350,8 @@ fn test_shapes_in_room_with_top_division() {
             . # # # # # # .
             "#,
         )
-        .then_platform_shapes_should_be(
-            "platform",
+        .then_grid_rooms_should_be(
+            "grid",
             r#"
             . 1 1 1 1 1 1 .
             . 1 2 2 1 2 1 .
@@ -364,10 +365,10 @@ fn test_shapes_in_room_with_top_division() {
 #[test]
 fn test_shapes_in_room_with_bottom_division() {
     BuildingTestScenario::new()
-        .given_platform_kind("regular")
-        .given_platform("regular", "platform")
+        .given_grid_kind("regular")
+        .given_grid("regular", "grid")
         .when_player_builds_on(
-            "platform",
+            "grid",
             r#"
             . # # # # # # .
             . # . . . . # .
@@ -376,8 +377,8 @@ fn test_shapes_in_room_with_bottom_division() {
             . # # # # # # .
             "#,
         )
-        .then_platform_shapes_should_be(
-            "platform",
+        .then_grid_rooms_should_be(
+            "grid",
             r#"
             . 1 1 1 1 1 1 .
             . 1 2 2 2 2 1 .
@@ -391,10 +392,10 @@ fn test_shapes_in_room_with_bottom_division() {
 #[test]
 fn test_shapes_in_room_two_divisions() {
     BuildingTestScenario::new()
-        .given_platform_kind("regular")
-        .given_platform("regular", "platform")
+        .given_grid_kind("regular")
+        .given_grid("regular", "grid")
         .when_player_builds_on(
-            "platform",
+            "grid",
             r#"
             . # # # # # # # .
             . # . . . # . # .
@@ -404,8 +405,8 @@ fn test_shapes_in_room_two_divisions() {
             . # # # # # # # .
             "#,
         )
-        .then_platform_shapes_should_be(
-            "platform",
+        .then_grid_rooms_should_be(
+            "grid",
             r#"
             . 1 1 1 1 1 1 1 .
             . 1 2 2 2 1 2 1 .
@@ -419,55 +420,50 @@ fn test_shapes_in_room_two_divisions() {
 
 struct BuildingTestScenario {
     domain: BuildingDomain,
-    platforms: HashMap<String, GridId>,
-    platform_kinds: HashMap<String, GridKey>,
+    grids: HashMap<String, GridId>,
+    grid_kinds: HashMap<String, GridKey>,
 }
 
 impl BuildingTestScenario {
     pub fn new() -> Self {
         Self {
             domain: BuildingDomain::default(),
-            platforms: Default::default(),
-            platform_kinds: Default::default(),
+            grids: Default::default(),
+            grid_kinds: Default::default(),
         }
     }
 
-    pub fn given_platform_kind(mut self, platform_kind: &str) -> Self {
-        let platform_key = GridKey(0);
+    pub fn given_grid_kind(mut self, grid_kind: &str) -> Self {
+        let grid_key = GridKey(0);
         self.domain.known_grids.insert(
-            platform_key,
+            grid_key,
             Shared::new(GridKind {
-                id: platform_key,
-                name: platform_kind.to_string(),
+                id: grid_key,
+                name: grid_kind.to_string(),
             }),
         );
-        self.platform_kinds
-            .insert(platform_kind.to_string(), platform_key);
+        self.grid_kinds.insert(grid_kind.to_string(), grid_key);
         self
     }
 
-    pub fn given_platform(mut self, kind: &str, platform: &str) -> Self {
-        let platform_id = GridId(0);
-        let platform_key = self.platform_kinds.get(kind).unwrap();
-        self.domain.create_platform(
-            platform_id,
-            self.domain
-                .known_grids
-                .get(&platform_key)
-                .unwrap()
-                .clone(),
+    pub fn given_grid(mut self, kind: &str, grid: &str) -> Self {
+        let grid_id = GridId(0);
+        let grid_key = self.grid_kinds.get(kind).unwrap();
+        self.domain.create_grid(
+            grid_id,
+            self.domain.known_grids.get(&grid_key).unwrap().clone(),
         );
-        self.platforms.insert(platform.to_string(), platform_id);
+        self.grids.insert(grid.to_string(), grid_id);
         self
     }
 
-    pub fn when_player_builds_on(mut self, platform: &str, building_map: &str) -> Self {
-        let platform_id = self.platforms.get(platform).unwrap();
+    pub fn when_player_builds_on(mut self, grid: &str, building_map: &str) -> Self {
+        let grid_id = self.grids.get(grid).unwrap();
         for (y, line) in building_map.lines().skip(1).enumerate() {
             for (x, code) in line.trim().split_whitespace().enumerate() {
                 match code {
                     "#" => {
-                        self.domain.create_wall(*platform_id, [x, y]);
+                        self.domain.create_wall(*grid_id, [x, y], Material(0));
                     }
                     _ => {}
                 }
@@ -476,65 +472,7 @@ impl BuildingTestScenario {
         self
     }
 
-    pub fn then_platform_shapes_should_be(self, platform: &str, expected: &str) -> Self {
-        // let expected = expected
-        //     .lines()
-        //     .map(|line| line.trim())
-        //     .filter(|line| !line.is_empty())
-        //     .collect::<Vec<&str>>()
-        //     .join("\n");
-        //
-        // let expected_y = expected.lines().count();
-        // let expected_x = expected.lines().nth(0).unwrap().split_whitespace().count();
-        //
-        // let platform_id = self.platforms.get(platform).unwrap();
-        // let platform = &self.domain.platforms[platform_id.0];
-        //
-        // let mut actual = vec![];
-        // for (y, segments) in platform.segments.iter().take(expected_y).enumerate() {
-        //     let mut line = vec![];
-        //     for x in 0..expected_x {
-        //         let code = match platform.map[y][x].shape {
-        //             0 => ".".to_string(),
-        //             shape => {
-        //                 if platform.map[y][x].wall {
-        //                     let code = "#abcdefghijklmnopqrstuvwxyz".chars().nth(shape).unwrap();
-        //                     if platform.map[y][x].inner {
-        //                         code.to_string()
-        //                     } else {
-        //                         code.to_uppercase().to_string()
-        //                     }
-        //                 } else {
-        //                     shape.to_string()
-        //                 }
-        //             }
-        //         };
-        //         line.push(code);
-        //     }
-        //     // for segment in segments {
-        //     //     let code = match *segment.shape.borrow() {
-        //     //         0 => ".".to_string(),
-        //     //         shape => {
-        //     //             if segment.wall {
-        //     //                 let code = "#abcdefghijklmnopqrstuvwxyz".chars().nth(shape).unwrap();
-        //     //                 code.to_string()
-        //     //             } else {
-        //     //                 shape.to_string()
-        //     //             }
-        //     //         }
-        //     //     };
-        //     //     let length = 1 + segment.end - segment.start;
-        //     //     let length = length.min(expected_x - line.len());
-        //     //     line.extend(vec![code; length]);
-        //     //     if segment.end >= expected_x {
-        //     //         break;
-        //     //     }
-        //     // }
-        //     actual.push(line.join(" "));
-        // }
-        // let actual = actual.join("\n");
-        //
-        // assert_eq!(actual, expected, "actual shapes: \n{}", actual);
+    pub fn then_grid_rooms_should_be(self, grid: &str, expected: &str) -> Self {
         self
     }
 }

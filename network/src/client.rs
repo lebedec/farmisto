@@ -34,7 +34,7 @@ impl TcpClient {
         let (responses_sender, responses) = channel::<GameResponse>();
 
         let thread_player = player.clone();
-        thread::spawn(move || {
+        let client_connect = move || {
             let stream = TcpStream::connect(address).unwrap();
             let heartbeat = Duration::from_secs(2);
             let mut receiver = SyncReceiver {
@@ -59,7 +59,7 @@ impl TcpClient {
                     return;
                 }
             }
-            thread::spawn(move || {
+            let client_responses = move || {
                 info!("Start client responses thread");
                 'running: loop {
                     let mut responses = vec![];
@@ -89,9 +89,13 @@ impl TcpClient {
                     }
                 }
                 info!("Stop client responses thread");
-            });
+            };
+            thread::Builder::new()
+                .name("client_responses".into())
+                .spawn(client_responses)
+                .unwrap();
 
-            thread::spawn(move || {
+            let client_requests = move || {
                 info!("Start client requests thread");
                 'thread: loop {
                     let mut requests = vec![];
@@ -126,8 +130,16 @@ impl TcpClient {
                     }
                 }
                 info!("Stop client requests thread");
-            });
-        });
+            };
+            thread::Builder::new()
+                .name("client_requests".into())
+                .spawn(client_requests)
+                .unwrap();
+        };
+        thread::Builder::new()
+            .name("client_connect".into())
+            .spawn(client_connect)
+            .unwrap();
 
         let client = TcpClient {
             player,

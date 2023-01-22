@@ -104,74 +104,79 @@ fn spawn_loader(
     device: Device,
     pool: vk::CommandPool,
 ) {
-    thread::spawn(move || {
-        info!("[loader-{}] Start loader", loader);
-        loop {
-            let request = { requests.write().unwrap().pop() };
-            if let Some(request) = request {
-                debug!(
-                    "[loader-{}] Load {:?} {:?}",
-                    loader,
-                    request.kind,
-                    request.path.to_str()
-                );
-                let path = request.path.clone();
-                match request.kind {
-                    AssetKind::Texture => {
-                        let data = TextureAssetData::create_and_read_image(
-                            &device,
-                            pool,
-                            queue.clone(),
-                            path.as_os_str().to_str().unwrap(),
-                        );
-                        result.send(AssetPayload::Texture { path, data }).unwrap();
-                    }
-                    AssetKind::Shader => match ShaderAssetData::from_spirv_file(&queue, &path) {
-                        Ok(data) => {
-                            result.send(AssetPayload::Shader { path, data }).unwrap();
-                        }
-                        Err(error) => {
-                            error!(
-                                "[loader-{}] Unable to load {:?} {:?}, {:?}",
-                                loader,
-                                request.kind,
-                                path.to_str(),
-                                error
+    thread::Builder::new()
+        .name(format!("loader-{}", loader))
+        .spawn(move || {
+            info!("[loader-{}] Start loader", loader);
+            loop {
+                let request = { requests.write().unwrap().pop() };
+                if let Some(request) = request {
+                    debug!(
+                        "[loader-{}] Load {:?} {:?}",
+                        loader,
+                        request.kind,
+                        request.path.to_str()
+                    );
+                    let path = request.path.clone();
+                    match request.kind {
+                        AssetKind::Texture => {
+                            let data = TextureAssetData::create_and_read_image(
+                                &device,
+                                pool,
+                                queue.clone(),
+                                path.as_os_str().to_str().unwrap(),
                             );
+                            result.send(AssetPayload::Texture { path, data }).unwrap();
                         }
-                    },
-                    AssetKind::Mesh => {
-                        let data = if path.extension().unwrap() == "space3" {
-                            MeshAssetData::from_space3(&queue, &path)
-                        } else {
-                            MeshAssetData::from_json_file(&queue, &path)
-                        };
-                        match data {
-                            Ok(data) => {
-                                result.send(AssetPayload::Mesh { path, data }).unwrap();
-                            }
-                            Err(error) => {
-                                error!(
-                                    "[loader-{}] Unable to load {:?} {:?}, {:?}",
-                                    loader,
-                                    request.kind,
-                                    path.to_str(),
-                                    error
-                                );
+                        AssetKind::Shader => {
+                            match ShaderAssetData::from_spirv_file(&queue, &path) {
+                                Ok(data) => {
+                                    result.send(AssetPayload::Shader { path, data }).unwrap();
+                                }
+                                Err(error) => {
+                                    error!(
+                                        "[loader-{}] Unable to load {:?} {:?}, {:?}",
+                                        loader,
+                                        request.kind,
+                                        path.to_str(),
+                                        error
+                                    );
+                                }
                             }
                         }
+                        AssetKind::Mesh => {
+                            let data = if path.extension().unwrap() == "space3" {
+                                MeshAssetData::from_space3(&queue, &path)
+                            } else {
+                                MeshAssetData::from_json_file(&queue, &path)
+                            };
+                            match data {
+                                Ok(data) => {
+                                    result.send(AssetPayload::Mesh { path, data }).unwrap();
+                                }
+                                Err(error) => {
+                                    error!(
+                                        "[loader-{}] Unable to load {:?} {:?}, {:?}",
+                                        loader,
+                                        request.kind,
+                                        path.to_str(),
+                                        error
+                                    );
+                                }
+                            }
+                        }
+                        AssetKind::ShaderSrc => {
+                            debug!("[loader-{}] Compile shader {:?}", loader, path.to_str());
+                            let compiler = ShaderCompiler::new();
+                            compiler.compile_file(path);
+                        }
                     }
-                    AssetKind::ShaderSrc => {
-                        debug!("[loader-{}] Compile shader {:?}", loader, path.to_str());
-                        let compiler = ShaderCompiler::new();
-                        compiler.compile_file(path);
-                    }
+                } else {
+                    thread::sleep(Duration::from_millis(15))
                 }
-            } else {
-                thread::sleep(Duration::from_millis(15))
             }
-        }
-    });
+        })
+        .unwrap();
 }
 
 impl Assets {
