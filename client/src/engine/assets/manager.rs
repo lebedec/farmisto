@@ -19,6 +19,7 @@ use datamap::{Operation, Storage};
 use crate::engine::assets::asset::{Asset, AssetMap};
 use crate::engine::assets::fs::{FileEvent, FileSystem};
 use crate::engine::assets::prefabs::{TreeAsset, TreeAssetData};
+use crate::engine::assets::tileset::{TilesetAsset, TilesetAssetData, TilesetItem};
 use crate::engine::base::Queue;
 use crate::engine::{
     FarmerAsset, FarmerAssetData, FarmlandAsset, FarmlandAssetData, FarmlandAssetPropItem,
@@ -62,6 +63,7 @@ pub struct Assets {
     farmers: HashMap<String, FarmerAsset>,
     pipelines: HashMap<String, PipelineAsset>,
     sprites: HashMap<String, SpriteAsset>,
+    tilesets: HashMap<String, TilesetAsset>,
     samplers: HashMap<String, SamplerAsset>,
     spines: HashMap<String, SpineAsset>,
 
@@ -195,14 +197,12 @@ impl Assets {
             queue.clone(),
             "./assets/fallback/texture.png",
         );
-        let textures_white = TextureAsset::from_data(Arc::new(RefCell::new(
-            TextureAssetData::create_and_read_image(
-                &device,
-                pool,
-                queue.clone(),
-                "./assets/fallback/white.png",
-            ),
-        )));
+        let textures_white = TextureAsset::from(TextureAssetData::create_and_read_image(
+            &device,
+            pool,
+            queue.clone(),
+            "./assets/fallback/white.png",
+        ));
         let textures = HashMap::new();
 
         let meshes_cube =
@@ -253,6 +253,7 @@ impl Assets {
             farmers: Default::default(),
             pipelines: Default::default(),
             sprites: Default::default(),
+            tilesets: Default::default(),
             samplers: Default::default(),
             spines: Default::default(),
         }
@@ -276,8 +277,7 @@ impl Assets {
         if let Some(texture) = self.textures.get(&path) {
             return texture.clone();
         }
-        let texture =
-            TextureAsset::from_data(Arc::new(RefCell::new(self.textures_default.clone())));
+        let texture = TextureAsset::from(self.textures_default.clone());
         self.textures.insert(path.clone(), texture.clone());
         self.require_update(AssetKind::Texture, path);
         texture
@@ -344,6 +344,17 @@ impl Assets {
             None => {
                 let data = self.load_sprite_data(name).unwrap();
                 self.sprites.publish(name, data)
+            }
+        }
+    }
+
+    pub fn tileset(&mut self, name: &str) -> TilesetAsset {
+        METRIC_REQUESTS_TOTAL.with_label_values(&["tileset"]).inc();
+        match self.tilesets.get(name) {
+            Some(asset) => asset.share(),
+            None => {
+                let data = self.load_tileset_data(name).unwrap();
+                self.tilesets.publish(name, data)
             }
         }
     }
@@ -495,6 +506,29 @@ impl Assets {
         Ok(data)
     }
 
+    pub fn load_tileset_data(&mut self, id: &str) -> Result<TilesetAssetData, serde_json::Error> {
+        let entry = self.storage.fetch_one::<TilesetAssetData>(id);
+        let texture = self.texture(entry.get_string("texture")?);
+        let sampler = self.sampler(entry.get("sampler")?);
+        let items: Vec<TilesetItem> = entry.get("tiles")?;
+        let mut tiles = vec![];
+        for item in items {
+            tiles.push(SpriteAsset::from(SpriteAssetData {
+                texture: texture.clone(),
+                position: item.src,
+                size: item.size,
+                sampler: sampler.share(),
+                pivot: item.pivot,
+            }))
+        }
+        let data = TilesetAssetData {
+            texture,
+            sampler,
+            tiles,
+        };
+        Ok(data)
+    }
+
     pub fn create_sampler_from_data(
         &mut self,
         id: &str,
@@ -611,6 +645,10 @@ impl Assets {
                     "SpriteAssetData" => {
                         let data = self.load_sprite_data(&change.id).unwrap();
                         self.sprites.get_mut(&change.id).unwrap().update(data);
+                    }
+                    "TilesetAssetData" => {
+                        let data = self.load_tileset_data(&change.id).unwrap();
+                        self.tilesets.get_mut(&change.id).unwrap().update(data);
                     }
                     "SamplerAssetData" => {
                         let data = self.create_sampler_from_data(&change.id).unwrap();

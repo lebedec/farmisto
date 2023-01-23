@@ -1,16 +1,13 @@
 use crate::engine::base::{create_buffer, index_memory_type, Queue};
 use crate::engine::commands::Single;
 
+use crate::engine::assets::asset::Asset;
 use crate::monitoring::Timer;
 use ash::vk::Handle;
 use ash::{vk, Device};
 use lazy_static::lazy_static;
-use log::debug;
-use std::cell::RefCell;
-use std::ops::Deref;
 use std::sync::Arc;
-use std::time::Instant;
-use std::{fs, io, ptr};
+use std::{fs, ptr};
 
 lazy_static! {
     static ref METRIC_LOADING_SECONDS: prometheus::HistogramVec =
@@ -31,72 +28,22 @@ enum LoadingStage {
     Complete = 5,
 }
 
-#[derive(Clone)]
-pub struct TextureAsset {
-    data: Arc<RefCell<TextureAssetData>>,
-}
+pub type TextureAsset = Asset<TextureAssetData>;
 
 #[derive(Clone)]
 pub struct TextureAssetData {
-    width: u32,
-    height: u32,
+    pub width: u32,
+    pub height: u32,
     image: vk::Image,
     _memory: vk::DeviceMemory,
-    view: vk::ImageView,
-    sampler: vk::Sampler,
+    pub view: vk::ImageView,
+    pub sampler: vk::Sampler,
 }
 
 impl TextureAsset {
     #[inline]
-    pub fn width(&self) -> u32 {
-        self.data.borrow().width
-    }
-
-    #[inline]
-    pub fn height(&self) -> u32 {
-        self.data.borrow().height
-    }
-
-    pub fn size(&self) -> [f32; 2] {
-        [
-            self.data.borrow().width as f32,
-            self.data.borrow().height as f32,
-        ]
-    }
-
-    #[inline]
-    pub fn widthf(&self) -> f32 {
-        self.data.borrow().width as f32
-    }
-
-    #[inline]
-    pub fn heightf(&self) -> f32 {
-        self.data.borrow().height as f32
-    }
-
-    #[inline]
     pub fn id(&self) -> u64 {
-        self.data.borrow().view.as_raw()
-    }
-
-    #[inline]
-    pub fn sampler(&self) -> vk::Sampler {
-        self.data.borrow().sampler
-    }
-
-    #[inline]
-    pub fn view(&self) -> vk::ImageView {
-        self.data.borrow().view
-    }
-
-    #[inline]
-    pub fn update(&self, data: TextureAssetData) {
-        let mut this = self.data.borrow_mut();
-        *this = data;
-    }
-
-    pub fn from_data(data: Arc<RefCell<TextureAssetData>>) -> Self {
-        Self { data }
+        self.view.as_raw()
     }
 }
 

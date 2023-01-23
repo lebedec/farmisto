@@ -97,3 +97,10 @@ create table SamplerAssetData
     unnormalized_coordinates bool not null default false
 );
 
+create table TilesetAssetData
+(
+    id      text primary key unique,
+    texture text not null,
+    sampler text not null references SamplerAssetData,
+    tiles   json not null
+);

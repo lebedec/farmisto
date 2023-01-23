@@ -16,6 +16,7 @@ pub struct Cell {
     pub inner: bool,
     pub door: bool,
     pub window: bool,
+    pub marker: bool,
     pub material: Material,
 }
 
@@ -148,7 +149,7 @@ impl BuildingDomain {
         let grid = self.grids.get_mut(grid_id.0).unwrap();
         let [cell_x, cell_y] = cell;
         grid.cells[cell_y][cell_x].wall = true;
-        grid.rooms = Grid::calculate_shapes(&grid.cells);
+        grid.rooms = Grid::calculate_rooms(&grid.cells);
         vec![Building::GridChanged {
             grid: grid_id,
             cells: grid.cells.clone(),
@@ -165,17 +166,17 @@ impl Grid {
         vec![vec![Cell::default(); Grid::COLUMNS]; Grid::ROWS]
     }
 
-    fn grow_shapes(shapes: &mut Vec<Room>) {
-        for shape in shapes {
-            if shape.id == Room::EXTERIOR_ID {
+    fn include_walls_to_rooms(rooms: &mut Vec<Room>) {
+        for room in rooms {
+            if room.id == Room::EXTERIOR_ID {
                 continue;
             }
             // grow vertically
-            let mut area = vec![0; shape.rows.len() + 2];
-            for i in 1..=shape.rows.len() {
-                area[i - 1] |= shape.rows[i - 1];
-                area[i] |= shape.rows[i - 1];
-                area[i + 1] |= shape.rows[i - 1];
+            let mut area = vec![0; room.rows.len() + 2];
+            for i in 1..=room.rows.len() {
+                area[i - 1] |= room.rows[i - 1];
+                area[i] |= room.rows[i - 1];
+                area[i + 1] |= room.rows[i - 1];
             }
             // grow horizontally by segments
             for row in area.iter_mut() {
@@ -201,88 +202,88 @@ impl Grid {
                 }
                 *row = grow_row;
             }
-            shape.rows_y = shape.rows_y - 1;
-            shape.rows = area;
+            room.rows_y = room.rows_y - 1;
+            room.rows = area;
         }
     }
 
-    fn merge_shapes(merges: Vec<[usize; 2]>, mut shapes: Vec<Room>) -> Vec<Room> {
+    fn merge_rooms(merges: Vec<[usize; 2]>, mut rooms: Vec<Room>) -> Vec<Room> {
         if !merges.is_empty() {
             let mut to_delete = vec![];
             for [source, destination] in merges {
                 to_delete.push(source);
-                let source = &mut shapes[source];
+                let source = &mut rooms[source];
                 source.active = false;
                 let source_y = source.rows_y;
                 let source_rows = source.rows.clone();
-                let shape = &mut shapes[destination];
+                let room = &mut rooms[destination];
 
-                let offset = source_y as isize - shape.rows_y as isize;
+                let offset = source_y as isize - room.rows_y as isize;
                 if offset < 0 {
-                    shape.rows_y = source_y;
+                    room.rows_y = source_y;
                     let mut rows = vec![0; offset.abs() as usize];
-                    rows.extend(&shape.rows);
-                    shape.rows = rows;
+                    rows.extend(&room.rows);
+                    room.rows = rows;
                 }
                 for (index, row) in source_rows.into_iter().enumerate() {
-                    let shape_index = (index as isize + offset) as usize;
-                    shape.rows[shape_index] = shape.rows[shape_index] | row;
+                    let room_index = (index as isize + offset) as usize;
+                    room.rows[room_index] = room.rows[room_index] | row;
                 }
             }
 
-            let mut new_shapes = vec![];
-            for (index, shape) in shapes.into_iter().enumerate() {
+            let mut new_rooms = vec![];
+            for (index, room) in rooms.into_iter().enumerate() {
                 if !to_delete.contains(&index) {
-                    new_shapes.push(shape);
+                    new_rooms.push(room);
                 }
             }
-            new_shapes
+            new_rooms
         } else {
-            shapes
+            rooms
         }
     }
 
     fn apply_expansion(
         y: usize,
-        mut shapes: &mut Vec<Room>,
-        shape_id: &mut usize,
+        mut rooms: &mut Vec<Room>,
+        room_id: &mut usize,
         expansions: Vec<u128>,
     ) -> Vec<[usize; 2]> {
-        let shapes_before = shapes.len();
+        let rooms_before = rooms.len();
         let mut merges = vec![];
         let mut trunk = HashMap::new();
-        for shape in 0..expansions.len() {
-            if shape >= shapes_before {
-                shapes.push(Room {
-                    id: *shape_id,
+        for room in 0..expansions.len() {
+            if room >= rooms_before {
+                rooms.push(Room {
+                    id: *room_id,
                     contour: false,
                     rows_y: y,
-                    rows: vec![expansions[shape]],
+                    rows: vec![expansions[room]],
                     active: true,
                 });
-                *shape_id += 1;
+                *room_id += 1;
             } else {
-                let expansion = expansions[shape];
+                let expansion = expansions[room];
                 if expansion != 0 {
                     match trunk.get(&expansion) {
                         None => {
-                            shapes[shape].rows.push(expansion);
-                            trunk.insert(expansion, shape);
+                            rooms[room].rows.push(expansion);
+                            trunk.insert(expansion, room);
                         }
                         Some(trunk) => {
-                            merges.push([shape, *trunk]);
+                            merges.push([room, *trunk]);
                         }
                     }
                 } else {
-                    shapes[shape].active = false;
+                    rooms[room].active = false;
                 }
             }
         }
         merges
     }
 
-    pub fn expand_shapes_by_row(row: u128, shapes: Vec<u128>) -> Vec<u128> {
-        let mut appends = vec![0u128; shapes.len()];
+    pub fn expand_rooms_by_row(row: u128, rooms: Vec<u128>) -> Vec<u128> {
+        let mut appends = vec![0u128; rooms.len()];
         let mut value: u128 = row;
         let mut i = 0;
         while value != 0 {
@@ -296,7 +297,7 @@ impl Grid {
             // println!("segment {}..{} {:#010b}", i, i + width - 1, segment);
             let mut any = false;
             for (index, append) in appends.iter_mut().enumerate() {
-                if index < shapes.len() && shapes[index] & segment != 0 {
+                if index < rooms.len() && rooms[index] & segment != 0 {
                     *append = *append | segment;
                     any = true;
                     continue;
@@ -314,16 +315,16 @@ impl Grid {
         appends
     }
 
-    pub fn merge_shapes_into_buildings(mut shapes: Vec<Room>) -> Vec<Room> {
+    pub fn merge_rooms_into_buildings(mut rooms: Vec<Room>) -> Vec<Room> {
         loop {
             let mut merge = None;
-            'collision_detection: for source_index in 1..shapes.len() {
-                for destination_index in 1..shapes.len() {
+            'collision_detection: for source_index in 1..rooms.len() {
+                for destination_index in 1..rooms.len() {
                     if source_index == destination_index {
                         continue;
                     }
-                    let source = &shapes[source_index];
-                    let destination = &shapes[destination_index];
+                    let source = &rooms[source_index];
+                    let destination = &rooms[destination_index];
                     let offset = source.rows_y as isize - destination.rows_y as isize;
                     if offset < 0 || offset >= destination.rows.len() as isize {
                         continue;
@@ -339,15 +340,15 @@ impl Grid {
                 }
             }
             if let Some(merge) = merge {
-                shapes = Self::merge_shapes(vec![merge], shapes);
+                rooms = Self::merge_rooms(vec![merge], rooms);
             } else {
                 break;
             }
         }
-        shapes
+        rooms
     }
 
-    pub fn calculate_shapes(map: &Vec<Vec<Cell>>) -> Vec<Room> {
+    pub fn calculate_rooms(map: &Vec<Vec<Cell>>) -> Vec<Room> {
         // TODO: array on stack increases speed to ~2 times!
         // let mut map = [[Cell::default(); Grid::COLUMNS]; Grid::ROWS];
         // for y in 0..Grid::ROWS {
@@ -356,7 +357,7 @@ impl Grid {
         //     }
         // }
 
-        let exterior_shape = Room {
+        let exterior = Room {
             id: Room::EXTERIOR_ID,
             contour: false,
             rows_y: 0,
@@ -364,27 +365,26 @@ impl Grid {
             active: true,
         };
         let mut unique_id = 1;
-        let mut shapes: Vec<Room> = vec![exterior_shape];
+        let mut rooms: Vec<Room> = vec![exterior];
         for y in 1..Grid::ROWS {
             let mut row = 0;
             for x in 0..Grid::COLUMNS {
-                if !map[y][x].wall {
+                if !map[y][x].wall || map[y][x].marker {
                     row = row | 1 << (Grid::COLUMNS - x - 1);
                 }
             }
-            let shapes_above_row: Vec<u128> = shapes
+            let rooms_above_row: Vec<u128> = rooms
                 .iter()
-                .map(|shape| match shape.active {
-                    true => *shape.rows.last().unwrap(),
+                .map(|room| match room.active {
+                    true => *room.rows.last().unwrap(),
                     false => 0,
                 })
                 .collect();
-            let expansions = Self::expand_shapes_by_row(row, shapes_above_row);
-            let merges = Self::apply_expansion(y, &mut shapes, &mut unique_id, expansions);
-            shapes = Self::merge_shapes(merges, shapes);
+            let expansions = Self::expand_rooms_by_row(row, rooms_above_row);
+            let merges = Self::apply_expansion(y, &mut rooms, &mut unique_id, expansions);
+            rooms = Self::merge_rooms(merges, rooms);
         }
-        Self::grow_shapes(&mut shapes);
-        let shapes = Self::merge_shapes_into_buildings(shapes);
-        shapes
+        Self::include_walls_to_rooms(&mut rooms);
+        Self::merge_rooms_into_buildings(rooms)
     }
 }

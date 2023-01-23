@@ -8,6 +8,7 @@ pub use shader::*;
 pub use spine::*;
 pub use sprite::*;
 pub use texture::*;
+pub use tileset::*;
 
 mod asset;
 mod fs;
@@ -22,3 +23,4 @@ pub mod space3;
 mod spine;
 mod sprite;
 mod texture;
+mod tileset;

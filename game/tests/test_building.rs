@@ -4,6 +4,56 @@ use std::collections::{HashMap, HashSet};
 use std::time::Instant;
 
 #[test]
+fn test_something2() {
+    let map: Vec<Vec<[f32; 2]>> = vec![vec![[0.1, 0.2], [0.3, 0.4]], vec![[0.1, 0.2], [0.3, 0.4]]];
+    let config = bincode::config::standard();
+    let bytes = bincode::encode_to_vec(map, config).unwrap();
+    println!("l: {}, {:?}", bytes.len(), bytes);
+}
+
+// #[test]
+// fn test_something2() {
+//     let cells = vec![
+//         vec![
+//             Cell {
+//                 wall: true,
+//                 inner: false,
+//                 door: false,
+//                 window: false,
+//                 material: Material(1),
+//             },
+//             Cell {
+//                 wall: false,
+//                 inner: true,
+//                 door: false,
+//                 window: false,
+//                 material: Material(2),
+//             },
+//         ],
+//         vec![
+//             Cell {
+//                 wall: false,
+//                 inner: false,
+//                 door: true,
+//                 window: false,
+//                 material: Material(3),
+//             },
+//             Cell {
+//                 wall: false,
+//                 inner: false,
+//                 door: false,
+//                 window: true,
+//                 material: Material(4),
+//             },
+//         ],
+//     ];
+//
+//     let config = bincode::config::standard().with_fixed_int_encoding();
+//     let bytes = bincode::encode_to_vec(cells, config).unwrap();
+//     println!("l: {}, {:?}", bytes.len(), bytes);
+// }
+
+#[test]
 fn test_something() {
     let mut map = Grid::default_map();
     let def_map = r#"
@@ -56,13 +106,14 @@ fn test_something() {
                 inner: false,
                 door: false,
                 window: false,
+                marker: false,
                 material: Default::default(),
             };
         }
     }
 
     let t1 = Instant::now();
-    let shapes = Grid::calculate_shapes(&map);
+    let shapes = Grid::calculate_rooms(&map);
 
     println!("elapsed: {}", t1.elapsed().as_secs_f64());
     println!("shapes: {:?}", shapes.len());

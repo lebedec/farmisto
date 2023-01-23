@@ -1,7 +1,7 @@
 use crate::engine::animatoro::{AnimationAsset, Machine, State, StateId};
 use crate::engine::armature::{PoseBuffer, PoseUniform};
 use crate::engine::sprites::SpineSpriteController;
-use crate::engine::{Input, SpineAsset, SpriteAsset, TextureAsset};
+use crate::engine::{Input, SpineAsset, SpriteAsset, TextureAsset, TilesetAsset};
 use crate::gameplay::camera::Camera;
 use crate::gameplay::objects::{BarrierHint, FarmerBehaviour, FarmlandBehaviour, TreeBehaviour};
 use crate::{Frame, Mode, SceneRenderer};
@@ -53,7 +53,8 @@ pub struct Gameplay {
     pub cursor_shape: usize,
     pub players: Vec<SpriteAsset>,
     pub players_index: usize,
-    pub building_tiles: Vec<SpriteAsset>,
+    pub building_tiles: TilesetAsset,
+    pub building_tiles_marker: TilesetAsset,
     pub roof_texture: TextureAsset,
 }
 
@@ -72,32 +73,6 @@ impl Gameplay {
             assets.sprite("player-3"),
             assets.sprite("player-4"),
         ];
-        let building_tiles = vec![
-            assets.sprite("b-we"),
-            assets.sprite("b-ns"),
-            assets.sprite("b-full"),
-            assets.sprite("b-nw"),
-            assets.sprite("b-ne"),
-            assets.sprite("b-se"),
-            assets.sprite("b-sw"),
-            assets.sprite("b-wns"),
-            assets.sprite("b-nes"),
-            assets.sprite("b-esw"), // 9
-            assets.sprite("b-wne"),
-            assets.sprite("b-door-we"),
-            assets.sprite("b-door-ns"),
-            assets.sprite("b-window-we"),
-            assets.sprite("b-window-ns"),
-            assets.sprite("b-we-half"),
-            assets.sprite("b-door-we-half"),
-            assets.sprite("b-window-we-half"), // 17
-            assets.sprite("b-we-before-door-exp"),
-            assets.sprite("b-we-door-exp"),
-            assets.sprite("b-we-after-door-exp"), // 20
-            assets.sprite("b-we-before-door-exp-half"),
-            assets.sprite("b-we-door-exp-half"),
-            assets.sprite("b-we-after-door-exp-half"),
-        ];
 
         Self {
             _server: server,
@@ -113,7 +88,8 @@ impl Gameplay {
             cursor,
             cursor_shape: 0,
             players,
-            building_tiles,
+            building_tiles: assets.tileset("building"),
+            building_tiles_marker: assets.tileset("building-marker"),
             players_index: 0,
             roof_texture: assets.texture("./assets/texture/building-roof-template-2.png"),
         }
@@ -557,30 +533,37 @@ impl Gameplay {
                             (false, false, true, false) => Neighbors::WE,
                             (false, false, false, false) => Neighbors::Full,
                         };
+
+                        let tileset = if cell.marker {
+                            &self.building_tiles_marker.tiles
+                        } else {
+                            &self.building_tiles.tiles
+                        };
+
                         let mut tile = match neighbors {
-                            Neighbors::WE => &self.building_tiles[0],
-                            Neighbors::NS => &self.building_tiles[1],
-                            Neighbors::Full => &self.building_tiles[2],
-                            Neighbors::NW => &self.building_tiles[3],
-                            Neighbors::NE => &self.building_tiles[4],
-                            Neighbors::SE => &self.building_tiles[5],
-                            Neighbors::SW => &self.building_tiles[6],
-                            Neighbors::WNS => &self.building_tiles[7],
-                            Neighbors::NES => &self.building_tiles[8],
-                            Neighbors::ESW => &self.building_tiles[9],
-                            Neighbors::WNE => &self.building_tiles[10],
+                            Neighbors::WE => &tileset[0],
+                            Neighbors::NS => &tileset[1],
+                            Neighbors::Full => &tileset[2],
+                            Neighbors::NW => &tileset[3],
+                            Neighbors::NE => &tileset[4],
+                            Neighbors::SE => &tileset[5],
+                            Neighbors::SW => &tileset[6],
+                            Neighbors::WNS => &tileset[7],
+                            Neighbors::NES => &tileset[8],
+                            Neighbors::ESW => &tileset[9],
+                            Neighbors::WNE => &tileset[10],
                         };
 
                         if cell.door {
                             tile = match neighbors {
-                                Neighbors::NS => &self.building_tiles[12],
-                                _ => &self.building_tiles[19], // 11 small
+                                Neighbors::NS => &tileset[12],
+                                _ => &tileset[19], // 11 small
                             }
                         }
                         if cell.window {
                             tile = match neighbors {
-                                Neighbors::NS => &self.building_tiles[14],
-                                _ => &self.building_tiles[13],
+                                Neighbors::NS => &tileset[14],
+                                _ => &tileset[13],
                             };
                         }
 
@@ -589,26 +572,26 @@ impl Gameplay {
                         let is_half = false; // disable
                                              // half
                         if is_half {
-                            tile = &self.building_tiles[15];
+                            tile = &tileset[15];
                             if cell.door {
-                                tile = &self.building_tiles[22]; // 16 small
+                                tile = &tileset[22]; // 16 small
                             }
                             if cell.window {
-                                tile = &self.building_tiles[17];
+                                tile = &tileset[17];
                             }
                         }
 
                         // exp
                         if neighbors == Neighbors::WE && line[x - 1].door {
-                            tile = &self.building_tiles[20];
+                            tile = &tileset[20];
                             if is_half {
-                                tile = &self.building_tiles[23];
+                                tile = &tileset[23];
                             }
                         }
                         if neighbors == Neighbors::WE && line[x + 1].door {
-                            tile = &self.building_tiles[18];
+                            tile = &tileset[18];
                             if is_half {
-                                tile = &self.building_tiles[21];
+                                tile = &tileset[21];
                             }
                         }
 

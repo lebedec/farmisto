@@ -57,8 +57,8 @@ impl SceneRenderer {
             texture: texture.clone(),
             texture_bind: self.material_data.describe(vec![[ShaderData::Texture(
                 vk::DescriptorImageInfo {
-                    sampler: texture.sampler(),
-                    image_view: texture.view(),
+                    sampler: texture.sampler,
+                    image_view: texture.view,
                     image_layout: vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
                 },
             )]])[0],
@@ -79,8 +79,8 @@ impl SceneRenderer {
             texture: texture.clone(),
             texture_bind: self.material_data.describe(vec![[ShaderData::Texture(
                 vk::DescriptorImageInfo {
-                    sampler: texture.sampler(),
-                    image_view: texture.view(),
+                    sampler: texture.sampler,
+                    image_view: texture.view,
                     image_layout: vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
                 },
             )]])[0],

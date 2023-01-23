@@ -317,24 +317,9 @@ impl Game {
         let id = row.get("id")?;
         let kind = row.get("kind")?;
         let map: Vec<u8> = row.get("map")?;
-        let mut unpacker = Unpacker::new(map);
-        let [size_y, size_x]: [u32; 2] = unpacker.read();
-        let mut cells = Vec::with_capacity(128);
-        for y in 0..size_y {
-            let mut row = Vec::with_capacity(128);
-            for x in 0..size_x {
-                let [wall, inner, door, window]: [u8; 4] = unpacker.read();
-                row.push(Cell {
-                    wall: wall == 1,
-                    inner: inner == 1,
-                    door: door == 1,
-                    window: window == 1,
-                    material: Default::default(),
-                });
-            }
-            cells.push(row);
-        }
-        let rooms = Grid::calculate_shapes(&cells);
+        let config = bincode::config::standard();
+        let (cells, _) = bincode::decode_from_slice(&map, config).unwrap();
+        let rooms = Grid::calculate_rooms(&cells);
         let data = Grid {
             id: GridId(id),
             kind: self
@@ -364,17 +349,8 @@ impl Game {
         let id = row.get("id")?;
         let kind = row.get("kind")?;
         let map: Vec<u8> = row.get("map")?;
-        let mut unpacker = Unpacker::new(map);
-        let [size_y, size_x]: [u32; 2] = unpacker.read();
-        let mut map = vec![];
-        for _ in 0..size_y {
-            let mut row = vec![];
-            for _ in 0..size_x {
-                let [capacity, moisture, _, _]: [f32; 4] = unpacker.read();
-                row.push([capacity, moisture]);
-            }
-            map.push(row);
-        }
+        let config = bincode::config::standard();
+        let (map, _) = bincode::decode_from_slice(&map, config).unwrap();
         let data = Land {
             id: LandId(id),
             kind: self
@@ -413,23 +389,5 @@ impl Game {
             land: LandId(land),
         };
         Ok(data)
-    }
-}
-
-struct Unpacker {
-    cursor: Cursor<Vec<u8>>,
-}
-
-impl Unpacker {
-    pub fn new(data: Vec<u8>) -> Self {
-        let cursor = Cursor::new(data);
-        Unpacker { cursor }
-    }
-
-    pub fn read<T: bincode::Decode>(&mut self) -> T {
-        let config = bincode::config::standard()
-            .with_fixed_int_encoding()
-            .skip_fixed_array_length();
-        bincode::decode_from_std_read(&mut self.cursor, config).unwrap()
     }
 }

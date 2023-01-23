@@ -355,8 +355,8 @@ impl SpriteRenderer {
 
     pub fn render_sprite(&mut self, asset: &SpriteAsset, position: [f32; 2], highlight: f32) {
         let texture = &asset.texture;
-        let image_w = asset.texture.width() as f32;
-        let image_h = asset.texture.height() as f32;
+        let image_w = asset.texture.width as f32;
+        let image_h = asset.texture.height as f32;
         let [sprite_x, sprite_y] = asset.position;
         let [sprite_w, sprite_h] = asset.size;
         let x = sprite_x / image_w;
@@ -376,7 +376,7 @@ impl SpriteRenderer {
             texture_descriptor: self.sprite_pipeline.material.describe(vec![[
                 ShaderData::Texture(vk::DescriptorImageInfo {
                     sampler: asset.sampler.handle,
-                    image_view: texture.view(),
+                    image_view: texture.view,
                     image_layout: vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
                 }),
             ]])[0],
@@ -1034,7 +1034,7 @@ impl SpriteRenderer {
         pipeline.bind_camera(camera_descriptor);
         for ground in &self.grounds {
             pipeline.bind_vertex_buffer(&self.ground_vertex_buffer);
-            pipeline.bind_material([(ground.sampler.handle, ground.texture.view())]);
+            pipeline.bind_material([(ground.sampler.handle, ground.texture.view)]);
             pipeline.bind_data(ground.data_descriptor);
             pipeline.push_constants(ground.constants);
             pipeline.draw_vertices(self.ground_vertex_buffer.vertices);
@@ -1062,11 +1062,8 @@ impl SpriteRenderer {
                 pipeline.bind_vertex_buffer(&spine.vertex_buffer);
                 pipeline.bind_index_buffer(&spine.index_buffer);
                 pipeline.bind_material([
-                    (spine.texture.sampler(), spine.texture.view()),
-                    (
-                        self.coloration_sampler.handle,
-                        self.coloration_texture.view(),
-                    ),
+                    (spine.texture.sampler, spine.texture.view),
+                    (self.coloration_sampler.handle, self.coloration_texture.view),
                 ]);
                 pipeline.bind_data(spine.lights_descriptor);
                 pipeline.push_constants(spine.constants);
@@ -1080,7 +1077,7 @@ impl SpriteRenderer {
         pipeline.bind_camera(camera_descriptor);
         for roof in &self.roofs {
             pipeline.bind_vertex_buffer(&self.roof_vertex_buffer);
-            pipeline.bind_material([(roof.sampler.handle, roof.texture.view())]);
+            pipeline.bind_material([(roof.sampler.handle, roof.texture.view)]);
             pipeline.bind_data(roof.data_descriptor);
             pipeline.push_constants(roof.constants);
             pipeline.draw_vertices(self.roof_vertex_buffer.vertices);
