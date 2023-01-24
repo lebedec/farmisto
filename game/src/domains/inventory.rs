@@ -16,10 +16,9 @@ pub struct ContainerId(pub usize);
 pub struct Container {
     pub id: ContainerId,
     pub kind: Shared<ContainerKind>,
-    pub cell: [f32; 2],
 }
 
-#[derive(Clone, PartialEq, Eq, Hash)]
+#[derive(Clone, PartialEq, Eq, Hash, serde::Deserialize)]
 pub enum Function {
     Material { keyword: String },
     Carry,
@@ -40,6 +39,7 @@ pub struct ItemId(pub usize);
 pub struct Item {
     pub id: ItemId,
     pub kind: Shared<ItemKind>,
+    pub container: ContainerId,
 }
 
 #[derive(bincode::Encode, bincode::Decode)]
@@ -68,8 +68,9 @@ pub enum InventoryError {
 #[derive(Default)]
 pub struct InventoryDomain {
     pub known_containers: HashMap<ContainerKey, Shared<ContainerKind>>,
-    items: HashMap<ContainerId, Vec<Item>>,
-    containers: Vec<Container>,
+    pub known_items: HashMap<ItemKey, Shared<ItemKind>>,
+    pub(crate) items: HashMap<ContainerId, Vec<Item>>,
+    pub(crate) containers: Vec<Container>,
 }
 
 pub struct Usage<'action> {
@@ -123,7 +124,6 @@ impl InventoryDomain {
             container: Container {
                 id: ContainerId(self.containers.len()),
                 kind,
-                cell: [0.0, 0.0],
             },
             containers: &mut self.containers,
         })

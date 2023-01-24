@@ -1,6 +1,6 @@
 use crate::building::{Building, BuildingError};
 use crate::inventory::{Inventory, InventoryError};
-use crate::model::{Construction, Farmer, Universe, UniverseError};
+use crate::model::{Construction, Farmer, Tile, Universe, UniverseError};
 use crate::physics::Physics;
 use crate::planting::Planting;
 use std::fmt::Debug;
@@ -50,6 +50,7 @@ pub enum Action {
     MoveFarmer { destination: [f32; 2] },
     BuildWall { cell: [usize; 2] },
     Construct { construction: Construction },
+    Survey { target: Tile },
 }
 
 #[derive(Debug, bincode::Encode, bincode::Decode)]

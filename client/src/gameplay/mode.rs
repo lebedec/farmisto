@@ -8,7 +8,7 @@ use crate::{Frame, Mode, SceneRenderer};
 use datamap::Storage;
 use game::api::{Action, Event, GameResponse, PlayerRequest};
 use game::math::{detect_collision, VectorMath};
-use game::model::{Farmer, Farmland, Tree, Universe};
+use game::model::{Construction, Farmer, Farmland, Position, Tile, Tree, Universe};
 use game::Game;
 use glam::{vec3, Mat4, Vec2, Vec3};
 use log::{error, info};
@@ -395,18 +395,44 @@ impl Gameplay {
         }
     }
 
+    fn send_action(&mut self, action: Action) {
+        self.action_id += 1;
+        self.client.send(PlayerRequest::Perform {
+            action,
+            action_id: self.action_id,
+        })
+    }
+
     pub fn handle_user_input(&mut self, input: &Input) {
         self.camera.update(input);
+
+        let mouse_position = input
+            .mouse_position()
+            .position
+            .add([self.camera.eye.x, -self.camera.eye.y]);
+        let cursor_position = Position {
+            x: mouse_position[0],
+            y: mouse_position[1],
+        };
+        let cursor = Tile {
+            x: (mouse_position[0] / 128.0).floor() as usize,
+            y: (mouse_position[1] / 128.0).floor() as usize,
+        };
+
         if input.pressed(Keycode::Kp1) {
-            self.action_id += 1;
-            let action = Action::DoSomething;
-            self.client.send(PlayerRequest::Perform {
-                action,
-                action_id: self.action_id,
-            })
+            self.send_action(Action::DoSomething);
         }
         if input.pressed(Keycode::Tab) {
             self.players_index = (self.players_index + 1) % self.players.len();
+        }
+        if input.left_click() {
+            let farmland = self.farmlands.values().nth(0).unwrap();
+            let row = cursor.y.max(127);
+            let column = cursor.x.max(127);
+            if !farmland.cells[row][column].marker && !farmland.cells[row][column].wall {
+                let action = Action::Survey { target: cursor };
+                self.send_action(action);
+            }
         }
         if let Some(farmer) = self
             .farmers

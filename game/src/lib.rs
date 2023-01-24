@@ -5,7 +5,7 @@ use crate::api::ActionError::{
     ConstructionContainsUnexpectedItem, FarmerBodyNotFound, PlayerFarmerNotFound,
 };
 use crate::api::{Action, ActionError, Event};
-use crate::building::BuildingDomain;
+use crate::building::{BuildingDomain, SurveyorId};
 use crate::inventory::{ContainerKey, Function, InventoryDomain};
 use crate::model::FarmlandKind;
 use crate::model::Tree;
@@ -89,6 +89,7 @@ impl Game {
             Action::BuildWall { cell } => {
                 unimplemented!()
             }
+            Action::Survey { target } => events.extend(self.survey(*farmer, target)?),
             Action::Construct { construction } => {
                 events.extend(self.construct(*farmer, farmland, construction)?)
             }
@@ -96,19 +97,13 @@ impl Game {
         Ok(events)
     }
 
-    fn survey(
-        &mut self,
-        farmer: Farmer,
-        theodolite: Theodolite,
-        target: Tile,
-    ) -> Result<Vec<Event>, ActionError> {
-        let surveying = self
-            .building
-            .survey(theodolite.surveyor, [target.x, target.y])?;
-        let container_kind = self
+    fn survey(&mut self, farmer: Farmer, target: Tile) -> Result<Vec<Event>, ActionError> {
+        let surveying = self.building.survey(SurveyorId(0), [target.x, target.y])?;
+        let (_, container_kind) = self
             .inventory
             .known_containers
-            .get(&ContainerKey(0))
+            .iter()
+            .find(|(_, kind)| kind.name == "<construction>")
             .unwrap();
         let container_creation = self.inventory.create_container(container_kind.clone())?;
         let construction_creation = self

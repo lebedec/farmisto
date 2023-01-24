@@ -1,3 +1,5 @@
+use game::math::VectorMath;
+use game::model::Tile;
 use sdl2::event::Event;
 use sdl2::keyboard::Keycode;
 use sdl2::mouse::MouseButton;
@@ -8,7 +10,8 @@ pub struct Input {
     pub time: f32,
     mouse_position: [f32; 2],
     mouse_viewport: [f32; 2],
-    mouse_button_click: bool,
+    mouse_left_button_click: bool,
+    mouse_right_button_click: bool,
     key_pressed: HashSet<Keycode>,
     key_down: HashSet<Keycode>,
     pub terminating: bool,
@@ -28,7 +31,8 @@ impl Input {
             mouse_position: [0.0, 0.0],
             mouse_viewport: [0.0, 0.0],
             time: Default::default(),
-            mouse_button_click: false,
+            mouse_left_button_click: false,
+            mouse_right_button_click: false,
             key_pressed: Default::default(),
             key_down: Default::default(),
             terminating: false,
@@ -75,7 +79,10 @@ impl Input {
             Event::MouseButtonDown { .. } => {}
             Event::MouseButtonUp { mouse_btn, .. } => {
                 if mouse_btn == MouseButton::Left {
-                    self.mouse_button_click = true;
+                    self.mouse_left_button_click = true;
+                }
+                if mouse_btn == MouseButton::Right {
+                    self.mouse_right_button_click = true;
                 }
             }
             Event::MouseWheel { .. } => {}
@@ -113,7 +120,8 @@ impl Input {
     }
 
     pub fn reset(&mut self) {
-        self.mouse_button_click = false;
+        self.mouse_left_button_click = false;
+        self.mouse_right_button_click = false;
         self.key_pressed.clear();
     }
 
@@ -124,8 +132,12 @@ impl Input {
         }
     }
 
-    pub fn click(&self) -> bool {
-        self.mouse_button_click
+    pub fn left_click(&self) -> bool {
+        self.mouse_left_button_click
+    }
+
+    pub fn right_click(&self) -> bool {
+        self.mouse_right_button_click
     }
 
     pub fn pressed(&self, key: Keycode) -> bool {

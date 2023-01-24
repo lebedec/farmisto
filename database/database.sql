@@ -103,6 +103,35 @@ create table Grid
     map  blob collate binary not null
 );
 
+-- Inventory
+
+create table ContainerKind
+(
+    id       integer primary key,
+    name     text    not null,
+    capacity integer not null
+);
+
+create table Container
+(
+    id   integer primary key,
+    kind integer not null references ContainerKind
+);
+
+create table ItemKind
+(
+    id        integer primary key,
+    name      text not null,
+    functions json not null
+);
+
+create table Item
+(
+    id        integer primary key,
+    kind      integer not null references ItemKind,
+    container integer not null references Container
+);
+
 -- Universe
 
 create table TreeKind
@@ -153,3 +182,4 @@ create table Farmer
     player integer not null references Player,
     body   integer not null references Body
 );
+

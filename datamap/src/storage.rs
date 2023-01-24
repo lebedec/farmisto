@@ -42,13 +42,6 @@ impl Storage {
         })
     }
 
-    pub fn find_all<T, M>(&self, map: M) -> Vec<T>
-    where
-        M: FnMut(&Row) -> T,
-    {
-        self.open_into().fetch_all_map(map)
-    }
-
     pub fn open_into(&self) -> Self {
         Connection::open(self.connection.path().unwrap())
             .map(|connection| Storage {
@@ -117,7 +110,7 @@ impl Storage {
         entries
     }
 
-    pub fn fetch_all_map<T, M>(&self, map: M) -> Vec<T>
+    pub fn find_all<T, M>(&self, map: M) -> Vec<T>
     where
         M: FnMut(&Row) -> T,
     {
