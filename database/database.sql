@@ -183,3 +183,10 @@ create table Farmer
     body   integer not null references Body
 );
 
+create table "Drop"
+(
+    id        integer primary key,
+    container integer not null references Container,
+    barrier   integer not null references Barrier
+);
+

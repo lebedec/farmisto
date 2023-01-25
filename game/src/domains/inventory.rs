@@ -24,7 +24,7 @@ pub enum Function {
     Carry,
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
 pub struct ItemKey(pub usize);
 
 pub struct ItemKind {

@@ -104,3 +104,9 @@ create table TilesetAssetData
     sampler text not null references SamplerAssetData,
     tiles   json not null
 );
+
+create table ItemAssetData
+(
+    id     text primary key unique,
+    sprite text not null references SpriteAssetData
+);

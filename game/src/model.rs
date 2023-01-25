@@ -1,8 +1,8 @@
 use std::collections::{HashMap, HashSet};
 
-use crate::building::{Cell, Grid, GridId, GridIndex, GridKey, Room, SurveyorId};
+use crate::building::{Cell, GridId, GridIndex, GridKey, Room, SurveyorId};
 use crate::collections::Shared;
-use crate::inventory::ContainerId;
+use crate::inventory::{ContainerId, ItemId, ItemKey};
 use crate::physics::{BarrierId, BarrierKey, BodyId, BodyKey, SpaceId, SpaceKey};
 use crate::planting::{LandId, LandKey, PlantId, PlantKey};
 
@@ -21,6 +21,7 @@ pub struct UniverseDomain {
     pub trees: Vec<Tree>,
     pub farmers: Vec<Farmer>,
     pub constructions: Vec<Construction>,
+    pub drops: Vec<Drop>,
 }
 
 #[derive(Debug, bincode::Encode, bincode::Decode)]
@@ -50,6 +51,12 @@ pub enum Universe {
         position: [f32; 2],
     },
     FarmerVanished(Farmer),
+    DropAppeared {
+        drop: Drop,
+        position: [f32; 2],
+        items: Vec<ItemView>,
+    },
+    DropVanished(Drop),
 }
 
 #[derive(Debug, bincode::Encode, bincode::Decode)]
@@ -183,6 +190,20 @@ pub struct Theodolite {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
+pub struct Drop {
+    pub id: usize,
+    pub container: ContainerId,
+    pub barrier: BarrierId,
+}
+
+#[derive(Debug, bincode::Encode, bincode::Decode)]
+pub struct ItemView {
+    pub id: ItemId,
+    pub kind: ItemKey,
+    pub container: ContainerId,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
 pub struct Tile {
     pub x: usize,
     pub y: usize,
@@ -193,3 +214,22 @@ pub struct Position {
     pub x: f32,
     pub y: f32,
 }
+
+// Models:
+//
+// Entity - aggregate of domain objects (hold identifiers)
+// EntityKind - aggregate of domain object kinds (defines object properties)
+// [Generated]Entity - entity without EntityKind (defined dynamically in game run time)
+// Value     - not domain object, used for action and events definition
+// Event
+// Action
+//
+// Universe - special|aggregate|root domain with entities
+
+//  Domains:
+//
+// ObjectId - object identifies
+// ObjectKey - memory efficient reference to object kind
+// Object
+// ObjectKind
+// DomainEvent

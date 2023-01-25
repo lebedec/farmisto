@@ -21,12 +21,7 @@ use crate::engine::assets::fs::{FileEvent, FileSystem};
 use crate::engine::assets::prefabs::{TreeAsset, TreeAssetData};
 use crate::engine::assets::tileset::{TilesetAsset, TilesetAssetData, TilesetItem};
 use crate::engine::base::Queue;
-use crate::engine::{
-    FarmerAsset, FarmerAssetData, FarmlandAsset, FarmlandAssetData, FarmlandAssetPropItem,
-    MeshAsset, MeshAssetData, PipelineAsset, PipelineAssetData, PropsAsset, PropsAssetData,
-    SamplerAsset, SamplerAssetData, ShaderAsset, ShaderAssetData, SpineAsset, SpineAssetData,
-    SpriteAsset, SpriteAssetData, TextureAsset, TextureAssetData,
-};
+use crate::engine::{FarmerAsset, FarmerAssetData, FarmlandAsset, FarmlandAssetData, FarmlandAssetPropItem, ItemAsset, ItemAssetData, MeshAsset, MeshAssetData, PipelineAsset, PipelineAssetData, PropsAsset, PropsAssetData, SamplerAsset, SamplerAssetData, ShaderAsset, ShaderAssetData, SpineAsset, SpineAssetData, SpriteAsset, SpriteAssetData, TextureAsset, TextureAssetData};
 use crate::ShaderCompiler;
 
 lazy_static! {
@@ -56,16 +51,17 @@ pub struct Assets {
     meshes: HashMap<PathBuf, MeshAsset>,
 
     shaders: HashMap<PathBuf, ShaderAsset>,
-
-    farmlands: HashMap<String, FarmlandAsset>,
-    trees: HashMap<String, TreeAsset>,
-    props: HashMap<String, PropsAsset>,
-    farmers: HashMap<String, FarmerAsset>,
     pipelines: HashMap<String, PipelineAsset>,
     sprites: HashMap<String, SpriteAsset>,
     tilesets: HashMap<String, TilesetAsset>,
     samplers: HashMap<String, SamplerAsset>,
     spines: HashMap<String, SpineAsset>,
+
+    farmlands: HashMap<String, FarmlandAsset>,
+    trees: HashMap<String, TreeAsset>,
+    props: HashMap<String, PropsAsset>,
+    farmers: HashMap<String, FarmerAsset>,
+    items: HashMap<String, ItemAsset>,
 
     queue: Arc<Queue>,
 }
@@ -256,6 +252,7 @@ impl Assets {
             tilesets: Default::default(),
             samplers: Default::default(),
             spines: Default::default(),
+            items: Default::default(),
         }
     }
 
@@ -392,6 +389,17 @@ impl Assets {
         }
     }
 
+    pub fn item(&mut self, name: &str) -> ItemAsset {
+        METRIC_REQUESTS_TOTAL.with_label_values(&["item"]).inc();
+        match self.items.get(name) {
+            Some(asset) => asset.share(),
+            None => {
+                let data = self.load_item_data(name).unwrap();
+                self.items.publish(name, data)
+            }
+        }
+    }
+
     pub fn farmland(&mut self, name: &str) -> FarmlandAsset {
         METRIC_REQUESTS_TOTAL.with_label_values(&["farmland"]).inc();
         match self.farmlands.get(name) {
@@ -432,6 +440,15 @@ impl Assets {
         let data = TreeAssetData {
             texture: self.texture(texture),
             mesh: self.mesh(mesh),
+        };
+        Ok(data)
+    }
+
+    pub fn load_item_data(&mut self, id: &str) -> Result<ItemAssetData, serde_json::Error> {
+        let entry = self.storage.fetch_one::<ItemAssetData>(id);
+        let sprite: String = entry.get("sprite")?;
+        let data = ItemAssetData {
+            sprite: self.sprite(&sprite),
         };
         Ok(data)
     }
@@ -633,6 +650,10 @@ impl Assets {
                     "TreeAssetData" => {
                         let data = self.load_tree_data(&change.id).unwrap();
                         self.trees.get_mut(&change.id).unwrap().update(data);
+                    }
+                    "ItemAssetData" => {
+                        let data = self.load_item_data(&change.id).unwrap();
+                        self.items.get_mut(&change.id).unwrap().update(data);
                     }
                     "PropsAssetData" => {
                         let data = self.load_props_data(&change.id).unwrap();

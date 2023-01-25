@@ -2,13 +2,15 @@ use crate::engine::animatoro::{AnimationAsset, Machine, State, StateId};
 use crate::engine::armature::{PoseBuffer, PoseUniform};
 use crate::engine::sprites::SpineSpriteController;
 use crate::engine::{Input, SpineAsset, SpriteAsset, TextureAsset, TilesetAsset};
+use crate::gameplay::behaviours::{
+    BarrierHint, DropBehaviour, FarmerBehaviour, FarmlandBehaviour, TreeBehaviour,
+};
 use crate::gameplay::camera::Camera;
-use crate::gameplay::objects::{BarrierHint, FarmerBehaviour, FarmlandBehaviour, TreeBehaviour};
 use crate::{Frame, Mode, SceneRenderer};
 use datamap::Storage;
 use game::api::{Action, Event, GameResponse, PlayerRequest};
 use game::math::{detect_collision, VectorMath};
-use game::model::{Construction, Farmer, Farmland, Position, Tile, Tree, Universe};
+use game::model::{Construction, Drop, Farmer, Farmland, ItemView, Position, Tile, Tree, Universe};
 use game::Game;
 use glam::{vec3, Mat4, Vec2, Vec3};
 use log::{error, info};
@@ -18,9 +20,10 @@ use server::LocalServerThread;
 use std::collections::HashMap;
 
 use game::building::Building;
+use game::inventory::{ContainerId, ItemId};
 use game::model::Universe::{
-    BarrierHintAppeared, FarmerAppeared, FarmerVanished, FarmlandAppeared, FarmlandVanished,
-    TreeAppeared, TreeVanished,
+    BarrierHintAppeared, DropAppeared, DropVanished, FarmerAppeared, FarmerVanished,
+    FarmlandAppeared, FarmlandVanished, TreeAppeared, TreeVanished,
 };
 use game::physics::Physics;
 use game::planting::Planting;
@@ -47,6 +50,8 @@ pub struct Gameplay {
     pub farmlands: HashMap<Farmland, FarmlandBehaviour>,
     pub trees: HashMap<Tree, TreeBehaviour>,
     pub farmers: HashMap<Farmer, FarmerBehaviour>,
+    pub drops: HashMap<Drop, DropBehaviour>,
+    pub items: HashMap<ContainerId, HashMap<ItemId, ItemView>>,
     pub camera: Camera,
     pub farmers2d: Vec<Farmer2d>,
     pub cursor: SpriteAsset,
@@ -56,6 +61,7 @@ pub struct Gameplay {
     pub building_tiles: TilesetAsset,
     pub building_tiles_marker: TilesetAsset,
     pub roof_texture: TextureAsset,
+    pub drop_sprite: SpriteAsset,
 }
 
 impl Gameplay {
@@ -83,6 +89,8 @@ impl Gameplay {
             farmlands: Default::default(),
             trees: HashMap::new(),
             farmers: Default::default(),
+            drops: Default::default(),
+            items: Default::default(),
             camera,
             farmers2d: vec![],
             cursor,
@@ -92,6 +100,7 @@ impl Gameplay {
             building_tiles_marker: assets.tileset("building-marker"),
             players_index: 0,
             roof_texture: assets.texture("./assets/texture/building-roof-template-2.png"),
+            drop_sprite: assets.sprite("<drop>"),
         }
     }
 
@@ -372,6 +381,21 @@ impl Gameplay {
                     bounds,
                 });
             }
+            DropAppeared {
+                drop,
+                position,
+                items,
+            } => {
+                info!("Appear drop {:?} at {:?}", drop, position,);
+                self.drops.insert(drop, DropBehaviour { drop, position });
+                for item in items {
+                    let container = self.items.entry(item.container).or_insert(HashMap::new());
+                    container.insert(item.id, item);
+                }
+            }
+            DropVanished(drop) => {
+                self.drops.remove(&drop);
+            }
         }
     }
 
@@ -488,6 +512,7 @@ impl Gameplay {
     }
 
     pub fn render2d(&mut self, frame: &mut Frame) {
+        let assets = &mut frame.assets;
         let renderer = &mut frame.sprites;
         renderer.clear();
         renderer.look_at(self.camera.eye);
@@ -626,18 +651,21 @@ impl Gameplay {
                         } else {
                             1.0
                         };
-
+                        let position = [x as f32 * 128.0, 128.0 + y as f32 * 128.0];
                         renderer.render_sprite(
                             tile,
-                            [x as f32 * 128.0, 128.0 + y as f32 * 128.0],
+                            position,
+                            (position[1] / 128.0) as usize,
                             highlight,
                         );
                     }
 
                     if x == cursor_x && y == cursor_y {
+                        let position = [mouse_x, mouse_y];
                         renderer.render_sprite(
                             &self.players[self.players_index],
-                            [mouse_x, mouse_y],
+                            position,
+                            (position[1] / 128.0) as usize,
                             1.0,
                         );
                     }
@@ -646,7 +674,33 @@ impl Gameplay {
         }
         let cursor_x = cursor_x as f32 * 128.0 + 64.0;
         let cursor_y = cursor_y as f32 * 128.0 + 64.0;
-        renderer.render_sprite(&self.cursor, [cursor_x, cursor_y], 1.0);
+        let position = [cursor_x, cursor_y];
+        renderer.render_sprite(&self.cursor, position, (position[1] / 128.0) as usize, 1.0);
+
+        for drop in self.drops.values() {
+            let sprite_line = (drop.position[1] / 128.0) as usize;
+            renderer.render_sprite(&self.drop_sprite, drop.position, sprite_line, 1.0);
+            for (i, item) in self
+                .items
+                .get(&drop.drop.container)
+                .unwrap()
+                .values()
+                .enumerate()
+            {
+                let kind = self
+                    .knowledge
+                    .inventory
+                    .known_items
+                    .get(&item.kind)
+                    .unwrap();
+                let asset = assets.item(&kind.name);
+                let offset = [
+                    0.0,
+                    -24.0 + (48.0 * (i % 2) as f32) - (48.0 * (i / 2) as f32),
+                ];
+                renderer.render_sprite(&asset.sprite, drop.position.add(offset), sprite_line, 1.0);
+            }
+        }
 
         METRIC_DRAW_REQUEST_SECONDS.observe_closure_duration(|| {
             for farmer in &self.farmers2d {

@@ -353,7 +353,13 @@ impl SpriteRenderer {
         })
     }
 
-    pub fn render_sprite(&mut self, asset: &SpriteAsset, position: [f32; 2], highlight: f32) {
+    pub fn render_sprite(
+        &mut self,
+        asset: &SpriteAsset,
+        position: [f32; 2],
+        line: usize,
+        highlight: f32,
+    ) {
         let texture = &asset.texture;
         let image_w = asset.texture.width as f32;
         let image_h = asset.texture.height as f32;
@@ -363,8 +369,6 @@ impl SpriteRenderer {
         let y = sprite_y / image_h;
         let w = sprite_w / image_w;
         let h = sprite_h / image_h;
-
-        let line = (position[1] / 128.0) as usize;
         self.sprites[line].push(SpriteRenderObject {
             constants: SpritePushConstants {
                 position,

@@ -7,7 +7,6 @@ use crate::api::ActionError::{
 use crate::api::{Action, ActionError, Event};
 use crate::building::{BuildingDomain, SurveyorId};
 use crate::inventory::{ContainerKey, Function, InventoryDomain};
-use crate::model::FarmlandKind;
 use crate::model::Tree;
 use crate::model::TreeKind;
 use crate::model::UniverseDomain;
@@ -15,6 +14,7 @@ use crate::model::UniverseSnapshot;
 use crate::model::{Construction, Farmer, Universe};
 use crate::model::{FarmerKey, Farmland};
 use crate::model::{FarmerKind, Player};
+use crate::model::{FarmlandKind, ItemView};
 use crate::model::{Theodolite, Tile};
 use crate::physics::PhysicsDomain;
 use crate::planting::PlantingDomain;
@@ -31,7 +31,7 @@ pub struct Game {
     physics: PhysicsDomain,
     planting: PlantingDomain,
     building: BuildingDomain,
-    inventory: InventoryDomain,
+    pub inventory: InventoryDomain,
     storage: Storage,
     players: Vec<Player>,
 }
@@ -220,6 +220,23 @@ impl Game {
         //     .into_iter()
         //     .map(Universe::FarmerVanished);
         // stream.extend(events);
+
+        for drop in &self.universe.drops {
+            let barrier = self.physics.get_barrier(drop.barrier).unwrap();
+            let items = self.inventory.get_items(drop.container).unwrap();
+            stream.push(Universe::DropAppeared {
+                drop: *drop,
+                position: barrier.position,
+                items: items
+                    .into_iter()
+                    .map(|item| ItemView {
+                        id: item.id,
+                        kind: item.kind.id,
+                        container: item.container,
+                    })
+                    .collect(),
+            })
+        }
 
         vec![Event::Universe(stream)]
     }

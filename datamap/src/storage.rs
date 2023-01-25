@@ -51,21 +51,12 @@ impl Storage {
             .unwrap()
     }
 
-    #[inline]
-    pub fn connection(&self) -> &Connection {
-        &self.connection
-    }
-
     pub fn fetch_one<T>(&self, id: &str) -> Entry {
         self.query::<T, _>([id], "where id = ?").remove(0)
     }
 
     pub fn fetch_many<T>(&self, id: &str) -> Vec<Entry> {
         self.query::<T, _>([id], "where id = ?")
-    }
-
-    pub fn fetch_all<T>(&self) -> Vec<Entry> {
-        self.query::<T, _>([], "")
     }
 
     fn query<T, P: Params>(&self, params: P, where_clause: &str) -> Vec<Entry> {
@@ -117,7 +108,7 @@ impl Storage {
         self.query_map::<T, _, M>([], "", map)
     }
 
-    pub fn fetch_one_map<T, M>(&self, id: &str, map: M) -> T
+    pub fn find_one<T, M>(&self, id: &str, map: M) -> T
     where
         M: FnMut(&Row) -> T,
     {
@@ -132,7 +123,7 @@ impl Storage {
         let table = std::any::type_name::<T>().split("::").last().unwrap();
         let mut statement = self
             .connection
-            .prepare(&format!("select * from {} {}", table, where_clause))
+            .prepare(&format!("select * from \"{}\" {}", table, where_clause))
             .unwrap();
         let mut rows = statement.query(params).unwrap();
         let mut values = vec![];
@@ -220,7 +211,7 @@ impl Storage {
 
         let insert = "-- drop trigger if exists on_<table>_insert;
         create trigger if not exists on_<table>_insert
-        after insert on <table>
+        after insert on \"<table>\"
         begin
             insert into sql_tracking (entity, id, operation)
             values ('<table>', new.id, 'Insert');
@@ -228,7 +219,7 @@ impl Storage {
 
         let update = "-- drop trigger if exists on_<table>_update;
         create trigger if not exists on_<table>_update
-        after update on <table>
+        after update on \"<table>\"
         begin
             insert into sql_tracking (entity, id, operation)
             values ('<table>', new.id, 'Update');
@@ -236,7 +227,7 @@ impl Storage {
 
         let delete = "-- drop trigger if exists on_<table>_delete;
         create trigger if not exists on_<table>_delete
-        after delete on <table>
+        after delete on \"<table>\"
         begin
             insert into sql_tracking (entity, id, operation)
             values ('<table>', old.id, 'Delete');

@@ -1,5 +1,5 @@
 use crate::engine::assets::asset::Asset;
-use crate::engine::{MeshAsset, PropsAsset, SamplerAsset, TextureAsset};
+use crate::engine::{MeshAsset, PropsAsset, SamplerAsset, SpriteAsset, TextureAsset};
 
 pub type FarmlandAsset = Asset<FarmlandAssetData>;
 
@@ -28,4 +28,10 @@ pub type FarmerAsset = Asset<FarmerAssetData>;
 pub struct FarmerAssetData {
     pub texture: TextureAsset,
     pub mesh: MeshAsset,
+}
+
+pub type ItemAsset = Asset<ItemAssetData>;
+
+pub struct ItemAssetData {
+    pub sprite: SpriteAsset,
 }
