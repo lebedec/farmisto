@@ -52,6 +52,7 @@ pub enum Inventory {
     },
     ItemAdded {
         item: ItemId,
+        kind: ItemKey,
         container: ContainerId,
     },
     ItemRemoved {
@@ -62,7 +63,13 @@ pub enum Inventory {
 
 #[derive(Debug, bincode::Encode, bincode::Decode)]
 pub enum InventoryError {
-    ContainerNotFound { container: ContainerId },
+    ContainerNotFound {
+        container: ContainerId,
+    },
+    ItemNotFound {
+        container: ContainerId,
+        item: ItemId,
+    },
 }
 
 #[derive(Default)]
@@ -71,6 +78,75 @@ pub struct InventoryDomain {
     pub known_items: HashMap<ItemKey, Shared<ItemKind>>,
     pub(crate) items: HashMap<ContainerId, Vec<Item>>,
     pub(crate) containers: Vec<Container>,
+}
+
+pub struct Transfer<'action> {
+    items: &'action mut HashMap<ContainerId, Vec<Item>>,
+    source: ContainerId,
+    destination: ContainerId,
+    item_index: usize,
+}
+
+impl<'action> Transfer<'action> {
+    pub fn complete(self) -> Vec<Inventory> {
+        let mut item = self
+            .items
+            .get_mut(&self.source)
+            .unwrap()
+            .remove(self.item_index);
+        item.container = self.destination;
+        let events = vec![
+            Inventory::ItemRemoved {
+                item: item.id,
+                container: self.source,
+            },
+            Inventory::ItemAdded {
+                item: item.id,
+                kind: item.kind.id,
+                container: item.container,
+            },
+        ];
+        let items = self.items.entry(self.destination).or_insert(vec![]);
+        items.push(item);
+        events
+    }
+}
+
+impl InventoryDomain {
+    pub(crate) fn transfer_item(
+        &mut self,
+        source: ContainerId,
+        item: ItemId,
+        destination: ContainerId,
+    ) -> Result<Transfer, InventoryError> {
+        if !self.items.contains_key(&source) {
+            return Err(InventoryError::ContainerNotFound { container: source });
+        }
+        // destroy
+        // if !self.items.contains_key(&destination) {
+        //     return Err(InventoryError::ContainerNotFound {
+        //         container: destination,
+        //     });
+        // }
+        // capacity
+        let item_index = self
+            .items
+            .get(&source)
+            .unwrap()
+            .iter()
+            .position(|search| search.id == item)
+            .ok_or(InventoryError::ItemNotFound {
+                item,
+                container: source,
+            })?;
+        let transfer = Transfer {
+            items: &mut self.items,
+            source,
+            destination,
+            item_index,
+        };
+        Ok(transfer)
+    }
 }
 
 pub struct Usage<'action> {
@@ -111,6 +187,77 @@ impl<'action> ContainerCreation<'action> {
     }
 }
 
+pub struct ItemHold<'action> {
+    source: ContainerId,
+    pub container: Container,
+    item_index: usize,
+    containers: &'action mut Vec<Container>,
+    items: &'action mut HashMap<ContainerId, Vec<Item>>,
+}
+
+impl InventoryDomain {
+    pub fn hold_item(
+        &mut self,
+        source: ContainerId,
+        item: ItemId,
+        kind: Shared<ContainerKind>,
+    ) -> Result<ItemHold, InventoryError> {
+        if !self.items.contains_key(&source) {
+            return Err(InventoryError::ContainerNotFound { container: source });
+        }
+        let item_index = self
+            .items
+            .get(&source)
+            .unwrap()
+            .iter()
+            .position(|search| search.id == item)
+            .ok_or(InventoryError::ItemNotFound {
+                item,
+                container: source,
+            })?;
+        let hold = ItemHold {
+            source,
+            container: Container {
+                id: ContainerId(self.containers.len() + 1),
+                kind,
+            },
+            item_index,
+            containers: &mut self.containers,
+            items: &mut self.items,
+        };
+        Ok(hold)
+    }
+}
+
+impl<'action> ItemHold<'action> {
+    pub fn complete(self) -> Vec<Inventory> {
+        let mut item = self
+            .items
+            .get_mut(&self.source)
+            .unwrap()
+            .remove(self.item_index);
+        item.container = self.container.id;
+        let events = vec![
+            Inventory::ItemRemoved {
+                item: item.id,
+                container: self.source,
+            },
+            Inventory::ContainerCreated {
+                id: self.container.id,
+            },
+            Inventory::ItemAdded {
+                item: item.id,
+                kind: item.kind.id,
+                container: item.container,
+            },
+        ];
+        let items = self.items.entry(self.container.id).or_insert(vec![]);
+        items.push(item);
+        self.containers.push(self.container);
+        events
+    }
+}
+
 impl InventoryDomain {
     pub fn get_container(&self, id: ContainerId) -> Option<&Container> {
         self.containers.iter().find(|container| container.id == id)
@@ -122,7 +269,7 @@ impl InventoryDomain {
     ) -> Result<ContainerCreation, InventoryError> {
         Ok(ContainerCreation {
             container: Container {
-                id: ContainerId(self.containers.len()),
+                id: ContainerId(self.containers.len() + 1),
                 kind,
             },
             containers: &mut self.containers,

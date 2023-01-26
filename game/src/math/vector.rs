@@ -12,6 +12,7 @@ pub trait VectorMath {
     fn length(self) -> f32;
     fn length_squared(self) -> f32;
     fn normalize(self) -> Self;
+    fn cast(self) -> [usize; 2];
 }
 
 impl VectorMath for [f32; 2] {
@@ -86,5 +87,10 @@ impl VectorMath for [f32; 2] {
             let length = self.length();
             [self[0] / length, self[1] / length]
         }
+    }
+
+    #[inline]
+    fn cast(self) -> [usize; 2] {
+        [self[0] as usize, self[1] as usize]
     }
 }

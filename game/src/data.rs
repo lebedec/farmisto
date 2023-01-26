@@ -172,6 +172,8 @@ impl Game {
             kind: FarmerKey(row.get("kind")?),
             player: PlayerId(row.get("player")?),
             body: BodyId(row.get("body")?),
+            hands: ContainerId(row.get("hands")?),
+            backpack: ContainerId(row.get("backpack")?),
         };
         Ok(data)
     }

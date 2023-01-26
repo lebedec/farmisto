@@ -12,11 +12,11 @@ use crate::model::TreeKind;
 use crate::model::UniverseDomain;
 use crate::model::UniverseSnapshot;
 use crate::model::{Construction, Farmer, Universe};
+use crate::model::{Drop, Theodolite, Tile};
 use crate::model::{FarmerKey, Farmland};
 use crate::model::{FarmerKind, Player};
 use crate::model::{FarmlandKind, ItemView};
-use crate::model::{Theodolite, Tile};
-use crate::physics::PhysicsDomain;
+use crate::physics::{PhysicsDomain, SpaceId};
 use crate::planting::PlantingDomain;
 
 pub mod api;
@@ -93,7 +93,67 @@ impl Game {
             Action::Construct { construction } => {
                 events.extend(self.construct(*farmer, farmland, construction)?)
             }
+            Action::TakeItem { drop } => events.extend(self.take_item(*farmer, drop)?),
+            Action::DropItem { tile } => events.extend(self.drop_item(*farmer, tile)?),
+            Action::PutItem { drop } => events.extend(self.put_item(*farmer, drop)?),
         }
+        Ok(events)
+    }
+
+    fn take_item(&mut self, farmer: Farmer, drop: Drop) -> Result<Vec<Event>, ActionError> {
+        let items = self.inventory.get_items(drop.container).unwrap();
+        let transfer = self
+            .inventory
+            .transfer_item(drop.container, items[0].id, farmer.hands)?;
+        let events = vec![Event::Inventory(transfer.complete())];
+        Ok(events)
+    }
+
+    fn put_item(&mut self, farmer: Farmer, drop: Drop) -> Result<Vec<Event>, ActionError> {
+        let items = self.inventory.get_items(farmer.hands).unwrap();
+        let transfer = self
+            .inventory
+            .transfer_item(farmer.hands, items[0].id, drop.container)?;
+        let events = vec![Event::Inventory(transfer.complete())];
+        Ok(events)
+    }
+
+    fn drop_item(&mut self, farmer: Farmer, tile: [usize; 2]) -> Result<Vec<Event>, ActionError> {
+        let space = SpaceId(0);
+        let items = self.inventory.get_items(farmer.hands).unwrap();
+        let item = items[0].id;
+        let (_, barrier_kind) = self
+            .physics
+            .known_barriers
+            .iter()
+            .find(|(_, kind)| kind.name == "<drop>")
+            .unwrap();
+        let position = [
+            (tile[0] as f32) * 128.0 + 64.0,
+            (tile[1] as f32) * 128.0 + 64.0,
+        ];
+        let barrier_creation =
+            self.physics
+                .create_barrier(space, barrier_kind.clone(), position)?;
+        let (_, container_kind) = self
+            .inventory
+            .known_containers
+            .iter()
+            .find(|(_, kind)| kind.name == "<drop>")
+            .unwrap();
+        let container_creation =
+            self.inventory
+                .hold_item(farmer.hands, item, container_kind.clone())?;
+        let aggregation = self.universe.aggregate_drop(
+            container_creation.container.id,
+            barrier_creation.barrier.id,
+            position,
+        );
+        let events = vec![
+            Event::Physics(barrier_creation.complete()),
+            Event::Inventory(container_creation.complete()),
+            Event::Universe(aggregation),
+        ];
         Ok(events)
     }
 
@@ -203,6 +263,8 @@ impl Game {
         for farmer in self.universe.farmers.iter() {
             if snapshot.whole || snapshot.farmers.contains(&farmer.id) {
                 let body = self.physics.get_body(farmer.body).unwrap();
+                // let hands = self.inventory.get_items(farmer.hands).unwrap();
+                // let backpack = self.inventory.get_items(farmer.backpack).unwrap();
                 let player = self
                     .players
                     .iter()
@@ -212,6 +274,24 @@ impl Game {
                     farmer: *farmer,
                     player: player.name.clone(),
                     position: body.position,
+                    hands: vec![],
+                    backpack: vec![],
+                    // hands: hands
+                    //     .into_iter()
+                    //     .map(|item| ItemView {
+                    //         id: item.id,
+                    //         kind: item.kind.id,
+                    //         container: item.container,
+                    //     })
+                    //     .collect(),
+                    // backpack: backpack
+                    //     .into_iter()
+                    //     .map(|item| ItemView {
+                    //         id: item.id,
+                    //         kind: item.kind.id,
+                    //         container: item.container,
+                    //     })
+                    //     .collect(),
                 })
             }
         }

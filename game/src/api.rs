@@ -1,7 +1,7 @@
 use crate::building::{Building, BuildingError};
 use crate::inventory::{Inventory, InventoryError};
-use crate::model::{Construction, Farmer, Tile, Universe, UniverseError};
-use crate::physics::Physics;
+use crate::model::{Construction, Drop, Farmer, Tile, Universe, UniverseError};
+use crate::physics::{Physics, PhysicsError};
 use crate::planting::Planting;
 use std::fmt::Debug;
 
@@ -51,6 +51,9 @@ pub enum Action {
     BuildWall { cell: [usize; 2] },
     Construct { construction: Construction },
     Survey { target: Tile },
+    TakeItem { drop: Drop },
+    DropItem { tile: [usize; 2] },
+    PutItem { drop: Drop },
 }
 
 #[derive(Debug, bincode::Encode, bincode::Decode)]
@@ -58,6 +61,7 @@ pub enum ActionError {
     Building(BuildingError),
     Inventory(InventoryError),
     Universe(UniverseError),
+    Physics(PhysicsError),
     PlayerFarmerNotFound(String),
     FarmerBodyNotFound(Farmer),
     ConstructionContainerNotFound(Construction),
@@ -81,6 +85,12 @@ impl From<InventoryError> for ActionError {
 impl From<UniverseError> for ActionError {
     fn from(error: UniverseError) -> Self {
         Self::Universe(error)
+    }
+}
+
+impl From<PhysicsError> for ActionError {
+    fn from(error: PhysicsError) -> Self {
+        Self::Physics(error)
     }
 }
 

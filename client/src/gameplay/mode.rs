@@ -20,7 +20,7 @@ use server::LocalServerThread;
 use std::collections::HashMap;
 
 use game::building::Building;
-use game::inventory::{ContainerId, ItemId};
+use game::inventory::{ContainerId, Inventory, ItemId};
 use game::model::Universe::{
     BarrierHintAppeared, DropAppeared, DropVanished, FarmerAppeared, FarmerVanished,
     FarmlandAppeared, FarmlandVanished, TreeAppeared, TreeVanished,
@@ -39,6 +39,40 @@ lazy_static! {
             "gameplay_draw_request_seconds"
         )
         .unwrap();
+}
+
+const TILE_SIZE: f32 = 128.0;
+
+pub enum Activity {
+    Idle,
+    Delivery,
+    Surveying,
+}
+
+pub enum Intention {
+    Use,
+    Put,
+}
+
+pub enum Target {
+    Ground,
+    Drop(Drop),
+}
+
+pub trait InputMethod {
+    fn recognize_intention(&self) -> Option<Intention>;
+}
+
+impl InputMethod for Input {
+    fn recognize_intention(&self) -> Option<Intention> {
+        if self.left_click() {
+            Some(Intention::Use)
+        } else if self.right_click() {
+            Some(Intention::Put)
+        } else {
+            None
+        }
+    }
 }
 
 pub struct Gameplay {
@@ -62,6 +96,7 @@ pub struct Gameplay {
     pub building_tiles_marker: TilesetAsset,
     pub roof_texture: TextureAsset,
     pub drop_sprite: SpriteAsset,
+    pub activity: Activity,
 }
 
 impl Gameplay {
@@ -101,6 +136,7 @@ impl Gameplay {
             players_index: 0,
             roof_texture: assets.texture("./assets/texture/building-roof-template-2.png"),
             drop_sprite: assets.sprite("<drop>"),
+            activity: Activity::Idle,
         }
     }
 
@@ -117,7 +153,11 @@ impl Gameplay {
                     self.handle_building_event(frame, event);
                 }
             }
-            Event::Inventory(events) => {}
+            Event::Inventory(events) => {
+                for event in events {
+                    self.handle_inventory_event(frame, event);
+                }
+            }
             Event::Planting(events) => {
                 for event in events {
                     self.handle_planting_event(frame, event);
@@ -138,6 +178,33 @@ impl Gameplay {
                         break;
                     }
                 }
+            }
+        }
+    }
+
+    pub fn handle_inventory_event(&mut self, frame: &mut Frame, event: Inventory) {
+        match event {
+            Inventory::ContainerCreated { .. } => {}
+            Inventory::ContainerDestroyed { .. } => {}
+            Inventory::ItemAdded {
+                item,
+                kind,
+                container,
+            } => {
+                let items = self.items.entry(container).or_insert(HashMap::new());
+                items.insert(
+                    item,
+                    ItemView {
+                        id: item,
+                        kind,
+                        container,
+                    },
+                );
+            }
+            Inventory::ItemRemoved { item, container } => {
+                self.items.entry(container).and_modify(|items| {
+                    items.remove(&item);
+                });
             }
         }
     }
@@ -267,7 +334,18 @@ impl Gameplay {
                 farmer,
                 position,
                 player,
+                hands,
+                backpack,
             } => {
+                for item in hands {
+                    let container = self.items.entry(item.container).or_insert(HashMap::new());
+                    container.insert(item.id, item);
+                }
+                for item in backpack {
+                    let container = self.items.entry(item.container).or_insert(HashMap::new());
+                    container.insert(item.id, item);
+                }
+
                 let kind = self
                     .knowledge
                     .universe
@@ -419,12 +497,25 @@ impl Gameplay {
         }
     }
 
-    fn send_action(&mut self, action: Action) {
+    fn send_action(&mut self, action: Action) -> usize {
         self.action_id += 1;
         self.client.send(PlayerRequest::Perform {
             action,
             action_id: self.action_id,
-        })
+        });
+        self.action_id
+    }
+
+    pub fn get_target_at(&self, position: [f32; 2]) -> Target {
+        let tile = position.div(TILE_SIZE).cast();
+
+        for drop in self.drops.values() {
+            if drop.position.div(TILE_SIZE).cast() == tile {
+                return Target::Drop(drop.drop);
+            }
+        }
+
+        Target::Ground
     }
 
     pub fn handle_user_input(&mut self, input: &Input) {
@@ -434,14 +525,7 @@ impl Gameplay {
             .mouse_position()
             .position
             .add([self.camera.eye.x, -self.camera.eye.y]);
-        let cursor_position = Position {
-            x: mouse_position[0],
-            y: mouse_position[1],
-        };
-        let cursor = Tile {
-            x: (mouse_position[0] / 128.0).floor() as usize,
-            y: (mouse_position[1] / 128.0).floor() as usize,
-        };
+        let tile = mouse_position.div(TILE_SIZE).cast();
 
         if input.pressed(Keycode::Kp1) {
             self.send_action(Action::DoSomething);
@@ -449,48 +533,98 @@ impl Gameplay {
         if input.pressed(Keycode::Tab) {
             self.players_index = (self.players_index + 1) % self.players.len();
         }
-        if input.left_click() {
-            let farmland = self.farmlands.values().nth(0).unwrap();
-            let row = cursor.y.max(127);
-            let column = cursor.x.max(127);
-            if !farmland.cells[row][column].marker && !farmland.cells[row][column].wall {
-                let action = Action::Survey { target: cursor };
-                self.send_action(action);
-            }
-        }
-        if let Some(farmer) = self
+        // if input.left_click() {
+        //     let farmland = self.farmlands.values().nth(0).unwrap();
+        //     let row = cursor.y.max(127);
+        //     let column = cursor.x.max(127);
+        //     if !farmland.cells[row][column].marker && !farmland.cells[row][column].wall {
+        //         let action = Action::Survey { target: cursor };
+        //         self.send_action(action);
+        //     }
+        // }
+
+        let farmer = match self
             .farmers
             .values_mut()
             .find(|farmer| farmer.player == self.client.player)
         {
-            let mut direction = Vec2::ZERO;
-            if input.down(Keycode::Left) {
-                direction.x -= 1.0;
+            None => {
+                error!("Farmer behaviour not initialized yet");
+                return;
             }
-            if input.down(Keycode::Right) {
-                direction.x += 1.0;
-            }
-            if input.down(Keycode::Up) {
-                direction.y += 1.0;
-            }
-            if input.down(Keycode::Down) {
-                direction.y -= 1.0;
-            }
-            let delta = direction.normalize_or_zero() * input.time * 7.0;
-            let destination =
-                delta + Vec2::new(farmer.rendering_position.x, farmer.rendering_position.z);
-
-            // client side physics pre-calculation to prevent
-            // obvious movement errors
-            if let Some(destination) = detect_collision(farmer, destination.into(), &self.barriers)
-            {
-                farmer.estimated_position = Vec2::from(destination);
-                if delta.length() > 0.0 {
-                    self.client.send(PlayerRequest::Perform {
-                        action_id: 0,
-                        action: Action::MoveFarmer { destination },
-                    })
+            Some(farmer) => {
+                let mut ptr = farmer as *mut FarmerBehaviour;
+                unsafe {
+                    // TODO: safe farmer behaviour mutation
+                    &mut *ptr
                 }
+            }
+        };
+
+        let target = self.get_target_at(mouse_position);
+
+        if let Some(intention) = input.recognize_intention() {
+            match self.activity {
+                Activity::Idle => match intention {
+                    Intention::Use => match target {
+                        Target::Ground => {}
+                        Target::Drop(drop) => {
+                            self.send_action(Action::TakeItem { drop });
+                            self.activity = Activity::Delivery;
+                            // if hands capacity
+                        }
+                    },
+                    Intention::Put => {}
+                },
+                Activity::Delivery => match intention {
+                    Intention::Use => match target {
+                        Target::Ground => {}
+                        Target::Drop(drop) => {
+                            self.send_action(Action::TakeItem { drop });
+                            // if hands capacity
+                        }
+                    },
+                    Intention::Put => match target {
+                        Target::Ground => {
+                            self.send_action(Action::DropItem { tile });
+                            // if hands empty
+                        }
+                        Target::Drop(drop) => {
+                            self.send_action(Action::PutItem { drop });
+                            // if hands empty
+                        }
+                    },
+                },
+                Activity::Surveying => {}
+            }
+        }
+
+        let mut direction = Vec2::ZERO;
+        if input.down(Keycode::Left) {
+            direction.x -= 1.0;
+        }
+        if input.down(Keycode::Right) {
+            direction.x += 1.0;
+        }
+        if input.down(Keycode::Up) {
+            direction.y += 1.0;
+        }
+        if input.down(Keycode::Down) {
+            direction.y -= 1.0;
+        }
+        let delta = direction.normalize_or_zero() * input.time * 7.0;
+        let destination =
+            delta + Vec2::new(farmer.rendering_position.x, farmer.rendering_position.z);
+
+        // client side physics pre-calculation to prevent
+        // obvious movement errors
+        if let Some(destination) = detect_collision(farmer, destination.into(), &self.barriers) {
+            farmer.estimated_position = Vec2::from(destination);
+            if delta.length() > 0.0 {
+                self.client.send(PlayerRequest::Perform {
+                    action_id: 0,
+                    action: Action::MoveFarmer { destination },
+                })
             }
         }
     }
@@ -523,8 +657,8 @@ impl Gameplay {
             .position
             .add([self.camera.eye.x, -self.camera.eye.y]);
         let [mouse_x, mouse_y] = mouse_position;
-        let cursor_x = (mouse_x / 128.0).floor() as usize;
-        let cursor_y = (mouse_y / 128.0).floor() as usize;
+        let cursor_x = (mouse_x / TILE_SIZE).floor() as usize;
+        let cursor_y = (mouse_y / TILE_SIZE).floor() as usize;
 
         for farmland in self.farmlands.values() {
             self.cursor_shape = 0;
@@ -651,11 +785,11 @@ impl Gameplay {
                         } else {
                             1.0
                         };
-                        let position = [x as f32 * 128.0, 128.0 + y as f32 * 128.0];
+                        let position = [x as f32 * TILE_SIZE, TILE_SIZE + y as f32 * TILE_SIZE];
                         renderer.render_sprite(
                             tile,
                             position,
-                            (position[1] / 128.0) as usize,
+                            (position[1] / TILE_SIZE) as usize,
                             highlight,
                         );
                     }
@@ -665,20 +799,25 @@ impl Gameplay {
                         renderer.render_sprite(
                             &self.players[self.players_index],
                             position,
-                            (position[1] / 128.0) as usize,
+                            (position[1] / TILE_SIZE) as usize,
                             1.0,
                         );
                     }
                 }
             }
         }
-        let cursor_x = cursor_x as f32 * 128.0 + 64.0;
-        let cursor_y = cursor_y as f32 * 128.0 + 64.0;
+        let cursor_x = cursor_x as f32 * TILE_SIZE + 64.0;
+        let cursor_y = cursor_y as f32 * TILE_SIZE + 64.0;
         let position = [cursor_x, cursor_y];
-        renderer.render_sprite(&self.cursor, position, (position[1] / 128.0) as usize, 1.0);
+        renderer.render_sprite(
+            &self.cursor,
+            position,
+            (position[1] / TILE_SIZE) as usize,
+            1.0,
+        );
 
         for drop in self.drops.values() {
-            let sprite_line = (drop.position[1] / 128.0) as usize;
+            let sprite_line = (drop.position[1] / TILE_SIZE) as usize;
             renderer.render_sprite(&self.drop_sprite, drop.position, sprite_line, 1.0);
             for (i, item) in self
                 .items

@@ -177,10 +177,12 @@ create table FarmerKind
 
 create table Farmer
 (
-    id     integer primary key,
-    kind   integer not null references FarmerKind,
-    player integer not null references Player,
-    body   integer not null references Body
+    id       integer primary key,
+    kind     integer not null references FarmerKind,
+    player   integer not null references Player,
+    body     integer not null references Body,
+    hands    integer not null references Container,
+    backpack integer not null references Container
 );
 
 create table "Drop"

@@ -95,6 +95,44 @@ pub enum Physics {
     },
 }
 
+#[derive(Debug, bincode::Encode, bincode::Decode)]
+pub enum PhysicsError {
+    SpaceNotFound { space: SpaceId },
+}
+
+pub struct BarrierCreation<'a> {
+    pub barrier: Barrier,
+    barriers: &'a mut Vec<Barrier>,
+}
+
+impl PhysicsDomain {
+    pub fn create_barrier(
+        &mut self,
+        space: SpaceId,
+        kind: Shared<BarrierKind>,
+        position: [f32; 2],
+    ) -> Result<BarrierCreation, PhysicsError> {
+        let barriers = &mut self.barriers[space.0];
+        let creation = BarrierCreation {
+            barrier: Barrier {
+                id: BarrierId(barriers.len() + 10),
+                kind,
+                position,
+                space,
+            },
+            barriers,
+        };
+        Ok(creation)
+    }
+}
+
+impl<'a> BarrierCreation<'a> {
+    pub fn complete(self) -> Vec<Physics> {
+        self.barriers.push(self.barrier);
+        vec![]
+    }
+}
+
 impl PhysicsDomain {
     pub fn get_body_mut(&mut self, id: BodyId) -> Option<&mut Body> {
         for bodies in self.bodies.iter_mut() {
@@ -136,19 +174,6 @@ impl PhysicsDomain {
                 body.position = position;
             }
         }
-    }
-
-    pub fn handle_create_barrier(&mut self, space: SpaceId, kind: BarrierKey, position: [f32; 2]) {
-        // let id = self.barriers.next_id();
-        let id = BarrierId(10);
-        let kind = self.known_barriers.get(&kind).unwrap().clone();
-        info!("barrier kind name is {:?}", kind.name);
-        self.barriers[space.0].push(Barrier {
-            id,
-            kind,
-            space,
-            position,
-        })
     }
 
     pub fn move_body2(&mut self, id: BodyId, direction: [f32; 2]) {

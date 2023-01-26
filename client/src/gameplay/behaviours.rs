@@ -4,7 +4,7 @@ use crate::engine::{FarmerAsset, FarmlandAsset, TreeAsset};
 use game::building::{Cell, Grid, Room};
 use game::collections::Shared;
 use game::math::Collider;
-use game::model::{Drop, Farmer, FarmerKind, Farmland, FarmlandKind, Tree, TreeKind};
+use game::model::{Drop, Farmer, FarmerKind, Farmland, FarmlandKind, ItemView, Tree, TreeKind};
 use game::physics::{BarrierId, BarrierKey, BarrierKind};
 use glam::{Vec2, Vec3};
 

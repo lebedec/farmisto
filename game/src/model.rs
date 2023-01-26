@@ -49,6 +49,8 @@ pub enum Universe {
         farmer: Farmer,
         player: String,
         position: [f32; 2],
+        hands: Vec<ItemView>,
+        backpack: Vec<ItemView>,
     },
     FarmerVanished(Farmer),
     DropAppeared {
@@ -91,6 +93,25 @@ impl UniverseDomain {
             },
             constructions: &mut self.constructions,
         })
+    }
+
+    pub fn aggregate_drop(
+        &mut self,
+        container: ContainerId,
+        barrier: BarrierId,
+        position: [f32; 2],
+    ) -> Vec<Universe> {
+        let drop = Drop {
+            id: self.drops.len() + 1,
+            container,
+            barrier,
+        };
+        self.drops.push(drop);
+        vec![Universe::DropAppeared {
+            drop,
+            position,
+            items: vec![],
+        }]
     }
 }
 
@@ -136,6 +157,8 @@ pub struct Farmer {
     pub kind: FarmerKey,
     pub player: PlayerId,
     pub body: BodyId,
+    pub hands: ContainerId,
+    pub backpack: ContainerId,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
@@ -219,7 +242,7 @@ pub struct Position {
 //
 // Entity - aggregate of domain objects (hold identifiers)
 // EntityKind - aggregate of domain object kinds (defines object properties)
-// [Generated]Entity - entity without EntityKind (defined dynamically in game run time)
+// Entity[Generated] - entity without EntityKind (defined dynamically in game run time)
 // Value     - not domain object, used for action and events definition
 // Event
 // Action
@@ -232,4 +255,5 @@ pub struct Position {
 // ObjectKey - memory efficient reference to object kind
 // Object
 // ObjectKind
+// Object[Virtual] - not included in any entity (optimization purpose, e.g. 100500 inventory items)
 // DomainEvent
