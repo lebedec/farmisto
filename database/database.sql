@@ -192,3 +192,16 @@ create table "Drop"
     barrier   integer not null references Barrier
 );
 
+create table Construction
+(
+    id        integer primary key,
+    container integer not null references Container,
+    grid      integer not null references Grid,
+    cell      json    not null
+);
+
+create table Theodolite
+(
+    id   integer primary key,
+    cell json not null
+);

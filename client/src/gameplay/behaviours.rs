@@ -4,11 +4,11 @@ use crate::engine::{FarmerAsset, FarmlandAsset, TreeAsset};
 use game::building::{Cell, Grid, Room};
 use game::collections::Shared;
 use game::math::Collider;
-use game::model::{Drop, Farmer, FarmerKind, Farmland, FarmlandKind, ItemView, Tree, TreeKind};
+use game::model::{Construction, Drop, Farmer, FarmerKind, Farmland, FarmlandKind, ItemView, Theodolite, Tree, TreeKind};
 use game::physics::{BarrierId, BarrierKey, BarrierKind};
 use glam::{Vec2, Vec3};
 
-pub struct FarmerBehaviour {
+pub struct FarmerRep {
     pub farmer: Farmer,
     pub kind: Shared<FarmerKind>,
     pub player: String,
@@ -20,7 +20,7 @@ pub struct FarmerBehaviour {
     pub machine: Machine,
 }
 
-impl Collider for FarmerBehaviour {
+impl Collider for FarmerRep {
     fn position(&self) -> [f32; 2] {
         [self.rendering_position.x, self.rendering_position.z]
     }
@@ -30,7 +30,7 @@ impl Collider for FarmerBehaviour {
     }
 }
 
-pub struct FarmlandBehaviour {
+pub struct FarmlandRep {
     pub farmland: Farmland,
     pub kind: Shared<FarmlandKind>,
     pub asset: FarmlandAsset,
@@ -39,7 +39,7 @@ pub struct FarmlandBehaviour {
     pub rooms: Vec<Room>,
 }
 
-pub struct TreeBehaviour {
+pub struct TreeRep {
     pub tree: Tree,
     pub kind: Shared<TreeKind>,
     pub asset: TreeAsset,
@@ -64,7 +64,17 @@ impl Collider for BarrierHint {
     }
 }
 
-pub struct DropBehaviour {
-    pub drop: Drop,
+pub struct DropRep {
+    pub entity: Drop,
+    pub position: [f32; 2],
+}
+
+pub struct ConstructionRep {
+    pub entity: Construction,
+    pub position: [f32; 2],
+}
+
+pub struct TheodoliteRep {
+    pub entity: Theodolite,
     pub position: [f32; 2],
 }

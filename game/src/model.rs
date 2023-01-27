@@ -22,6 +22,7 @@ pub struct UniverseDomain {
     pub farmers: Vec<Farmer>,
     pub constructions: Vec<Construction>,
     pub drops: Vec<Drop>,
+    pub theodolites: Vec<Theodolite>,
 }
 
 #[derive(Debug, bincode::Encode, bincode::Decode)]
@@ -59,6 +60,17 @@ pub enum Universe {
         items: Vec<ItemView>,
     },
     DropVanished(Drop),
+    ConstructionAppeared {
+        id: Construction,
+        cell: [usize; 2],
+        items: Vec<ItemView>,
+    },
+    ConstructionVanished(Construction),
+    TheodoliteAppeared {
+        entity: Theodolite,
+        cell: [usize; 2],
+    },
+    TheodoliteVanished(Theodolite),
 }
 
 #[derive(Debug, bincode::Encode, bincode::Decode)]
@@ -66,36 +78,28 @@ pub enum UniverseError {
     Nothing,
 }
 
-pub struct ConstructionAggregation<'action> {
-    construction: Construction,
-    constructions: &'action mut Vec<Construction>,
-}
-
-impl<'action> ConstructionAggregation<'action> {
-    pub fn complete(self) -> Vec<Universe> {
-        let events = vec![];
-        self.constructions.push(self.construction);
-        events
-    }
-}
-
 impl UniverseDomain {
-    pub(crate) fn aggregate_to_construction(
+    pub(crate) fn appear_construction(
         &mut self,
         container: ContainerId,
-        cell: GridIndex,
-    ) -> Result<ConstructionAggregation, UniverseError> {
-        Ok(ConstructionAggregation {
-            construction: Construction {
-                id: self.constructions.len(),
-                container,
-                cell,
-            },
-            constructions: &mut self.constructions,
-        })
+        grid: GridId,
+        cell: [usize; 2],
+    ) -> Vec<Universe> {
+        let construction = Construction {
+            id: self.constructions.len() + 1,
+            container,
+            grid,
+            cell,
+        };
+        self.constructions.push(construction);
+        vec![Universe::ConstructionAppeared {
+            id: construction,
+            cell,
+            items: vec![],
+        }]
     }
 
-    pub fn aggregate_drop(
+    pub fn appear_drop(
         &mut self,
         container: ContainerId,
         barrier: BarrierId,
@@ -203,13 +207,14 @@ pub struct Farmland {
 pub struct Construction {
     pub id: usize,
     pub container: ContainerId,
-    pub cell: GridIndex,
+    pub grid: GridId,
+    pub cell: [usize; 2],
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
 pub struct Theodolite {
     pub id: usize,
-    pub surveyor: SurveyorId,
+    pub cell: [usize; 2],
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]

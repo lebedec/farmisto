@@ -3,14 +3,16 @@ use crate::engine::armature::{PoseBuffer, PoseUniform};
 use crate::engine::sprites::SpineSpriteController;
 use crate::engine::{Input, SpineAsset, SpriteAsset, TextureAsset, TilesetAsset};
 use crate::gameplay::behaviours::{
-    BarrierHint, DropBehaviour, FarmerBehaviour, FarmlandBehaviour, TreeBehaviour,
+    BarrierHint, ConstructionRep, DropRep, FarmerRep, FarmlandRep, TheodoliteRep, TreeRep,
 };
 use crate::gameplay::camera::Camera;
 use crate::{Frame, Mode, SceneRenderer};
 use datamap::Storage;
 use game::api::{Action, Event, GameResponse, PlayerRequest};
 use game::math::{detect_collision, VectorMath};
-use game::model::{Construction, Drop, Farmer, Farmland, ItemView, Position, Tile, Tree, Universe};
+use game::model::{
+    Construction, Drop, Farmer, Farmland, ItemView, Position, Theodolite, Tile, Tree, Universe,
+};
 use game::Game;
 use glam::{vec3, Mat4, Vec2, Vec3};
 use log::{error, info};
@@ -22,8 +24,8 @@ use std::collections::HashMap;
 use game::building::Building;
 use game::inventory::{ContainerId, Inventory, ItemId};
 use game::model::Universe::{
-    BarrierHintAppeared, DropAppeared, DropVanished, FarmerAppeared, FarmerVanished,
-    FarmlandAppeared, FarmlandVanished, TreeAppeared, TreeVanished,
+    BarrierHintAppeared, ConstructionAppeared, ConstructionVanished, DropAppeared, DropVanished,
+    FarmerAppeared, FarmerVanished, FarmlandAppeared, FarmlandVanished, TreeAppeared, TreeVanished,
 };
 use game::physics::Physics;
 use game::planting::Planting;
@@ -43,10 +45,17 @@ lazy_static! {
 
 const TILE_SIZE: f32 = 128.0;
 
+fn position_from(tile: [usize; 2]) -> [f32; 2] {
+    [
+        (tile[0] as f32) * TILE_SIZE + TILE_SIZE / 2.0,
+        (tile[1] as f32) * TILE_SIZE + TILE_SIZE / 2.0,
+    ]
+}
+
 pub enum Activity {
     Idle,
     Delivery,
-    Surveying,
+    Surveying(Theodolite),
 }
 
 pub enum Intention {
@@ -57,6 +66,8 @@ pub enum Intention {
 pub enum Target {
     Ground,
     Drop(Drop),
+    Construction(Construction),
+    Theodolite(Theodolite),
 }
 
 pub trait InputMethod {
@@ -81,10 +92,12 @@ pub struct Gameplay {
     action_id: usize,
     pub knowledge: Game,
     pub barriers: Vec<BarrierHint>,
-    pub farmlands: HashMap<Farmland, FarmlandBehaviour>,
-    pub trees: HashMap<Tree, TreeBehaviour>,
-    pub farmers: HashMap<Farmer, FarmerBehaviour>,
-    pub drops: HashMap<Drop, DropBehaviour>,
+    pub farmlands: HashMap<Farmland, FarmlandRep>,
+    pub trees: HashMap<Tree, TreeRep>,
+    pub farmers: HashMap<Farmer, FarmerRep>,
+    pub drops: HashMap<Drop, DropRep>,
+    pub constructions: HashMap<Construction, ConstructionRep>,
+    pub theodolites: HashMap<Theodolite, TheodoliteRep>,
     pub items: HashMap<ContainerId, HashMap<ItemId, ItemView>>,
     pub camera: Camera,
     pub farmers2d: Vec<Farmer2d>,
@@ -96,6 +109,7 @@ pub struct Gameplay {
     pub building_tiles_marker: TilesetAsset,
     pub roof_texture: TextureAsset,
     pub drop_sprite: SpriteAsset,
+    pub theodolite_sprite: SpriteAsset,
     pub activity: Activity,
 }
 
@@ -125,6 +139,8 @@ impl Gameplay {
             trees: HashMap::new(),
             farmers: Default::default(),
             drops: Default::default(),
+            constructions: Default::default(),
+            theodolites: Default::default(),
             items: Default::default(),
             camera,
             farmers2d: vec![],
@@ -136,6 +152,7 @@ impl Gameplay {
             players_index: 0,
             roof_texture: assets.texture("./assets/texture/building-roof-template-2.png"),
             drop_sprite: assets.sprite("<drop>"),
+            theodolite_sprite: assets.sprite("theodolite"),
             activity: Activity::Idle,
         }
     }
@@ -282,7 +299,7 @@ impl Gameplay {
 
                 self.trees.insert(
                     tree,
-                    TreeBehaviour {
+                    TreeRep {
                         tree,
                         kind,
                         asset: prefab,
@@ -316,7 +333,7 @@ impl Gameplay {
 
                 self.farmlands.insert(
                     farmland,
-                    FarmlandBehaviour {
+                    FarmlandRep {
                         farmland,
                         kind,
                         asset,
@@ -408,7 +425,7 @@ impl Gameplay {
 
                 self.farmers.insert(
                     farmer,
-                    FarmerBehaviour {
+                    FarmerRep {
                         farmer,
                         kind,
                         player,
@@ -465,7 +482,13 @@ impl Gameplay {
                 items,
             } => {
                 info!("Appear drop {:?} at {:?}", drop, position,);
-                self.drops.insert(drop, DropBehaviour { drop, position });
+                self.drops.insert(
+                    drop,
+                    DropRep {
+                        entity: drop,
+                        position,
+                    },
+                );
                 for item in items {
                     let container = self.items.entry(item.container).or_insert(HashMap::new());
                     container.insert(item.id, item);
@@ -473,6 +496,32 @@ impl Gameplay {
             }
             DropVanished(drop) => {
                 self.drops.remove(&drop);
+            }
+            ConstructionAppeared {
+                id: entity,
+                cell,
+                items,
+            } => {
+                let position = position_from(cell);
+                info!("Appear construction {:?} at {:?}", entity, position);
+                self.constructions
+                    .insert(entity, ConstructionRep { entity, position });
+                for item in items {
+                    let container = self.items.entry(item.container).or_insert(HashMap::new());
+                    container.insert(item.id, item);
+                }
+            }
+            ConstructionVanished(construction) => {
+                self.constructions.remove(&construction);
+            }
+            Universe::TheodoliteAppeared { entity, cell } => {
+                let position = position_from(cell);
+                info!("Appear theodolite {:?} at {:?}", entity, position);
+                self.theodolites
+                    .insert(entity, TheodoliteRep { entity, position });
+            }
+            Universe::TheodoliteVanished(theodolite) => {
+                self.theodolites.remove(&theodolite);
             }
         }
     }
@@ -511,7 +560,19 @@ impl Gameplay {
 
         for drop in self.drops.values() {
             if drop.position.div(TILE_SIZE).cast() == tile {
-                return Target::Drop(drop.drop);
+                return Target::Drop(drop.entity);
+            }
+        }
+
+        for construction in self.constructions.values() {
+            if construction.position.div(TILE_SIZE).cast() == tile {
+                return Target::Construction(construction.entity);
+            }
+        }
+
+        for theodolite in self.theodolites.values() {
+            if theodolite.position.div(TILE_SIZE).cast() == tile {
+                return Target::Theodolite(theodolite.entity);
             }
         }
 
@@ -553,7 +614,7 @@ impl Gameplay {
                 return;
             }
             Some(farmer) => {
-                let mut ptr = farmer as *mut FarmerBehaviour;
+                let mut ptr = farmer as *mut FarmerRep;
                 unsafe {
                     // TODO: safe farmer behaviour mutation
                     &mut *ptr
@@ -573,6 +634,13 @@ impl Gameplay {
                             self.activity = Activity::Delivery;
                             // if hands capacity
                         }
+                        Target::Construction(construction) => {
+                            self.send_action(Action::TakeMaterial { construction });
+                            self.activity = Activity::Delivery;
+                        }
+                        Target::Theodolite(theodolite) => {
+                            self.activity = Activity::Surveying(theodolite);
+                        }
                     },
                     Intention::Put => {}
                 },
@@ -582,6 +650,12 @@ impl Gameplay {
                         Target::Drop(drop) => {
                             self.send_action(Action::TakeItem { drop });
                             // if hands capacity
+                        }
+                        Target::Construction(construction) => {
+                            self.send_action(Action::TakeMaterial { construction });
+                        }
+                        Target::Theodolite(_) => {
+                            // beep error
                         }
                     },
                     Intention::Put => match target {
@@ -593,9 +667,25 @@ impl Gameplay {
                             self.send_action(Action::PutItem { drop });
                             // if hands empty
                         }
+                        Target::Construction(construction) => {
+                            self.send_action(Action::PutMaterial { construction });
+                        }
+                        Target::Theodolite(_) => {
+                            // beep error
+                        }
                     },
                 },
-                Activity::Surveying => {}
+                Activity::Surveying(theodolite) => match intention {
+                    Intention::Use => match target {
+                        Target::Ground => {
+                            self.send_action(Action::Survey { theodolite, tile });
+                        }
+                        _ => {
+                            // beep error
+                        }
+                    },
+                    Intention::Put => self.activity = Activity::Idle,
+                },
             }
         }
 
@@ -821,7 +911,7 @@ impl Gameplay {
             renderer.render_sprite(&self.drop_sprite, drop.position, sprite_line, 1.0);
             for (i, item) in self
                 .items
-                .get(&drop.drop.container)
+                .get(&drop.entity.container)
                 .unwrap()
                 .values()
                 .enumerate()
@@ -839,6 +929,46 @@ impl Gameplay {
                 ];
                 renderer.render_sprite(&asset.sprite, drop.position.add(offset), sprite_line, 1.0);
             }
+        }
+
+        for construction in self.constructions.values() {
+            let sprite_line = (construction.position[1] / TILE_SIZE) as usize;
+            renderer.render_sprite(&self.drop_sprite, construction.position, sprite_line, 1.0);
+            for (i, item) in self
+                .items
+                .entry(construction.entity.container)
+                .or_insert(HashMap::new())
+                .values()
+                .enumerate()
+            {
+                let kind = self
+                    .knowledge
+                    .inventory
+                    .known_items
+                    .get(&item.kind)
+                    .unwrap();
+                let asset = assets.item(&kind.name);
+                let offset = [
+                    0.0,
+                    -24.0 + (48.0 * (i % 2) as f32) - (48.0 * (i / 2) as f32),
+                ];
+                renderer.render_sprite(
+                    &asset.sprite,
+                    construction.position.add(offset),
+                    sprite_line,
+                    1.0,
+                );
+            }
+        }
+
+        for theodolite in self.theodolites.values() {
+            let sprite_line = (theodolite.position[1] / TILE_SIZE) as usize;
+            renderer.render_sprite(
+                &self.theodolite_sprite,
+                theodolite.position,
+                sprite_line,
+                1.0,
+            );
         }
 
         METRIC_DRAW_REQUEST_SECONDS.observe_closure_duration(|| {

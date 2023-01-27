@@ -1,6 +1,6 @@
 use crate::building::{Building, BuildingError};
 use crate::inventory::{Inventory, InventoryError};
-use crate::model::{Construction, Drop, Farmer, Tile, Universe, UniverseError};
+use crate::model::{Construction, Drop, Farmer, Theodolite, Tile, Universe, UniverseError};
 use crate::physics::{Physics, PhysicsError};
 use crate::planting::Planting;
 use std::fmt::Debug;
@@ -46,14 +46,38 @@ pub enum LoginResult {
 #[derive(Debug, bincode::Encode, bincode::Decode)]
 pub enum Action {
     DoSomething,
-    DoAnything { id: usize, position: [f32; 2] },
-    MoveFarmer { destination: [f32; 2] },
-    BuildWall { cell: [usize; 2] },
-    Construct { construction: Construction },
-    Survey { target: Tile },
-    TakeItem { drop: Drop },
-    DropItem { tile: [usize; 2] },
-    PutItem { drop: Drop },
+    DoAnything {
+        id: usize,
+        position: [f32; 2],
+    },
+    MoveFarmer {
+        destination: [f32; 2],
+    },
+    BuildWall {
+        cell: [usize; 2],
+    },
+    TakeMaterial {
+        construction: Construction,
+    },
+    Construct {
+        construction: Construction,
+    },
+    PutMaterial {
+        construction: Construction,
+    },
+    Survey {
+        theodolite: Theodolite,
+        tile: [usize; 2],
+    },
+    TakeItem {
+        drop: Drop,
+    },
+    DropItem {
+        tile: [usize; 2],
+    },
+    PutItem {
+        drop: Drop,
+    },
 }
 
 #[derive(Debug, bincode::Encode, bincode::Decode)]

@@ -1,3 +1,4 @@
+import json
 import sqlite3
 import struct
 from io import BytesIO
@@ -26,7 +27,7 @@ def generate_land(land_id: int, user_define: List[str]):
     connection.commit()
 
 
-def generate_grid(land_id: int, user_define_map: str):
+def generate_grid(grid_id: int, user_define_map: str):
     user_define = []
     for line in user_define_map.splitlines(keepends=False):
         line = line.strip().replace(' ', '')
@@ -36,6 +37,7 @@ def generate_grid(land_id: int, user_define_map: str):
     size_y = 128
     size_x = 128
     data.write(struct.pack('B', size_y))
+    constructions = []
     for y in range(size_y):
         data.write(struct.pack('B', size_x))
         for x in range(size_x):
@@ -62,6 +64,7 @@ def generate_grid(land_id: int, user_define_map: str):
                     inner = 0
                     window = 1
                 if code == '+':
+                    constructions.append([x, y])
                     wall = 1
                     inner = 0
                     marker = 1
@@ -69,7 +72,18 @@ def generate_grid(land_id: int, user_define_map: str):
     data = data.getvalue()
     print('data length', len(data))
     connection = sqlite3.connect('../../assets/database.sqlite')
-    connection.execute('update Grid set map = ? where id = ?', [data, land_id])
+    connection.execute('update Grid set map = ? where id = ?', [data, grid_id])
+    # generate Construction entities
+    connection.execute('delete from Container where id in (select container from Construction where grid = ?)', [grid_id])
+    connection.execute('delete from Construction where grid = ?', [grid_id])
+    for cell in constructions:
+        cursor = connection.cursor()
+        cursor.execute('insert into Container (kind) values (1)')  # 1 - <construction> kind
+        container_id = cursor.lastrowid
+        cursor.execute(
+            'insert into Construction (container, grid, cell) values (?, ?, ?)',
+            [container_id, grid_id, json.dumps(cell)]
+        )
     connection.commit()
 
 

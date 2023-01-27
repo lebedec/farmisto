@@ -5,10 +5,7 @@ use crate::collections::Shared;
 use crate::inventory::{
     Container, ContainerId, ContainerKey, ContainerKind, Item, ItemId, ItemKey, ItemKind,
 };
-use crate::model::{
-    Drop, Farmer, FarmerKey, FarmerKind, Farmland, FarmlandKey, FarmlandKind, Player, PlayerId,
-    Tree, TreeKey, TreeKind,
-};
+use crate::model::{Construction, Drop, Farmer, FarmerKey, FarmerKind, Farmland, FarmlandKey, FarmlandKind, Player, PlayerId, Theodolite, Tree, TreeKey, TreeKind};
 use crate::physics::{
     Barrier, BarrierId, BarrierKey, BarrierKind, Body, BodyId, BodyKey, BodyKind, Space, SpaceId,
     SpaceKey, SpaceKind,
@@ -105,6 +102,8 @@ impl Game {
         self.universe.farmlands = storage.find_all(|row| self.load_farmland(row).unwrap());
         self.universe.farmers = storage.find_all(|row| self.load_farmer(row).unwrap());
         self.universe.drops = storage.find_all(|row| self.load_drop(row).unwrap());
+        self.universe.constructions = storage.find_all(|row| self.load_construction(row).unwrap());
+        self.universe.theodolites = storage.find_all(|row| self.load_theodolite(row).unwrap());
         info!("End game state loading")
     }
 
@@ -206,6 +205,32 @@ impl Game {
             id: row.get("id")?,
             barrier: BarrierId(row.get("barrier")?),
             container: ContainerId(row.get("container")?),
+        };
+        Ok(data)
+    }
+
+    pub(crate) fn load_construction(
+        &mut self,
+        row: &rusqlite::Row,
+    ) -> Result<Construction, DataError> {
+        let cell: String = row.get("cell")?;
+        let data = Construction {
+            id: row.get("id")?,
+            container: ContainerId(row.get("container")?),
+            grid: GridId(row.get("grid")?),
+            cell: serde_json::from_str(&cell)?,
+        };
+        Ok(data)
+    }
+
+    pub(crate) fn load_theodolite(
+        &mut self,
+        row: &rusqlite::Row,
+    ) -> Result<Theodolite, DataError> {
+        let cell: String = row.get("cell")?;
+        let data = Theodolite {
+            id: row.get("id")?,
+            cell: serde_json::from_str(&cell)?,
         };
         Ok(data)
     }

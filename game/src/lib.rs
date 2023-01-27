@@ -5,7 +5,7 @@ use crate::api::ActionError::{
     ConstructionContainsUnexpectedItem, FarmerBodyNotFound, PlayerFarmerNotFound,
 };
 use crate::api::{Action, ActionError, Event};
-use crate::building::{BuildingDomain, SurveyorId};
+use crate::building::{BuildingDomain, GridId, SurveyorId};
 use crate::inventory::{ContainerKey, Function, InventoryDomain};
 use crate::model::Tree;
 use crate::model::TreeKind;
@@ -89,13 +89,21 @@ impl Game {
             Action::BuildWall { cell } => {
                 unimplemented!()
             }
-            Action::Survey { target } => events.extend(self.survey(*farmer, target)?),
+            Action::Survey { theodolite, tile } => {
+                events.extend(self.survey(*farmer, theodolite, tile)?)
+            }
             Action::Construct { construction } => {
                 events.extend(self.construct(*farmer, farmland, construction)?)
             }
             Action::TakeItem { drop } => events.extend(self.take_item(*farmer, drop)?),
             Action::DropItem { tile } => events.extend(self.drop_item(*farmer, tile)?),
             Action::PutItem { drop } => events.extend(self.put_item(*farmer, drop)?),
+            Action::TakeMaterial { construction } => {
+                events.extend(self.take_material(*farmer, construction)?)
+            }
+            Action::PutMaterial { construction } => {
+                events.extend(self.put_material(*farmer, construction)?)
+            }
         }
         Ok(events)
     }
@@ -114,6 +122,32 @@ impl Game {
         let transfer = self
             .inventory
             .transfer_item(farmer.hands, items[0].id, drop.container)?;
+        let events = vec![Event::Inventory(transfer.complete())];
+        Ok(events)
+    }
+
+    fn take_material(
+        &mut self,
+        farmer: Farmer,
+        construction: Construction,
+    ) -> Result<Vec<Event>, ActionError> {
+        let items = self.inventory.get_items(construction.container).unwrap();
+        let transfer =
+            self.inventory
+                .transfer_item(construction.container, items[0].id, farmer.hands)?;
+        let events = vec![Event::Inventory(transfer.complete())];
+        Ok(events)
+    }
+
+    fn put_material(
+        &mut self,
+        farmer: Farmer,
+        construction: Construction,
+    ) -> Result<Vec<Event>, ActionError> {
+        let items = self.inventory.get_items(farmer.hands).unwrap();
+        let transfer =
+            self.inventory
+                .transfer_item(farmer.hands, items[0].id, construction.container)?;
         let events = vec![Event::Inventory(transfer.complete())];
         Ok(events)
     }
@@ -144,7 +178,7 @@ impl Game {
         let container_creation =
             self.inventory
                 .hold_item(farmer.hands, item, container_kind.clone())?;
-        let aggregation = self.universe.aggregate_drop(
+        let appearance = self.universe.appear_drop(
             container_creation.container.id,
             barrier_creation.barrier.id,
             position,
@@ -152,27 +186,35 @@ impl Game {
         let events = vec![
             Event::Physics(barrier_creation.complete()),
             Event::Inventory(container_creation.complete()),
-            Event::Universe(aggregation),
+            Event::Universe(appearance),
         ];
         Ok(events)
     }
 
-    fn survey(&mut self, farmer: Farmer, target: Tile) -> Result<Vec<Event>, ActionError> {
-        let surveying = self.building.survey(SurveyorId(0), [target.x, target.y])?;
+    fn survey(
+        &mut self,
+        farmer: Farmer,
+        theodolite: Theodolite,
+        tile: [usize; 2],
+    ) -> Result<Vec<Event>, ActionError> {
+        let surveying = self.building.survey(SurveyorId(0), tile)?;
         let (_, container_kind) = self
             .inventory
             .known_containers
             .iter()
             .find(|(_, kind)| kind.name == "<construction>")
             .unwrap();
+        let grid = GridId(1);
         let container_creation = self.inventory.create_container(container_kind.clone())?;
-        let construction_creation = self
-            .universe
-            .aggregate_to_construction(container_creation.container.id, surveying.cell)?;
+        let appearance = self.universe.appear_construction(
+            container_creation.container.id,
+            grid,
+            [surveying.cell.0, surveying.cell.1],
+        );
         let events = vec![
             Event::Building(surveying.complete()),
             Event::Inventory(container_creation.complete()),
-            Event::Universe(construction_creation.complete()),
+            Event::Universe(appearance),
         ];
         Ok(events)
     }
@@ -315,6 +357,29 @@ impl Game {
                         container: item.container,
                     })
                     .collect(),
+            })
+        }
+
+        for construction in &self.universe.constructions {
+            //let items = self.inventory.get_items(construction.container).unwrap();
+            stream.push(Universe::ConstructionAppeared {
+                id: *construction,
+                cell: construction.cell,
+                items: vec![], // items: items
+                               //     .into_iter()
+                               //     .map(|item| ItemView {
+                               //         id: item.id,
+                               //         kind: item.kind.id,
+                               //         container: item.container,
+                               //     })
+                               //     .collect(),
+            })
+        }
+
+        for theodolite in &self.universe.theodolites {
+            stream.push(Universe::TheodoliteAppeared {
+                entity: *theodolite,
+                cell: theodolite.cell,
             })
         }
 
