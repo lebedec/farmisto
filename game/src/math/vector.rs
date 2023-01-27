@@ -81,7 +81,7 @@ impl VectorMath for [f32; 2] {
 
     #[inline]
     fn normalize(self) -> Self {
-        if self[0] + self[1] == 0.0 {
+        if self[0] == 0.0 && self[1] == 0.0 {
             [0.0, 0.0]
         } else {
             let length = self.length();

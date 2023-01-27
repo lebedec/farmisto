@@ -4,25 +4,28 @@ use crate::engine::{FarmerAsset, FarmlandAsset, TreeAsset};
 use game::building::{Cell, Grid, Room};
 use game::collections::Shared;
 use game::math::Collider;
-use game::model::{Construction, Drop, Farmer, FarmerKind, Farmland, FarmlandKind, ItemView, Theodolite, Tree, TreeKind};
+use game::model::{
+    Construction, Drop, Farmer, FarmerKind, Farmland, FarmlandKind, ItemView, Theodolite, Tree,
+    TreeKind,
+};
 use game::physics::{BarrierId, BarrierKey, BarrierKind};
 use glam::{Vec2, Vec3};
 
 pub struct FarmerRep {
-    pub farmer: Farmer,
+    pub entity: Farmer,
     pub kind: Shared<FarmerKind>,
     pub player: String,
     pub asset: FarmerAsset,
-    pub estimated_position: Vec2,
-    pub rendering_position: Vec3,
-    pub last_sync_position: Vec2,
-    pub direction: Vec2,
+    pub estimated_position: [f32; 2],
+    pub rendering_position: [f32; 2],
+    pub last_sync_position: [f32; 2],
+    pub direction: [f32; 2],
     pub machine: Machine,
 }
 
 impl Collider for FarmerRep {
     fn position(&self) -> [f32; 2] {
-        [self.rendering_position.x, self.rendering_position.z]
+        self.rendering_position
     }
 
     fn bounds(&self) -> [f32; 2] {

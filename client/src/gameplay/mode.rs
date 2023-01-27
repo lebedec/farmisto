@@ -164,7 +164,11 @@ impl Gameplay {
                     self.handle_universe_event(frame, event);
                 }
             }
-            Event::Physics(events) => {}
+            Event::Physics(events) => {
+                for event in events {
+                    self.handle_physics_event(frame, event);
+                }
+            }
             Event::Building(events) => {
                 for event in events {
                     self.handle_building_event(frame, event);
@@ -250,25 +254,21 @@ impl Gameplay {
                 position,
                 space,
             } => {
-                // FarmerMoved { id, position } => {
-                //     match self.farmers.get_mut(&id) {
-                //         None => {}
-                //         Some(farmer) => {
-                //             let position = Vec2::from(position);
-                //             let rendering =
-                //                 Vec2::new(farmer.rendering_position.x, farmer.rendering_position.z);
-                //             // des
-                //             farmer.last_sync_position = position.into();
-                //             let error = position.distance(rendering);
-                //             if error > 0.25 {
-                //                 // info!(
-                //                 //     "Correct farmer {:?} position (error {}) {} -> {}",
-                //                 //     id, error, farmer.estimated_position, position
-                //                 // );
-                //             };
-                //         }
-                //     }
-                // }
+                for farmer in self.farmers.values_mut() {
+                    if farmer.entity.body != id {
+                        continue;
+                    }
+                    farmer.last_sync_position = position;
+                    let error = position.distance(farmer.rendering_position);
+                    if error > 64.0 {
+                        error!(
+                            "Correct farmer {:?} position (error {}) {:?} -> {:?}",
+                            farmer.entity, error, farmer.estimated_position, position
+                        );
+                        farmer.estimated_position = position;
+                        farmer.rendering_position = position;
+                    }
+                }
             }
         }
     }
@@ -426,14 +426,14 @@ impl Gameplay {
                 self.farmers.insert(
                     farmer,
                     FarmerRep {
-                        farmer,
+                        entity: farmer,
                         kind,
                         player,
                         asset,
-                        estimated_position: position.into(),
-                        rendering_position: Vec3::new(position[0], 0.0, position[1]),
-                        last_sync_position: position.into(),
-                        direction: Vec2::ZERO,
+                        estimated_position: position,
+                        rendering_position: position,
+                        last_sync_position: position,
+                        direction: [0.0, 0.0],
                         machine: Machine {
                             parameters: Default::default(),
                             states: vec![State {
@@ -689,32 +689,28 @@ impl Gameplay {
             }
         }
 
-        let mut direction = Vec2::ZERO;
+        let mut direction = [0.0, 0.0];
         if input.down(Keycode::Left) {
-            direction.x -= 1.0;
+            direction[0] -= 1.0;
         }
         if input.down(Keycode::Right) {
-            direction.x += 1.0;
+            direction[0] += 1.0;
         }
         if input.down(Keycode::Up) {
-            direction.y += 1.0;
+            direction[1] -= 1.0;
         }
         if input.down(Keycode::Down) {
-            direction.y -= 1.0;
+            direction[1] += 1.0;
         }
-        let delta = direction.normalize_or_zero() * input.time * 7.0;
-        let destination =
-            delta + Vec2::new(farmer.rendering_position.x, farmer.rendering_position.z);
+        let delta = direction.normalize().mul(input.time * 350.0);
+        let destination = delta.add(farmer.rendering_position);
 
         // client side physics pre-calculation to prevent
         // obvious movement errors
         if let Some(destination) = detect_collision(farmer, destination.into(), &self.barriers) {
-            farmer.estimated_position = Vec2::from(destination);
+            farmer.estimated_position = destination;
             if delta.length() > 0.0 {
-                self.client.send(PlayerRequest::Perform {
-                    action_id: 0,
-                    action: Action::MoveFarmer { destination },
-                })
+                self.send_action(Action::MoveFarmer { destination });
             }
         }
     }
@@ -722,11 +718,7 @@ impl Gameplay {
     pub fn animate(&mut self, input: &Input) {
         for farmer in self.farmers.values_mut() {
             farmer.machine.update(input.time);
-            farmer.rendering_position = Vec3::new(
-                farmer.estimated_position.x,
-                0.0,
-                farmer.estimated_position.y,
-            );
+            farmer.rendering_position = farmer.estimated_position;
         }
         METRIC_ANIMATION_SECONDS.observe_closure_duration(|| {
             for farmer in self.farmers2d.iter_mut() {
@@ -883,16 +875,6 @@ impl Gameplay {
                             highlight,
                         );
                     }
-
-                    if x == cursor_x && y == cursor_y {
-                        let position = [mouse_x, mouse_y];
-                        renderer.render_sprite(
-                            &self.players[self.players_index],
-                            position,
-                            (position[1] / TILE_SIZE) as usize,
-                            1.0,
-                        );
-                    }
                 }
             }
         }
@@ -905,6 +887,46 @@ impl Gameplay {
             (position[1] / TILE_SIZE) as usize,
             1.0,
         );
+
+        for farmer in self.farmers.values() {
+            renderer.render_sprite(
+                &self.players[self.players_index],
+                farmer.rendering_position,
+                (farmer.rendering_position[1] / TILE_SIZE) as usize,
+                1.0,
+            );
+
+            let sprite_line = (farmer.rendering_position[1] / TILE_SIZE) as usize;
+            for (i, item) in self
+                .items
+                .entry(farmer.entity.hands)
+                .or_insert(HashMap::new())
+                .values()
+                .enumerate()
+            {
+                let kind = self
+                    .knowledge
+                    .inventory
+                    .known_items
+                    .get(&item.kind)
+                    .unwrap();
+                let asset = assets.item(&kind.name);
+                let offset = [0.0, -128.0 - (32.0 * i as f32)];
+                renderer.render_sprite(
+                    &asset.sprite,
+                    farmer.rendering_position.add(offset),
+                    sprite_line,
+                    1.0,
+                );
+            }
+
+            renderer.render_sprite(
+                &self.cursor,
+                farmer.last_sync_position,
+                (farmer.last_sync_position[1] / TILE_SIZE) as usize,
+                0.5,
+            );
+        }
 
         for drop in self.drops.values() {
             let sprite_line = (drop.position[1] / TILE_SIZE) as usize;
@@ -984,7 +1006,8 @@ impl Gameplay {
         renderer.set_point_light([0.0, 0.0, 1.0, 1.0], 512.0, [1024.0, 1024.0]);
     }
 
-    pub fn render(&self, renderer: &mut SceneRenderer) {
+    /*
+    pub fn render3d(&self, renderer: &mut SceneRenderer) {
         renderer.clear();
         renderer.look_at(self.camera.uniform(
             renderer.screen.width() as f32,
@@ -1016,7 +1039,7 @@ impl Gameplay {
                 &farmer.machine.pose_buffer,
             );
         }
-    }
+    }*/
 }
 
 impl Mode for Gameplay {

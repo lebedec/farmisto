@@ -72,19 +72,7 @@ impl Game {
             Action::DoSomething => {}
             Action::DoAnything { .. } => {}
             Action::MoveFarmer { destination } => {
-                // match self
-                //     .universe
-                //     .farmers
-                //     .iter()
-                //     .find(|farmer| &farmer.player == player)
-                // {
-                //     Some(farmer) => {
-                //         self.physics.move_body2(farmer.id.into(), destination);
-                //     }
-                //     None => {
-                //         // error framer not found, action_id error
-                //     }
-                // }
+                events.extend(self.move_farmer(*farmer, destination)?)
             }
             Action::BuildWall { cell } => {
                 unimplemented!()
@@ -106,6 +94,15 @@ impl Game {
             }
         }
         Ok(events)
+    }
+
+    fn move_farmer(
+        &mut self,
+        farmer: Farmer,
+        destination: [f32; 2],
+    ) -> Result<Vec<Event>, ActionError> {
+        self.physics.move_body2(farmer.body, destination);
+        Ok(vec![])
     }
 
     fn take_item(&mut self, farmer: Farmer, drop: Drop) -> Result<Vec<Event>, ActionError> {
