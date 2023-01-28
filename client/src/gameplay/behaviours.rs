@@ -46,8 +46,8 @@ pub struct TreeRep {
     pub tree: Tree,
     pub kind: Shared<TreeKind>,
     pub asset: TreeAsset,
-    pub position: Vec3,
-    pub direction: Vec2,
+    pub position: [f32; 2],
+    pub direction: [f32; 2],
 }
 
 pub struct BarrierHint {

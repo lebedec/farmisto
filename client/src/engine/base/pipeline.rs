@@ -298,7 +298,7 @@ impl<const M: usize, C: NoUninit, const D: usize> MyPipelineBuilder<M, C, D> {
             ShaderDataSet::create(device.clone(), 3, vk::ShaderStageFlags::VERTEX, self.camera);
         let material = ShaderDataSet::create(
             device.clone(),
-            8,
+            1 * 100,
             vk::ShaderStageFlags::FRAGMENT,
             self.material.unwrap(),
         );

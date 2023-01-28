@@ -67,6 +67,10 @@ impl Camera {
         self.eye += offset.normalize_or_zero() * input.time * 1024.0;
     }
 
+    pub fn position(&self) -> [f32; 2] {
+        [self.eye.x, self.eye.y]
+    }
+
     pub fn uniform(&self, width: f32, height: f32) -> CameraUniform {
         // GLM was originally designed for OpenGL,
         // where the Y coordinate of the clip coordinates is inverted

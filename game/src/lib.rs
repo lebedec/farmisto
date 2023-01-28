@@ -6,7 +6,7 @@ use crate::api::ActionError::{
 };
 use crate::api::{Action, ActionError, Event};
 use crate::building::{BuildingDomain, GridId, SurveyorId};
-use crate::inventory::{ContainerKey, Function, InventoryDomain};
+use crate::inventory::{ContainerKey, Function, Inventory, InventoryDomain};
 use crate::model::Tree;
 use crate::model::TreeKind;
 use crate::model::UniverseDomain;
@@ -69,8 +69,6 @@ impl Game {
             .ok_or(PlayerFarmerNotFound(player_name.to_string()))?;
         let farmland = self.universe.farmlands[0];
         match action {
-            Action::DoSomething => {}
-            Action::DoAnything { .. } => {}
             Action::MoveFarmer { destination } => {
                 events.extend(self.move_farmer(*farmer, destination)?)
             }
@@ -83,6 +81,9 @@ impl Game {
             Action::Construct { construction } => {
                 events.extend(self.construct(*farmer, farmland, construction)?)
             }
+            Action::RemoveConstruction { construction } => {
+                events.extend(self.remove_construction(*farmer, farmland, construction)?)
+            }
             Action::TakeItem { drop } => events.extend(self.take_item(*farmer, drop)?),
             Action::DropItem { tile } => events.extend(self.drop_item(*farmer, tile)?),
             Action::PutItem { drop } => events.extend(self.put_item(*farmer, drop)?),
@@ -92,6 +93,7 @@ impl Game {
             Action::PutMaterial { construction } => {
                 events.extend(self.put_material(*farmer, construction)?)
             }
+            Action::ToggleBackpack => events.extend(self.toggle_backpack(*farmer)?),
         }
         Ok(events)
     }
@@ -103,6 +105,25 @@ impl Game {
     ) -> Result<Vec<Event>, ActionError> {
         self.physics.move_body2(farmer.body, destination);
         Ok(vec![])
+    }
+
+    fn toggle_backpack(&mut self, farmer: Farmer) -> Result<Vec<Event>, ActionError> {
+        let backpack = self.inventory.get_items(farmer.backpack);
+        let hands = self.inventory.get_items(farmer.hands);
+        let events = if let Some(items) = backpack {
+            let transfer =
+                self.inventory
+                    .transfer_item(farmer.backpack, items[0].id, farmer.hands)?;
+            vec![Event::Inventory(transfer.complete())]
+        } else if let Some(items) = hands {
+            let transfer =
+                self.inventory
+                    .transfer_item(farmer.hands, items[0].id, farmer.backpack)?;
+            vec![Event::Inventory(transfer.complete())]
+        } else {
+            vec![]
+        };
+        Ok(events)
     }
 
     fn take_item(&mut self, farmer: Farmer, drop: Drop) -> Result<Vec<Event>, ActionError> {
@@ -216,6 +237,30 @@ impl Game {
         Ok(events)
     }
 
+    fn remove_construction(
+        &mut self,
+        farmer: Farmer,
+        farmland: Farmland,
+        construction: Construction,
+    ) -> Result<Vec<Event>, ActionError> {
+        // let items = self.inventory.get_items(construction.container).unwrap();
+        let tile = construction.cell;
+        let (_, barrier_kind) = self
+            .physics
+            .known_barriers
+            .iter()
+            .find(|(_, kind)| kind.name == "<drop>")
+            .unwrap();
+        let position = [
+            (tile[0] as f32) * 128.0 + 64.0,
+            (tile[1] as f32) * 128.0 + 64.0,
+        ];
+        let events = vec![Event::Universe(
+            self.universe.vanish_construction(construction),
+        )];
+        Ok(events)
+    }
+
     fn construct(
         &mut self,
         farmer: Farmer,
@@ -302,8 +347,6 @@ impl Game {
         for farmer in self.universe.farmers.iter() {
             if snapshot.whole || snapshot.farmers.contains(&farmer.id) {
                 let body = self.physics.get_body(farmer.body).unwrap();
-                // let hands = self.inventory.get_items(farmer.hands).unwrap();
-                // let backpack = self.inventory.get_items(farmer.backpack).unwrap();
                 let player = self
                     .players
                     .iter()
@@ -313,24 +356,6 @@ impl Game {
                     farmer: *farmer,
                     player: player.name.clone(),
                     position: body.position,
-                    hands: vec![],
-                    backpack: vec![],
-                    // hands: hands
-                    //     .into_iter()
-                    //     .map(|item| ItemView {
-                    //         id: item.id,
-                    //         kind: item.kind.id,
-                    //         container: item.container,
-                    //     })
-                    //     .collect(),
-                    // backpack: backpack
-                    //     .into_iter()
-                    //     .map(|item| ItemView {
-                    //         id: item.id,
-                    //         kind: item.kind.id,
-                    //         container: item.container,
-                    //     })
-                    //     .collect(),
                 })
             }
         }
@@ -342,34 +367,16 @@ impl Game {
 
         for drop in &self.universe.drops {
             let barrier = self.physics.get_barrier(drop.barrier).unwrap();
-            let items = self.inventory.get_items(drop.container).unwrap();
             stream.push(Universe::DropAppeared {
                 drop: *drop,
                 position: barrier.position,
-                items: items
-                    .into_iter()
-                    .map(|item| ItemView {
-                        id: item.id,
-                        kind: item.kind.id,
-                        container: item.container,
-                    })
-                    .collect(),
             })
         }
 
         for construction in &self.universe.constructions {
-            //let items = self.inventory.get_items(construction.container).unwrap();
             stream.push(Universe::ConstructionAppeared {
                 id: *construction,
                 cell: construction.cell,
-                items: vec![], // items: items
-                               //     .into_iter()
-                               //     .map(|item| ItemView {
-                               //         id: item.id,
-                               //         kind: item.kind.id,
-                               //         container: item.container,
-                               //     })
-                               //     .collect(),
             })
         }
 
@@ -379,6 +386,20 @@ impl Game {
                 cell: theodolite.cell,
             })
         }
+
+        let mut items_appearance = vec![];
+        for items in self.inventory.items.values() {
+            for item in items {
+                items_appearance.push(ItemView {
+                    id: item.id,
+                    kind: item.kind.id,
+                    container: item.container,
+                })
+            }
+        }
+        stream.push(Universe::ItemsAppeared {
+            items: items_appearance,
+        });
 
         vec![Event::Universe(stream)]
     }

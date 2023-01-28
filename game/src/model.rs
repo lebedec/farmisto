@@ -50,20 +50,16 @@ pub enum Universe {
         farmer: Farmer,
         player: String,
         position: [f32; 2],
-        hands: Vec<ItemView>,
-        backpack: Vec<ItemView>,
     },
     FarmerVanished(Farmer),
     DropAppeared {
         drop: Drop,
         position: [f32; 2],
-        items: Vec<ItemView>,
     },
     DropVanished(Drop),
     ConstructionAppeared {
         id: Construction,
         cell: [usize; 2],
-        items: Vec<ItemView>,
     },
     ConstructionVanished(Construction),
     TheodoliteAppeared {
@@ -71,6 +67,9 @@ pub enum Universe {
         cell: [usize; 2],
     },
     TheodoliteVanished(Theodolite),
+    ItemsAppeared {
+        items: Vec<ItemView>,
+    },
 }
 
 #[derive(Debug, bincode::Encode, bincode::Decode)]
@@ -95,8 +94,20 @@ impl UniverseDomain {
         vec![Universe::ConstructionAppeared {
             id: construction,
             cell,
-            items: vec![],
         }]
+    }
+
+    pub(crate) fn vanish_construction(&mut self, construction: Construction) -> Vec<Universe> {
+        if let Some(index) = self
+            .constructions
+            .iter()
+            .position(|search| search == &construction)
+        {
+            self.constructions.remove(index);
+            vec![Universe::ConstructionVanished(construction)]
+        } else {
+            vec![]
+        }
     }
 
     pub fn appear_drop(
@@ -111,11 +122,7 @@ impl UniverseDomain {
             barrier,
         };
         self.drops.push(drop);
-        vec![Universe::DropAppeared {
-            drop,
-            position,
-            items: vec![],
-        }]
+        vec![Universe::DropAppeared { drop, position }]
     }
 }
 

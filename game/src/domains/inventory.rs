@@ -22,6 +22,7 @@ pub struct Container {
 pub enum Function {
     Material { keyword: String },
     Carry,
+    Hammer
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]

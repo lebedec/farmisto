@@ -21,6 +21,7 @@ use sdl2::keyboard::Keycode;
 use server::LocalServerThread;
 use std::collections::HashMap;
 
+use crate::engine::animatoro::ParameterType::Int;
 use game::building::Building;
 use game::inventory::{ContainerId, Inventory, ItemId};
 use game::model::Universe::{
@@ -52,15 +53,21 @@ fn position_from(tile: [usize; 2]) -> [f32; 2] {
     ]
 }
 
+#[derive(PartialEq, Eq)]
 pub enum Activity {
     Idle,
     Delivery,
-    Surveying(Theodolite),
+    Surveying {
+        theodolite: Theodolite,
+        selection: usize,
+    },
+    Instrumenting,
 }
 
 pub enum Intention {
     Use,
     Put,
+    Swap,
 }
 
 pub enum Target {
@@ -80,6 +87,8 @@ impl InputMethod for Input {
             Some(Intention::Use)
         } else if self.right_click() {
             Some(Intention::Put)
+        } else if self.pressed(Keycode::Tab) {
+            Some(Intention::Swap)
         } else {
             None
         }
@@ -100,7 +109,7 @@ pub struct Gameplay {
     pub theodolites: HashMap<Theodolite, TheodoliteRep>,
     pub items: HashMap<ContainerId, HashMap<ItemId, ItemView>>,
     pub camera: Camera,
-    pub farmers2d: Vec<Farmer2d>,
+    pub spines: Vec<Farmer2d>,
     pub cursor: SpriteAsset,
     pub cursor_shape: usize,
     pub players: Vec<SpriteAsset>,
@@ -110,6 +119,8 @@ pub struct Gameplay {
     pub roof_texture: TextureAsset,
     pub drop_sprite: SpriteAsset,
     pub theodolite_sprite: SpriteAsset,
+    pub theodolite_gui_sprite: SpriteAsset,
+    pub theodolite_gui_select_sprite: SpriteAsset,
     pub activity: Activity,
 }
 
@@ -143,7 +154,7 @@ impl Gameplay {
             theodolites: Default::default(),
             items: Default::default(),
             camera,
-            farmers2d: vec![],
+            spines: vec![],
             cursor,
             cursor_shape: 0,
             players,
@@ -153,6 +164,8 @@ impl Gameplay {
             roof_texture: assets.texture("./assets/texture/building-roof-template-2.png"),
             drop_sprite: assets.sprite("<drop>"),
             theodolite_sprite: assets.sprite("theodolite"),
+            theodolite_gui_sprite: assets.sprite("building-gui"),
+            theodolite_gui_select_sprite: assets.sprite("building-gui-select"),
             activity: Activity::Idle,
         }
     }
@@ -303,8 +316,8 @@ impl Gameplay {
                         tree,
                         kind,
                         asset: prefab,
-                        position: Vec3::new(position[0], 0.0, position[1]),
-                        direction: Vec2::ZERO,
+                        position,
+                        direction: [0.0, 0.0],
                     },
                 );
             }
@@ -351,18 +364,7 @@ impl Gameplay {
                 farmer,
                 position,
                 player,
-                hands,
-                backpack,
             } => {
-                for item in hands {
-                    let container = self.items.entry(item.container).or_insert(HashMap::new());
-                    container.insert(item.id, item);
-                }
-                for item in backpack {
-                    let container = self.items.entry(item.container).or_insert(HashMap::new());
-                    container.insert(item.id, item);
-                }
-
                 let kind = self
                     .knowledge
                     .universe
@@ -476,11 +478,7 @@ impl Gameplay {
                     bounds,
                 });
             }
-            DropAppeared {
-                drop,
-                position,
-                items,
-            } => {
+            DropAppeared { drop, position } => {
                 info!("Appear drop {:?} at {:?}", drop, position,);
                 self.drops.insert(
                     drop,
@@ -489,27 +487,15 @@ impl Gameplay {
                         position,
                     },
                 );
-                for item in items {
-                    let container = self.items.entry(item.container).or_insert(HashMap::new());
-                    container.insert(item.id, item);
-                }
             }
             DropVanished(drop) => {
                 self.drops.remove(&drop);
             }
-            ConstructionAppeared {
-                id: entity,
-                cell,
-                items,
-            } => {
+            ConstructionAppeared { id: entity, cell } => {
                 let position = position_from(cell);
                 info!("Appear construction {:?} at {:?}", entity, position);
                 self.constructions
                     .insert(entity, ConstructionRep { entity, position });
-                for item in items {
-                    let container = self.items.entry(item.container).or_insert(HashMap::new());
-                    container.insert(item.id, item);
-                }
             }
             ConstructionVanished(construction) => {
                 self.constructions.remove(&construction);
@@ -522,6 +508,12 @@ impl Gameplay {
             }
             Universe::TheodoliteVanished(theodolite) => {
                 self.theodolites.remove(&theodolite);
+            }
+            Universe::ItemsAppeared { items } => {
+                for item in items {
+                    let container = self.items.entry(item.container).or_insert(HashMap::new());
+                    container.insert(item.id, item);
+                }
             }
         }
     }
@@ -579,31 +571,7 @@ impl Gameplay {
         Target::Ground
     }
 
-    pub fn handle_user_input(&mut self, input: &Input) {
-        self.camera.update(input);
-
-        let mouse_position = input
-            .mouse_position()
-            .position
-            .add([self.camera.eye.x, -self.camera.eye.y]);
-        let tile = mouse_position.div(TILE_SIZE).cast();
-
-        if input.pressed(Keycode::Kp1) {
-            self.send_action(Action::DoSomething);
-        }
-        if input.pressed(Keycode::Tab) {
-            self.players_index = (self.players_index + 1) % self.players.len();
-        }
-        // if input.left_click() {
-        //     let farmland = self.farmlands.values().nth(0).unwrap();
-        //     let row = cursor.y.max(127);
-        //     let column = cursor.x.max(127);
-        //     if !farmland.cells[row][column].marker && !farmland.cells[row][column].wall {
-        //         let action = Action::Survey { target: cursor };
-        //         self.send_action(action);
-        //     }
-        // }
-
+    pub fn handle_user_input(&mut self, frame: &mut Frame) {
         let farmer = match self
             .farmers
             .values_mut()
@@ -622,6 +590,22 @@ impl Gameplay {
             }
         };
 
+        let input = &frame.input;
+        let width = frame.sprites.screen.width() as f32 * frame.sprites.zoom;
+        let height = frame.sprites.screen.height() as f32 * frame.sprites.zoom;
+        self.camera.eye = vec3(
+            (farmer.rendering_position[0] - width / 2.0),
+            (farmer.rendering_position[1] - height / 2.0),
+            0.0,
+        );
+
+        let mouse_position = input.mouse_position().position.add(self.camera.position());
+        let tile = mouse_position.div(TILE_SIZE).cast();
+
+        if input.pressed(Keycode::P) {
+            self.players_index = (self.players_index + 1) % self.players.len();
+        }
+
         let target = self.get_target_at(mouse_position);
 
         if let Some(intention) = input.recognize_intention() {
@@ -639,10 +623,17 @@ impl Gameplay {
                             self.activity = Activity::Delivery;
                         }
                         Target::Theodolite(theodolite) => {
-                            self.activity = Activity::Surveying(theodolite);
+                            self.activity = Activity::Surveying {
+                                theodolite,
+                                selection: 0,
+                            };
                         }
                     },
                     Intention::Put => {}
+                    Intention::Swap => {
+                        self.send_action(Action::ToggleBackpack);
+                        self.activity = Activity::Instrumenting;
+                    }
                 },
                 Activity::Delivery => match intention {
                     Intention::Use => match target {
@@ -674,35 +665,66 @@ impl Gameplay {
                             // beep error
                         }
                     },
+                    Intention::Swap => {
+                        // swap cargos (usefull for different jobs)
+                    }
                 },
-                Activity::Surveying(theodolite) => match intention {
+                Activity::Surveying {
+                    theodolite,
+                    selection,
+                } => match intention {
                     Intention::Use => match target {
                         Target::Ground => {
                             self.send_action(Action::Survey { theodolite, tile });
+                        }
+                        Target::Construction(construction) => {
+                            self.send_action(Action::RemoveConstruction { construction });
                         }
                         _ => {
                             // beep error
                         }
                     },
                     Intention::Put => self.activity = Activity::Idle,
+                    Intention::Swap => {
+                        self.activity = Activity::Surveying {
+                            theodolite,
+                            selection: (selection + 1) % 4,
+                        }
+                    }
+                },
+                Activity::Instrumenting => match intention {
+                    Intention::Use => {}
+                    Intention::Put => {}
+                    Intention::Swap => {
+                        self.send_action(Action::ToggleBackpack);
+                        self.activity = Activity::Idle;
+                    }
                 },
             }
         }
 
+        match self.activity {
+            Activity::Instrumenting | Activity::Idle | Activity::Delivery => {}
+            _ => {
+                // not movement allowed
+                return;
+            }
+        }
+
         let mut direction = [0.0, 0.0];
-        if input.down(Keycode::Left) {
+        if input.down(Keycode::A) {
             direction[0] -= 1.0;
         }
-        if input.down(Keycode::Right) {
+        if input.down(Keycode::D) {
             direction[0] += 1.0;
         }
-        if input.down(Keycode::Up) {
+        if input.down(Keycode::W) {
             direction[1] -= 1.0;
         }
-        if input.down(Keycode::Down) {
+        if input.down(Keycode::S) {
             direction[1] += 1.0;
         }
-        let delta = direction.normalize().mul(input.time * 350.0);
+        let delta = direction.normalize().mul(input.time * 550.0);
         let destination = delta.add(farmer.rendering_position);
 
         // client side physics pre-calculation to prevent
@@ -715,19 +737,19 @@ impl Gameplay {
         }
     }
 
-    pub fn animate(&mut self, input: &Input) {
+    pub fn animate(&mut self, frame: &mut Frame) {
         for farmer in self.farmers.values_mut() {
-            farmer.machine.update(input.time);
+            farmer.machine.update(frame.input.time);
             farmer.rendering_position = farmer.estimated_position;
         }
         METRIC_ANIMATION_SECONDS.observe_closure_duration(|| {
-            for farmer in self.farmers2d.iter_mut() {
-                farmer.sprite.skeleton.update(input.time);
+            for farmer in self.spines.iter_mut() {
+                farmer.sprite.skeleton.update(frame.input.time);
             }
         });
     }
 
-    pub fn render2d(&mut self, frame: &mut Frame) {
+    pub fn render(&mut self, frame: &mut Frame) {
         let assets = &mut frame.assets;
         let renderer = &mut frame.sprites;
         renderer.clear();
@@ -737,7 +759,7 @@ impl Gameplay {
             .input
             .mouse_position()
             .position
-            .add([self.camera.eye.x, -self.camera.eye.y]);
+            .add(self.camera.position());
         let [mouse_x, mouse_y] = mouse_position;
         let cursor_x = (mouse_x / TILE_SIZE).floor() as usize;
         let cursor_y = (mouse_y / TILE_SIZE).floor() as usize;
@@ -889,6 +911,31 @@ impl Gameplay {
         );
 
         for farmer in self.farmers.values() {
+            let sprite_line = (farmer.rendering_position[1] / TILE_SIZE) as usize;
+
+            for (i, item) in self
+                .items
+                .entry(farmer.entity.backpack)
+                .or_insert(HashMap::new())
+                .values()
+                .enumerate()
+            {
+                let kind = self
+                    .knowledge
+                    .inventory
+                    .known_items
+                    .get(&item.kind)
+                    .unwrap();
+                let asset = assets.item(&kind.name);
+                let offset = [0.0, -128.0 - (32.0 * i as f32)];
+                renderer.render_sprite(
+                    &asset.sprite,
+                    farmer.rendering_position.add(offset),
+                    sprite_line,
+                    1.0,
+                );
+            }
+
             renderer.render_sprite(
                 &self.players[self.players_index],
                 farmer.rendering_position,
@@ -896,7 +943,6 @@ impl Gameplay {
                 1.0,
             );
 
-            let sprite_line = (farmer.rendering_position[1] / TILE_SIZE) as usize;
             for (i, item) in self
                 .items
                 .entry(farmer.entity.hands)
@@ -991,11 +1037,35 @@ impl Gameplay {
                 sprite_line,
                 1.0,
             );
+
+            if let Activity::Surveying {
+                theodolite: active_theodolite,
+                selection,
+            } = self.activity
+            {
+                if theodolite.entity != active_theodolite {
+                    continue;
+                }
+                renderer.render_sprite(
+                    &self.theodolite_gui_sprite,
+                    theodolite.position.add([0.0, -32.0]),
+                    sprite_line,
+                    1.0,
+                );
+                renderer.render_sprite(
+                    &self.theodolite_gui_select_sprite,
+                    theodolite
+                        .position
+                        .add([-196.0 + 128.0 * (selection as f32), -224.0]),
+                    sprite_line,
+                    1.0,
+                );
+            }
         }
 
         METRIC_DRAW_REQUEST_SECONDS.observe_closure_duration(|| {
-            for farmer in &self.farmers2d {
-                renderer.render_spine(&farmer.sprite, farmer.position, [mouse_x, mouse_y]);
+            for spine in &self.spines {
+                renderer.render_spine(&spine.sprite, spine.position, [mouse_x, mouse_y]);
             }
         });
 
@@ -1045,10 +1115,9 @@ impl Gameplay {
 impl Mode for Gameplay {
     fn update(&mut self, frame: &mut Frame) {
         self.handle_server_responses(frame);
-        self.handle_user_input(&frame.input);
-        self.animate(&frame.input);
-        // self.render(frame.scene);
-        self.render2d(frame);
+        self.handle_user_input(frame);
+        self.animate(frame);
+        self.render(frame);
     }
 }
 

@@ -45,14 +45,10 @@ pub enum LoginResult {
 
 #[derive(Debug, bincode::Encode, bincode::Decode)]
 pub enum Action {
-    DoSomething,
-    DoAnything {
-        id: usize,
-        position: [f32; 2],
-    },
     MoveFarmer {
         destination: [f32; 2],
     },
+    ToggleBackpack,
     BuildWall {
         cell: [usize; 2],
     },
@@ -68,6 +64,9 @@ pub enum Action {
     Survey {
         theodolite: Theodolite,
         tile: [usize; 2],
+    },
+    RemoveConstruction {
+        construction: Construction,
     },
     TakeItem {
         drop: Drop,

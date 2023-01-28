@@ -306,7 +306,7 @@ impl SpriteRenderer {
         let width = self.screen.width() as f32;
         let height = self.screen.height() as f32;
         let uniform = CameraUniform {
-            model: Mat4::from_translation(vec3(-target.x, target.y, 0.0)),
+            model: Mat4::from_translation(vec3(-target.x, -target.y, 0.0)),
             view: Mat4::look_at_rh(
                 vec3(0.0, 0.0, -1.0), // Vulkan Z: inside screen
                 vec3(0.0, 0.0, 0.0),
@@ -321,7 +321,7 @@ impl SpriteRenderer {
                 100.0,
             ),
         };
-        self.camera_position = [target.x, -target.y];
+        self.camera_position = [target.x, target.y];
         self.camera_buffer.update(self.present_index, uniform);
     }
 
