@@ -41,20 +41,47 @@ pub trait App {
 }
 
 pub fn startup<A: App>(title: String) {
+    let system = sdl2::init().unwrap();
+    let video = system.video().unwrap();
+
+    // 1920 1080
+    // 2560 1440
+    // 3840 2160
+
+    // MODE: fullscreen (lower resolution resolution)
+    // let mut windowed = true;
+    // let mut window = video
+    //     .window(&title, 1920, 1080)
+    //     .fullscreen()
+    //     .vulkan()
+    //     .build()
+    //     .unwrap();
+
+    // MODE: fullscreen (same device resolution)
+    // #[cfg(windows)]
+    // unsafe {
+    //     winapi::um::shellscalingapi::SetProcessDpiAwareness(1);
+    // }
+    // let mut windowed = true;
+    // let mut window = video
+    //     .window(&title, 3840, 2160)
+    //     .fullscreen()
+    //     .vulkan()
+    //     .build()
+    //     .unwrap();
+
+    // MODE: windowed borderless (any resolution)
     #[cfg(windows)]
     unsafe {
         winapi::um::shellscalingapi::SetProcessDpiAwareness(1);
     }
-    let system = sdl2::init().unwrap();
-    let video = system.video().unwrap();
-    #[cfg(windows)]
     let mut windowed = true;
     let mut window = video
-        .window(&title, 1920, 1080)
+        .window(&title, 2560, 1440)
         .allow_highdpi()
-        //.fullscreen()
+        // .fullscreen()
         //.position(1920, 0)
-        .borderless()
+        //.borderless()
         .vulkan()
         .build()
         .unwrap();
@@ -70,6 +97,11 @@ pub fn startup<A: App>(title: String) {
     info!("SDL Vulkan extensions: {:?}", instance_extensions);
 
     let mut base = Base::new(&window, instance_extensions);
+    info!(
+        "Logical drawable: ({}, {})",
+        base.screen.width(),
+        base.screen.height()
+    );
 
     info!("FMOD expected version: {:#08x}", FMOD_VERSION);
     let studio = Studio::create().unwrap();
@@ -102,7 +134,7 @@ pub fn startup<A: App>(title: String) {
             base.present_image_views.len(),
             renderpass,
             &mut assets,
-            2160.0 / base.screen.height() as f32, // reference resolution 4K
+            2.0, // 2160.0 / base.screen.height() as f32, // reference resolution 4K
         );
 
         let mut app = A::start(&mut assets);
