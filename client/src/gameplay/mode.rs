@@ -271,16 +271,7 @@ impl Gameplay {
                     if farmer.entity.body != id {
                         continue;
                     }
-                    farmer.last_sync_position = position;
-                    let error = position.distance(farmer.rendering_position);
-                    if error > 64.0 {
-                        error!(
-                            "Correct farmer {:?} position (error {}) {:?} -> {:?}",
-                            farmer.entity, error, farmer.estimated_position, position
-                        );
-                        farmer.estimated_position = position;
-                        farmer.rendering_position = position;
-                    }
+                    farmer.synchronize_position(position);
                 }
             }
         }
@@ -425,16 +416,20 @@ impl Gameplay {
 
                 info!("Mesh bounds: {:?}", asset.mesh.bounds());
 
+                let is_controlled = player == self.client.player;
+
                 self.farmers.insert(
                     farmer,
                     FarmerRep {
                         entity: farmer,
                         kind,
                         player,
+                        is_controlled,
                         asset,
                         estimated_position: position,
                         rendering_position: position,
                         last_sync_position: position,
+                        speed: 550.0,
                         direction: [0.0, 0.0],
                         machine: Machine {
                             parameters: Default::default(),
@@ -724,7 +719,7 @@ impl Gameplay {
         if input.down(Keycode::S) {
             direction[1] += 1.0;
         }
-        let delta = direction.normalize().mul(input.time * 550.0);
+        let delta = direction.normalize().mul(input.time * farmer.speed);
         let destination = delta.add(farmer.rendering_position);
 
         // client side physics pre-calculation to prevent
@@ -740,7 +735,7 @@ impl Gameplay {
     pub fn animate(&mut self, frame: &mut Frame) {
         for farmer in self.farmers.values_mut() {
             farmer.machine.update(frame.input.time);
-            farmer.rendering_position = farmer.estimated_position;
+            farmer.animate_position(frame.input.time);
         }
         METRIC_ANIMATION_SECONDS.observe_closure_duration(|| {
             for farmer in self.spines.iter_mut() {
@@ -937,7 +932,7 @@ impl Gameplay {
             }
 
             renderer.render_sprite(
-                &self.players[self.players_index],
+                &self.players[farmer.entity.id],
                 farmer.rendering_position,
                 (farmer.rendering_position[1] / TILE_SIZE) as usize,
                 1.0,

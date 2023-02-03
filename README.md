@@ -1,5 +1,7 @@
 # Farmisto
 
+![](./.readme/screenshot.jpg)
+
 Farmisto is a game about farming within are different planets of
 the solar system. Use your imagination to design farm,
 harvest crops, tend to animals, manage productions and finally 

@@ -7,7 +7,7 @@ pub trait VectorMath {
     fn div(self, scalar: f32) -> Self;
     fn floor(self) -> Self;
     fn clamp(self, min: Self, max: Self) -> Self;
-    fn direction(self, other: Self) -> Self;
+    fn direction_to(self, other: Self) -> Self;
     fn distance(self, other: Self) -> f32;
     fn length(self) -> f32;
     fn length_squared(self) -> f32;
@@ -60,7 +60,7 @@ impl VectorMath for [f32; 2] {
     }
 
     #[inline]
-    fn direction(self, other: Self) -> Self {
+    fn direction_to(self, other: Self) -> Self {
         other.sub(self).normalize()
     }
 

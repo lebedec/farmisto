@@ -77,7 +77,7 @@ pub fn startup<A: App>(title: String) {
     }
     let mut windowed = true;
     let mut window = video
-        .window(&title, 2560, 1440)
+        .window(&title, 1920, 1080)
         .allow_highdpi()
         // .fullscreen()
         //.position(1920, 0)

@@ -207,7 +207,7 @@ impl PhysicsDomain {
                     let position = if delta > distance {
                         destination
                     } else {
-                        let movement = body.position.direction(destination).mul(delta);
+                        let movement = body.position.direction_to(destination).mul(delta);
                         body.position.add(movement)
                     };
 
