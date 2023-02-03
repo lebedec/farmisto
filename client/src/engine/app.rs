@@ -1,35 +1,28 @@
-use crate::engine::base::{submit_commands, Base};
-use crate::engine::scene::SceneRenderer;
+use crate::engine::base::Base;
 use crate::engine::sprites::SpriteRenderer;
 use crate::engine::{Assets, Input};
 use ash::vk;
-use std::io::{BufReader, Write};
+use std::io::Write;
 use std::net::TcpListener;
 
 use libfmod::ffi::{FMOD_INIT_NORMAL, FMOD_STUDIO_INIT_NORMAL, FMOD_VERSION};
 use libfmod::{SpeakerMode, Studio};
 use log::info;
 
-use serde::de::Unexpected::Str;
-use std::sync::Arc;
 use std::thread;
-use std::time::{Duration, Instant};
-
-use prometheus::{IntCounter, IntGauge};
+use std::time::Instant;
 
 use lazy_static::lazy_static;
-use prometheus::{register_int_counter, register_int_gauge};
 use sdl2::keyboard::Keycode;
-use sdl2::keyboard::Keycode::K;
 use sdl2::video::FullscreenType;
 
 lazy_static! {
-    static ref METRIC_FRAME: IntCounter = register_int_counter!("app_frame", "frame").unwrap();
+    static ref METRIC_FRAME: prometheus::IntCounter =
+        prometheus::register_int_counter!("app_frame", "frame").unwrap();
 }
 
 pub struct Frame<'c> {
     pub input: Input,
-    pub scene: &'c mut SceneRenderer,
     pub sprites: &'c mut SpriteRenderer,
     pub assets: &'c mut Assets,
     pub studio: &'c Studio,
@@ -119,14 +112,6 @@ pub fn startup<A: App>(title: String) {
 
         let mut assets = Assets::new(base.device.clone(), base.pool, base.queue.clone());
 
-        let mut scene_renderer = SceneRenderer::create(
-            &base.device,
-            &base.queue.device_memory,
-            base.screen.clone(),
-            base.present_image_views.len(),
-            renderpass,
-            &mut assets,
-        );
         let mut sprites_renderer = SpriteRenderer::create(
             &base.device,
             &base.queue.device_memory,
@@ -134,7 +119,7 @@ pub fn startup<A: App>(title: String) {
             base.present_image_views.len(),
             renderpass,
             &mut assets,
-            2.0, // 2160.0 / base.screen.height() as f32, // reference resolution 4K
+            2160.0 / base.screen.height() as f32, // reference resolution 4K
         );
 
         let mut app = A::start(&mut assets);
@@ -216,15 +201,6 @@ pub fn startup<A: App>(title: String) {
                 Ok((present_index, _)) => present_index,
                 Err(vk::Result::ERROR_OUT_OF_DATE_KHR) => {
                     base.recreate_swapchain(renderpass);
-
-                    scene_renderer = SceneRenderer::create(
-                        &base.device,
-                        &base.queue.device_memory,
-                        base.screen.clone(),
-                        base.present_image_views.len(),
-                        renderpass,
-                        &mut assets,
-                    );
                     sprites_renderer = SpriteRenderer::create(
                         &base.device,
                         &base.queue.device_memory,
@@ -234,7 +210,6 @@ pub fn startup<A: App>(title: String) {
                         &mut assets,
                         2160.0 / base.screen.height() as f32, // reference resolution 4K
                     );
-
                     continue;
                 }
                 Err(error) => {
@@ -246,7 +221,6 @@ pub fn startup<A: App>(title: String) {
 
             app.update(&mut Frame {
                 input: input.clone(),
-                scene: &mut scene_renderer,
                 sprites: &mut sprites_renderer,
                 assets: &mut assets,
                 studio: &studio,

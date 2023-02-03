@@ -1,8 +1,7 @@
 create table FarmerAssetData
 (
     id      text primary key unique,
-    texture text not null,
-    mesh    text not null
+    texture text not null
 );
 
 create table FarmlandAssetData
@@ -15,8 +14,7 @@ create table FarmlandAssetData
 create table PropsAssetData
 (
     id      text primary key unique,
-    texture text not null,
-    mesh    text not null
+    texture text not null
 );
 
 create table FarmlandAssetPropItem
@@ -31,8 +29,7 @@ create table FarmlandAssetPropItem
 create table TreeAssetData
 (
     id      text primary key unique,
-    texture text not null,
-    mesh    text not null
+    texture text not null
 );
 
 create table PipelineAssetData

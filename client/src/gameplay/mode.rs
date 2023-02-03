@@ -1,12 +1,10 @@
-use crate::engine::animatoro::{AnimationAsset, Machine, State, StateId};
-use crate::engine::armature::{PoseBuffer, PoseUniform};
 use crate::engine::sprites::SpineSpriteController;
 use crate::engine::{Input, SpineAsset, SpriteAsset, TextureAsset, TilesetAsset};
 use crate::gameplay::behaviours::{
     BarrierHint, ConstructionRep, DropRep, FarmerRep, FarmlandRep, TheodoliteRep, TreeRep,
 };
 use crate::gameplay::camera::Camera;
-use crate::{Frame, Mode, SceneRenderer};
+use crate::{Frame, Mode};
 use datamap::Storage;
 use game::api::{Action, Event, GameResponse, PlayerRequest};
 use game::math::{detect_collision, VectorMath};
@@ -14,14 +12,13 @@ use game::model::{
     Construction, Drop, Farmer, Farmland, ItemView, Position, Theodolite, Tile, Tree, Universe,
 };
 use game::Game;
-use glam::{vec3, Mat4, Vec2, Vec3};
+use glam::{vec3, Vec3};
 use log::{error, info};
 use network::TcpClient;
 use sdl2::keyboard::Keycode;
 use server::LocalServerThread;
 use std::collections::HashMap;
 
-use crate::engine::animatoro::ParameterType::Int;
 use game::building::Building;
 use game::inventory::{ContainerId, Inventory, ItemId};
 use game::model::Universe::{
@@ -202,7 +199,6 @@ impl Gameplay {
 
     pub fn handle_building_event(&mut self, frame: &mut Frame, event: Building) {
         let assets = &mut frame.assets;
-        let renderer = &mut frame.scene;
         match event {
             Building::GridChanged { grid, cells, rooms } => {
                 for (farmland, behaviour) in self.farmlands.iter_mut() {
@@ -245,7 +241,6 @@ impl Gameplay {
 
     pub fn handle_planting_event(&mut self, frame: &mut Frame, event: Planting) {
         let assets = &mut frame.assets;
-        let renderer = &mut frame.scene;
         match event {
             Planting::LandChanged { land, map } => {
                 for (farmland, behaviour) in self.farmlands.iter_mut() {
@@ -260,7 +255,6 @@ impl Gameplay {
 
     pub fn handle_physics_event(&mut self, frame: &mut Frame, event: Physics) {
         let assets = &mut frame.assets;
-        let renderer = &mut frame.scene;
         match event {
             Physics::BodyPositionChanged {
                 id,
@@ -279,7 +273,6 @@ impl Gameplay {
 
     pub fn handle_universe_event(&mut self, frame: &mut Frame, event: Universe) {
         let assets = &mut frame.assets;
-        let renderer = &mut frame.scene;
         match event {
             TreeAppeared {
                 tree,
@@ -413,11 +406,7 @@ impl Gameplay {
                 // }
 
                 let asset = assets.farmer(&kind.name);
-
-                info!("Mesh bounds: {:?}", asset.mesh.bounds());
-
                 let is_controlled = player == self.client.player;
-
                 self.farmers.insert(
                     farmer,
                     FarmerRep {
@@ -431,28 +420,6 @@ impl Gameplay {
                         last_sync_position: position,
                         speed: 550.0,
                         direction: [0.0, 0.0],
-                        machine: Machine {
-                            parameters: Default::default(),
-                            states: vec![State {
-                                id: StateId(42),
-                                name: "idle".to_string(),
-                                fps: 10.0,
-                                motion: AnimationAsset::from_space3(
-                                    "./assets/mesh/male@idle.space3",
-                                ),
-                                looped: true,
-                                frame: 0,
-                                frame_time: 0.0,
-                                transitions: vec![],
-                            }],
-                            current: 0,
-                            transform: [Mat4::IDENTITY; 64],
-                            pose_buffer: PoseBuffer::create::<PoseUniform>(
-                                renderer.device.clone(),
-                                &renderer.device_memory,
-                                1,
-                            ),
-                        },
                     },
                 );
             }
@@ -734,7 +701,6 @@ impl Gameplay {
 
     pub fn animate(&mut self, frame: &mut Frame) {
         for farmer in self.farmers.values_mut() {
-            farmer.machine.update(frame.input.time);
             farmer.animate_position(frame.input.time);
         }
         METRIC_ANIMATION_SECONDS.observe_closure_duration(|| {

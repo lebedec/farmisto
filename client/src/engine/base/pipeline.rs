@@ -1,7 +1,7 @@
 use crate::engine::base::{Screen, ShaderData, ShaderDataSet};
-use crate::engine::sprites::{GroundPushConstants, SpriteVertex};
+use crate::engine::sprites::SpriteVertex;
 use crate::engine::{IndexBuffer, PipelineAsset, VertexBuffer};
-use ash::vk::{DescriptorSet, ImageView, Sampler, SpecializationInfo, SpecializationMapEntry};
+use ash::vk::{DescriptorSet, ImageView, Sampler, SpecializationMapEntry};
 use ash::{vk, Device};
 use bytemuck::NoUninit;
 use lazy_static::lazy_static;

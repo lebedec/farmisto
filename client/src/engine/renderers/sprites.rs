@@ -10,7 +10,7 @@ use rusty_spine::{AttachmentType, Skin};
 use sdl2::libc::pipe;
 
 use crate::engine::base::{index_memory_type, MyPipeline, Screen, ShaderData, ShaderDataSet};
-use crate::engine::uniform::{CameraUniform, LightUniform, UniformBuffer};
+use crate::engine::buffers::{CameraUniform, LightUniform, UniformBuffer};
 use crate::engine::{
     IndexBuffer, SamplerAsset, ShaderAsset, SpineAsset, SpriteAsset, TextureAsset, VertexBuffer,
 };

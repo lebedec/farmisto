@@ -1,4 +1,4 @@
-use crate::engine::uniform::CameraUniform;
+use crate::engine::buffers::CameraUniform;
 use crate::Input;
 use glam::{vec3, Mat4, Vec3};
 use sdl2::keyboard::Keycode;

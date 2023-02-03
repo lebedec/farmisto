@@ -1,15 +1,12 @@
-use crate::engine::animatoro::Machine;
 use crate::engine::{FarmerAsset, FarmlandAsset, TreeAsset};
 
-use game::building::{Cell, Grid, Room};
+use game::building::{Cell, Room};
 use game::collections::Shared;
 use game::math::{Collider, VectorMath};
 use game::model::{
-    Construction, Drop, Farmer, FarmerKind, Farmland, FarmlandKind, ItemView, Theodolite, Tree,
-    TreeKind,
+    Construction, Drop, Farmer, FarmerKind, Farmland, FarmlandKind, Theodolite, Tree, TreeKind,
 };
-use game::physics::{BarrierId, BarrierKey, BarrierKind};
-use glam::{Vec2, Vec3};
+use game::physics::{BarrierId, BarrierKey};
 use log::error;
 
 pub struct FarmerRep {
@@ -23,7 +20,6 @@ pub struct FarmerRep {
     pub last_sync_position: [f32; 2],
     pub speed: f32,
     pub direction: [f32; 2],
-    pub machine: Machine,
 }
 
 impl FarmerRep {

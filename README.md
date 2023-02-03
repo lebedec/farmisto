@@ -19,7 +19,7 @@ take on planet environment challenges.
   
   Game engine primarily designed 
   for game development with "hot reload" experience for editing game scenes.
-  Includes a rendering for 2D or 3D graphics, sound, animation,
+  Includes 2D rendering, sound, animation,
   AI configuration tools, networking, localization support.
 
 - [server](server)

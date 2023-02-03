@@ -21,7 +21,12 @@ use crate::engine::assets::fs::{FileEvent, FileSystem};
 use crate::engine::assets::prefabs::{TreeAsset, TreeAssetData};
 use crate::engine::assets::tileset::{TilesetAsset, TilesetAssetData, TilesetItem};
 use crate::engine::base::Queue;
-use crate::engine::{FarmerAsset, FarmerAssetData, FarmlandAsset, FarmlandAssetData, FarmlandAssetPropItem, ItemAsset, ItemAssetData, MeshAsset, MeshAssetData, PipelineAsset, PipelineAssetData, PropsAsset, PropsAssetData, SamplerAsset, SamplerAssetData, ShaderAsset, ShaderAssetData, SpineAsset, SpineAssetData, SpriteAsset, SpriteAssetData, TextureAsset, TextureAssetData};
+use crate::engine::{
+    FarmerAsset, FarmerAssetData, FarmlandAsset, FarmlandAssetData, FarmlandAssetPropItem,
+    ItemAsset, ItemAssetData, PipelineAsset, PipelineAssetData, PropsAsset, PropsAssetData,
+    SamplerAsset, SamplerAssetData, ShaderAsset, ShaderAssetData, SpineAsset, SpineAssetData,
+    SpriteAsset, SpriteAssetData, TextureAsset, TextureAssetData,
+};
 use crate::ShaderCompiler;
 
 lazy_static! {
@@ -45,10 +50,6 @@ pub struct Assets {
     textures_default: TextureAssetData,
     textures_white: TextureAsset,
     textures: HashMap<PathBuf, TextureAsset>,
-
-    meshes_default: MeshAssetData,
-    meshes_cube: MeshAsset,
-    meshes: HashMap<PathBuf, MeshAsset>,
 
     shaders: HashMap<PathBuf, ShaderAsset>,
     pipelines: HashMap<String, PipelineAsset>,
@@ -80,17 +81,12 @@ pub enum AssetPayload {
         path: PathBuf,
         data: ShaderAssetData,
     },
-    Mesh {
-        path: PathBuf,
-        data: MeshAssetData,
-    },
 }
 
 #[derive(Debug)]
 pub enum AssetKind {
     Texture,
     Shader,
-    Mesh,
     ShaderSrc,
 }
 
@@ -142,27 +138,6 @@ fn spawn_loader(
                                 }
                             }
                         }
-                        AssetKind::Mesh => {
-                            let data = if path.extension().unwrap() == "space3" {
-                                MeshAssetData::from_space3(&queue, &path)
-                            } else {
-                                MeshAssetData::from_json_file(&queue, &path)
-                            };
-                            match data {
-                                Ok(data) => {
-                                    result.send(AssetPayload::Mesh { path, data }).unwrap();
-                                }
-                                Err(error) => {
-                                    error!(
-                                        "[loader-{}] Unable to load {:?} {:?}, {:?}",
-                                        loader,
-                                        request.kind,
-                                        path.to_str(),
-                                        error
-                                    );
-                                }
-                            }
-                        }
                         AssetKind::ShaderSrc => {
                             debug!("[loader-{}] Compile shader {:?}", loader, path.to_str());
                             let compiler = ShaderCompiler::new();
@@ -200,12 +175,6 @@ impl Assets {
             "./assets/fallback/white.png",
         ));
         let textures = HashMap::new();
-
-        let meshes_cube =
-            MeshAsset::from_data(Arc::new(RefCell::new(MeshAssetData::cube(&queue).unwrap())));
-        let meshes_default = MeshAssetData::fallback(&queue).unwrap();
-        let meshes = HashMap::new();
-
         let shaders = HashMap::new();
 
         let loading_requests = Arc::new(RwLock::new(Vec::<AssetRequest>::new()));
@@ -235,11 +204,8 @@ impl Assets {
             textures_default,
             textures_white,
             textures,
-            meshes_cube,
-            meshes_default,
             loading_requests,
             loading_result,
-            meshes,
             shaders,
             file_system,
             queue,
@@ -284,10 +250,6 @@ impl Assets {
         self.textures_white.clone()
     }
 
-    pub fn cube(&self) -> MeshAsset {
-        self.meshes_cube.clone()
-    }
-
     pub fn spine(&mut self, key: &str) -> SpineAsset {
         METRIC_REQUESTS_TOTAL.with_label_values(&["spine"]).inc();
         if let Some(asset) = self.spines.get(key) {
@@ -320,18 +282,6 @@ impl Assets {
         let asset = SpineAsset::from(data);
         self.spines.insert(key.to_string(), asset.share());
         asset
-    }
-
-    pub fn mesh<P: AsRef<Path>>(&mut self, path: P) -> MeshAsset {
-        METRIC_REQUESTS_TOTAL.with_label_values(&["mesh"]).inc();
-        let path = fs::canonicalize(path).unwrap();
-        if let Some(mesh) = self.meshes.get(&path) {
-            return mesh.clone();
-        }
-        let mesh = MeshAsset::from_data(Arc::new(RefCell::new(self.meshes_default.clone())));
-        self.meshes.insert(path.clone(), mesh.clone());
-        self.require_update(AssetKind::Mesh, path);
-        mesh
     }
 
     pub fn sprite(&mut self, name: &str) -> SpriteAsset {
@@ -436,10 +386,8 @@ impl Assets {
     pub fn load_tree_data(&mut self, id: &str) -> Result<TreeAssetData, serde_json::Error> {
         let entry = self.storage.fetch_one::<TreeAssetData>(id);
         let texture: String = entry.get("texture")?;
-        let mesh: String = entry.get("mesh")?;
         let data = TreeAssetData {
             texture: self.texture(texture),
-            mesh: self.mesh(mesh),
         };
         Ok(data)
     }
@@ -478,10 +426,8 @@ impl Assets {
     pub fn load_farmer_data(&mut self, id: &str) -> Result<FarmerAssetData, serde_json::Error> {
         let entry = self.storage.fetch_one::<FarmerAssetData>(id);
         let texture: String = entry.get("texture")?;
-        let mesh: String = entry.get("mesh")?;
         let data = FarmerAssetData {
             texture: self.texture(texture),
-            mesh: self.mesh(mesh),
         };
         Ok(data)
     }
@@ -489,10 +435,8 @@ impl Assets {
     pub fn load_props_data(&mut self, id: &str) -> Result<PropsAssetData, serde_json::Error> {
         let entry = self.storage.fetch_one::<PropsAssetData>(id);
         let texture: String = entry.get("texture")?;
-        let mesh: String = entry.get("mesh")?;
         let data = PropsAssetData {
             texture: self.texture(texture),
-            mesh: self.mesh(mesh),
         };
         Ok(data)
     }
@@ -718,8 +662,6 @@ impl Assets {
                 FileEvent::Created | FileEvent::Changed => {
                     if self.textures.contains_key(&path) {
                         self.require_update(AssetKind::Texture, path);
-                    } else if self.meshes.contains_key(&path) {
-                        self.require_update(AssetKind::Mesh, path);
                     } else if self.shaders.contains_key(&path) {
                         self.require_update(AssetKind::Shader, path);
                     }
@@ -759,15 +701,6 @@ impl Assets {
                                 pipeline.changed = true;
                             }
                         }
-                    }
-                },
-                AssetPayload::Mesh { path, data } => match self.meshes.get_mut(&path) {
-                    None => {
-                        error!("Unable to update mesh {:?}, not registered", path.to_str());
-                    }
-                    Some(mesh) => {
-                        debug!("Update mesh {:?}", path.to_str());
-                        mesh.update(data);
                     }
                 },
             }
