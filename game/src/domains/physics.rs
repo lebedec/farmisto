@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use log::{error, info};
+use log::error;
 
 use crate::collections::Shared;
 use crate::math::{detect_collision, Collider, VectorMath};
@@ -12,8 +12,11 @@ pub struct PhysicsDomain {
     pub known_bodies: HashMap<BodyKey, Shared<BodyKind>>,
     pub known_barriers: HashMap<BarrierKey, Shared<BarrierKind>>,
     pub spaces: Vec<Space>,
+    pub spaces_sequence: usize,
     pub bodies: Vec<Vec<Body>>,
+    pub bodies_sequence: usize,
     pub barriers: Vec<Vec<Barrier>>,
+    pub barriers_sequence: usize,
 }
 
 impl Default for PhysicsDomain {
@@ -23,14 +26,17 @@ impl Default for PhysicsDomain {
             known_bodies: Default::default(),
             known_barriers: Default::default(),
             spaces: vec![],
+            spaces_sequence: 0,
             bodies: vec![vec![]; MAX_SPACES],
+            bodies_sequence: 0,
             barriers: vec![vec![]; MAX_SPACES],
+            barriers_sequence: 0,
         }
     }
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
-pub struct SpaceKey(pub usize);
+pub struct SpaceKey(pub(crate) usize);
 
 pub struct SpaceKind {
     pub id: SpaceKey,
@@ -46,7 +52,7 @@ pub struct Space {
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
-pub struct BodyKey(pub usize);
+pub struct BodyKey(pub(crate) usize);
 
 pub struct BodyKind {
     pub id: BodyKey,
@@ -55,7 +61,7 @@ pub struct BodyKind {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
-pub struct BodyId(pub usize);
+pub struct BodyId(pub(crate) usize);
 
 #[derive(Clone)]
 pub struct Body {
@@ -67,7 +73,7 @@ pub struct Body {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
-pub struct BarrierKey(pub usize);
+pub struct BarrierKey(pub(crate) usize);
 
 pub struct BarrierKind {
     pub id: BarrierKey,
@@ -76,7 +82,7 @@ pub struct BarrierKind {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
-pub struct BarrierId(pub usize);
+pub struct BarrierId(pub(crate) usize);
 
 #[derive(Clone)]
 pub struct Barrier {
@@ -103,6 +109,7 @@ pub enum PhysicsError {
 pub struct BarrierCreation<'a> {
     pub barrier: Barrier,
     barriers: &'a mut Vec<Barrier>,
+    barriers_sequence: &'a mut usize,
 }
 
 impl PhysicsDomain {
@@ -115,12 +122,13 @@ impl PhysicsDomain {
         let barriers = &mut self.barriers[space.0];
         let creation = BarrierCreation {
             barrier: Barrier {
-                id: BarrierId(barriers.len() + 10),
+                id: BarrierId(self.barriers_sequence + 1),
                 kind,
                 position,
                 space,
             },
             barriers,
+            barriers_sequence: &mut self.barriers_sequence,
         };
         Ok(creation)
     }
@@ -128,12 +136,32 @@ impl PhysicsDomain {
 
 impl<'a> BarrierCreation<'a> {
     pub fn complete(self) -> Vec<Physics> {
+        *self.barriers_sequence = self.barrier.id.0;
         self.barriers.push(self.barrier);
         vec![]
     }
 }
 
 impl PhysicsDomain {
+    pub fn load_spaces(&mut self, spaces: Vec<Space>, sequence: usize) {
+        self.spaces_sequence = sequence;
+        self.spaces.extend(spaces);
+    }
+
+    pub fn load_bodies(&mut self, bodies: Vec<Body>, sequence: usize) {
+        self.bodies_sequence = sequence;
+        for body in bodies {
+            self.bodies[body.space.0].push(body);
+        }
+    }
+
+    pub fn load_barriers(&mut self, barriers: Vec<Barrier>, sequence: usize) {
+        self.barriers_sequence = sequence;
+        for barrier in barriers {
+            self.barriers[barrier.space.0].push(barrier);
+        }
+    }
+
     pub fn get_body_mut(&mut self, id: BodyId) -> Option<&mut Body> {
         for bodies in self.bodies.iter_mut() {
             for body in bodies {

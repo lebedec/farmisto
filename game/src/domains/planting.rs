@@ -8,7 +8,9 @@ pub struct PlantingDomain {
     pub known_lands: HashMap<LandKey, Shared<LandKind>>,
     pub known_plants: HashMap<PlantKey, Shared<PlantKind>>,
     pub lands: Vec<Land>,
+    pub lands_sequence: usize,
     pub plants: Vec<Vec<Plant>>,
+    pub plants_sequence: usize,
 }
 
 impl Default for PlantingDomain {
@@ -17,13 +19,15 @@ impl Default for PlantingDomain {
             known_lands: Default::default(),
             known_plants: Default::default(),
             lands: vec![],
+            lands_sequence: 0,
             plants: vec![vec![]; MAX_LANDS],
+            plants_sequence: 0,
         }
     }
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
-pub struct LandKey(pub usize);
+pub struct LandKey(pub(crate) usize);
 
 pub struct LandKind {
     pub id: LandKey,
@@ -40,7 +44,7 @@ pub struct Land {
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
-pub struct PlantKey(pub usize);
+pub struct PlantKey(pub(crate) usize);
 
 pub struct PlantKind {
     pub id: PlantKey,
@@ -49,7 +53,7 @@ pub struct PlantKind {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
-pub struct PlantId(pub usize);
+pub struct PlantId(pub(crate) usize);
 
 #[derive(Clone)]
 pub struct Plant {
@@ -67,6 +71,18 @@ pub enum Planting {
 }
 
 impl PlantingDomain {
+    pub fn load_lands(&mut self, lands: Vec<Land>, sequence: usize) {
+        self.lands_sequence = sequence;
+        self.lands.extend(lands);
+    }
+
+    pub fn load_plants(&mut self, plants: Vec<Plant>, sequence: usize) {
+        self.plants_sequence = sequence;
+        for plant in plants {
+            self.plants[plant.land.0].push(plant);
+        }
+    }
+
     pub fn get_land(&self, id: LandId) -> Option<&Land> {
         self.lands.iter().find(|land| land.id == id)
     }

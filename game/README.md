@@ -36,7 +36,7 @@ It is the bounds within which certain game processes are implemented
 and certain rules/actions are applied. In fact, each domain is unique game mechanic.
 Domains are independent Rust modules.
 
-*   [Physics](src/domains/physics.rs)
+*   [Physics](src/domains/physics)
 
     Provides an real-time simulation of rigid body dynamics including collision detection.
     This domain is the foundation to organize game world in bounded areas for performance optimization
@@ -49,13 +49,17 @@ Domains are independent Rust modules.
     By using both pathfinding and movement algorithms of physics domain
     we're trying to achieve best result of task to move game entity to destination.
 
-*   [Planting](src/domains/planting.rs)
+*   [Planting](src/domains/planting)
 
     Planting domain associated with planting, growing, and harvesting plants on the farm.
     It's one of the main income sources for the game, and provides most of the ingredients
     for character life support process.
 
-*   Inventory
+*   [Building](src/domains/building)
+
+    Building ...
+
+*   [Inventory](src/domains/inventory)
 
     While playing game, player will acquire a good many items. Some will be looted from fallen enemies.
     Some will be purchased from a merchant or crafted.

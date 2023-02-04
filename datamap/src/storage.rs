@@ -108,6 +108,15 @@ impl Storage {
         self.query_map::<T, _, M>([], "", map)
     }
 
+    pub fn get_sequence<T, M, E>(&self, map: M) -> Result<(Vec<T>, usize), E>
+    where
+        M: FnMut(&Row) -> Result<T, E>,
+    {
+        let rows = self.query_map2::<T, _, M, E>([], "", map)?;
+        let sequence = self.query_sequence::<T>();
+        Ok((rows, sequence))
+    }
+
     pub fn find_one<T, M>(&self, id: &str, map: M) -> T
     where
         M: FnMut(&Row) -> T,
@@ -131,6 +140,41 @@ impl Storage {
             values.push(map(row));
         }
         values
+    }
+
+    fn query_map2<T, P: Params, M, E>(
+        &self,
+        params: P,
+        where_clause: &str,
+        mut map: M,
+    ) -> Result<Vec<T>, E>
+    where
+        M: FnMut(&Row) -> Result<T, E>,
+    {
+        let table = std::any::type_name::<T>().split("::").last().unwrap();
+        let mut statement = self
+            .connection
+            .prepare(&format!("select * from \"{}\" {}", table, where_clause))
+            .unwrap();
+        let mut rows = statement.query(params).unwrap();
+        let mut values = vec![];
+        while let Some(row) = rows.next().unwrap() {
+            match map(row) {
+                Ok(value) => values.push(value),
+                Err(error) => return Err(error),
+            }
+        }
+        Ok(values)
+    }
+
+    fn query_sequence<T>(&self) -> usize {
+        let table = std::any::type_name::<T>().split("::").last().unwrap();
+        let mut statement = self
+            .connection
+            .prepare(&format!("select max(rowid) from \"{}\"", table))
+            .unwrap();
+        let sequence = statement.query_row([], |row| row.get(0)).unwrap();
+        sequence
     }
 
     pub fn select_changes<T>(

@@ -1,6 +1,6 @@
 use std::collections::{HashMap, HashSet};
 
-use crate::building::{Cell, GridId, GridIndex, GridKey, Room, SurveyorId};
+use crate::building::{Cell, GridId, GridKey, Room};
 use crate::collections::Shared;
 use crate::inventory::{ContainerId, ItemId, ItemKey};
 use crate::physics::{BarrierId, BarrierKey, BodyId, BodyKey, SpaceId, SpaceKey};
@@ -18,11 +18,17 @@ pub struct UniverseDomain {
     pub id: usize,
     pub known: KnowledgeBase,
     pub farmlands: Vec<Farmland>,
+    pub farmlands_id: usize,
     pub trees: Vec<Tree>,
+    trees_id: usize,
     pub farmers: Vec<Farmer>,
+    pub farmers_id: usize,
     pub constructions: Vec<Construction>,
+    pub constructions_id: usize,
     pub drops: Vec<Drop>,
+    drops_id: usize,
     pub theodolites: Vec<Theodolite>,
+    theodolites_id: usize,
 }
 
 #[derive(Debug, bincode::Encode, bincode::Decode)]
@@ -78,14 +84,49 @@ pub enum UniverseError {
 }
 
 impl UniverseDomain {
+    pub fn load_farmlands(&mut self, farmlands: Vec<Farmland>, farmlands_id: usize) {
+        self.farmlands_id = farmlands_id;
+        self.farmlands.extend(farmlands);
+    }
+
+    pub fn load_farmers(&mut self, farmers: Vec<Farmer>, farmers_id: usize) {
+        self.farmers_id = farmers_id;
+        self.farmers.extend(farmers);
+    }
+
+    pub fn load_trees(&mut self, trees: Vec<Tree>, trees_id: usize) {
+        self.trees_id = trees_id;
+        self.trees.extend(trees);
+    }
+
+    pub fn load_constructions(
+        &mut self,
+        constructions: Vec<Construction>,
+        constructions_id: usize,
+    ) {
+        self.constructions_id = constructions_id;
+        self.constructions.extend(constructions);
+    }
+
+    pub fn load_drops(&mut self, drops: Vec<Drop>, drops_id: usize) {
+        self.drops_id = drops_id;
+        self.drops.extend(drops);
+    }
+
+    pub fn load_theodolites(&mut self, theodolites: Vec<Theodolite>, theodolites_id: usize) {
+        self.theodolites_id = theodolites_id;
+        self.theodolites.extend(theodolites);
+    }
+
     pub(crate) fn appear_construction(
         &mut self,
         container: ContainerId,
         grid: GridId,
         cell: [usize; 2],
     ) -> Vec<Universe> {
+        self.constructions_id += 1;
         let construction = Construction {
-            id: self.constructions.len() + 1,
+            id: self.constructions_id,
             container,
             grid,
             cell,
@@ -116,13 +157,24 @@ impl UniverseDomain {
         barrier: BarrierId,
         position: [f32; 2],
     ) -> Vec<Universe> {
+        self.drops_id += 1;
         let drop = Drop {
-            id: self.drops.len() + 1,
+            id: self.drops_id,
             container,
             barrier,
         };
         self.drops.push(drop);
         vec![Universe::DropAppeared { drop, position }]
+    }
+
+    pub fn vanish_drop(&mut self, drop: Drop) -> Vec<Universe> {
+        let index = self
+            .drops
+            .iter()
+            .position(|search| search.id == drop.id)
+            .unwrap();
+        self.drops.remove(index);
+        vec![Universe::DropVanished(drop)]
     }
 }
 

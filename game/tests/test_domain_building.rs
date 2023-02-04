@@ -1,21 +1,8 @@
-use game::building::{BuildingDomain, Cell, Grid, GridId, GridKey, GridKind, Material, Room};
-use game::collections::Shared;
-use game::inventory::{ContainerId, Function, Item, ItemId, ItemKey, ItemKind};
-use std::collections::{HashMap, HashSet};
+use crate::testing::BuildingTestScenario;
+use game::building::{Cell, Grid, Room};
 use std::time::Instant;
 
-#[test]
-fn test_something2() {
-    let item = vec![
-        Function::Carry,
-        Function::Material {
-            keyword: "wood".to_string(),
-        },
-    ];
-
-    let json = serde_json::to_string(&item).unwrap();
-    println!("JSON: {}", json);
-}
+mod testing;
 
 #[test]
 fn test_something() {
@@ -431,63 +418,4 @@ fn test_shapes_in_room_two_divisions() {
             . 1 1 1 1 1 1 1 .
             "#,
         );
-}
-
-struct BuildingTestScenario {
-    domain: BuildingDomain,
-    grids: HashMap<String, GridId>,
-    grid_kinds: HashMap<String, GridKey>,
-}
-
-impl BuildingTestScenario {
-    pub fn new() -> Self {
-        Self {
-            domain: BuildingDomain::default(),
-            grids: Default::default(),
-            grid_kinds: Default::default(),
-        }
-    }
-
-    pub fn given_grid_kind(mut self, grid_kind: &str) -> Self {
-        let grid_key = GridKey(0);
-        self.domain.known_grids.insert(
-            grid_key,
-            Shared::new(GridKind {
-                id: grid_key,
-                name: grid_kind.to_string(),
-            }),
-        );
-        self.grid_kinds.insert(grid_kind.to_string(), grid_key);
-        self
-    }
-
-    pub fn given_grid(mut self, kind: &str, grid: &str) -> Self {
-        let grid_id = GridId(0);
-        let grid_key = self.grid_kinds.get(kind).unwrap();
-        self.domain.create_grid(
-            grid_id,
-            self.domain.known_grids.get(&grid_key).unwrap().clone(),
-        );
-        self.grids.insert(grid.to_string(), grid_id);
-        self
-    }
-
-    pub fn when_player_builds_on(mut self, grid: &str, building_map: &str) -> Self {
-        let grid_id = self.grids.get(grid).unwrap();
-        for (y, line) in building_map.lines().skip(1).enumerate() {
-            for (x, code) in line.trim().split_whitespace().enumerate() {
-                match code {
-                    "#" => {
-                        self.domain.create_wall(*grid_id, [x, y], Material(0));
-                    }
-                    _ => {}
-                }
-            }
-        }
-        self
-    }
-
-    pub fn then_grid_rooms_should_be(self, grid: &str, expected: &str) -> Self {
-        self
-    }
 }

@@ -6,16 +6,14 @@ use crate::api::ActionError::{
 };
 use crate::api::{Action, ActionError, Event};
 use crate::building::{BuildingDomain, GridId, SurveyorId};
-use crate::inventory::{ContainerKey, Function, Inventory, InventoryDomain};
-use crate::model::Tree;
-use crate::model::TreeKind;
+use crate::inventory::{Function, Inventory, InventoryDomain};
+use crate::model::Farmland;
+use crate::model::ItemView;
+use crate::model::Player;
 use crate::model::UniverseDomain;
 use crate::model::UniverseSnapshot;
 use crate::model::{Construction, Farmer, Universe};
 use crate::model::{Drop, Theodolite, Tile};
-use crate::model::{FarmerKey, Farmland};
-use crate::model::{FarmerKind, Player};
-use crate::model::{FarmlandKind, ItemView};
 use crate::physics::{PhysicsDomain, SpaceId};
 use crate::planting::PlantingDomain;
 
@@ -28,9 +26,9 @@ pub mod model;
 
 pub struct Game {
     pub universe: UniverseDomain,
-    physics: PhysicsDomain,
-    planting: PlantingDomain,
-    building: BuildingDomain,
+    pub physics: PhysicsDomain,
+    pub planting: PlantingDomain,
+    pub building: BuildingDomain,
     pub inventory: InventoryDomain,
     storage: Storage,
     players: Vec<Player>,
@@ -72,7 +70,7 @@ impl Game {
             Action::MoveFarmer { destination } => {
                 events.extend(self.move_farmer(*farmer, destination)?)
             }
-            Action::BuildWall { cell } => {
+            Action::BuildWall { cell: _ } => {
                 unimplemented!()
             }
             Action::Survey { theodolite, tile } => {
@@ -110,12 +108,12 @@ impl Game {
     fn toggle_backpack(&mut self, farmer: Farmer) -> Result<Vec<Event>, ActionError> {
         let backpack = self.inventory.get_items(farmer.backpack);
         let hands = self.inventory.get_items(farmer.hands);
-        let events = if let Some(items) = backpack {
+        let events = if let Ok(items) = backpack {
             let transfer =
                 self.inventory
                     .transfer_item(farmer.backpack, items[0].id, farmer.hands)?;
             vec![Event::Inventory(transfer.complete())]
-        } else if let Some(items) = hands {
+        } else if let Ok(items) = hands {
             let transfer =
                 self.inventory
                     .transfer_item(farmer.hands, items[0].id, farmer.backpack)?;
@@ -127,16 +125,21 @@ impl Game {
     }
 
     fn take_item(&mut self, farmer: Farmer, drop: Drop) -> Result<Vec<Event>, ActionError> {
-        let items = self.inventory.get_items(drop.container).unwrap();
+        let items = self.inventory.get_items(drop.container)?;
+        let need_destroy = items.len() == 1;
         let transfer = self
             .inventory
             .transfer_item(drop.container, items[0].id, farmer.hands)?;
-        let events = vec![Event::Inventory(transfer.complete())];
+        let mut events = vec![Event::Inventory(transfer.complete())];
+        if need_destroy {
+            events.push(Event::Universe(self.universe.vanish_drop(drop)))
+        }
+
         Ok(events)
     }
 
     fn put_item(&mut self, farmer: Farmer, drop: Drop) -> Result<Vec<Event>, ActionError> {
-        let items = self.inventory.get_items(farmer.hands).unwrap();
+        let items = self.inventory.get_items(farmer.hands)?;
         let transfer = self
             .inventory
             .transfer_item(farmer.hands, items[0].id, drop.container)?;
@@ -149,7 +152,7 @@ impl Game {
         farmer: Farmer,
         construction: Construction,
     ) -> Result<Vec<Event>, ActionError> {
-        let items = self.inventory.get_items(construction.container).unwrap();
+        let items = self.inventory.get_items(construction.container)?;
         let transfer =
             self.inventory
                 .transfer_item(construction.container, items[0].id, farmer.hands)?;
@@ -162,17 +165,21 @@ impl Game {
         farmer: Farmer,
         construction: Construction,
     ) -> Result<Vec<Event>, ActionError> {
-        let items = self.inventory.get_items(farmer.hands).unwrap();
-        let transfer =
-            self.inventory
-                .transfer_item(farmer.hands, items[0].id, construction.container)?;
-        let events = vec![Event::Inventory(transfer.complete())];
-        Ok(events)
+        let items = self.inventory.get_items(farmer.hands)?;
+        if items.len() > 0 {
+            let transfer =
+                self.inventory
+                    .transfer_item(farmer.hands, items[0].id, construction.container)?;
+            let events = vec![Event::Inventory(transfer.complete())];
+            Ok(events)
+        } else {
+            Ok(vec![])
+        }
     }
 
     fn drop_item(&mut self, farmer: Farmer, tile: [usize; 2]) -> Result<Vec<Event>, ActionError> {
         let space = SpaceId(0);
-        let items = self.inventory.get_items(farmer.hands).unwrap();
+        let items = self.inventory.get_items(farmer.hands)?;
         let item = items[0].id;
         let (_, barrier_kind) = self
             .physics
@@ -211,8 +218,8 @@ impl Game {
 
     fn survey(
         &mut self,
-        farmer: Farmer,
-        theodolite: Theodolite,
+        _farmer: Farmer,
+        _theodolite: Theodolite,
         tile: [usize; 2],
     ) -> Result<Vec<Event>, ActionError> {
         let surveying = self.building.survey(SurveyorId(0), tile)?;
@@ -239,19 +246,19 @@ impl Game {
 
     fn remove_construction(
         &mut self,
-        farmer: Farmer,
-        farmland: Farmland,
+        _farmer: Farmer,
+        _farmland: Farmland,
         construction: Construction,
     ) -> Result<Vec<Event>, ActionError> {
         // let items = self.inventory.get_items(construction.container).unwrap();
         let tile = construction.cell;
-        let (_, barrier_kind) = self
+        let (_, _barrier_kind) = self
             .physics
             .known_barriers
             .iter()
             .find(|(_, kind)| kind.name == "<drop>")
             .unwrap();
-        let position = [
+        let _position = [
             (tile[0] as f32) * 128.0 + 64.0,
             (tile[1] as f32) * 128.0 + 64.0,
         ];
@@ -388,7 +395,7 @@ impl Game {
         }
 
         let mut items_appearance = vec![];
-        for items in self.inventory.items.values() {
+        for items in self.inventory.get_all_items() {
             for item in items {
                 items_appearance.push(ItemView {
                     id: item.id,
@@ -406,6 +413,6 @@ impl Game {
 
     pub fn load_game_full(&mut self) {
         self.load_game_knowledge();
-        self.load_game_state();
+        self.load_game_state().unwrap();
     }
 }

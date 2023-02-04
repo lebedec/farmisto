@@ -5,7 +5,10 @@ use crate::collections::Shared;
 use crate::inventory::{
     Container, ContainerId, ContainerKey, ContainerKind, Item, ItemId, ItemKey, ItemKind,
 };
-use crate::model::{Construction, Drop, Farmer, FarmerKey, FarmerKind, Farmland, FarmlandKey, FarmlandKind, Player, PlayerId, Theodolite, Tree, TreeKey, TreeKind};
+use crate::model::{
+    Construction, Drop, Farmer, FarmerKey, FarmerKind, Farmland, FarmlandKey, FarmlandKind, Player,
+    PlayerId, Theodolite, Tree, TreeKey, TreeKind,
+};
 use crate::physics::{
     Barrier, BarrierId, BarrierKey, BarrierKind, Body, BodyId, BodyKey, BodyKind, Space, SpaceId,
     SpaceKey, SpaceKind,
@@ -72,39 +75,54 @@ impl Game {
         info!("End game knowledge loading");
     }
 
-    pub fn load_game_state(&mut self) {
+    pub fn load_game_state(&mut self) -> Result<(), DataError> {
         info!("Begin game state loading from ...");
         let storage = self.storage.open_into();
         self.players = storage.find_all(|row| self.load_player(row).unwrap());
+
         // physics
-        self.physics.spaces = storage.find_all(|row| self.load_space(row).unwrap());
-        for body in storage.find_all(|row| self.load_body(row).unwrap()) {
-            self.physics.bodies[body.space.0].push(body);
-        }
-        for barrier in storage.find_all(|row| self.load_barrier(row).unwrap()) {
-            self.physics.barriers[barrier.space.0].push(barrier);
-        }
+        let (spaces, sequence) = storage.get_sequence(|row| self.load_space(row))?;
+        self.physics.load_spaces(spaces, sequence);
+        let (bodies, sequence) = storage.get_sequence(|row| self.load_body(row))?;
+        self.physics.load_bodies(bodies, sequence);
+        let (barriers, sequence) = storage.get_sequence(|row| self.load_barrier(row))?;
+        self.physics.load_barriers(barriers, sequence);
+
         // planting
-        self.planting.lands = storage.find_all(|row| self.load_land(row).unwrap());
-        for plant in storage.find_all(|row| self.load_plant(row).unwrap()) {
-            self.planting.plants[plant.land.0].push(plant);
-        }
+        let (lands, sequence) = storage.get_sequence(|row| self.load_land(row))?;
+        self.planting.load_lands(lands, sequence);
+        let (plants, sequence) = storage.get_sequence(|row| self.load_plant(row))?;
+        self.planting.load_plants(plants, sequence);
+
         // building
-        self.building.grids = storage.find_all(|row| self.load_grid(row).unwrap());
+        let (grids, sequence) = storage.get_sequence(|row| self.load_grid(row))?;
+        self.building.load_grids(grids, sequence);
+
         // inventory
-        self.inventory.containers = storage.find_all(|row| self.load_container(row).unwrap());
-        for item in storage.find_all(|row| self.load_item(row).unwrap()) {
-            let items = self.inventory.items.entry(item.container).or_insert(vec![]);
-            items.push(item);
-        }
+        let (containers, sequence) = storage.get_sequence(|row| self.load_container(row))?;
+        self.inventory.load_containers(containers, sequence);
+        let (items, sequence) = storage.get_sequence(|row| self.load_item(row))?;
+        self.inventory.load_items(items, sequence);
+
         // models
-        self.universe.trees = storage.find_all(|row| self.load_tree(row).unwrap());
-        self.universe.farmlands = storage.find_all(|row| self.load_farmland(row).unwrap());
-        self.universe.farmers = storage.find_all(|row| self.load_farmer(row).unwrap());
-        self.universe.drops = storage.find_all(|row| self.load_drop(row).unwrap());
-        self.universe.constructions = storage.find_all(|row| self.load_construction(row).unwrap());
-        self.universe.theodolites = storage.find_all(|row| self.load_theodolite(row).unwrap());
-        info!("End game state loading")
+        let (trees, trees_id) = storage.get_sequence(|row| self.load_tree(row))?;
+        self.universe.load_trees(trees, trees_id);
+        let (farmlands, farmlands_id) = storage.get_sequence(|row| self.load_farmland(row))?;
+        self.universe.load_farmlands(farmlands, farmlands_id);
+        let (farmers, farmers_id) = storage.get_sequence(|row| self.load_farmer(row))?;
+        self.universe.load_farmers(farmers, farmers_id);
+        let (drops, drops_id) = storage.get_sequence(|row| self.load_drop(row))?;
+        self.universe.load_drops(drops, drops_id);
+        let (constructions, constructions_id) =
+            storage.get_sequence(|row| self.load_construction(row))?;
+        self.universe
+            .load_constructions(constructions, constructions_id);
+        let (theodolites, theodolites_id) =
+            storage.get_sequence(|row| self.load_theodolite(row))?;
+        self.universe.load_theodolites(theodolites, theodolites_id);
+        info!("End game state loading");
+
+        Ok(())
     }
 
     pub fn save_game(&mut self) {}
@@ -223,10 +241,7 @@ impl Game {
         Ok(data)
     }
 
-    pub(crate) fn load_theodolite(
-        &mut self,
-        row: &rusqlite::Row,
-    ) -> Result<Theodolite, DataError> {
+    pub(crate) fn load_theodolite(&mut self, row: &rusqlite::Row) -> Result<Theodolite, DataError> {
         let cell: String = row.get("cell")?;
         let data = Theodolite {
             id: row.get("id")?,
