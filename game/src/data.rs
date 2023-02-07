@@ -22,15 +22,13 @@ impl Game {
         let storage = self.storage.open_into();
         // physics
         for kind in storage.find_all(|row| self.load_space_kind(row).unwrap()) {
-            self.physics.known_spaces.insert(kind.id, Shared::new(kind));
+            self.known.spaces.insert(kind.id, kind.name.clone(), kind);
         }
         for kind in storage.find_all(|row| self.load_body_kind(row).unwrap()) {
-            self.physics.known_bodies.insert(kind.id, Shared::new(kind));
+            self.known.bodies.insert(kind.id, kind.name.clone(), kind);
         }
         for kind in storage.find_all(|row| self.load_barrier_kind(row).unwrap()) {
-            self.physics
-                .known_barriers
-                .insert(kind.id, Shared::new(kind));
+            self.known.barriers.insert(kind.id, kind.name.clone(), kind);
         }
         // planting
         for kind in storage.find_all(|row| self.load_land_kind(row).unwrap()) {
@@ -47,30 +45,24 @@ impl Game {
         }
         // inventory
         for kind in storage.find_all(|row| self.load_container_kind(row).unwrap()) {
-            self.inventory
-                .known_containers
-                .insert(kind.id, Shared::new(kind));
+            self.known
+                .containers
+                .insert(kind.id, kind.name.clone(), kind);
         }
         for kind in storage.find_all(|row| self.load_item_kind(row).unwrap()) {
-            self.inventory
-                .known_items
-                .insert(kind.id, Shared::new(kind));
+            self.known.items.insert(kind.id, kind.name.clone(), kind);
         }
         // universe
         for kind in storage.find_all(|row| self.load_tree_kind(row).unwrap()) {
-            self.universe.known.trees.insert(kind.id, Shared::new(kind));
+            self.known.trees.insert(kind.id, kind.name.clone(), kind);
         }
         for kind in storage.find_all(|row| self.load_farmland_kind(row).unwrap()) {
-            self.universe
-                .known
+            self.known
                 .farmlands
-                .insert(kind.id, Shared::new(kind));
+                .insert(kind.id, kind.name.clone(), kind);
         }
         for kind in storage.find_all(|row| self.load_farmer_kind(row).unwrap()) {
-            self.universe
-                .known
-                .farmers
-                .insert(kind.id, Shared::new(kind));
+            self.known.farmers.insert(kind.id, kind.name.clone(), kind);
         }
         info!("End game knowledge loading");
     }
@@ -265,12 +257,7 @@ impl Game {
         let kind = row.get("kind")?;
         let data = Space {
             id: SpaceId(id),
-            kind: self
-                .physics
-                .known_spaces
-                .get(&SpaceKey(kind))
-                .unwrap()
-                .clone(),
+            kind: self.known.spaces.get(SpaceKey(kind)).unwrap(),
         };
         Ok(data)
     }
@@ -293,12 +280,7 @@ impl Game {
         let direction: String = row.get("direction")?;
         let data = Body {
             id: BodyId(id),
-            kind: self
-                .physics
-                .known_bodies
-                .get(&BodyKey(kind))
-                .unwrap()
-                .clone(),
+            kind: self.known.bodies.get(BodyKey(kind)).unwrap(),
             position: serde_json::from_str(&position)?,
             direction: serde_json::from_str(&direction)?,
             space: SpaceId(space),
@@ -322,17 +304,12 @@ impl Game {
 
     pub(crate) fn load_barrier(&mut self, row: &rusqlite::Row) -> Result<Barrier, DataError> {
         let id = row.get("id")?;
-        let kind = row.get("kind")?;
+        let key = BarrierKey(row.get("kind")?);
         let space = row.get("space")?;
         let position: String = row.get("position")?;
         let data = Barrier {
             id: BarrierId(id),
-            kind: self
-                .physics
-                .known_barriers
-                .get(&BarrierKey(kind))
-                .unwrap()
-                .clone(),
+            kind: self.known.barriers.get(key).unwrap(),
             position: serde_json::from_str(&position)?,
             space: SpaceId(space),
         };
@@ -386,16 +363,10 @@ impl Game {
     }
 
     pub(crate) fn load_container(&mut self, row: &rusqlite::Row) -> Result<Container, DataError> {
-        let kind = self
-            .inventory
-            .known_containers
-            .get(&ContainerKey(row.get("kind")?))
-            .unwrap()
-            .clone();
-
+        let key = row.get("kind")?;
         let data = Container {
             id: ContainerId(row.get("id")?),
-            kind,
+            kind: self.known.containers.get(ContainerKey(key)).unwrap(),
         };
         Ok(data)
     }
@@ -411,16 +382,10 @@ impl Game {
     }
 
     pub(crate) fn load_item(&mut self, row: &rusqlite::Row) -> Result<Item, DataError> {
-        let kind = self
-            .inventory
-            .known_items
-            .get(&ItemKey(row.get("kind")?))
-            .unwrap()
-            .clone();
-
+        let key = row.get("kind")?;
         let data = Item {
             id: ItemId(row.get("id")?),
-            kind,
+            kind: self.known.items.get(ItemKey(key)).unwrap(),
             container: ContainerId(row.get("container")?),
         };
         Ok(data)

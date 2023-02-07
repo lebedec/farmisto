@@ -1,22 +1,30 @@
 use std::collections::{HashMap, HashSet};
 
 use crate::building::{Cell, GridId, GridKey, Room};
-use crate::collections::Shared;
-use crate::inventory::{ContainerId, ItemId, ItemKey};
-use crate::physics::{BarrierId, BarrierKey, BodyId, BodyKey, SpaceId, SpaceKey};
+use crate::collections::{Dictionary, Shared};
+use crate::inventory::{ContainerId, ContainerKey, ContainerKind, ItemId, ItemKey, ItemKind};
+use crate::physics::{
+    BarrierId, BarrierKey, BarrierKind, BodyId, BodyKey, BodyKind, SpaceId, SpaceKey, SpaceKind,
+};
 use crate::planting::{LandId, LandKey, PlantId, PlantKey};
 
 #[derive(Default)]
-pub struct KnowledgeBase {
-    pub trees: HashMap<TreeKey, Shared<TreeKind>>,
-    pub farmlands: HashMap<FarmlandKey, Shared<FarmlandKind>>,
-    pub farmers: HashMap<FarmerKey, Shared<FarmerKind>>,
+pub struct Knowledge {
+    pub trees: Dictionary<TreeKey, TreeKind>,
+    pub farmlands: Dictionary<FarmlandKey, FarmlandKind>,
+    pub farmers: Dictionary<FarmerKey, FarmerKind>,
+    // physics
+    pub spaces: Dictionary<SpaceKey, SpaceKind>,
+    pub bodies: Dictionary<BodyKey, BodyKind>,
+    pub barriers: Dictionary<BarrierKey, BarrierKind>,
+    // inventory
+    pub containers: Dictionary<ContainerKey, ContainerKind>,
+    pub items: Dictionary<ItemKey, ItemKind>,
 }
 
 #[derive(Default)]
 pub struct UniverseDomain {
     pub id: usize,
-    pub known: KnowledgeBase,
     pub farmlands: Vec<Farmland>,
     pub farmlands_id: usize,
     pub trees: Vec<Tree>,
@@ -26,9 +34,9 @@ pub struct UniverseDomain {
     pub constructions: Vec<Construction>,
     pub constructions_id: usize,
     pub drops: Vec<Drop>,
-    drops_id: usize,
+    pub drops_id: usize,
     pub theodolites: Vec<Theodolite>,
-    theodolites_id: usize,
+    pub theodolites_id: usize,
 }
 
 #[derive(Debug, bincode::Encode, bincode::Decode)]

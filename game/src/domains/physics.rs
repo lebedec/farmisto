@@ -1,5 +1,3 @@
-use std::collections::HashMap;
-
 use log::error;
 
 use crate::collections::Shared;
@@ -8,9 +6,6 @@ use crate::math::{detect_collision, Collider, VectorMath};
 pub const MAX_SPACES: usize = 128;
 
 pub struct PhysicsDomain {
-    pub known_spaces: HashMap<SpaceKey, Shared<SpaceKind>>,
-    pub known_bodies: HashMap<BodyKey, Shared<BodyKind>>,
-    pub known_barriers: HashMap<BarrierKey, Shared<BarrierKind>>,
     pub spaces: Vec<Space>,
     pub spaces_sequence: usize,
     pub bodies: Vec<Vec<Body>>,
@@ -22,9 +17,6 @@ pub struct PhysicsDomain {
 impl Default for PhysicsDomain {
     fn default() -> Self {
         Self {
-            known_spaces: Default::default(),
-            known_bodies: Default::default(),
-            known_barriers: Default::default(),
             spaces: vec![],
             spaces_sequence: 0,
             bodies: vec![vec![]; MAX_SPACES],
@@ -61,7 +53,7 @@ pub struct BodyKind {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
-pub struct BodyId(pub(crate) usize);
+pub struct BodyId(pub usize);
 
 #[derive(Clone)]
 pub struct Body {
@@ -82,7 +74,7 @@ pub struct BarrierKind {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
-pub struct BarrierId(pub(crate) usize);
+pub struct BarrierId(pub usize);
 
 #[derive(Clone)]
 pub struct Barrier {

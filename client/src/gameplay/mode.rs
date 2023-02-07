@@ -9,7 +9,8 @@ use datamap::Storage;
 use game::api::{Action, Event, GameResponse, PlayerRequest};
 use game::math::{detect_collision, VectorMath};
 use game::model::{
-    Construction, Drop, Farmer, Farmland, ItemView, Position, Theodolite, Tile, Tree, Universe,
+    Construction, Drop, Farmer, Farmland, ItemView, Knowledge, Position, Theodolite, Tile, Tree,
+    Universe,
 };
 use game::Game;
 use glam::{vec3, Vec3};
@@ -96,7 +97,7 @@ pub struct Gameplay {
     _server: Option<LocalServerThread>,
     client: TcpClient,
     action_id: usize,
-    pub knowledge: Game,
+    pub known: Knowledge,
     pub barriers: Vec<BarrierHint>,
     pub farmlands: HashMap<Farmland, FarmlandRep>,
     pub trees: HashMap<Tree, TreeRep>,
@@ -129,6 +130,8 @@ impl Gameplay {
 
         let mut knowledge = Game::new(Storage::open("./assets/database.sqlite").unwrap());
         knowledge.load_game_knowledge();
+        let knowledge = knowledge.known;
+
         let cursor = assets.sprite("cursor");
         let players = vec![
             assets.sprite("player"),
@@ -141,7 +144,7 @@ impl Gameplay {
             _server: server,
             client,
             action_id: 0,
-            knowledge,
+            known: knowledge,
             barriers: Default::default(),
             farmlands: Default::default(),
             trees: HashMap::new(),
@@ -279,14 +282,7 @@ impl Gameplay {
                 position,
                 growth,
             } => {
-                let kind = self
-                    .knowledge
-                    .universe
-                    .known
-                    .trees
-                    .get(&tree.kind)
-                    .unwrap()
-                    .clone();
+                let kind = self.known.trees.get(tree.kind).unwrap().clone();
                 info!(
                     "Appear tree {:?} kind='{}' at {:?} (g {})",
                     tree, kind.name, position, growth
@@ -316,14 +312,7 @@ impl Gameplay {
                 cells,
                 rooms,
             } => {
-                let kind = self
-                    .knowledge
-                    .universe
-                    .known
-                    .farmlands
-                    .get(&farmland.kind)
-                    .unwrap()
-                    .clone();
+                let kind = self.known.farmlands.get(farmland.kind).unwrap().clone();
                 info!("Appear farmland {:?} kind='{}'", farmland, kind.name);
 
                 let asset = assets.farmland(&kind.name);
@@ -349,22 +338,9 @@ impl Gameplay {
                 position,
                 player,
             } => {
-                let kind = self
-                    .knowledge
-                    .universe
-                    .known
-                    .farmers
-                    .get(&farmer.kind)
-                    .unwrap()
-                    .clone();
-                info!(
-                    "Appear farmer {:?}({}) kind='{}' at {:?}",
-                    farmer, player, kind.name, position
-                );
-
+                let kind = self.known.farmers.get(farmer.kind).unwrap();
+                info!("Appear farmer {:?} at {:?}", farmer, position);
                 let asset = assets.spine(&kind.name);
-
-                info!("TEST 2d");
 
                 let max_y = 7 * 2;
                 let max_x = 14 * 2;
@@ -881,12 +857,7 @@ impl Gameplay {
                 .values()
                 .enumerate()
             {
-                let kind = self
-                    .knowledge
-                    .inventory
-                    .known_items
-                    .get(&item.kind)
-                    .unwrap();
+                let kind = self.known.items.get(item.kind).unwrap();
                 let asset = assets.item(&kind.name);
                 let offset = [0.0, -128.0 - (32.0 * i as f32)];
                 renderer.render_sprite(
@@ -911,12 +882,7 @@ impl Gameplay {
                 .values()
                 .enumerate()
             {
-                let kind = self
-                    .knowledge
-                    .inventory
-                    .known_items
-                    .get(&item.kind)
-                    .unwrap();
+                let kind = self.known.items.get(item.kind).unwrap();
                 let asset = assets.item(&kind.name);
                 let offset = [0.0, -128.0 - (32.0 * i as f32)];
                 renderer.render_sprite(
@@ -945,12 +911,7 @@ impl Gameplay {
                 .values()
                 .enumerate()
             {
-                let kind = self
-                    .knowledge
-                    .inventory
-                    .known_items
-                    .get(&item.kind)
-                    .unwrap();
+                let kind = self.known.items.get(item.kind).unwrap();
                 let asset = assets.item(&kind.name);
                 let offset = [
                     0.0,
@@ -970,12 +931,7 @@ impl Gameplay {
                 .values()
                 .enumerate()
             {
-                let kind = self
-                    .knowledge
-                    .inventory
-                    .known_items
-                    .get(&item.kind)
-                    .unwrap();
+                let kind = self.known.items.get(item.kind).unwrap();
                 let asset = assets.item(&kind.name);
                 let offset = [
                     0.0,

@@ -7,13 +7,13 @@ use crate::api::ActionError::{
 use crate::api::{Action, ActionError, Event};
 use crate::building::{BuildingDomain, GridId, SurveyorId};
 use crate::inventory::{Function, Inventory, InventoryDomain};
-use crate::model::Farmland;
 use crate::model::ItemView;
 use crate::model::Player;
 use crate::model::UniverseDomain;
 use crate::model::UniverseSnapshot;
 use crate::model::{Construction, Farmer, Universe};
 use crate::model::{Drop, Theodolite, Tile};
+use crate::model::{Farmland, Knowledge};
 use crate::physics::{PhysicsDomain, SpaceId};
 use crate::planting::PlantingDomain;
 
@@ -25,18 +25,20 @@ pub mod math;
 pub mod model;
 
 pub struct Game {
+    pub known: Knowledge,
     pub universe: UniverseDomain,
     pub physics: PhysicsDomain,
     pub planting: PlantingDomain,
     pub building: BuildingDomain,
     pub inventory: InventoryDomain,
     storage: Storage,
-    players: Vec<Player>,
+    pub players: Vec<Player>,
 }
 
 impl Game {
     pub fn new(storage: Storage) -> Self {
         Self {
+            known: Knowledge::default(),
             universe: UniverseDomain::default(),
             physics: PhysicsDomain::default(),
             planting: PlantingDomain::default(),
@@ -49,7 +51,7 @@ impl Game {
 
     pub fn perform_action(
         &mut self,
-        player_name: &String,
+        player_name: &str,
         action: Action,
     ) -> Result<Vec<Event>, ActionError> {
         let mut events = vec![];
@@ -181,12 +183,7 @@ impl Game {
         let space = SpaceId(0);
         let items = self.inventory.get_items(farmer.hands)?;
         let item = items[0].id;
-        let (_, barrier_kind) = self
-            .physics
-            .known_barriers
-            .iter()
-            .find(|(_, kind)| kind.name == "<drop>")
-            .unwrap();
+        let barrier_kind = self.known.barriers.find("<drop>").unwrap();
         let position = [
             (tile[0] as f32) * 128.0 + 64.0,
             (tile[1] as f32) * 128.0 + 64.0,
@@ -194,12 +191,7 @@ impl Game {
         let barrier_creation =
             self.physics
                 .create_barrier(space, barrier_kind.clone(), position)?;
-        let (_, container_kind) = self
-            .inventory
-            .known_containers
-            .iter()
-            .find(|(_, kind)| kind.name == "<drop>")
-            .unwrap();
+        let container_kind = self.known.containers.find("<drop>").unwrap();
         let container_creation =
             self.inventory
                 .hold_item(farmer.hands, item, container_kind.clone())?;
@@ -223,12 +215,7 @@ impl Game {
         tile: [usize; 2],
     ) -> Result<Vec<Event>, ActionError> {
         let surveying = self.building.survey(SurveyorId(0), tile)?;
-        let (_, container_kind) = self
-            .inventory
-            .known_containers
-            .iter()
-            .find(|(_, kind)| kind.name == "<construction>")
-            .unwrap();
+        let container_kind = self.known.containers.find("<construction>").unwrap();
         let grid = GridId(1);
         let container_creation = self.inventory.create_container(container_kind.clone())?;
         let appearance = self.universe.appear_construction(
@@ -252,12 +239,7 @@ impl Game {
     ) -> Result<Vec<Event>, ActionError> {
         // let items = self.inventory.get_items(construction.container).unwrap();
         let tile = construction.cell;
-        let (_, _barrier_kind) = self
-            .physics
-            .known_barriers
-            .iter()
-            .find(|(_, kind)| kind.name == "<drop>")
-            .unwrap();
+        let barrier_kind = self.known.barriers.find("<drop>").unwrap();
         let _position = [
             (tile[0] as f32) * 128.0 + 64.0,
             (tile[1] as f32) * 128.0 + 64.0,

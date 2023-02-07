@@ -65,7 +65,7 @@ pub struct Surveyor {
     grid: GridId,
 }
 
-#[derive(bincode::Encode, bincode::Decode)]
+#[derive(Debug, bincode::Encode, bincode::Decode)]
 pub enum Building {
     GridChanged {
         grid: GridId,

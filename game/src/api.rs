@@ -90,7 +90,7 @@ pub enum ActionError {
     ConstructionContainerNotFound(Construction),
     ConstructionContainerNotInitialized(Construction),
     ConstructionContainsUnexpectedItem(Construction),
-    Boba,
+    Test,
 }
 
 impl From<BuildingError> for ActionError {
@@ -117,7 +117,7 @@ impl From<PhysicsError> for ActionError {
     }
 }
 
-#[derive(bincode::Encode, bincode::Decode)]
+#[derive(Debug, bincode::Encode, bincode::Decode)]
 pub enum Event {
     Universe(Vec<Universe>),
     Physics(Vec<Physics>),

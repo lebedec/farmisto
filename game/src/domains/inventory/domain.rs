@@ -36,7 +36,7 @@ pub struct ItemKind {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
-pub struct ItemId(pub(crate) usize);
+pub struct ItemId(pub usize);
 
 pub struct Item {
     pub id: ItemId,
@@ -44,7 +44,7 @@ pub struct Item {
     pub container: ContainerId,
 }
 
-#[derive(bincode::Encode, bincode::Decode)]
+#[derive(Debug, bincode::Encode, bincode::Decode)]
 pub enum Inventory {
     ContainerCreated {
         id: ContainerId,
@@ -79,8 +79,6 @@ pub enum InventoryError {
 
 #[derive(Default)]
 pub struct InventoryDomain {
-    pub known_containers: HashMap<ContainerKey, Shared<ContainerKind>>,
-    pub known_items: HashMap<ItemKey, Shared<ItemKind>>,
     pub items: HashMap<ContainerId, Vec<Item>>,
     pub items_sequence: usize,
     pub containers: Vec<Container>,
