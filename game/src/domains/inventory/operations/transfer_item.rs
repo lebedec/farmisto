@@ -1,73 +1,76 @@
-use std::collections::HashMap;
+use crate::inventory::Inventory::{ContainerDestroyed, ItemAdded, ItemRemoved};
 
-use crate::inventory::Inventory::{ItemAdded, ItemRemoved};
-use crate::inventory::{ContainerId, Inventory, InventoryDomain, InventoryError, Item, ItemId};
+use crate::inventory::ContainerId;
+use crate::inventory::Inventory;
+use crate::inventory::InventoryDomain;
+use crate::inventory::InventoryError;
 
-pub struct ItemTransfer<'operation> {
-    items: &'operation mut HashMap<ContainerId, Vec<Item>>,
-    source: ContainerId,
-    destination: ContainerId,
-    item_index: usize,
-}
+impl InventoryDomain {
+    pub fn pop_item_and_destroy<'operation>(
+        &'operation mut self,
+        source: ContainerId,
+        destination: ContainerId,
+    ) -> Result<impl FnOnce() -> Vec<Inventory> + 'operation, InventoryError> {
+        self.transfer_item(source, -1, destination, false)
+    }
 
-impl<'operation> ItemTransfer<'operation> {
-    pub fn complete(self) -> Vec<Inventory> {
-        let mut item = self
-            .items
-            .get_mut(&self.source)
-            .unwrap()
-            .remove(self.item_index);
-        item.container = self.destination;
-        let events = vec![
-            ItemRemoved {
-                item: item.id,
-                container: self.source,
-            },
-            ItemAdded {
+    pub fn pop_item<'operation>(
+        &'operation mut self,
+        source: ContainerId,
+        destination: ContainerId,
+    ) -> Result<impl FnOnce() -> Vec<Inventory> + 'operation, InventoryError> {
+        self.transfer_item(source, -1, destination, true)
+    }
+
+    pub fn transfer_item<'operation>(
+        &'operation mut self,
+        source: ContainerId,
+        offset: isize,
+        destination: ContainerId,
+        keep_container: bool,
+    ) -> Result<impl FnOnce() -> Vec<Inventory> + 'operation, InventoryError> {
+        // SAFETY: self borrowing and closure guarantees safe ptr handling
+        let source_container = self.get_container(source)?;
+        let index = source_container.ensure_item_at(offset)?;
+        let keep_container = keep_container || source_container.items.len() > 1;
+        let destination_container = self.get_mut_container(destination)?;
+        if destination_container.items.len() + 1 > destination_container.kind.capacity {
+            return Err(InventoryError::ContainerIsFull {
+                id: destination_container.id,
+            });
+        }
+        let operation = move || {
+            let mut events = vec![];
+            let mut item = if !keep_container {
+                let mut container = self.containers.remove(&source).unwrap();
+                let item = container.items.remove(index);
+                events.extend([
+                    ItemRemoved {
+                        item: item.id,
+                        container: container.id,
+                    },
+                    ContainerDestroyed { id: container.id },
+                ]);
+                item
+            } else {
+                let container = self.containers.get_mut(&source).unwrap();
+                let item = container.items.remove(index);
+                events.extend([ItemRemoved {
+                    item: item.id,
+                    container: container.id,
+                }]);
+                item
+            };
+            let destination = self.containers.get_mut(&destination).unwrap();
+            item.container = destination.id;
+            events.push(ItemAdded {
                 item: item.id,
                 kind: item.kind.id,
                 container: item.container,
-            },
-        ];
-        let items = self.items.entry(self.destination).or_insert(vec![]);
-        items.push(item);
-        events
-    }
-}
-
-impl InventoryDomain {
-    pub(crate) fn transfer_item(
-        &mut self,
-        source: ContainerId,
-        item: ItemId,
-        destination: ContainerId,
-    ) -> Result<ItemTransfer, InventoryError> {
-        if !self.items.contains_key(&source) {
-            return Err(InventoryError::ContainerNotFound { container: source });
-        }
-        // destroy
-        // if !self.items.contains_key(&destination) {
-        //     return Err(InventoryError::ContainerNotFound {
-        //         container: destination,
-        //     });
-        // }
-        // capacity
-        let item_index = self
-            .items
-            .get(&source)
-            .unwrap()
-            .iter()
-            .position(|search| search.id == item)
-            .ok_or(InventoryError::ItemNotFound {
-                item,
-                container: source,
-            })?;
-        let transfer = ItemTransfer {
-            items: &mut self.items,
-            source,
-            destination,
-            item_index,
+            });
+            destination.items.push(item);
+            events
         };
-        Ok(transfer)
+        Ok(operation)
     }
 }

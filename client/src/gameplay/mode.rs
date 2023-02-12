@@ -7,7 +7,7 @@ use crate::gameplay::camera::Camera;
 use crate::{Frame, Mode};
 use datamap::Storage;
 use game::api::{Action, Event, GameResponse, PlayerRequest};
-use game::math::{detect_collision, VectorMath};
+use game::math::{move_with_collisions, VectorMath};
 use game::model::{
     Construction, Drop, Farmer, Farmland, ItemView, Knowledge, Position, Theodolite, Tile, Tree,
     Universe,
@@ -217,13 +217,16 @@ impl Gameplay {
 
     pub fn handle_inventory_event(&mut self, frame: &mut Frame, event: Inventory) {
         match event {
-            Inventory::ContainerCreated { .. } => {}
-            Inventory::ContainerDestroyed { .. } => {}
+            Inventory::ContainerCreated { id } => {}
+            Inventory::ContainerDestroyed { id } => {
+                self.items.remove(&id);
+            }
             Inventory::ItemAdded {
                 item,
                 kind,
                 container,
             } => {
+                info!("item added {:?} to {:?}", item, container);
                 let items = self.items.entry(container).or_insert(HashMap::new());
                 items.insert(
                     item,
@@ -235,6 +238,7 @@ impl Gameplay {
                 );
             }
             Inventory::ItemRemoved { item, container } => {
+                info!("item removed {:?} from {:?}", item, container);
                 self.items.entry(container).and_modify(|items| {
                     items.remove(&item);
                 });
@@ -270,6 +274,18 @@ impl Gameplay {
                     }
                     farmer.synchronize_position(position);
                 }
+            }
+            Physics::BarrierCreated {
+                id,
+                space,
+                position,
+                bounds,
+            } => {
+                self.barriers.push(BarrierHint {
+                    id,
+                    position,
+                    bounds,
+                });
             }
         }
     }
@@ -411,7 +427,6 @@ impl Gameplay {
             } => {
                 self.barriers.push(BarrierHint {
                     id,
-                    kind,
                     position,
                     bounds,
                 });
@@ -667,7 +682,8 @@ impl Gameplay {
 
         // client side physics pre-calculation to prevent
         // obvious movement errors
-        if let Some(destination) = detect_collision(farmer, destination.into(), &self.barriers) {
+        if let Some(destination) = move_with_collisions(farmer, destination.into(), &self.barriers)
+        {
             farmer.estimated_position = destination;
             if delta.length() > 0.0 {
                 self.send_action(Action::MoveFarmer { destination });

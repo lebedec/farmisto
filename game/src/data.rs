@@ -367,6 +367,7 @@ impl Game {
         let data = Container {
             id: ContainerId(row.get("id")?),
             kind: self.known.containers.get(ContainerKey(key)).unwrap(),
+            items: vec![],
         };
         Ok(data)
     }

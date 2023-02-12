@@ -19,15 +19,15 @@ pub trait Collider {
     fn bounds(&self) -> [f32; 2];
 }
 
-pub fn detect_collision(
+pub fn move_with_collisions(
     body: &impl Collider,
-    position: [f32; 2],
+    destination: [f32; 2],
     barriers: &Vec<impl Collider>,
 ) -> Option<[f32; 2]> {
     let mut blocked = false;
     for barrier in barriers.iter() {
         if test_rect_collision(
-            position,
+            destination,
             body.bounds(), // body radius
             barrier.position(),
             barrier.bounds(),
@@ -38,7 +38,7 @@ pub fn detect_collision(
     }
 
     if !blocked {
-        Some(position)
+        Some(destination)
     } else {
         None
     }

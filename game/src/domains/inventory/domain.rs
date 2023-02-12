@@ -1,5 +1,7 @@
 use crate::collections::Shared;
-use std::collections::hash_map::Values;
+use crate::inventory::InventoryError::{
+    ContainerNotFound, ContainersNotFound, ItemNotFound, ItemNotFoundByIndex,
+};
 use std::collections::HashMap;
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
@@ -17,6 +19,7 @@ pub struct ContainerId(pub usize);
 pub struct Container {
     pub id: ContainerId,
     pub kind: Shared<ContainerKind>,
+    pub items: Vec<Item>,
 }
 
 #[derive(Clone, PartialEq, Eq, Hash, serde::Deserialize)]
@@ -65,48 +68,103 @@ pub enum Inventory {
 
 #[derive(Debug, bincode::Encode, bincode::Decode)]
 pub enum InventoryError {
+    ContainersNotFound,
     ContainerNotFound {
-        container: ContainerId,
+        id: ContainerId,
     },
-    ContainerEmpty {
-        container: ContainerId,
+    ContainerIsFull {
+        id: ContainerId,
+    },
+    ContainerHasItems {
+        id: ContainerId,
     },
     ItemNotFound {
         container: ContainerId,
         item: ItemId,
     },
+    ItemNotFoundByIndex {
+        container: ContainerId,
+        index: isize,
+    },
 }
 
 #[derive(Default)]
 pub struct InventoryDomain {
-    pub items: HashMap<ContainerId, Vec<Item>>,
     pub items_sequence: usize,
-    pub containers: Vec<Container>,
+    pub containers: HashMap<ContainerId, Container>,
     pub containers_sequence: usize,
 }
 
 impl InventoryDomain {
     pub fn load_containers(&mut self, containers: Vec<Container>, sequence: usize) {
         self.containers_sequence = sequence;
-        self.containers.extend(containers);
+        for container in containers {
+            self.containers.insert(container.id, container);
+        }
     }
 
     pub fn load_items(&mut self, items: Vec<Item>, sequence: usize) {
         self.items_sequence = sequence;
         for item in items {
-            let items = self.items.entry(item.container).or_insert(vec![]);
-            items.push(item);
+            let container = self.containers.get_mut(&item.container).unwrap();
+            container.items.push(item);
         }
     }
 
-    pub fn get_all_items(&self) -> Values<ContainerId, Vec<Item>> {
-        self.items.values()
+    pub fn get_container(&self, id: ContainerId) -> Result<&Container, InventoryError> {
+        self.containers.get(&id).ok_or(ContainerNotFound { id })
     }
 
-    pub fn get_items(&self, container: ContainerId) -> Result<&Vec<Item>, InventoryError> {
-        match self.items.get(&container) {
-            None => Err(InventoryError::ContainerEmpty { container }),
-            Some(items) => Ok(items),
+    pub fn get_mut_container(&mut self, id: ContainerId) -> Result<&mut Container, InventoryError> {
+        self.containers.get_mut(&id).ok_or(ContainerNotFound { id })
+    }
+
+    pub fn get_mut_container_ptr(
+        &mut self,
+        id: ContainerId,
+    ) -> Result<*mut Container, InventoryError> {
+        let container = self
+            .containers
+            .get_mut(&id)
+            .ok_or(ContainerNotFound { id })?;
+        Ok(container)
+    }
+}
+
+impl Container {
+    pub fn get_item(&self, id: ItemId) -> Result<&Item, InventoryError> {
+        self.items
+            .iter()
+            .find(|item| item.id == id)
+            .ok_or(ItemNotFound {
+                container: self.id,
+                item: id,
+            })
+    }
+
+    pub fn ensure_item_at(&self, offset: isize) -> Result<usize, InventoryError> {
+        let index = if offset < 0 {
+            self.items.len() as isize + offset
+        } else {
+            offset
+        } as usize;
+        if index < self.items.len() {
+            Ok(index)
+        } else {
+            Err(ItemNotFoundByIndex {
+                container: self.id,
+                index: offset,
+            })
         }
+    }
+
+    pub fn index_item(&self, id: ItemId) -> Result<usize, InventoryError> {
+        self.items
+            .iter()
+            .position(|item| item.id == id)
+            .ok_or(ItemNotFound {
+                container: self.id,
+                item: id,
+            })
     }
 }

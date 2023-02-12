@@ -86,7 +86,6 @@ pub struct TreeRep {
 
 pub struct BarrierHint {
     pub id: BarrierId,
-    pub kind: BarrierKey,
     pub position: [f32; 2],
     pub bounds: [f32; 2],
 }

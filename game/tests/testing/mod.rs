@@ -15,6 +15,8 @@ pub fn at<T>(x: T, y: T) -> [T; 2] {
     [x, y]
 }
 
+pub const ANYWHERE: [usize; 2] = [0, 0];
+
 pub struct GameTestScenario {
     game: Game,
     farmlands: HashMap<String, Farmland>,
@@ -22,6 +24,7 @@ pub struct GameTestScenario {
     drops: HashMap<String, Drop>,
     constructions: HashMap<String, Construction>,
     containers: HashMap<String, ContainerId>,
+    spaces: HashMap<String, SpaceId>,
     items: HashMap<String, ItemId>,
     current_farmland: Option<Farmland>,
     current_action_result: Result<Vec<Event>, ActionError>,
@@ -39,6 +42,7 @@ impl GameTestScenario {
             drops: Default::default(),
             constructions: Default::default(),
             containers: Default::default(),
+            spaces: Default::default(),
             items: Default::default(),
             current_farmland: None,
             current_action_result: Err(ActionError::Test),
@@ -61,6 +65,10 @@ impl GameTestScenario {
         self.containers.get(name).unwrap().clone()
     }
 
+    pub fn space(&self, name: &str) -> SpaceId {
+        self.spaces.get(name).unwrap().clone()
+    }
+
     pub fn given_farmer(mut self, farmer_key: &str, farmer_name: &str, cell: [usize; 2]) -> Self {
         let farmland = self.current_farmland.unwrap();
         let player = PlayerId(self.game.players.len());
@@ -73,14 +81,22 @@ impl GameTestScenario {
 
         let kind = self.game.known.containers.find("<hands>").unwrap();
         let hands = ContainerId(self.game.inventory.containers_sequence + 1);
-        let container_component = Container { id: hands, kind };
+        let container_component = Container {
+            id: hands,
+            kind,
+            items: vec![],
+        };
         self.game
             .inventory
             .load_containers(vec![container_component], hands.0);
 
         let kind = self.game.known.containers.find("<backpack>").unwrap();
         let backpack = ContainerId(self.game.inventory.containers_sequence + 1);
-        let container_component = Container { id: backpack, kind };
+        let container_component = Container {
+            id: backpack,
+            kind,
+            items: vec![],
+        };
         self.game
             .inventory
             .load_containers(vec![container_component], hands.0);
@@ -165,11 +181,32 @@ impl GameTestScenario {
         };
         self.game.universe.load_farmlands(vec![farmland], id);
         self.farmlands.insert(farmland_name.to_string(), farmland);
+        self.spaces
+            .insert(farmland_name.to_string(), farmland.space);
         self.current_farmland = Some(farmland);
         self
     }
 
-    pub fn given_item(mut self, container_name: &str, item_kind: &str, item_name: &str) -> Self {
+    pub fn given_items<const N: usize>(
+        mut self,
+        container_name: &str,
+        item_kinds: [&str; N],
+    ) -> Self {
+        let container = *self.containers.get(container_name).unwrap();
+        for item_kind in item_kinds {
+            let kind = self.game.known.items.find(item_kind).unwrap();
+            let id = ItemId(self.game.inventory.items_sequence + 1);
+            let item = Item {
+                id,
+                kind,
+                container,
+            };
+            self.game.inventory.load_items(vec![item], id.0);
+        }
+        self
+    }
+
+    pub fn given_item(mut self, item_kind: &str, item_name: &str, container_name: &str) -> Self {
         let container = *self.containers.get(container_name).unwrap();
         let kind = self.game.known.items.find(item_kind).unwrap();
         let id = ItemId(self.game.inventory.items_sequence + 1);
@@ -191,6 +228,7 @@ impl GameTestScenario {
         let container_component = Container {
             id: container,
             kind,
+            items: vec![],
         };
         self.game
             .inventory
@@ -235,6 +273,7 @@ impl GameTestScenario {
         let container_component = Container {
             id: container,
             kind,
+            items: vec![],
         };
         self.game
             .inventory
@@ -255,8 +294,13 @@ impl GameTestScenario {
         self
     }
 
-    pub fn when_farmer_perform(mut self, farmer_name: &str, action: Action) -> Self {
-        self.current_action_result = self.game.perform_action(&farmer_name, action);
+    pub fn when_farmer_perform<F>(mut self, farmer_name: &str, action_factory: F) -> Self
+    where
+        F: FnOnce(&Self) -> Action,
+    {
+        self.current_action_result = self
+            .game
+            .perform_action(&farmer_name, action_factory(&self));
         self
     }
 
@@ -264,12 +308,32 @@ impl GameTestScenario {
     where
         F: FnOnce(&Self) -> Vec<Event>,
     {
-        assert!(self.current_action_result.is_ok());
+        assert!(
+            self.current_action_result.is_ok(),
+            "{:?}",
+            self.current_action_result
+        );
         let actual_events =
             std::mem::replace(&mut self.current_action_result, Err(ActionError::Test)).unwrap();
         let expected_events = expected_events(&self);
         let actual_events = format!("{:?}", actual_events);
         let expected_events = format!("{:?}", expected_events);
+        assert_eq!(actual_events, expected_events);
+        self
+    }
+
+    pub fn then_action_should_fail<F>(mut self, expected_error: F) -> Self
+    where
+        F: FnOnce(&Self) -> ActionError,
+    {
+        assert!(self.current_action_result.is_err());
+        let actual_error =
+            std::mem::replace(&mut self.current_action_result, Err(ActionError::Test))
+                .err()
+                .unwrap();
+        let expected_error = expected_error(&self);
+        let actual_events = format!("{:?}", actual_error);
+        let expected_events = format!("{:?}", expected_error);
         assert_eq!(actual_events, expected_events);
         self
     }

@@ -125,3 +125,33 @@ pub enum Event {
     Inventory(Vec<Inventory>),
     Planting(Vec<Planting>),
 }
+
+impl Into<Event> for Vec<Universe> {
+    fn into(self) -> Event {
+        Event::Universe(self)
+    }
+}
+
+impl Into<Event> for Vec<Physics> {
+    fn into(self) -> Event {
+        Event::Physics(self)
+    }
+}
+
+impl Into<Event> for Vec<Building> {
+    fn into(self) -> Event {
+        Event::Building(self)
+    }
+}
+
+impl Into<Event> for Vec<Inventory> {
+    fn into(self) -> Event {
+        Event::Inventory(self)
+    }
+}
+
+impl Into<Event> for Vec<Planting> {
+    fn into(self) -> Event {
+        Event::Planting(self)
+    }
+}

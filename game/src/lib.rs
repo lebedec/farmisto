@@ -108,44 +108,69 @@ impl Game {
     }
 
     fn toggle_backpack(&mut self, farmer: Farmer) -> Result<Vec<Event>, ActionError> {
-        let backpack = self.inventory.get_items(farmer.backpack);
-        let hands = self.inventory.get_items(farmer.hands);
-        let events = if let Ok(items) = backpack {
-            let transfer =
-                self.inventory
-                    .transfer_item(farmer.backpack, items[0].id, farmer.hands)?;
-            vec![Event::Inventory(transfer.complete())]
-        } else if let Ok(items) = hands {
-            let transfer =
-                self.inventory
-                    .transfer_item(farmer.hands, items[0].id, farmer.backpack)?;
-            vec![Event::Inventory(transfer.complete())]
-        } else {
-            vec![]
-        };
+        let backpack = self
+            .inventory
+            .get_container(farmer.backpack)?
+            .items
+            .is_empty();
+        let hands = self.inventory.get_container(farmer.hands)?.items.is_empty();
+        let mut events = vec![];
+        if hands && !backpack {
+            let transfer = self.inventory.pop_item(farmer.backpack, farmer.hands)?;
+            events.push(transfer().into());
+        }
+        if !hands && backpack {
+            let transfer = self.inventory.pop_item(farmer.hands, farmer.backpack)?;
+            events.push(transfer().into());
+        }
         Ok(events)
     }
 
     fn take_item(&mut self, farmer: Farmer, drop: Drop) -> Result<Vec<Event>, ActionError> {
-        let items = self.inventory.get_items(drop.container)?;
-        let need_destroy = items.len() == 1;
-        let transfer = self
-            .inventory
-            .transfer_item(drop.container, items[0].id, farmer.hands)?;
-        let mut events = vec![Event::Inventory(transfer.complete())];
-        if need_destroy {
-            events.push(Event::Universe(self.universe.vanish_drop(drop)))
+        let container = self.inventory.get_container(drop.container)?;
+        let is_last_item = container.items.len() == 1;
+        let pop_item = self.inventory.pop_item(drop.container, farmer.hands)?;
+        let mut events = vec![pop_item().into()];
+
+        if is_last_item {
+            let destroy_container = self.inventory.destroy_container(drop.container, false)?;
+            events.extend([
+                destroy_container().into(),
+                self.universe.vanish_drop(drop).into(),
+            ])
         }
 
         Ok(events)
     }
 
     fn put_item(&mut self, farmer: Farmer, drop: Drop) -> Result<Vec<Event>, ActionError> {
-        let items = self.inventory.get_items(farmer.hands)?;
-        let transfer = self
-            .inventory
-            .transfer_item(farmer.hands, items[0].id, drop.container)?;
-        let events = vec![Event::Inventory(transfer.complete())];
+        let transfer = self.inventory.pop_item(farmer.hands, drop.container)?;
+        let events = vec![transfer().into()];
+        Ok(events)
+    }
+
+    fn drop_item(&mut self, farmer: Farmer, tile: [usize; 2]) -> Result<Vec<Event>, ActionError> {
+        let body = self.physics.get_body(farmer.body)?;
+        let space = body.space;
+        let barrier_kind = self.known.barriers.find("<drop>").unwrap();
+        let position = [
+            (tile[0] as f32) * 128.0 + 64.0,
+            (tile[1] as f32) * 128.0 + 64.0,
+        ];
+        let (barrier, create_barrier) =
+            self.physics
+                .create_barrier(space, barrier_kind, position, false)?;
+        let container_kind = self.known.containers.find("<drop>").unwrap();
+        let (container, extract_item) =
+            self.inventory
+                .extract_item(farmer.hands, -1, container_kind)?;
+        let events = vec![
+            create_barrier().into(),
+            extract_item().into(),
+            self.universe
+                .appear_drop(container, barrier, position)
+                .into(),
+        ];
         Ok(events)
     }
 
@@ -154,11 +179,10 @@ impl Game {
         farmer: Farmer,
         construction: Construction,
     ) -> Result<Vec<Event>, ActionError> {
-        let items = self.inventory.get_items(construction.container)?;
-        let transfer =
-            self.inventory
-                .transfer_item(construction.container, items[0].id, farmer.hands)?;
-        let events = vec![Event::Inventory(transfer.complete())];
+        let pop_item = self
+            .inventory
+            .pop_item(construction.container, farmer.hands)?;
+        let events = vec![pop_item().into()];
         Ok(events)
     }
 
@@ -167,44 +191,10 @@ impl Game {
         farmer: Farmer,
         construction: Construction,
     ) -> Result<Vec<Event>, ActionError> {
-        let items = self.inventory.get_items(farmer.hands)?;
-        if items.len() > 0 {
-            let transfer =
-                self.inventory
-                    .transfer_item(farmer.hands, items[0].id, construction.container)?;
-            let events = vec![Event::Inventory(transfer.complete())];
-            Ok(events)
-        } else {
-            Ok(vec![])
-        }
-    }
-
-    fn drop_item(&mut self, farmer: Farmer, tile: [usize; 2]) -> Result<Vec<Event>, ActionError> {
-        let space = SpaceId(0);
-        let items = self.inventory.get_items(farmer.hands)?;
-        let item = items[0].id;
-        let barrier_kind = self.known.barriers.find("<drop>").unwrap();
-        let position = [
-            (tile[0] as f32) * 128.0 + 64.0,
-            (tile[1] as f32) * 128.0 + 64.0,
-        ];
-        let barrier_creation =
-            self.physics
-                .create_barrier(space, barrier_kind.clone(), position)?;
-        let container_kind = self.known.containers.find("<drop>").unwrap();
-        let container_creation =
-            self.inventory
-                .hold_item(farmer.hands, item, container_kind.clone())?;
-        let appearance = self.universe.appear_drop(
-            container_creation.container.id,
-            barrier_creation.barrier.id,
-            position,
-        );
-        let events = vec![
-            Event::Physics(barrier_creation.complete()),
-            Event::Inventory(container_creation.complete()),
-            Event::Universe(appearance),
-        ];
+        let pop_item = self
+            .inventory
+            .pop_item(farmer.hands, construction.container)?;
+        let events = vec![pop_item().into()];
         Ok(events)
     }
 
@@ -217,16 +207,17 @@ impl Game {
         let surveying = self.building.survey(SurveyorId(0), tile)?;
         let container_kind = self.known.containers.find("<construction>").unwrap();
         let grid = GridId(1);
-        let container_creation = self.inventory.create_container(container_kind.clone())?;
+        let (container, create_container) =
+            self.inventory.create_container(container_kind.clone())?;
         let appearance = self.universe.appear_construction(
-            container_creation.container.id,
+            container,
             grid,
             [surveying.cell.0, surveying.cell.1],
         );
         let events = vec![
-            Event::Building(surveying.complete()),
-            Event::Inventory(container_creation.complete()),
-            Event::Universe(appearance),
+            surveying.complete().into(),
+            create_container().into(),
+            appearance.into(),
         ];
         Ok(events)
     }
@@ -256,15 +247,14 @@ impl Game {
         farmland: Farmland,
         construction: Construction,
     ) -> Result<Vec<Event>, ActionError> {
-        let body = self
-            .physics
-            .get_body(farmer.body)
-            .ok_or(FarmerBodyNotFound(farmer))?;
+        // let body = self
+        //     .physics
+        //     .get_body(farmer.body)
+        //     .ok_or(FarmerBodyNotFound(farmer))?;
 
-        let usage = self.inventory.use_items_from(construction.container)?;
-
+        let container = self.inventory.get_container(construction.container)?;
         let mut keywords = vec![];
-        for item in usage.items() {
+        for item in &container.items {
             for function in &item.kind.functions {
                 if let Function::Material { keyword } = function {
                     keywords.push(keyword);
@@ -274,13 +264,15 @@ impl Game {
             }
         }
 
-        Ok(vec![])
+        let use_items = self.inventory.use_items_from(construction.container)?;
+
+        Ok(vec![use_items().into()])
     }
 
     pub fn update(&mut self, time: f32) -> Vec<Event> {
         vec![
-            Event::Physics(self.physics.update(time)),
-            Event::Planting(self.planting.update(time)),
+            self.physics.update(time).into(),
+            self.planting.update(time).into(),
         ]
     }
 
@@ -377,8 +369,8 @@ impl Game {
         }
 
         let mut items_appearance = vec![];
-        for items in self.inventory.get_all_items() {
-            for item in items {
+        for container in self.inventory.containers.values() {
+            for item in &container.items {
                 items_appearance.push(ItemView {
                     id: item.id,
                     kind: item.kind.id,

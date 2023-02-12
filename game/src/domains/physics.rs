@@ -1,7 +1,7 @@
 use log::error;
 
 use crate::collections::Shared;
-use crate::math::{detect_collision, Collider, VectorMath};
+use crate::math::{move_with_collisions, Collider, VectorMath};
 
 pub const MAX_SPACES: usize = 128;
 
@@ -91,46 +91,55 @@ pub enum Physics {
         space: SpaceId,
         position: [f32; 2],
     },
+    BarrierCreated {
+        id: BarrierId,
+        space: SpaceId,
+        position: [f32; 2],
+        bounds: [f32; 2],
+    },
 }
 
 #[derive(Debug, bincode::Encode, bincode::Decode)]
 pub enum PhysicsError {
     SpaceNotFound { space: SpaceId },
-}
-
-pub struct BarrierCreation<'a> {
-    pub barrier: Barrier,
-    barriers: &'a mut Vec<Barrier>,
-    barriers_sequence: &'a mut usize,
+    BodyNotFound { id: BodyId },
+    BarrierCreationOverlaps,
 }
 
 impl PhysicsDomain {
-    pub fn create_barrier(
-        &mut self,
+    pub fn create_barrier<'operation>(
+        &'operation mut self,
         space: SpaceId,
         kind: Shared<BarrierKind>,
         position: [f32; 2],
-    ) -> Result<BarrierCreation, PhysicsError> {
-        let barriers = &mut self.barriers[space.0];
-        let creation = BarrierCreation {
-            barrier: Barrier {
-                id: BarrierId(self.barriers_sequence + 1),
-                kind,
-                position,
-                space,
-            },
-            barriers,
-            barriers_sequence: &mut self.barriers_sequence,
+        overlapping: bool,
+    ) -> Result<(BarrierId, impl FnOnce() -> Vec<Physics> + 'operation), PhysicsError> {
+        let id = BarrierId(self.barriers_sequence + 1);
+        let barrier = Barrier {
+            id,
+            kind,
+            position,
+            space,
         };
-        Ok(creation)
-    }
-}
-
-impl<'a> BarrierCreation<'a> {
-    pub fn complete(self) -> Vec<Physics> {
-        *self.barriers_sequence = self.barrier.id.0;
-        self.barriers.push(self.barrier);
-        vec![]
+        if !overlapping {
+            let barriers = &self.barriers[space.0];
+            let destination = move_with_collisions(&barrier, position, barriers);
+            if destination.is_none() {
+                return Err(PhysicsError::BarrierCreationOverlaps);
+            }
+        }
+        let operation = move || {
+            let events = vec![Physics::BarrierCreated {
+                id: barrier.id,
+                space: barrier.space,
+                position: barrier.position,
+                bounds: barrier.kind.bounds,
+            }];
+            self.barriers_sequence += 1;
+            self.barriers[space.0].push(barrier);
+            events
+        };
+        Ok((id, operation))
     }
 }
 
@@ -165,15 +174,15 @@ impl PhysicsDomain {
         return None;
     }
 
-    pub fn get_body(&self, id: BodyId) -> Option<&Body> {
+    pub fn get_body(&self, id: BodyId) -> Result<&Body, PhysicsError> {
         for bodies in self.bodies.iter() {
             for body in bodies {
                 if body.id == id {
-                    return Some(body);
+                    return Ok(body);
                 }
             }
         }
-        return None;
+        return Err(PhysicsError::BodyNotFound { id });
     }
 
     pub fn get_barrier(&self, id: BarrierId) -> Option<&Barrier> {
@@ -231,7 +240,7 @@ impl PhysicsDomain {
                         body.position.add(movement)
                     };
 
-                    if let Some(position) = detect_collision(&body, position, &barriers) {
+                    if let Some(position) = move_with_collisions(&body, position, &barriers) {
                         let body = &mut bodies[index];
                         body.position = position;
                         events.push(Physics::BodyPositionChanged {
