@@ -23,6 +23,7 @@ pub struct Input {
 pub struct Cursor {
     pub position: [f32; 2],
     pub viewport: [f32; 2],
+    pub tile: [usize; 2],
 }
 
 impl Input {
@@ -125,10 +126,14 @@ impl Input {
         self.key_pressed.clear();
     }
 
-    pub fn mouse_position(&self) -> Cursor {
+    pub fn mouse_position(&self, camera_offset: [f32; 2], tile_size: f32) -> Cursor {
+        let position = self.mouse_position.add(camera_offset).div(tile_size);
+        let tile = position.to_tile();
+        let viewport = self.mouse_viewport;
         Cursor {
-            position: self.mouse_position,
-            viewport: self.mouse_viewport,
+            position,
+            viewport,
+            tile,
         }
     }
 

@@ -1,14 +1,22 @@
 use datamap::Storage;
 use game::api::{Action, ActionError, Event};
 use game::building::{BuildingDomain, Grid, GridId, GridKey, GridKind, Material};
-use game::collections::Shared;
+use game::collections::{Dictionary, Shared};
 use game::inventory::{
     Container, ContainerId, ContainerKey, ContainerKind, InventoryDomain, Item, ItemId, ItemKey,
 };
+use game::math::VectorMath;
 use game::model::{Construction, Drop, Farmer, Farmland, Player, PlayerId};
-use game::physics::{Barrier, BarrierId, Body, BodyId, Space, SpaceId};
+use game::physics::{
+    Barrier, BarrierId, BarrierKey, BarrierKind, Body, BodyId, BodyKey, BodyKind, Physics,
+    PhysicsDomain, PhysicsError, Space, SpaceId, SpaceKey, SpaceKind,
+};
 use game::planting::{Land, LandId};
 use game::Game;
+use plotly::color::NamedColor;
+use plotly::common::Mode;
+use plotly::layout::{Axis, Shape, ShapeLine, ShapeType};
+use plotly::{Layout, Plot, Scatter};
 use std::collections::HashMap;
 
 pub fn at<T>(x: T, y: T) -> [T; 2] {
@@ -441,5 +449,258 @@ impl BuildingTestScenario {
 
     pub fn then_grid_rooms_should_be(self, _grid: &str, _expected: &str) -> Self {
         self
+    }
+}
+
+#[derive(Default)]
+pub struct PhysicsTestScenario {
+    name: String,
+    domain: PhysicsDomain,
+
+    spaces: HashMap<String, SpaceId>,
+    bodies: HashMap<String, BodyId>,
+    barriers: HashMap<String, BarrierId>,
+
+    pub known_spaces: Dictionary<SpaceKey, SpaceKind>,
+    pub known_bodies: Dictionary<BodyKey, BodyKind>,
+    pub known_barriers: Dictionary<BarrierKey, BarrierKind>,
+
+    current_events: Option<Vec<Physics>>,
+    current_error: Option<PhysicsError>,
+}
+
+impl PhysicsTestScenario {
+    pub fn new(name: &str) -> Self {
+        let mut scenario = Self::default();
+        scenario.name = name.to_string();
+        scenario
+    }
+
+    pub fn given_space_kind(mut self, space_kind: &str) -> Self {
+        let space_key = SpaceKey(self.known_spaces.len());
+        self.known_spaces.insert(
+            space_key,
+            space_kind.to_string(),
+            SpaceKind {
+                id: space_key,
+                name: space_kind.to_string(),
+            },
+        );
+        self
+    }
+
+    pub fn given_space(mut self, kind_name: &str, space_name: &str) -> Self {
+        let id = SpaceId(self.domain.spaces_sequence + 1);
+        let kind = self.known_spaces.find(kind_name).unwrap();
+        let space = Space { id, kind };
+        self.domain.load_spaces(vec![space], id.0);
+        self.spaces.insert(space_name.to_string(), id);
+        self
+    }
+
+    pub fn given_barrier_kind(mut self, barrier_kind: &str, bounds: [f32; 2]) -> Self {
+        let barrier_key = BarrierKey(self.known_barriers.len());
+        self.known_barriers.insert(
+            barrier_key,
+            barrier_kind.to_string(),
+            BarrierKind {
+                id: barrier_key,
+                name: barrier_kind.to_string(),
+                bounds,
+            },
+        );
+        self
+    }
+
+    pub fn given_barrier(
+        mut self,
+        kind_name: &str,
+        barrier_name: &str,
+        space_name: &str,
+        position: [f32; 2],
+    ) -> Self {
+        let space = *self.spaces.get(space_name).unwrap();
+        let id = BarrierId(self.domain.barriers_sequence + 1);
+        let kind = self.known_barriers.find(kind_name).unwrap();
+        let barrier = Barrier {
+            id,
+            kind,
+            position,
+            space,
+        };
+        self.domain.load_barriers(vec![barrier], id.0);
+        self.barriers.insert(barrier_name.to_string(), id);
+        self
+    }
+
+    pub fn given_body_kind(mut self, body_kind: &str, speed: f32) -> Self {
+        let body_key = BodyKey(self.known_bodies.len());
+        self.known_bodies.insert(
+            body_key,
+            body_kind.to_string(),
+            BodyKind {
+                id: body_key,
+                name: body_kind.to_string(),
+                speed,
+            },
+        );
+        self
+    }
+
+    pub fn given_body(
+        mut self,
+        kind_name: &str,
+        body_name: &str,
+        space_name: &str,
+        position: [f32; 2],
+    ) -> Self {
+        let space = *self.spaces.get(space_name).unwrap();
+        let id = BodyId(self.domain.bodies_sequence + 1);
+        let kind = self.known_bodies.find(kind_name).unwrap();
+        let body = Body {
+            id,
+            kind,
+            position,
+            direction: position,
+            space,
+        };
+        self.domain.load_bodies(vec![body], id.0);
+        self.bodies.insert(body_name.to_string(), id);
+        self
+    }
+
+    pub fn when_create_barrier(
+        mut self,
+        kind: &str,
+        name: &str,
+        space: &str,
+        position: [f32; 2],
+    ) -> Self {
+        let space = *self.spaces.get(space).unwrap();
+        let kind = self.known_barriers.find(kind).unwrap();
+        match self.domain.create_barrier(space, kind, position, false) {
+            Ok((barrier, operation)) => {
+                let events = operation();
+                self.current_error = None;
+                self.current_events = Some(events);
+                self.barriers.insert(name.to_string(), barrier);
+            }
+            Err(error) => {
+                self.current_error = Some(error);
+                self.current_events = None;
+            }
+        }
+        self
+    }
+
+    pub fn when_move_body(mut self, body: &str, direction: [f32; 2]) -> Self {
+        let body = *self.bodies.get(body).unwrap();
+        match self.domain.move_body2(body, direction) {
+            Ok(_) => {
+                self.current_error = None;
+                self.current_events = Some(vec![]);
+            }
+            Err(error) => {
+                self.current_error = Some(error);
+                self.current_events = None;
+            }
+        }
+        self
+    }
+
+    pub fn when_update(mut self, iterations: usize, time: f32) {
+        let mut events = vec![];
+        for _ in 0..iterations {
+            let iteration_events = self.domain.update(time);
+            events.extend(iteration_events);
+        }
+        self.current_events = Some(events);
+    }
+
+    pub fn then_error<F>(mut self, error_factory: F) -> Self
+    where
+        F: FnOnce(&Self) -> PhysicsError,
+    {
+        let expected_error = Some(error_factory(&self));
+        let expected_error = format!("{:?}", expected_error);
+        let actual_error = format!("{:?}", self.current_error);
+        assert_eq!(expected_error, actual_error);
+        self
+    }
+
+    pub fn then_events<F, D>(mut self, events_factory: F, debug: D) -> Self
+    where
+        F: FnOnce(&Self) -> Vec<Physics>,
+        D: FnOnce(&Self) -> (),
+    {
+        let expected_events = Some(events_factory(&self));
+        let expected_events = format!("{:?}", expected_events);
+        let actual_events = format!("{:?}", self.current_events);
+        if expected_events != actual_events {
+            debug(&self)
+        }
+        assert_eq!(expected_events, actual_events);
+        self
+    }
+
+    pub fn debug_space(&self, space: &str) {
+        //let trace = Scatter::new(vec![0.0], vec![0.0]);
+
+        let mut plot = Plot::new();
+        //plot.add_trace(trace);
+
+        let x_axis = Axis::new()
+            .range(vec![0.0, 10.0])
+            .auto_margin(true)
+            .zero_line(false);
+        let y_axis = Axis::new()
+            .range(vec![0.0, 10.0])
+            .auto_margin(true)
+            .zero_line(false)
+            .overlaying("x");
+        let mut layout = Layout::new()
+            .x_axis(x_axis)
+            .y_axis(y_axis)
+            .width(512)
+            .height(512)
+            .auto_size(false);
+
+        let space = self.spaces.get(space).unwrap();
+
+        for barrier in &self.domain.barriers[space.0] {
+            let offset = barrier.kind.bounds.mul(0.5);
+            let min = barrier.position.sub(offset);
+            let max = barrier.position.add(offset);
+            layout.add_shape(
+                Shape::new()
+                    .x_ref("x")
+                    .y_ref("y")
+                    .shape_type(ShapeType::Rect)
+                    .x0(min[0])
+                    .y0(min[1])
+                    .x1(max[0])
+                    .y1(max[1])
+                    .fill_color("#646464")
+                    .line(ShapeLine::new().width(0.0)),
+            );
+        }
+
+        for body in &self.domain.bodies[space.0] {
+            layout.add_shape(
+                Shape::new()
+                    .x_ref("x")
+                    .y_ref("y")
+                    .shape_type(ShapeType::Circle)
+                    .x0(body.position[0] - 0.5)
+                    .y0(body.position[1] - 0.5)
+                    .x1(body.position[0] + 0.5)
+                    .y1(body.position[1] + 0.5)
+                    .fill_color("#32cbfe")
+                    .line(ShapeLine::new().width(0.0)),
+            );
+        }
+
+        plot.set_layout(layout);
+        plot.write_html(format!("./tests/output/{}.html", self.name));
     }
 }

@@ -387,12 +387,7 @@ impl SpriteRenderer {
         })
     }
 
-    pub fn render_spine(
-        &mut self,
-        sprite: &SpineSpriteController,
-        position: [f32; 2],
-        cursor: [f32; 2],
-    ) {
+    pub fn render_spine(&mut self, sprite: &SpineSpriteController, position: [f32; 2]) {
         self.update_spine_buffers(sprite);
         sprite.lights_buffer.update(
             self.present_index,
@@ -416,7 +411,7 @@ impl SpriteRenderer {
                     [1.0, 1.0, 1.0, 1.0],
                 ],
                 position: [
-                    [cursor[0], cursor[1], 512.0, 0.0],
+                    [0.0, 0.0, 512.0, 0.0],
                     [512.0, 0.0, 512.0, 0.0],
                     [1024.0, 0.0, 512.0, 0.0],
                     [0.0, 512.0, 512.0, 0.0],

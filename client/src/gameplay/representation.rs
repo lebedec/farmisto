@@ -19,14 +19,13 @@ pub struct FarmerRep {
     pub rendering_position: [f32; 2],
     pub last_sync_position: [f32; 2],
     pub speed: f32,
-    pub direction: [f32; 2],
 }
 
 impl FarmerRep {
     pub fn synchronize_position(&mut self, position: [f32; 2]) {
         self.last_sync_position = position;
         let error = position.distance(self.estimated_position);
-        if error > 64.0 {
+        if error > 0.5 {
             error!(
                 "Correct farmer {:?} position error {} {:?} -> {:?}",
                 self.entity, error, self.estimated_position, position
@@ -63,7 +62,7 @@ impl Collider for FarmerRep {
     }
 
     fn bounds(&self) -> [f32; 2] {
-        [0.5, 0.5]
+        [1.0, 1.0]
     }
 }
 
@@ -107,10 +106,10 @@ pub struct DropRep {
 
 pub struct ConstructionRep {
     pub entity: Construction,
-    pub position: [f32; 2],
+    pub tile: [usize; 2],
 }
 
 pub struct TheodoliteRep {
     pub entity: Theodolite,
-    pub position: [f32; 2],
+    pub tile: [usize; 2],
 }

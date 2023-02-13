@@ -62,6 +62,10 @@ impl<K, T> Dictionary<K, T>
 where
     K: Hash + Eq,
 {
+    pub fn len(&self) -> usize {
+        self.keys.len()
+    }
+
     pub fn insert(&mut self, key: K, name: String, kind: T) {
         let kind = Shared::new(kind);
         self.keys.insert(key, kind.clone());

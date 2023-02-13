@@ -153,10 +153,7 @@ impl Game {
         let body = self.physics.get_body(farmer.body)?;
         let space = body.space;
         let barrier_kind = self.known.barriers.find("<drop>").unwrap();
-        let position = [
-            (tile[0] as f32) * 128.0 + 64.0,
-            (tile[1] as f32) * 128.0 + 64.0,
-        ];
+        let position = position_of(tile);
         let (barrier, create_barrier) =
             self.physics
                 .create_barrier(space, barrier_kind, position, false)?;
@@ -231,10 +228,7 @@ impl Game {
         // let items = self.inventory.get_items(construction.container).unwrap();
         let tile = construction.cell;
         let barrier_kind = self.known.barriers.find("<drop>").unwrap();
-        let _position = [
-            (tile[0] as f32) * 128.0 + 64.0,
-            (tile[1] as f32) * 128.0 + 64.0,
-        ];
+        let position = position_of(tile);
         let events = vec![Event::Universe(
             self.universe.vanish_construction(construction),
         )];
@@ -389,4 +383,9 @@ impl Game {
         self.load_game_knowledge();
         self.load_game_state().unwrap();
     }
+}
+
+#[inline]
+fn position_of(tile: [usize; 2]) -> [f32; 2] {
+    [tile[0] as f32 + 0.5, tile[1] as f32 + 0.5]
 }

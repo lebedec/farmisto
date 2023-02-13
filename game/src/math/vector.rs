@@ -12,7 +12,7 @@ pub trait VectorMath {
     fn length(self) -> f32;
     fn length_squared(self) -> f32;
     fn normalize(self) -> Self;
-    fn cast(self) -> [usize; 2];
+    fn to_tile(self) -> [usize; 2];
 }
 
 impl VectorMath for [f32; 2] {
@@ -90,7 +90,7 @@ impl VectorMath for [f32; 2] {
     }
 
     #[inline]
-    fn cast(self) -> [usize; 2] {
+    fn to_tile(self) -> [usize; 2] {
         [self[0] as usize, self[1] as usize]
     }
 }

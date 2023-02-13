@@ -1,9 +1,9 @@
 use crate::engine::sprites::SpineSpriteController;
 use crate::engine::{Input, SpineAsset, SpriteAsset, TextureAsset, TilesetAsset};
-use crate::gameplay::behaviours::{
+use crate::gameplay::camera::Camera;
+use crate::gameplay::representation::{
     BarrierHint, ConstructionRep, DropRep, FarmerRep, FarmlandRep, TheodoliteRep, TreeRep,
 };
-use crate::gameplay::camera::Camera;
 use crate::{Frame, Mode};
 use datamap::Storage;
 use game::api::{Action, Event, GameResponse, PlayerRequest};
@@ -44,11 +44,14 @@ lazy_static! {
 
 const TILE_SIZE: f32 = 128.0;
 
-fn position_from(tile: [usize; 2]) -> [f32; 2] {
-    [
-        (tile[0] as f32) * TILE_SIZE + TILE_SIZE / 2.0,
-        (tile[1] as f32) * TILE_SIZE + TILE_SIZE / 2.0,
-    ]
+#[inline]
+fn rendering_position_of(position: [f32; 2]) -> [f32; 2] {
+    position.mul(TILE_SIZE)
+}
+
+#[inline]
+fn position_of(tile: [usize; 2]) -> [f32; 2] {
+    [tile[0] as f32 + 0.5, tile[1] as f32 + 0.5]
 }
 
 #[derive(PartialEq, Eq)]
@@ -398,6 +401,7 @@ impl Gameplay {
                 // }
 
                 let asset = assets.farmer(&kind.name);
+                let body = self.known.bodies.get(kind.body).unwrap();
                 let is_controlled = player == self.client.player;
                 self.farmers.insert(
                     farmer,
@@ -410,8 +414,7 @@ impl Gameplay {
                         estimated_position: position,
                         rendering_position: position,
                         last_sync_position: position,
-                        speed: 550.0,
-                        direction: [0.0, 0.0],
+                        speed: body.speed,
                     },
                 );
             }
@@ -445,19 +448,17 @@ impl Gameplay {
                 self.drops.remove(&drop);
             }
             ConstructionAppeared { id: entity, cell } => {
-                let position = position_from(cell);
-                info!("Appear construction {:?} at {:?}", entity, position);
+                info!("Appear construction {:?} at {:?}", entity, cell);
                 self.constructions
-                    .insert(entity, ConstructionRep { entity, position });
+                    .insert(entity, ConstructionRep { entity, tile: cell });
             }
             ConstructionVanished(construction) => {
                 self.constructions.remove(&construction);
             }
             Universe::TheodoliteAppeared { entity, cell } => {
-                let position = position_from(cell);
-                info!("Appear theodolite {:?} at {:?}", entity, position);
+                info!("Appear theodolite {:?} at {:?}", entity, cell);
                 self.theodolites
-                    .insert(entity, TheodoliteRep { entity, position });
+                    .insert(entity, TheodoliteRep { entity, tile: cell });
             }
             Universe::TheodoliteVanished(theodolite) => {
                 self.theodolites.remove(&theodolite);
@@ -500,23 +501,21 @@ impl Gameplay {
         self.action_id
     }
 
-    pub fn get_target_at(&self, position: [f32; 2]) -> Target {
-        let tile = position.div(TILE_SIZE).cast();
-
+    pub fn get_target_at(&self, tile: [usize; 2]) -> Target {
         for drop in self.drops.values() {
-            if drop.position.div(TILE_SIZE).cast() == tile {
+            if drop.position.to_tile() == tile {
                 return Target::Drop(drop.entity);
             }
         }
 
         for construction in self.constructions.values() {
-            if construction.position.div(TILE_SIZE).cast() == tile {
+            if construction.tile == tile {
                 return Target::Construction(construction.entity);
             }
         }
 
         for theodolite in self.theodolites.values() {
-            if theodolite.position.div(TILE_SIZE).cast() == tile {
+            if theodolite.tile == tile {
                 return Target::Theodolite(theodolite.entity);
             }
         }
@@ -544,22 +543,15 @@ impl Gameplay {
         };
 
         let input = &frame.input;
-        let width = frame.sprites.screen.width() as f32 * frame.sprites.zoom;
-        let height = frame.sprites.screen.height() as f32 * frame.sprites.zoom;
-        self.camera.eye = vec3(
-            (farmer.rendering_position[0] - width / 2.0),
-            (farmer.rendering_position[1] - height / 2.0),
-            0.0,
-        );
 
-        let mouse_position = input.mouse_position().position.add(self.camera.position());
-        let tile = mouse_position.div(TILE_SIZE).cast();
+        let cursor = input.mouse_position(self.camera.position(), TILE_SIZE);
+        let tile = cursor.tile;
 
         if input.pressed(Keycode::P) {
             self.players_index = (self.players_index + 1) % self.players.len();
         }
 
-        let target = self.get_target_at(mouse_position);
+        let target = self.get_target_at(tile);
 
         if let Some(intention) = input.recognize_intention() {
             match self.activity {
@@ -689,6 +681,15 @@ impl Gameplay {
                 self.send_action(Action::MoveFarmer { destination });
             }
         }
+
+        let width = frame.sprites.screen.width() as f32 * frame.sprites.zoom;
+        let height = frame.sprites.screen.height() as f32 * frame.sprites.zoom;
+        let farmer_rendering_position = rendering_position_of(farmer.rendering_position);
+        self.camera.eye = vec3(
+            (farmer_rendering_position[0] - width / 2.0),
+            (farmer_rendering_position[1] - height / 2.0),
+            0.0,
+        );
     }
 
     pub fn animate(&mut self, frame: &mut Frame) {
@@ -708,14 +709,10 @@ impl Gameplay {
         renderer.clear();
         renderer.look_at(self.camera.eye);
 
-        let mouse_position = frame
+        let cursor = frame
             .input
-            .mouse_position()
-            .position
-            .add(self.camera.position());
-        let [mouse_x, mouse_y] = mouse_position;
-        let cursor_x = (mouse_x / TILE_SIZE).floor() as usize;
-        let cursor_y = (mouse_y / TILE_SIZE).floor() as usize;
+            .mouse_position(self.camera.position(), TILE_SIZE);
+        let [cursor_x, cursor_y] = cursor.tile;
 
         for farmland in self.farmlands.values() {
             self.cursor_shape = 0;
@@ -864,7 +861,8 @@ impl Gameplay {
         );
 
         for farmer in self.farmers.values() {
-            let sprite_line = (farmer.rendering_position[1] / TILE_SIZE) as usize;
+            let sprite_line = farmer.rendering_position[1] as usize;
+            let rendering_position = rendering_position_of(farmer.rendering_position);
 
             for (i, item) in self
                 .items
@@ -878,7 +876,7 @@ impl Gameplay {
                 let offset = [0.0, -128.0 - (32.0 * i as f32)];
                 renderer.render_sprite(
                     &asset.sprite,
-                    farmer.rendering_position.add(offset),
+                    rendering_position.add(offset),
                     sprite_line,
                     1.0,
                 );
@@ -886,8 +884,8 @@ impl Gameplay {
 
             renderer.render_sprite(
                 &self.players[farmer.entity.id],
-                farmer.rendering_position,
-                (farmer.rendering_position[1] / TILE_SIZE) as usize,
+                rendering_position,
+                sprite_line,
                 1.0,
             );
 
@@ -903,23 +901,25 @@ impl Gameplay {
                 let offset = [0.0, -128.0 - (32.0 * i as f32)];
                 renderer.render_sprite(
                     &asset.sprite,
-                    farmer.rendering_position.add(offset),
+                    rendering_position.add(offset),
                     sprite_line,
                     1.0,
                 );
             }
 
+            let last_sync_position = rendering_position_of(farmer.last_sync_position);
             renderer.render_sprite(
                 &self.cursor,
-                farmer.last_sync_position,
-                (farmer.last_sync_position[1] / TILE_SIZE) as usize,
+                last_sync_position,
+                (last_sync_position[1] / TILE_SIZE) as usize,
                 0.5,
             );
         }
 
         for drop in self.drops.values() {
-            let sprite_line = (drop.position[1] / TILE_SIZE) as usize;
-            renderer.render_sprite(&self.drop_sprite, drop.position, sprite_line, 1.0);
+            let sprite_line = drop.position[1] as usize;
+            let position = rendering_position_of(drop.position);
+            renderer.render_sprite(&self.drop_sprite, position, sprite_line, 1.0);
             for (i, item) in self
                 .items
                 .get(&drop.entity.container)
@@ -933,13 +933,15 @@ impl Gameplay {
                     0.0,
                     -24.0 + (48.0 * (i % 2) as f32) - (48.0 * (i / 2) as f32),
                 ];
-                renderer.render_sprite(&asset.sprite, drop.position.add(offset), sprite_line, 1.0);
+                renderer.render_sprite(&asset.sprite, position.add(offset), sprite_line, 1.0);
             }
         }
 
         for construction in self.constructions.values() {
-            let sprite_line = (construction.position[1] / TILE_SIZE) as usize;
-            renderer.render_sprite(&self.drop_sprite, construction.position, sprite_line, 1.0);
+            let sprite_line = construction.tile[1];
+            let position = position_of(construction.tile);
+            let position = rendering_position_of(position);
+            renderer.render_sprite(&self.drop_sprite, position, sprite_line, 1.0);
             for (i, item) in self
                 .items
                 .entry(construction.entity.container)
@@ -953,23 +955,15 @@ impl Gameplay {
                     0.0,
                     -24.0 + (48.0 * (i % 2) as f32) - (48.0 * (i / 2) as f32),
                 ];
-                renderer.render_sprite(
-                    &asset.sprite,
-                    construction.position.add(offset),
-                    sprite_line,
-                    1.0,
-                );
+                renderer.render_sprite(&asset.sprite, position.add(offset), sprite_line, 1.0);
             }
         }
 
         for theodolite in self.theodolites.values() {
-            let sprite_line = (theodolite.position[1] / TILE_SIZE) as usize;
-            renderer.render_sprite(
-                &self.theodolite_sprite,
-                theodolite.position,
-                sprite_line,
-                1.0,
-            );
+            let sprite_line = theodolite.tile[1];
+            let position = position_of(theodolite.tile);
+            let position = rendering_position_of(position);
+            renderer.render_sprite(&self.theodolite_sprite, position, sprite_line, 1.0);
 
             if let Activity::Surveying {
                 theodolite: active_theodolite,
@@ -981,68 +975,32 @@ impl Gameplay {
                 }
                 renderer.render_sprite(
                     &self.theodolite_gui_sprite,
-                    theodolite.position.add([0.0, -32.0]),
+                    position.add([0.0, -32.0]),
                     sprite_line,
                     1.0,
                 );
                 renderer.render_sprite(
                     &self.theodolite_gui_select_sprite,
-                    theodolite
-                        .position
-                        .add([-196.0 + 128.0 * (selection as f32), -224.0]),
+                    position.add([-196.0 + 128.0 * (selection as f32), -224.0]),
                     sprite_line,
                     1.0,
                 );
             }
         }
-
         METRIC_DRAW_REQUEST_SECONDS.observe_closure_duration(|| {
             for spine in &self.spines {
-                renderer.render_spine(&spine.sprite, spine.position, [mouse_x, mouse_y]);
+                renderer.render_spine(&spine.sprite, spine.position);
             }
         });
-
-        renderer.set_point_light([1.0, 0.0, 0.0, 1.0], 512.0, mouse_position);
-
+        renderer.set_point_light(
+            [1.0, 0.0, 0.0, 1.0],
+            512.0,
+            rendering_position_of(cursor.position),
+        );
         renderer.set_point_light([1.0, 0.0, 0.0, 1.0], 512.0, [1024.0, 256.0]);
         renderer.set_point_light([0.0, 1.0, 0.0, 1.0], 512.0, [256.0, 1024.0]);
         renderer.set_point_light([0.0, 0.0, 1.0, 1.0], 512.0, [1024.0, 1024.0]);
     }
-
-    /*
-    pub fn render3d(&self, renderer: &mut SceneRenderer) {
-        renderer.clear();
-        renderer.look_at(self.camera.uniform(
-            renderer.screen.width() as f32,
-            renderer.screen.height() as f32,
-        ));
-        for farmland in self.farmlands.values() {
-            for props in &farmland.asset.props {
-                let matrix = Mat4::from_translation(props.position.into())
-                    * Mat4::from_scale(props.scale.into())
-                    // todo: rework rotation
-                    * Mat4::from_rotation_x(props.rotation[0].to_radians())
-                    * Mat4::from_rotation_y(props.rotation[1].to_radians())
-                    * Mat4::from_rotation_z(props.rotation[2].to_radians());
-                renderer.draw(matrix, &props.asset.mesh, &props.asset.texture);
-            }
-        }
-        for tree in self.trees.values() {
-            renderer.draw(
-                Mat4::from_translation(tree.position),
-                &tree.asset.mesh,
-                &tree.asset.texture,
-            );
-        }
-        for farmer in self.farmers.values() {
-            renderer.animate(
-                Mat4::from_translation(farmer.rendering_position),
-                &farmer.asset.mesh,
-                &farmer.asset.texture,
-                &farmer.machine.pose_buffer,
-            );
-        }
-    }*/
 }
 
 impl Mode for Gameplay {
