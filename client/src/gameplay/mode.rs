@@ -674,8 +674,7 @@ impl Gameplay {
 
         // client side physics pre-calculation to prevent
         // obvious movement errors
-        if let Some(destination) = move_with_collisions(farmer, destination.into(), &self.barriers)
-        {
+        if let Some(destination) = move_with_collisions(farmer, destination, &self.barriers) {
             farmer.estimated_position = destination;
             if delta.length() > 0.0 {
                 self.send_action(Action::MoveFarmer { destination });

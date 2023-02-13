@@ -31,6 +31,7 @@ pub struct SpaceKey(pub usize);
 pub struct SpaceKind {
     pub id: SpaceKey,
     pub name: String,
+    pub bounds: [f32; 2],
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
@@ -48,6 +49,7 @@ pub struct BodyKind {
     pub id: BodyKey,
     pub name: String,
     pub speed: f32,
+    pub radius: f32,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
@@ -164,7 +166,7 @@ impl Collider for &Body {
     }
 
     fn bounds(&self) -> [f32; 2] {
-        [0.5, 0.5]
+        [self.kind.radius, self.kind.radius]
     }
 }
 

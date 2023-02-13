@@ -245,9 +245,11 @@ impl Game {
     // physics
 
     pub(crate) fn load_space_kind(&mut self, row: &rusqlite::Row) -> Result<SpaceKind, DataError> {
+        let bounds: String = row.get("bounds")?;
         let data = SpaceKind {
             id: SpaceKey(row.get("id")?),
             name: row.get("name")?,
+            bounds: serde_json::from_str(&bounds)?,
         };
         Ok(data)
     }
@@ -268,6 +270,7 @@ impl Game {
             id: BodyKey(id),
             name: row.get("name")?,
             speed: row.get("speed")?,
+            radius: row.get("radius")?,
         };
         Ok(data)
     }

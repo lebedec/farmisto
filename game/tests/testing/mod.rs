@@ -1,3 +1,10 @@
+use std::collections::HashMap;
+
+use plotly::color::NamedColor;
+use plotly::common::Mode;
+use plotly::layout::{Axis, Shape, ShapeLine, ShapeType};
+use plotly::{Layout, Plot, Scatter};
+
 use datamap::Storage;
 use game::api::{Action, ActionError, Event};
 use game::building::{BuildingDomain, Grid, GridId, GridKey, GridKind, Material};
@@ -13,11 +20,6 @@ use game::physics::{
 };
 use game::planting::{Land, LandId};
 use game::Game;
-use plotly::color::NamedColor;
-use plotly::common::Mode;
-use plotly::layout::{Axis, Shape, ShapeLine, ShapeType};
-use plotly::{Layout, Plot, Scatter};
-use std::collections::HashMap;
 
 pub fn at<T>(x: T, y: T) -> [T; 2] {
     [x, y]
@@ -472,11 +474,23 @@ pub struct PhysicsTestScenario {
 impl PhysicsTestScenario {
     pub fn new(name: &str) -> Self {
         let mut scenario = Self::default();
-        scenario.name = name.to_string();
+        scenario.name = name.replace("::", "/").to_string();
         scenario
     }
 
-    pub fn given_space_kind(mut self, space_kind: &str) -> Self {
+    pub fn space(&self, name: &str) -> SpaceId {
+        *self.spaces.get(name).unwrap()
+    }
+
+    pub fn body(&self, name: &str) -> BodyId {
+        *self.bodies.get(name).unwrap()
+    }
+
+    pub fn barrier(&self, name: &str) -> BarrierId {
+        *self.barriers.get(name).unwrap()
+    }
+
+    pub fn given_space_kind(mut self, space_kind: &str, bounds: [f32; 2]) -> Self {
         let space_key = SpaceKey(self.known_spaces.len());
         self.known_spaces.insert(
             space_key,
@@ -484,6 +498,7 @@ impl PhysicsTestScenario {
             SpaceKind {
                 id: space_key,
                 name: space_kind.to_string(),
+                bounds,
             },
         );
         self
@@ -519,7 +534,7 @@ impl PhysicsTestScenario {
         space_name: &str,
         position: [f32; 2],
     ) -> Self {
-        let space = *self.spaces.get(space_name).unwrap();
+        let space = self.space(space_name);
         let id = BarrierId(self.domain.barriers_sequence + 1);
         let kind = self.known_barriers.find(kind_name).unwrap();
         let barrier = Barrier {
@@ -533,7 +548,7 @@ impl PhysicsTestScenario {
         self
     }
 
-    pub fn given_body_kind(mut self, body_kind: &str, speed: f32) -> Self {
+    pub fn given_body_kind(mut self, body_kind: &str, speed: f32, radius: f32) -> Self {
         let body_key = BodyKey(self.known_bodies.len());
         self.known_bodies.insert(
             body_key,
@@ -542,6 +557,7 @@ impl PhysicsTestScenario {
                 id: body_key,
                 name: body_kind.to_string(),
                 speed,
+                radius,
             },
         );
         self
@@ -554,7 +570,7 @@ impl PhysicsTestScenario {
         space_name: &str,
         position: [f32; 2],
     ) -> Self {
-        let space = *self.spaces.get(space_name).unwrap();
+        let space = self.space(space_name);
         let id = BodyId(self.domain.bodies_sequence + 1);
         let kind = self.known_bodies.find(kind_name).unwrap();
         let body = Body {
@@ -576,7 +592,7 @@ impl PhysicsTestScenario {
         space: &str,
         position: [f32; 2],
     ) -> Self {
-        let space = *self.spaces.get(space).unwrap();
+        let space = self.space(space);
         let kind = self.known_barriers.find(kind).unwrap();
         match self.domain.create_barrier(space, kind, position, false) {
             Ok((barrier, operation)) => {
@@ -594,7 +610,7 @@ impl PhysicsTestScenario {
     }
 
     pub fn when_move_body(mut self, body: &str, direction: [f32; 2]) -> Self {
-        let body = *self.bodies.get(body).unwrap();
+        let body = self.body(body);
         match self.domain.move_body2(body, direction) {
             Ok(_) => {
                 self.current_error = None;
@@ -608,13 +624,14 @@ impl PhysicsTestScenario {
         self
     }
 
-    pub fn when_update(mut self, iterations: usize, time: f32) {
+    pub fn when_update(mut self, iterations: usize, time: f32) -> Self {
         let mut events = vec![];
         for _ in 0..iterations {
             let iteration_events = self.domain.update(time);
             events.extend(iteration_events);
         }
         self.current_events = Some(events);
+        self
     }
 
     pub fn then_error<F>(mut self, error_factory: F) -> Self
@@ -701,6 +718,26 @@ impl PhysicsTestScenario {
         }
 
         plot.set_layout(layout);
-        plot.write_html(format!("./tests/output/{}.html", self.name));
+        let path = format!("./tests/output/{}.html", self.name);
+        create_output_directories(&path);
+        plot.write_html(path);
     }
+}
+
+fn create_output_directories(path: &str) {
+    let path = std::path::Path::new(path);
+    let prefix = path.parent().unwrap();
+    std::fs::create_dir_all(prefix).unwrap();
+}
+
+#[macro_export]
+macro_rules! scenario {
+    () => {{
+        fn _f() {}
+        fn _type_name_of<T>(_: T) -> &'static str {
+            std::any::type_name::<T>()
+        }
+        let name = _type_name_of(_f);
+        &name[..name.len() - 4]
+    }};
 }

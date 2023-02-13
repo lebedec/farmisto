@@ -18,7 +18,7 @@ pub trait VectorMath {
 impl VectorMath for [f32; 2] {
     #[inline]
     fn dot(self, other: Self) -> f32 {
-        self[0] * other[0] + self[1] + other[1]
+        self[0] * other[0] + self[1] * other[1]
     }
 
     #[inline]
@@ -76,7 +76,7 @@ impl VectorMath for [f32; 2] {
 
     #[inline]
     fn length_squared(self) -> f32 {
-        self[0] * self[0] + self[1] * self[1]
+        self.dot(self)
     }
 
     #[inline]
@@ -92,5 +92,16 @@ impl VectorMath for [f32; 2] {
     #[inline]
     fn to_tile(self) -> [usize; 2] {
         [self[0] as usize, self[1] as usize]
+    }
+}
+
+pub trait FloatMath {
+    fn clamp(self, min: Self, max: Self) -> Self;
+}
+
+impl FloatMath for f32 {
+    #[inline]
+    fn clamp(self, min: Self, max: Self) -> Self {
+        self.max(min).min(max)
     }
 }

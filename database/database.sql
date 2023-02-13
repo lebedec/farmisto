@@ -18,8 +18,9 @@ create table Player
 
 create table SpaceKind
 (
-    id   integer primary key,
-    name text not null
+    id      integer primary key,
+    name    text not null,
+    bounds  json not null
 );
 
 create table Space
@@ -30,9 +31,10 @@ create table Space
 
 create table BodyKind
 (
-    id    integer primary key,
-    name  text not null,
-    speed real not null
+    id      integer primary key,
+    name    text not null,
+    speed   real not null,
+    radius  real not null
 );
 
 create table Body

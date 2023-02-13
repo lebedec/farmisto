@@ -7,7 +7,7 @@ use game::model::{
     Construction, Drop, Farmer, FarmerKind, Farmland, FarmlandKind, Theodolite, Tree, TreeKind,
 };
 use game::physics::{BarrierId, BarrierKey};
-use log::error;
+use log::{error, info};
 
 pub struct FarmerRep {
     pub entity: Farmer,
