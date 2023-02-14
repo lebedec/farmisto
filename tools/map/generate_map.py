@@ -27,19 +27,22 @@ def generate_land(land_id: int, user_define: List[str]):
     connection.commit()
 
 
-def generate_grid(grid_id: int, user_define_map: str):
+def generate_grid(grid_id: int, space_id: int, user_define_map: str):
     user_define = []
     for line in user_define_map.splitlines(keepends=False):
         line = line.strip().replace(' ', '')
         if line:
             user_define.append(line)
     data = BytesIO()
+    holes_data = BytesIO()
     size_y = 128
     size_x = 128
     data.write(struct.pack('B', size_y))
+    holes_data.write(struct.pack('B', size_y))
     constructions = []
     for y in range(size_y):
         data.write(struct.pack('B', size_x))
+        holes_data.write(struct.pack('B', size_x))
         for x in range(size_x):
             wall = 0
             inner = 0
@@ -47,14 +50,20 @@ def generate_grid(grid_id: int, user_define_map: str):
             window = 0
             marker = 0
             material = 0
+            # space
+            is_hole = 0
             if y < len(user_define) and x < len(user_define[y]):
                 code = user_define[y][x]
                 if code == '=':
                     wall = 1
                     inner = 1
+                    # space
+                    is_hole = 1
                 if code == '#':
                     wall = 1
                     inner = 0
+                    # space
+                    is_hole = 1
                 if code == '0':
                     wall = 1
                     inner = 0
@@ -63,16 +72,24 @@ def generate_grid(grid_id: int, user_define_map: str):
                     wall = 1
                     inner = 0
                     window = 1
+                    # space
+                    is_hole = 1
                 if code == '+':
                     constructions.append([x, y])
                     wall = 1
                     inner = 0
                     marker = 1
             data.write(struct.pack('BBBBBB', *[wall, inner, door, window, marker, material]))
+            holes_data.write(struct.pack('B', is_hole))
+
     data = data.getvalue()
     print('data length', len(data))
     connection = sqlite3.connect('../../assets/database.sqlite')
     connection.execute('update Grid set map = ? where id = ?', [data, grid_id])
+    # generate Space holes
+    holes_data = holes_data.getvalue()
+    print('holes data length', len(holes_data))
+    connection.execute('update Space set holes = ? where id = ?', [holes_data, space_id])
     # generate Construction entities
     connection.execute('delete from Container where id in (select container from Construction where grid = ?)', [grid_id])
     connection.execute('delete from Construction where grid = ?', [grid_id])
@@ -121,13 +138,15 @@ if __name__ == '__main__':
     print(len(result), result)
     generate_grid(
         1,
+        1,
         """
         . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-        . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . # # # # 0 # # . . . . . . # # # # # # . . . . . . . . . . .
-        . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . # . . . . . # . . . . . . # . . . . # # # # # . . . . . . .
-        . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . # . # # # . # . # # # . . # # # . . # # . . # . . . . . . .
-        . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 0 . # . # . 0 . . . # . . . . # . . # # . . # . . . . . . .
-        . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . # . # . # . # . . . # . . . . # . . # # # # # . . . . . . .
+        . . . . . . . . # # # # # # . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+        . . . . . . . . # . # . . # . . . . . . . . . . . . . . . . . . . # # # # 0 # # . . . . . . # # # # # # . . . . . . . . . . .
+        . . . . . . . . # . # . . # . . . . . . . . . . . . . . . . . . . # . . . . . # . . . . . . # . . . . # # # # # . . . . . . .
+        . . . . . . . . # . . . . # . . . . . . . . . . . . . . . . . . . # . # # # . # . # # # . . # # # . . # # . . # . . . . . . .
+        . . . . . . . . # . . . . # . . . . . . . . . . . . . . . . . . . 0 . # . # . 0 . . . # . . . . # . . # # . . # . . . . . . .
+        . . . . . . . . # # # # . # . . . . . . . . . . . . . . . . . . . # . # . # . # . . . # . . . . # . . # # # # # . . . . . . .
         . . . . . . . . . . . . . . . . . # # # # # # . . . . . . . . . . # . . . . . # . # . # . . . . # . . # # . . . . . . . . . .
         . . . . . . . + + + + + + . . . . # . . . . # . . . . . . . . . . # # 0 # o # # . # # # . . . . # . . # # . . . . . . . . . .
         . . . . . . . + . . . . + . . . . # . . . . # . . . . . . . . . . . . . . . . . . . . . . . . . # . . # # # # # # # . . . . .

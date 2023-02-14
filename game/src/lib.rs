@@ -282,11 +282,13 @@ impl Game {
             if snapshot.whole || snapshot.farmlands.contains(&farmland.id) {
                 let land = self.planting.get_land(farmland.land).unwrap();
                 let grid = self.building.get_grid(farmland.grid);
+                let space = self.physics.get_space(farmland.space).unwrap();
                 stream.push(Universe::FarmlandAppeared {
                     farmland: *farmland,
                     map: land.map.clone(),
                     cells: grid.cells.clone(),
                     rooms: grid.rooms.clone(),
+                    holes: space.holes.clone(),
                 })
             }
         }

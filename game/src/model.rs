@@ -58,6 +58,7 @@ pub enum Universe {
         map: Vec<Vec<[f32; 2]>>,
         cells: Vec<Vec<Cell>>,
         rooms: Vec<Room>,
+        holes: Vec<Vec<u8>>,
     },
     FarmlandVanished(Farmland),
     FarmerAppeared {

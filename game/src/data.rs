@@ -257,9 +257,13 @@ impl Game {
     pub(crate) fn load_space(&mut self, row: &rusqlite::Row) -> Result<Space, DataError> {
         let id = row.get("id")?;
         let kind = row.get("kind")?;
+        let holes: Vec<u8> = row.get("holes")?;
+        let config = bincode::config::standard();
+        let (holes, _) = bincode::decode_from_slice(&holes, config).unwrap();
         let data = Space {
             id: SpaceId(id),
             kind: self.known.spaces.get(SpaceKey(kind)).unwrap(),
+            holes,
         };
         Ok(data)
     }
@@ -280,12 +284,12 @@ impl Game {
         let kind = row.get("kind")?;
         let space = row.get("space")?;
         let position: String = row.get("position")?;
-        let direction: String = row.get("direction")?;
+        let destination: String = row.get("destination")?;
         let data = Body {
             id: BodyId(id),
             kind: self.known.bodies.get(BodyKey(kind)).unwrap(),
             position: serde_json::from_str(&position)?,
-            direction: serde_json::from_str(&direction)?,
+            destination: serde_json::from_str(&destination)?,
             space: SpaceId(space),
         };
         Ok(data)

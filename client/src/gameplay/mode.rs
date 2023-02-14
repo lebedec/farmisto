@@ -7,7 +7,7 @@ use crate::gameplay::representation::{
 use crate::{Frame, Mode};
 use datamap::Storage;
 use game::api::{Action, Event, GameResponse, PlayerRequest};
-use game::math::{move_with_collisions, VectorMath};
+use game::math::{test_collisions, VectorMath};
 use game::model::{
     Construction, Drop, Farmer, Farmland, ItemView, Knowledge, Position, Theodolite, Tile, Tree,
     Universe,
@@ -26,7 +26,7 @@ use game::model::Universe::{
     BarrierHintAppeared, ConstructionAppeared, ConstructionVanished, DropAppeared, DropVanished,
     FarmerAppeared, FarmerVanished, FarmlandAppeared, FarmlandVanished, TreeAppeared, TreeVanished,
 };
-use game::physics::Physics;
+use game::physics::{generate_holes, Physics};
 use game::planting::Planting;
 use lazy_static::lazy_static;
 
@@ -103,6 +103,7 @@ pub struct Gameplay {
     pub known: Knowledge,
     pub barriers: Vec<BarrierHint>,
     pub farmlands: HashMap<Farmland, FarmlandRep>,
+    pub current_farmland: Option<Farmland>,
     pub trees: HashMap<Tree, TreeRep>,
     pub farmers: HashMap<Farmer, FarmerRep>,
     pub drops: HashMap<Drop, DropRep>,
@@ -123,6 +124,7 @@ pub struct Gameplay {
     pub theodolite_gui_sprite: SpriteAsset,
     pub theodolite_gui_select_sprite: SpriteAsset,
     pub activity: Activity,
+    pub gui_controls: SpriteAsset,
 }
 
 impl Gameplay {
@@ -150,6 +152,7 @@ impl Gameplay {
             known: knowledge,
             barriers: Default::default(),
             farmlands: Default::default(),
+            current_farmland: None,
             trees: HashMap::new(),
             farmers: Default::default(),
             drops: Default::default(),
@@ -170,6 +173,7 @@ impl Gameplay {
             theodolite_gui_sprite: assets.sprite("building-gui"),
             theodolite_gui_select_sprite: assets.sprite("building-gui-select"),
             activity: Activity::Idle,
+            gui_controls: assets.sprite("gui-controls"),
         }
     }
 
@@ -330,11 +334,14 @@ impl Gameplay {
                 map,
                 cells,
                 rooms,
+                holes,
             } => {
                 let kind = self.known.farmlands.get(farmland.kind).unwrap().clone();
                 info!("Appear farmland {:?} kind='{}'", farmland, kind.name);
 
                 let asset = assets.farmland(&kind.name);
+
+                self.current_farmland = Some(farmland);
 
                 self.farmlands.insert(
                     farmland,
@@ -345,6 +352,7 @@ impl Gameplay {
                         map,
                         cells,
                         rooms,
+                        holes,
                     },
                 );
             }
@@ -670,17 +678,50 @@ impl Gameplay {
             direction[1] += 1.0;
         }
         let delta = direction.normalize().mul(input.time * farmer.body.speed);
-        let destination = delta.add(farmer.rendering_position);
+        let estimated_position = delta.add(farmer.rendering_position);
+
+        let farmland = match self.current_farmland {
+            None => {
+                error!("Current farmland not specified yet");
+                return;
+            }
+            Some(farmland) => farmland,
+        };
+
+        let farmland = self.farmlands.get(&farmland).unwrap();
 
         // client side physics pre-calculation to prevent
         // obvious movement errors
-        if let Some(destination) = move_with_collisions(farmer, destination, &self.barriers) {
-            farmer.estimated_position = destination;
-            if delta.length() > 0.0 {
-                self.send_action(Action::MoveFarmer { destination });
+        // Collision Detection
+        let holes = generate_holes(estimated_position, farmer.body.radius, &farmland.holes);
+        let holes_offsets = match test_collisions(farmer, estimated_position, &holes) {
+            Some(offsets) => offsets,
+            None => vec![],
+        };
+        if holes_offsets.len() < 2 {
+            let offsets = match test_collisions(farmer, estimated_position, &self.barriers) {
+                None => holes_offsets,
+                Some(mut barrier_offsets) => {
+                    barrier_offsets.extend(holes_offsets);
+                    barrier_offsets
+                }
+            };
+            if offsets.len() < 2 {
+                let estimated_position = if offsets.len() == 1 {
+                    estimated_position.add(offsets[0])
+                } else {
+                    estimated_position
+                };
+                farmer.estimated_position = estimated_position;
+                if delta.length() > 0.0 {
+                    self.send_action(Action::MoveFarmer {
+                        destination: estimated_position,
+                    });
+                }
             }
         }
 
+        // TODO: move camera after farmer rendering position changed
         let width = frame.sprites.screen.width() as f32 * frame.sprites.zoom;
         let height = frame.sprites.screen.height() as f32 * frame.sprites.zoom;
         let farmer_rendering_position = rendering_position_of(farmer.rendering_position);
@@ -999,6 +1040,8 @@ impl Gameplay {
         renderer.set_point_light([1.0, 0.0, 0.0, 1.0], 512.0, [1024.0, 256.0]);
         renderer.set_point_light([0.0, 1.0, 0.0, 1.0], 512.0, [256.0, 1024.0]);
         renderer.set_point_light([0.0, 0.0, 1.0, 1.0], 512.0, [1024.0, 1024.0]);
+
+        renderer.render_sprite(&self.gui_controls, [-512.0, 512.0], 127, 1.0);
     }
 }
 

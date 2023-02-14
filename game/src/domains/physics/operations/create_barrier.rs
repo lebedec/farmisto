@@ -1,5 +1,5 @@
 use crate::collections::Shared;
-use crate::math::{move_with_collisions, VectorMath};
+use crate::math::{test_collisions, VectorMath};
 use crate::physics::{
     Barrier, BarrierId, BarrierKind, Physics, PhysicsDomain, PhysicsError, SpaceId,
 };

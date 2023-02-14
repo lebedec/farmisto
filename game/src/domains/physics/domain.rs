@@ -40,6 +40,7 @@ pub struct SpaceId(pub usize);
 pub struct Space {
     pub id: SpaceId,
     pub kind: Shared<SpaceKind>,
+    pub holes: Vec<Vec<u8>>,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
@@ -60,7 +61,7 @@ pub struct Body {
     pub id: BodyId,
     pub kind: Shared<BodyKind>,
     pub position: [f32; 2],
-    pub direction: [f32; 2],
+    pub destination: [f32; 2],
     pub space: SpaceId,
 }
 
@@ -137,6 +138,13 @@ impl PhysicsDomain {
         return Err(PhysicsError::BodyNotFound { id });
     }
 
+    pub fn get_space(&self, id: SpaceId) -> Result<&Space, PhysicsError> {
+        self.spaces
+            .iter()
+            .find(|space| space.id == id)
+            .ok_or(PhysicsError::SpaceNotFound { space: id })
+    }
+
     pub fn get_body(&self, id: BodyId) -> Result<&Body, PhysicsError> {
         for bodies in self.bodies.iter() {
             for body in bodies {
@@ -157,6 +165,21 @@ impl PhysicsDomain {
             }
         }
         return None;
+    }
+}
+
+pub struct Hole {
+    pub position: [f32; 2],
+    pub bounds: [f32; 2],
+}
+
+impl Collider for Hole {
+    fn position(&self) -> [f32; 2] {
+        self.position
+    }
+
+    fn bounds(&self) -> [f32; 2] {
+        self.bounds
     }
 }
 

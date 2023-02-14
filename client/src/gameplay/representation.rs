@@ -73,6 +73,7 @@ pub struct FarmlandRep {
     pub map: Vec<Vec<[f32; 2]>>,
     pub cells: Vec<Vec<Cell>>,
     pub rooms: Vec<Room>,
+    pub holes: Vec<Vec<u8>>,
 }
 
 pub struct TreeRep {

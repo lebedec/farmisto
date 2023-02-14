@@ -252,11 +252,11 @@ pub trait Collider {
     fn bounds(&self) -> [f32; 2];
 }
 
-pub fn move_with_collisions(
+pub fn test_collisions(
     body: &impl Collider,
     destination: [f32; 2],
     barriers: &Vec<impl Collider>,
-) -> Option<[f32; 2]> {
+) -> Option<Vec<[f32; 2]>> {
     let mut blocked = false;
     let mut offsets = vec![];
     for barrier in barriers.iter() {
@@ -323,12 +323,8 @@ pub fn move_with_collisions(
     }
 
     if !blocked {
-        Some(destination)
+        None
     } else {
-        if offsets.len() == 1 {
-            Some(destination.add(offsets[0]))
-        } else {
-            None
-        }
+        Some(offsets)
     }
 }

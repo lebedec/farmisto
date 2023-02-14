@@ -118,7 +118,7 @@ impl GameTestScenario {
             id: body,
             kind,
             position: [0.0, 0.0],
-            direction: [0.0, 0.0],
+            destination: [0.0, 0.0],
             space: farmland.space,
         };
         self.game.physics.load_bodies(vec![body_component], body.0);
@@ -580,7 +580,7 @@ impl PhysicsTestScenario {
             id,
             kind,
             position,
-            direction: position,
+            destination: position,
             space,
         };
         self.domain.load_bodies(vec![body], id.0);
