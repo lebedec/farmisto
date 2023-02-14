@@ -1,5 +1,5 @@
 use crate::collections::Shared;
-use crate::math::move_with_collisions;
+use crate::math::{move_with_collisions, VectorMath};
 use crate::physics::{
     Barrier, BarrierId, BarrierKind, Physics, PhysicsDomain, PhysicsError, SpaceId,
 };
@@ -20,10 +20,10 @@ impl PhysicsDomain {
             space,
         };
         if !overlapping {
-            let barriers = &self.barriers[space.0];
-            let destination = move_with_collisions(&barrier, position, barriers);
-            if destination.is_none() {
-                return Err(PhysicsError::BarrierCreationOverlaps);
+            for barrier in &self.barriers[space.0] {
+                if barrier.position.to_tile() == position.to_tile() {
+                    return Err(PhysicsError::BarrierCreationOverlaps { other: barrier.id });
+                }
             }
         }
         let operation = move || {

@@ -1,8 +1,9 @@
 use std::collections::HashMap;
+use std::hash::Hash;
 
 use plotly::color::NamedColor;
 use plotly::common::Mode;
-use plotly::layout::{Axis, Shape, ShapeLine, ShapeType};
+use plotly::layout::{Axis, Shape, ShapeLayer, ShapeLine, ShapeType};
 use plotly::{Layout, Plot, Scatter};
 
 use datamap::Storage;
@@ -457,10 +458,12 @@ impl BuildingTestScenario {
 #[derive(Default)]
 pub struct PhysicsTestScenario {
     name: String,
+    plot: Plot,
     domain: PhysicsDomain,
 
     spaces: HashMap<String, SpaceId>,
     bodies: HashMap<String, BodyId>,
+    bodies_given_position: HashMap<BodyId, [f32; 2]>,
     barriers: HashMap<String, BarrierId>,
 
     pub known_spaces: Dictionary<SpaceKey, SpaceKind>,
@@ -582,6 +585,7 @@ impl PhysicsTestScenario {
         };
         self.domain.load_bodies(vec![body], id.0);
         self.bodies.insert(body_name.to_string(), id);
+        self.bodies_given_position.insert(id, position);
         self
     }
 
@@ -648,30 +652,56 @@ impl PhysicsTestScenario {
     pub fn then_events<F, D>(mut self, events_factory: F, debug: D) -> Self
     where
         F: FnOnce(&Self) -> Vec<Physics>,
-        D: FnOnce(&Self) -> (),
+        D: FnOnce(Self) -> Self,
     {
         let expected_events = Some(events_factory(&self));
         let expected_events = format!("{:?}", expected_events);
         let actual_events = format!("{:?}", self.current_events);
         if expected_events != actual_events {
-            debug(&self)
+            self = debug(self)
         }
         assert_eq!(expected_events, actual_events);
         self
     }
 
-    pub fn debug_space(&self, space: &str) {
-        //let trace = Scatter::new(vec![0.0], vec![0.0]);
+    pub fn present(mut self) -> Self {
+        let path = format!("./tests/output/{}.html", self.name);
+        create_output_directories(&path);
+        self.plot.write_html(path);
+        self
+    }
 
-        let mut plot = Plot::new();
-        //plot.add_trace(trace);
+    pub fn debug_body_movement(mut self, body_name: &str, shape_shown: bool) -> Self {
+        let body = self.body(body_name);
+        let given_position = self.bodies_given_position.get(&body).unwrap();
+        let mut x = vec![given_position[0]];
+        let mut y = vec![given_position[1]];
+
+        if let Some(events) = self.current_events.as_ref() {
+            for event in events {
+                if let Physics::BodyPositionChanged { id, position, .. } = event {
+                    if id == &body {
+                        x.push(position[0]);
+                        y.push(position[1]);
+                    }
+                }
+            }
+        }
+        let trace = Scatter::new(x.clone(), y.clone()).name(body_name);
+        self.plot.add_trace(trace);
+
+        self
+    }
+
+    pub fn debug_space(mut self, space: &str) -> Self {
+        let space = self.space(space);
 
         let x_axis = Axis::new()
-            .range(vec![0.0, 10.0])
+            .range(vec![0.0, 5.0])
             .auto_margin(true)
             .zero_line(false);
         let y_axis = Axis::new()
-            .range(vec![0.0, 10.0])
+            .range(vec![0.0, 5.0])
             .auto_margin(true)
             .zero_line(false)
             .overlaying("x");
@@ -681,8 +711,6 @@ impl PhysicsTestScenario {
             .width(512)
             .height(512)
             .auto_size(false);
-
-        let space = self.spaces.get(space).unwrap();
 
         for barrier in &self.domain.barriers[space.0] {
             let offset = barrier.kind.bounds.mul(0.5);
@@ -698,6 +726,8 @@ impl PhysicsTestScenario {
                     .x1(max[0])
                     .y1(max[1])
                     .fill_color("#646464")
+                    .opacity(0.6)
+                    .layer(ShapeLayer::Above)
                     .line(ShapeLine::new().width(0.0)),
             );
         }
@@ -713,14 +743,15 @@ impl PhysicsTestScenario {
                     .x1(body.position[0] + 0.5)
                     .y1(body.position[1] + 0.5)
                     .fill_color("#32cbfe")
+                    .opacity(0.6)
+                    .layer(ShapeLayer::Above)
                     .line(ShapeLine::new().width(0.0)),
             );
         }
 
-        plot.set_layout(layout);
-        let path = format!("./tests/output/{}.html", self.name);
-        create_output_directories(&path);
-        plot.write_html(path);
+        self.plot.set_layout(layout);
+
+        self
     }
 }
 

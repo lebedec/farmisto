@@ -1,8 +1,24 @@
 use crate::math::{move_with_collisions, VectorMath};
 use crate::physics::{Physics, PhysicsDomain};
 
+const MAX_ELAPSED_TIME: f32 = 0.03; // 40 ms
+
 impl PhysicsDomain {
-    pub fn update(&mut self, time: f32) -> Vec<Physics> {
+    pub fn update(&mut self, mut elapsed_time: f32) -> Vec<Physics> {
+        let mut events = vec![];
+        loop {
+            if elapsed_time > MAX_ELAPSED_TIME {
+                elapsed_time -= MAX_ELAPSED_TIME;
+                events.extend(self.update_iteration(MAX_ELAPSED_TIME));
+            } else {
+                events.extend(self.update_iteration(elapsed_time));
+                break;
+            };
+        }
+        events
+    }
+
+    fn update_iteration(&mut self, time: f32) -> Vec<Physics> {
         let mut events = vec![];
 
         for space in self.spaces.iter() {

@@ -408,13 +408,13 @@ impl Gameplay {
                     FarmerRep {
                         entity: farmer,
                         kind,
+                        body,
                         player,
                         is_controlled,
                         asset,
                         estimated_position: position,
                         rendering_position: position,
                         last_sync_position: position,
-                        speed: body.speed,
                     },
                 );
             }
@@ -669,7 +669,7 @@ impl Gameplay {
         if input.down(Keycode::S) {
             direction[1] += 1.0;
         }
-        let delta = direction.normalize().mul(input.time * farmer.speed);
+        let delta = direction.normalize().mul(input.time * farmer.body.speed);
         let destination = delta.add(farmer.rendering_position);
 
         // client side physics pre-calculation to prevent

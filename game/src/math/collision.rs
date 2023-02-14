@@ -1,5 +1,127 @@
 use crate::math::VectorMath;
 
+fn collide_aabb_circle(
+    a_pos: [f32; 2],
+    a_bounds: [f32; 2],
+    b_pos: [f32; 2],
+    r: f32,
+) -> Option<Collision> {
+    let n = b_pos.sub(a_pos);
+    let mut closest = n;
+    let x_extent = a_bounds[0] / 2.0;
+    let y_extent = a_bounds[1] / 2.0;
+    closest[0] = closest[0].clamp(-x_extent, x_extent);
+    closest[1] = closest[1].clamp(-y_extent, y_extent);
+    let mut inside = false;
+
+    if n == closest {
+        // Circle is inside the AABB, so we need to clamp the circle's center
+        // to the closest edge
+        inside = true;
+        if n[0].abs() > n[1].abs() {
+            if closest[0] > 0.0 {
+                closest[0] = x_extent
+            } else {
+                closest[0] = -x_extent
+            }
+        } else {
+            if closest[1] > 0.0 {
+                closest[1] = y_extent
+            } else {
+                closest[1] = -y_extent
+            }
+        }
+    }
+
+    let normal = n.sub(closest);
+    let mut d = normal.length_squared();
+
+    // Early out of the radius is shorter than distance to closest point and
+    // Circle not inside the AABB
+    if !inside && d > r * r {
+        return None;
+    }
+
+    d = d.sqrt();
+    if (inside) {
+        Some(Collision {
+            point: [0.0, 0.0],
+            normal: n.neg(),
+            penetration: r - d,
+        })
+    } else {
+        Some(Collision {
+            point: [0.0, 0.0],
+            normal: n,
+            penetration: r - d,
+        })
+    }
+}
+
+// bool AABBvsCircle( Manifold *m )
+// {
+// // Setup a couple pointers to each object
+// Object *A = m->A
+// Object *B = m->B
+// // Vector from A to B
+// Vec2 n = B->pos - A->pos
+// // Closest point on A to center of B
+// Vec2 closest = n
+// // Calculate half extents along each axis
+// float x_extent = (A->aabb.max.x - A->aabb.min.x) / 2
+// float y_extent = (A->aabb.max.y - A->aabb.min.y) / 2
+// // Clamp point to edges of the AABB
+// closest.x = Clamp( -x_extent, x_extent, closest.x )
+// closest.y = Clamp( -y_extent, y_extent, closest.y )
+// bool inside = false
+// // Circle is inside the AABB, so we need to clamp the circle's center
+// // to the closest edge
+// if(n == closest)
+// {
+// inside = true
+// // Find closest axis
+// if(abs( n.x ) > abs( n.y ))
+// {
+// // Clamp to closest extent
+// if(closest.x > 0)
+// closest.x = x_extent
+// else
+// closest.x = -x_extent
+// }
+// // y axis is shorter
+// else
+// {
+// // Clamp to closest extent
+// if(closest.y > 0)
+// closest.y = y_extent
+// else
+// closest.y = -y_extent
+// }
+// }
+// Vec2 normal = n - closest
+// real d = normal.LengthSquared( )
+// real r = B->radius
+// // Early out of the radius is shorter than distance to closest point and
+// // Circle not inside the AABB
+// if(d > r * r && !inside)
+// return false
+// // Avoided sqrt until we needed
+// d = sqrt( d )
+// // Collision normal needs to be flipped to point outside if circle was
+// // inside the AABB
+// if(inside)
+// {
+// m->normal = -n
+// m->penetration = r - d
+// }
+// else
+// {
+// m->normal = n
+// m->penetration = r - d
+// }
+// return true
+// }
+
 #[derive(Debug)]
 pub struct Collision {
     point: [f32; 2],
@@ -136,6 +258,7 @@ pub fn move_with_collisions(
     barriers: &Vec<impl Collider>,
 ) -> Option<[f32; 2]> {
     let mut blocked = false;
+    let mut offsets = vec![];
     for barrier in barriers.iter() {
         // let collision = collide_circle_to_segment(
         //     destination,
@@ -165,20 +288,47 @@ pub fn move_with_collisions(
         //     //break;
         //     return Some(contact.add(offset));
         // }
-        if test_rect_collision(
-            destination,
-            body.bounds(), // body radius
+        // if test_rect_collision(
+        //     destination,
+        //     body.bounds(), // body radius
+        //     barrier.position(),
+        //     barrier.bounds(),
+        // ) {
+        //     blocked = true;
+        //     break;
+        // }
+        if let Some(contact) = collide_aabb_circle(
             barrier.position(),
             barrier.bounds(),
+            destination,
+            body.bounds()[0],
         ) {
+            let movement = destination.sub(body.position());
+            let offset = contact.normal.normalize().mul(contact.penetration);
+            // println!(
+            //     "CONTACT {:?} offset {:?} movement {:?} dir {:?} L {} NEW {:?} R {}",
+            //     contact,
+            //     offset,
+            //     movement,
+            //     movement.normalize(),
+            //     movement.length(),
+            //     movement
+            //         .normalize()
+            //         .mul(movement.length() - contact.penetration),
+            //     body.bounds()[0],
+            // );
             blocked = true;
-            break;
+            offsets.push(offset);
         }
     }
 
     if !blocked {
         Some(destination)
     } else {
-        None
+        if offsets.len() == 1 {
+            Some(destination.add(offsets[0]))
+        } else {
+            None
+        }
     }
 }

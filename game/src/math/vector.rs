@@ -1,4 +1,5 @@
 pub trait VectorMath {
+    fn neg(self) -> Self;
     fn dot(self, other: Self) -> f32;
     fn invert(self) -> Self;
     fn add(self, other: Self) -> Self;
@@ -16,6 +17,11 @@ pub trait VectorMath {
 }
 
 impl VectorMath for [f32; 2] {
+    #[inline]
+    fn neg(self) -> Self {
+        [-self[0], -self[1]]
+    }
+
     #[inline]
     fn dot(self, other: Self) -> f32 {
         self[0] * other[0] + self[1] * other[1]

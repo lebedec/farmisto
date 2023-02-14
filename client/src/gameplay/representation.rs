@@ -6,19 +6,19 @@ use game::math::{Collider, VectorMath};
 use game::model::{
     Construction, Drop, Farmer, FarmerKind, Farmland, FarmlandKind, Theodolite, Tree, TreeKind,
 };
-use game::physics::{BarrierId, BarrierKey};
+use game::physics::{BarrierId, BarrierKey, BodyKind};
 use log::{error, info};
 
 pub struct FarmerRep {
     pub entity: Farmer,
     pub kind: Shared<FarmerKind>,
+    pub body: Shared<BodyKind>,
     pub player: String,
     pub is_controlled: bool,
     pub asset: FarmerAsset,
     pub estimated_position: [f32; 2],
     pub rendering_position: [f32; 2],
     pub last_sync_position: [f32; 2],
-    pub speed: f32,
 }
 
 impl FarmerRep {
@@ -44,7 +44,7 @@ impl FarmerRep {
             let direction = self
                 .estimated_position
                 .direction_to(self.last_sync_position);
-            let translation = self.speed * time;
+            let translation = self.body.speed * time;
             let estimated_position = if distance < translation {
                 self.last_sync_position
             } else {
@@ -62,7 +62,7 @@ impl Collider for FarmerRep {
     }
 
     fn bounds(&self) -> [f32; 2] {
-        [1.0, 1.0]
+        [self.body.radius, self.body.radius]
     }
 }
 

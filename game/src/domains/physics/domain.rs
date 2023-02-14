@@ -103,7 +103,7 @@ pub enum Physics {
 pub enum PhysicsError {
     SpaceNotFound { space: SpaceId },
     BodyNotFound { id: BodyId },
-    BarrierCreationOverlaps,
+    BarrierCreationOverlaps { other: BarrierId },
 }
 
 impl PhysicsDomain {
