@@ -14,7 +14,7 @@ use game::inventory::{
     Container, ContainerId, ContainerKey, ContainerKind, InventoryDomain, Item, ItemId, ItemKey,
 };
 use game::math::VectorMath;
-use game::model::{Construction, Drop, Farmer, Farmland, Player, PlayerId};
+use game::model::{Construction, Drop, Farmer, Farmland, Player, PlayerId, Theodolite};
 use game::physics::{
     Barrier, BarrierId, BarrierKey, BarrierKind, Body, BodyId, BodyKey, BodyKind, Physics,
     PhysicsDomain, PhysicsError, Space, SpaceId, SpaceKey, SpaceKind,
@@ -51,6 +51,7 @@ pub struct GameTestScenario {
     farmlands: HashMap<String, Farmland>,
     farmers: HashMap<String, Farmer>,
     drops: HashMap<String, Drop>,
+    theodolites: HashMap<String, Theodolite>,
     constructions: HashMap<String, Construction>,
     containers: HashMap<String, ContainerId>,
     spaces: HashMap<String, SpaceId>,
@@ -75,6 +76,7 @@ impl GameTestScenario {
             farmlands: Default::default(),
             farmers: Default::default(),
             drops: Default::default(),
+            theodolites: Default::default(),
             constructions: Default::default(),
             containers: Default::default(),
             spaces: Default::default(),
@@ -98,7 +100,13 @@ impl GameTestScenario {
         let mut layout = create_plot_layout();
         for y in 0..6 {
             for x in 0..6 {
-                if grid.cells[y][x].wall {
+                let cell = grid.cells[y][x];
+                if cell.wall {
+                    let color = if cell.marker.is_some() {
+                        "#008453"
+                    } else {
+                        "#646464"
+                    };
                     layout.add_shape(
                         Shape::new()
                             .x_ref("x")
@@ -108,7 +116,7 @@ impl GameTestScenario {
                             .y0(y)
                             .x1(x + 1)
                             .y1(y + 1)
-                            .fill_color("#646464")
+                            .fill_color(color)
                             .opacity(0.6)
                             .layer(ShapeLayer::Above)
                             .line(ShapeLine::new().width(0.0)),
@@ -129,6 +137,10 @@ impl GameTestScenario {
 
     pub fn drop(&self, name: &str) -> Drop {
         self.drops.get(name).unwrap().clone()
+    }
+
+    pub fn theodolite(&self, name: &str) -> Theodolite {
+        self.theodolites.get(name).unwrap().clone()
     }
 
     pub fn item_key(&self, name: &str) -> ItemKey {
@@ -279,6 +291,14 @@ impl GameTestScenario {
         self.spaces.insert(name.to_string(), farmland.space);
         self.grids.insert(name.to_string(), farmland.grid);
         self.current_farmland = Some(farmland);
+        self
+    }
+
+    pub fn given_theodolite(mut self, name: &str, tile: [usize; 2]) -> Self {
+        let id = self.game.universe.theodolites_id + 1;
+        let theodolite = Theodolite { id, cell: tile };
+        self.game.universe.load_theodolites(vec![theodolite], id);
+        self.theodolites.insert(name.to_string(), theodolite);
         self
     }
 

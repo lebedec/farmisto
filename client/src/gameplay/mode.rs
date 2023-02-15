@@ -117,8 +117,6 @@ pub struct Gameplay {
     pub cursor_shape: usize,
     pub players: Vec<SpriteAsset>,
     pub players_index: usize,
-    pub building_tiles: TilesetAsset,
-    pub building_tiles_marker: TilesetAsset,
     pub roof_texture: TextureAsset,
     pub drop_sprite: SpriteAsset,
     pub theodolite_sprite: SpriteAsset,
@@ -165,8 +163,6 @@ impl Gameplay {
             cursor,
             cursor_shape: 0,
             players,
-            building_tiles: assets.tileset("building"),
-            building_tiles_marker: assets.tileset("building-marker"),
             players_index: 0,
             roof_texture: assets.texture("./assets/texture/building-roof-template-2.png"),
             drop_sprite: assets.sprite("<drop>"),
@@ -298,7 +294,6 @@ impl Gameplay {
             Physics::BarrierDestroyed { id } => {
                 if let Some(index) = self.barriers.iter().position(|barrier| barrier.id == id) {
                     self.barriers.remove(index);
-                    g
                 }
             }
             Physics::SpaceUpdated { id, holes } => {
@@ -517,6 +512,10 @@ impl Gameplay {
 
     fn send_action(&mut self, action: Action) -> usize {
         self.action_id += 1;
+        if let Action::MoveFarmer { .. } = action {
+        } else {
+            info!("Sends {:?}", action);
+        }
         self.client.send(PlayerRequest::Perform {
             action,
             action_id: self.action_id,
@@ -566,7 +565,7 @@ impl Gameplay {
                 return;
             }
             Some(farmer) => {
-                let mut ptr = farmer as *mut FarmerRep;
+                let ptr = farmer as *mut FarmerRep;
                 unsafe {
                     // TODO: safe farmer behaviour mutation
                     &mut *ptr
@@ -631,14 +630,21 @@ impl Gameplay {
                     Intention::Put => match target {
                         Target::Ground => {
                             self.send_action(Action::DropItem { tile });
-                            // if hands empty
+                            if self.items.get(&farmer.entity.hands).unwrap().len() == 1 {
+                                self.activity = Activity::Idle;
+                            }
                         }
                         Target::Drop(drop) => {
                             self.send_action(Action::PutItem { drop });
-                            // if hands empty
+                            if self.items.get(&farmer.entity.hands).unwrap().len() == 1 {
+                                self.activity = Activity::Idle;
+                            }
                         }
                         Target::Construction(construction) => {
                             self.send_action(Action::PutMaterial { construction });
+                            if self.items.get(&farmer.entity.hands).unwrap().len() == 1 {
+                                self.activity = Activity::Idle;
+                            }
                         }
                         Target::Theodolite(_) => {
                             // beep error
@@ -859,9 +865,9 @@ impl Gameplay {
                         };
 
                         let tileset = if cell.marker.is_some() {
-                            &self.building_tiles_marker.tiles
+                            &farmland.asset.building_template_surveying.tiles
                         } else {
-                            &self.building_tiles.tiles
+                            &farmland.asset.building_templates[cell.material.0 as usize].tiles
                         };
 
                         let mut tile = match neighbors {

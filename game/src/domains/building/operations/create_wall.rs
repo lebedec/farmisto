@@ -21,6 +21,7 @@ impl BuildingDomain {
 
         let operation = move || {
             grid.cells[cell_y][cell_x].marker = None;
+            grid.cells[cell_y][cell_x].material = material;
             match marker {
                 Marker::Wall => {
                     grid.cells[cell_y][cell_x].wall = true;

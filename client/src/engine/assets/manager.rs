@@ -415,10 +415,18 @@ impl Assets {
             };
             props.push(data)
         }
+        let mut building_templates = vec![];
+        let building_template_names: Vec<String> = entry.get("building_templates")?;
+        for name in &building_template_names {
+            building_templates.push(self.tileset(name));
+        }
+        let building_template_surveying: String = entry.get("building_template_surveying")?;
         let data = FarmlandAssetData {
             props,
             texture: self.texture(entry.get_string("texture")?),
             sampler: self.sampler(entry.get("sampler")?),
+            building_templates,
+            building_template_surveying: self.tileset(&building_template_surveying),
         };
         Ok(data)
     }

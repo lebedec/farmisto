@@ -1,5 +1,5 @@
 use crate::engine::assets::asset::Asset;
-use crate::engine::{PropsAsset, SamplerAsset, SpriteAsset, TextureAsset};
+use crate::engine::{PropsAsset, SamplerAsset, SpriteAsset, TextureAsset, TilesetAsset};
 
 pub type FarmlandAsset = Asset<FarmlandAssetData>;
 
@@ -7,6 +7,8 @@ pub struct FarmlandAssetData {
     pub props: Vec<FarmlandAssetPropItem>,
     pub texture: TextureAsset,
     pub sampler: SamplerAsset,
+    pub building_templates: Vec<TilesetAsset>,
+    pub building_template_surveying: TilesetAsset,
 }
 
 pub struct FarmlandAssetPropItem {

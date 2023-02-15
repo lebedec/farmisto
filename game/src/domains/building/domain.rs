@@ -1,5 +1,5 @@
 use crate::collections::Shared;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fmt::{Debug, Formatter};
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Default, Debug, bincode::Encode, bincode::Decode)]
@@ -28,6 +28,7 @@ pub struct GridKey(pub usize);
 pub struct GridKind {
     pub id: GridKey,
     pub name: String,
+    pub materials: Vec<String>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
@@ -163,5 +164,20 @@ impl BuildingDomain {
     #[inline]
     pub fn get_surveyor(&self, id: SurveyorId) -> &Surveyor {
         &self.surveyors[id.0]
+    }
+
+    pub fn index_material(
+        &self,
+        grid: GridId,
+        keywords: HashSet<&String>,
+    ) -> Result<Material, BuildingError> {
+        let grid = self.get_grid(grid)?;
+        for (index, material) in grid.kind.materials.iter().enumerate() {
+            if HashSet::from([material]) == keywords {
+                return Ok(Material(index as u8));
+            }
+        }
+
+        Ok(Material(0))
     }
 }

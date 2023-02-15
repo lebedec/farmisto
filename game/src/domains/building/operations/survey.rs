@@ -13,8 +13,21 @@ impl BuildingDomain {
             return Err(BuildingError::CellHasWall { cell });
         }
         let operation = move || {
-            grid.cells[row][column].wall = true;
             grid.cells[row][column].marker = Some(marker);
+            match marker {
+                Marker::Wall => {
+                    grid.cells[row][column].wall = true;
+                }
+                Marker::Window => {
+                    grid.cells[row][column].wall = true;
+                    grid.cells[row][column].window = true;
+                }
+                Marker::Door => {
+                    grid.cells[row][column].wall = true;
+                    grid.cells[row][column].door = true;
+                }
+            }
+
             vec![Building::GridChanged {
                 grid: grid.id,
                 cells: grid.cells.clone(),

@@ -9,18 +9,18 @@ use game::physics::Physics;
 mod testing;
 
 #[test]
-fn test_something() {
-    let cell = Cell {
-        wall: false,
-        inner: false,
-        door: false,
-        window: false,
-        marker: Some(Marker::Door),
-        material: Default::default(),
-    };
-    let config = bincode::config::standard();
-    let data = bincode::encode_to_vec(&cell, config).unwrap();
-    println!("DATA: {:?}", data);
+fn test_first_construction() {
+    GameTestScenario::new(scenario!())
+        .given_farmland("test", "land")
+        .given_farmer("farmer", "Alice", ANYWHERE)
+        .given_theodolite("level", ANYWHERE)
+        .when_farmer_perform("Alice", |given| Action::Survey {
+            theodolite: given.theodolite("level"),
+            tile: [1, 1],
+            marker: Marker::Wall,
+        })
+        .debug(|scenario| scenario.debug_buildings("land").present())
+        .then_events_should_be(|given| vec![]);
 }
 
 #[test]

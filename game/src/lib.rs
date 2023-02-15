@@ -3,6 +3,7 @@ extern crate core;
 
 use datamap::Storage;
 pub use domains::*;
+use std::collections::HashSet;
 
 use crate::api::ActionError::{ConstructionContainsUnexpectedItem, PlayerFarmerNotFound};
 use crate::api::{Action, ActionError, Event};
@@ -251,17 +252,17 @@ impl Game {
         construction: Construction,
     ) -> Result<Vec<Event>, ActionError> {
         let container = self.inventory.get_container(construction.container)?;
-        let mut keywords = vec![];
+        let mut keywords = HashSet::new();
         for item in &container.items {
             for function in &item.kind.functions {
                 if let Function::Material { keyword } = function {
-                    keywords.push(keyword);
+                    keywords.insert(keyword);
                 } else {
                     return Err(ConstructionContainsUnexpectedItem(construction));
                 }
             }
         }
-        let material = Material(0);
+        let material = self.building.index_material(farmland.grid, keywords)?;
         let tile = construction.cell;
 
         let use_items = self.inventory.use_items_from(construction.container)?;
@@ -271,7 +272,7 @@ impl Game {
         if marker == Marker::Door {
             let events = occur![
                 use_items(),
-                create_hole(),
+                create_wall(),
                 self.universe.vanish_construction(construction),
             ];
             Ok(events)

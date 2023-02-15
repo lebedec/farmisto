@@ -94,8 +94,9 @@ create table Plant
 
 create table GridKind
 (
-    id   integer primary key,
-    name text not null
+    id          integer primary key,
+    name        text not null,
+    materials   json not null
 );
 
 create table Grid

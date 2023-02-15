@@ -6,9 +6,11 @@ create table FarmerAssetData
 
 create table FarmlandAssetData
 (
-    id      text primary key unique,
-    texture text not null,
-    sampler text not null references SamplerAssetData
+    id                          text primary key unique,
+    texture                     text not null,
+    sampler                     text not null references SamplerAssetData,
+    building_templates          json not null,
+    building_template_surveying text not null references TilesetAssetData
 );
 
 create table PropsAssetData
