@@ -1,4 +1,4 @@
-use crate::building::{Building, BuildingError};
+use crate::building::{Building, BuildingError, Marker};
 use crate::inventory::{Inventory, InventoryError};
 use crate::model::{Construction, Drop, Farmer, Theodolite, Tile, Universe, UniverseError};
 use crate::physics::{Physics, PhysicsError};
@@ -49,14 +49,14 @@ pub enum Action {
         destination: [f32; 2],
     },
     ToggleBackpack,
-    BuildWall {
-        cell: [usize; 2],
-    },
     TakeMaterial {
         construction: Construction,
     },
     Construct {
         construction: Construction,
+    },
+    Deconstruct {
+        tile: [usize; 2],
     },
     PutMaterial {
         construction: Construction,
@@ -64,6 +64,7 @@ pub enum Action {
     Survey {
         theodolite: Theodolite,
         tile: [usize; 2],
+        marker: Marker,
     },
     RemoveConstruction {
         construction: Construction,
@@ -153,5 +154,35 @@ impl Into<Event> for Vec<Inventory> {
 impl Into<Event> for Vec<Planting> {
     fn into(self) -> Event {
         Event::Planting(self)
+    }
+}
+
+impl Into<Event> for Planting {
+    fn into(self) -> Event {
+        Event::Planting(vec![self])
+    }
+}
+
+impl Into<Event> for Universe {
+    fn into(self) -> Event {
+        Event::Universe(vec![self])
+    }
+}
+
+impl Into<Event> for Physics {
+    fn into(self) -> Event {
+        Event::Physics(vec![self])
+    }
+}
+
+impl Into<Event> for Building {
+    fn into(self) -> Event {
+        Event::Building(vec![self])
+    }
+}
+
+impl Into<Event> for Inventory {
+    fn into(self) -> Event {
+        Event::Inventory(vec![self])
     }
 }

@@ -1,5 +1,6 @@
 use crate::collections::Shared;
 use crate::math::Collider;
+use core::fmt::{Debug, Formatter};
 
 pub const MAX_SPACES: usize = 128;
 
@@ -85,7 +86,7 @@ pub struct Barrier {
     pub space: SpaceId,
 }
 
-#[derive(Debug, bincode::Encode, bincode::Decode)]
+#[derive(bincode::Encode, bincode::Decode)]
 pub enum Physics {
     BodyPositionChanged {
         id: BodyId,
@@ -98,6 +99,24 @@ pub enum Physics {
         position: [f32; 2],
         bounds: [f32; 2],
     },
+    BarrierDestroyed {
+        id: BarrierId,
+    },
+    SpaceUpdated {
+        id: SpaceId,
+        holes: Vec<Vec<u8>>,
+    },
+}
+
+impl Debug for Physics {
+    fn fmt(&self, f: &mut Formatter<'_>) -> core::fmt::Result {
+        match self {
+            Physics::SpaceUpdated { id, .. } => {
+                f.debug_struct("SpaceUpdated").field("id", id).finish()
+            }
+            other => Debug::fmt(other, f),
+        }
+    }
 }
 
 #[derive(Debug, bincode::Encode, bincode::Decode)]
@@ -105,6 +124,10 @@ pub enum PhysicsError {
     SpaceNotFound { space: SpaceId },
     BodyNotFound { id: BodyId },
     BarrierCreationOverlaps { other: BarrierId },
+    BarrierNotFound { id: BarrierId },
+    HoleNotFound { hole: [usize; 2] },
+    HoleAlreadyExists { hole: [usize; 2] },
+    HoleCreationContainsBody { hole: [usize; 2] },
 }
 
 impl PhysicsDomain {
@@ -145,6 +168,13 @@ impl PhysicsDomain {
             .ok_or(PhysicsError::SpaceNotFound { space: id })
     }
 
+    pub fn get_space_mut(&mut self, id: SpaceId) -> Result<&mut Space, PhysicsError> {
+        self.spaces
+            .iter_mut()
+            .find(|space| space.id == id)
+            .ok_or(PhysicsError::SpaceNotFound { space: id })
+    }
+
     pub fn get_body(&self, id: BodyId) -> Result<&Body, PhysicsError> {
         for bodies in self.bodies.iter() {
             for body in bodies {
@@ -156,15 +186,15 @@ impl PhysicsDomain {
         return Err(PhysicsError::BodyNotFound { id });
     }
 
-    pub fn get_barrier(&self, id: BarrierId) -> Option<&Barrier> {
+    pub fn get_barrier(&self, id: BarrierId) -> Result<&Barrier, PhysicsError> {
         for barriers in self.barriers.iter() {
             for barrier in barriers {
                 if barrier.id == id {
-                    return Some(barrier);
+                    return Ok(barrier);
                 }
             }
         }
-        return None;
+        return Err(PhysicsError::BarrierNotFound { id });
     }
 }
 

@@ -67,7 +67,7 @@ impl Collider for FarmerRep {
 }
 
 pub struct FarmlandRep {
-    pub farmland: Farmland,
+    pub entity: Farmland,
     pub kind: Shared<FarmlandKind>,
     pub asset: FarmlandAsset,
     pub map: Vec<Vec<[f32; 2]>>,

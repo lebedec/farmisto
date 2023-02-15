@@ -58,7 +58,7 @@ fn test_regular_drop_item() {
         .given_farmer("farmer", "Alice", at(0, 0))
         .given_item("wood-material", "crate", "Alice:hands")
         .when_farmer_perform("Alice", |_| DropItem { tile: [1, 1] })
-        .then_action_events_should_be(|given| {
+        .then_events_should_be(|given| {
             vec![
                 vec![BarrierCreated {
                     id: BarrierId(1),

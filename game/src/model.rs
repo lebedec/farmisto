@@ -76,7 +76,9 @@ pub enum Universe {
         id: Construction,
         cell: [usize; 2],
     },
-    ConstructionVanished(Construction),
+    ConstructionVanished {
+        id: Construction,
+    },
     TheodoliteAppeared {
         entity: Theodolite,
         cell: [usize; 2],
@@ -147,14 +149,14 @@ impl UniverseDomain {
         }]
     }
 
-    pub(crate) fn vanish_construction(&mut self, construction: Construction) -> Vec<Universe> {
+    pub(crate) fn vanish_construction(&mut self, id: Construction) -> Vec<Universe> {
         if let Some(index) = self
             .constructions
             .iter()
-            .position(|search| search == &construction)
+            .position(|construction| construction == &id)
         {
             self.constructions.remove(index);
-            vec![Universe::ConstructionVanished(construction)]
+            vec![Universe::ConstructionVanished { id }]
         } else {
             vec![]
         }
@@ -275,6 +277,13 @@ pub struct Farmland {
 pub struct Construction {
     pub id: usize,
     pub container: ContainerId,
+    pub grid: GridId,
+    pub cell: [usize; 2],
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
+pub struct Deconstruction {
+    pub id: usize,
     pub grid: GridId,
     pub cell: [usize; 2],
 }

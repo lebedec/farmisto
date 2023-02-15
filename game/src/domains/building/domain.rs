@@ -1,14 +1,16 @@
 use crate::collections::Shared;
 use std::collections::HashMap;
-
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
-pub struct GridKey(pub usize);
+use std::fmt::{Debug, Formatter};
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Default, Debug, bincode::Encode, bincode::Decode)]
 pub struct Material(pub u8);
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
-pub struct GridIndex(pub usize, pub usize);
+pub enum Marker {
+    Wall,
+    Window,
+    Door,
+}
 
 #[derive(Clone, Copy, Default, Debug, bincode::Encode, bincode::Decode)]
 pub struct Cell {
@@ -16,9 +18,12 @@ pub struct Cell {
     pub inner: bool,
     pub door: bool,
     pub window: bool,
-    pub marker: bool,
+    pub marker: Option<Marker>,
     pub material: Material,
 }
+
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+pub struct GridKey(pub usize);
 
 pub struct GridKind {
     pub id: GridKey,
@@ -28,13 +33,25 @@ pub struct GridKind {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
 pub struct GridId(pub usize);
 
-#[derive(Debug, Default, Clone, bincode::Encode, bincode::Decode)]
+#[derive(Default, Clone, bincode::Encode, bincode::Decode)]
 pub struct Room {
     pub id: usize,
     pub contour: bool,
     pub rows_y: usize,
     pub rows: Vec<u128>,
     pub active: bool,
+}
+
+impl Debug for Room {
+    fn fmt(&self, formatter: &mut Formatter<'_>) -> std::fmt::Result {
+        formatter
+            .debug_struct("Room")
+            .field("id", &self.id)
+            .field("contour", &self.contour)
+            .field("rows_y", &self.rows_y)
+            .field("active", &self.active)
+            .finish()
+    }
 }
 
 impl Room {
@@ -65,7 +82,7 @@ pub struct Surveyor {
     grid: GridId,
 }
 
-#[derive(Debug, bincode::Encode, bincode::Decode)]
+#[derive(bincode::Encode, bincode::Decode)]
 pub enum Building {
     GridChanged {
         grid: GridId,
@@ -74,9 +91,23 @@ pub enum Building {
     },
 }
 
+impl Debug for Building {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Building::GridChanged { grid, .. } => {
+                f.debug_struct("GridChanged").field("grid", grid).finish()
+            }
+            other => Debug::fmt(other, f),
+        }
+    }
+}
+
 #[derive(Debug, bincode::Encode, bincode::Decode)]
 pub enum BuildingError {
-    Occupied { cell: [usize; 2] },
+    GridNotFound { id: GridId },
+    CellHasWall { cell: [usize; 2] },
+    CellHasNoWall { cell: [usize; 2] },
+    CellHasNoMarkers { cell: [usize; 2] },
 }
 
 #[derive(Default)]
@@ -94,8 +125,19 @@ impl BuildingDomain {
     }
 
     #[inline]
-    pub fn get_grid(&self, id: GridId) -> &Grid {
-        self.grids.iter().find(|grid| grid.id == id).unwrap()
+    pub fn get_grid(&self, id: GridId) -> Result<&Grid, BuildingError> {
+        self.grids
+            .iter()
+            .find(|grid| grid.id == id)
+            .ok_or(BuildingError::GridNotFound { id })
+    }
+
+    #[inline]
+    pub fn get_mut_grid(&mut self, id: GridId) -> Result<&mut Grid, BuildingError> {
+        self.grids
+            .iter_mut()
+            .find(|grid| grid.id == id)
+            .ok_or(BuildingError::GridNotFound { id })
     }
 
     pub fn create_grid(&mut self, kind: Shared<GridKind>) -> GridId {
@@ -118,30 +160,8 @@ impl BuildingDomain {
         })
     }
 
-    // #[inline]
-    // pub fn complete_surveyor_creation(&mut self, surveyor: Surveyor) {
-    //     self.surveyors[surveyor.id.0] = surveyor
-    // }
-
     #[inline]
     pub fn get_surveyor(&self, id: SurveyorId) -> &Surveyor {
         &self.surveyors[id.0]
-    }
-
-    pub fn create_wall(
-        &mut self,
-        grid_id: GridId,
-        cell: [usize; 2],
-        material: Material,
-    ) -> Vec<Building> {
-        let grid = self.grids.get_mut(grid_id.0).unwrap();
-        let [cell_x, cell_y] = cell;
-        grid.cells[cell_y][cell_x].wall = true;
-        grid.rooms = Grid::calculate_rooms(&grid.cells);
-        vec![Building::GridChanged {
-            grid: grid_id,
-            cells: grid.cells.clone(),
-            rooms: grid.rooms.clone(),
-        }]
     }
 }

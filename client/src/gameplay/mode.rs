@@ -20,7 +20,7 @@ use sdl2::keyboard::Keycode;
 use server::LocalServerThread;
 use std::collections::HashMap;
 
-use game::building::Building;
+use game::building::{Building, Marker};
 use game::inventory::{ContainerId, Inventory, ItemId};
 use game::model::Universe::{
     BarrierHintAppeared, ConstructionAppeared, ConstructionVanished, DropAppeared, DropVanished,
@@ -76,6 +76,7 @@ pub enum Target {
     Drop(Drop),
     Construction(Construction),
     Theodolite(Theodolite),
+    Wall([usize; 2]),
 }
 
 pub trait InputMethod {
@@ -294,6 +295,20 @@ impl Gameplay {
                     bounds,
                 });
             }
+            Physics::BarrierDestroyed { id } => {
+                if let Some(index) = self.barriers.iter().position(|barrier| barrier.id == id) {
+                    self.barriers.remove(index);
+                    g
+                }
+            }
+            Physics::SpaceUpdated { id, holes } => {
+                for farmland in self.farmlands.values_mut() {
+                    if farmland.entity.space == id {
+                        farmland.holes = holes;
+                        break;
+                    }
+                }
+            }
         }
     }
 
@@ -346,7 +361,7 @@ impl Gameplay {
                 self.farmlands.insert(
                     farmland,
                     FarmlandRep {
-                        farmland,
+                        entity: farmland,
                         kind,
                         asset,
                         map,
@@ -460,8 +475,8 @@ impl Gameplay {
                 self.constructions
                     .insert(entity, ConstructionRep { entity, tile: cell });
             }
-            ConstructionVanished(construction) => {
-                self.constructions.remove(&construction);
+            ConstructionVanished { id } => {
+                self.constructions.remove(&id);
             }
             Universe::TheodoliteAppeared { entity, cell } => {
                 info!("Appear theodolite {:?} at {:?}", entity, cell);
@@ -528,6 +543,15 @@ impl Gameplay {
             }
         }
 
+        if let Some(farmland) = self.current_farmland {
+            let farmland = self.farmlands.get(&farmland).unwrap();
+
+            let cell = farmland.cells[tile[1]][tile[0]];
+            if cell.wall && cell.marker.is_none() {
+                return Target::Wall(tile);
+            }
+        }
+
         Target::Ground
     }
 
@@ -581,6 +605,7 @@ impl Gameplay {
                                 selection: 0,
                             };
                         }
+                        Target::Wall(_) => {}
                     },
                     Intention::Put => {}
                     Intention::Swap => {
@@ -601,6 +626,7 @@ impl Gameplay {
                         Target::Theodolite(_) => {
                             // beep error
                         }
+                        Target::Wall(_) => {}
                     },
                     Intention::Put => match target {
                         Target::Ground => {
@@ -617,6 +643,7 @@ impl Gameplay {
                         Target::Theodolite(_) => {
                             // beep error
                         }
+                        Target::Wall(_) => {}
                     },
                     Intention::Swap => {
                         // swap cargos (usefull for different jobs)
@@ -628,7 +655,17 @@ impl Gameplay {
                 } => match intention {
                     Intention::Use => match target {
                         Target::Ground => {
-                            self.send_action(Action::Survey { theodolite, tile });
+                            let marker = match selection {
+                                0 => Marker::Wall,
+                                1 => Marker::Door,
+                                2 => Marker::Window,
+                                _ => Marker::Wall,
+                            };
+                            self.send_action(Action::Survey {
+                                theodolite,
+                                tile,
+                                marker,
+                            });
                         }
                         Target::Construction(construction) => {
                             self.send_action(Action::RemoveConstruction { construction });
@@ -646,7 +683,15 @@ impl Gameplay {
                     }
                 },
                 Activity::Instrumenting => match intention {
-                    Intention::Use => {}
+                    Intention::Use => match target {
+                        Target::Construction(construction) => {
+                            self.send_action(Action::Construct { construction });
+                        }
+                        Target::Wall(tile) => {
+                            self.send_action(Action::Deconstruct { tile });
+                        }
+                        _ => {}
+                    },
                     Intention::Put => {}
                     Intention::Swap => {
                         self.send_action(Action::ToggleBackpack);
@@ -813,7 +858,7 @@ impl Gameplay {
                             (false, false, false, false) => Neighbors::Full,
                         };
 
-                        let tileset = if cell.marker {
+                        let tileset = if cell.marker.is_some() {
                             &self.building_tiles_marker.tiles
                         } else {
                             &self.building_tiles.tiles

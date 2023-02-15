@@ -26,38 +26,105 @@ pub fn at<T>(x: T, y: T) -> [T; 2] {
     [x, y]
 }
 
+// Some fields may contain large data, e.g. various maps.
+// Asserting their content is excluded from testing because it's inefficient
+// and it's better to use specific asserts.
+// In most cases, it Vec<T> fields.
+// So this function is needed to explicitly define these fields in tests.
+pub const fn any<T>() -> Vec<T> {
+    vec![]
+}
+
 pub const ANYWHERE: [usize; 2] = [0, 0];
 
+pub struct Assertion {
+    pub expected: String,
+    pub actual: String,
+    pub message: String,
+}
+
 pub struct GameTestScenario {
+    name: String,
+    plot: Plot,
     game: Game,
+    debug: Option<fn(Self) -> Self>,
     farmlands: HashMap<String, Farmland>,
     farmers: HashMap<String, Farmer>,
     drops: HashMap<String, Drop>,
     constructions: HashMap<String, Construction>,
     containers: HashMap<String, ContainerId>,
     spaces: HashMap<String, SpaceId>,
+    grids: HashMap<String, GridId>,
     items: HashMap<String, ItemId>,
     current_farmland: Option<Farmland>,
+    current_farmer: Option<Farmer>,
     current_action_result: Result<Vec<Event>, ActionError>,
 }
 
 impl GameTestScenario {
-    pub fn new() -> Self {
+    pub fn new(name: String) -> Self {
         let storage = Storage::open("../assets/database.sqlite").unwrap();
         let mut game = Game::new(storage);
         game.load_game_knowledge();
+        let mut plot = Plot::new();
         GameTestScenario {
+            name,
+            plot,
             game,
+            debug: None,
             farmlands: Default::default(),
             farmers: Default::default(),
             drops: Default::default(),
             constructions: Default::default(),
             containers: Default::default(),
             spaces: Default::default(),
+            grids: Default::default(),
             items: Default::default(),
             current_farmland: None,
+            current_farmer: None,
             current_action_result: Err(ActionError::Test),
         }
+    }
+
+    pub fn debug(mut self, debug: fn(Self) -> Self) -> Self {
+        self.debug = Some(debug);
+        self
+    }
+
+    pub fn debug_buildings(mut self, farmland: &str) -> Self {
+        let farmland = self.farmland(farmland);
+        let grid = self.game.building.get_grid(farmland.grid).unwrap();
+
+        let mut layout = create_plot_layout();
+        for y in 0..6 {
+            for x in 0..6 {
+                if grid.cells[y][x].wall {
+                    layout.add_shape(
+                        Shape::new()
+                            .x_ref("x")
+                            .y_ref("y")
+                            .shape_type(ShapeType::Rect)
+                            .x0(x)
+                            .y0(y)
+                            .x1(x + 1)
+                            .y1(y + 1)
+                            .fill_color("#646464")
+                            .opacity(0.6)
+                            .layer(ShapeLayer::Above)
+                            .line(ShapeLine::new().width(0.0)),
+                    );
+                }
+            }
+        }
+        self.plot.set_layout(layout);
+        self
+    }
+
+    pub fn present(mut self) -> Self {
+        let path = format!("./tests/output/{}.html", self.name);
+        create_output_directories(&path);
+        self.plot.write_html(path);
+        self
     }
 
     pub fn drop(&self, name: &str) -> Drop {
@@ -76,8 +143,20 @@ impl GameTestScenario {
         self.containers.get(name).unwrap().clone()
     }
 
+    pub fn construction(&self, name: &str) -> Construction {
+        self.constructions.get(name).unwrap().clone()
+    }
+
+    pub fn farmland(&self, name: &str) -> Farmland {
+        self.farmlands.get(name).unwrap().clone()
+    }
+
     pub fn space(&self, name: &str) -> SpaceId {
         self.spaces.get(name).unwrap().clone()
+    }
+
+    pub fn grid(&self, name: &str) -> GridId {
+        self.grids.get(name).unwrap().clone()
     }
 
     pub fn given_farmer(mut self, farmer_key: &str, farmer_name: &str, cell: [usize; 2]) -> Self {
@@ -141,12 +220,16 @@ impl GameTestScenario {
         self
     }
 
-    pub fn given_farmland(mut self, farmland_key: &str, farmland_name: &str) -> Self {
+    pub fn given_farmland(mut self, farmland_key: &str, name: &str) -> Self {
         let farmland_kind = self.game.known.farmlands.find(farmland_key).unwrap();
 
         let space = SpaceId(self.game.physics.spaces_sequence + 1);
         let kind = self.game.known.spaces.get(farmland_kind.space).unwrap();
-        let space_component = Space { id: space, kind };
+        let space_component = Space {
+            id: space,
+            kind,
+            holes: vec![vec![0; 128]; 128],
+        };
         self.game
             .physics
             .load_spaces(vec![space_component], space.0);
@@ -174,10 +257,11 @@ impl GameTestScenario {
             .get(&farmland_kind.grid)
             .unwrap()
             .clone();
+
         let grid_component = Grid {
             id: grid,
             kind,
-            cells: vec![],
+            cells: Grid::default_map(),
             rooms: vec![],
         };
         self.game.building.load_grids(vec![grid_component], grid.0);
@@ -191,10 +275,27 @@ impl GameTestScenario {
             grid,
         };
         self.game.universe.load_farmlands(vec![farmland], id);
-        self.farmlands.insert(farmland_name.to_string(), farmland);
-        self.spaces
-            .insert(farmland_name.to_string(), farmland.space);
+        self.farmlands.insert(name.to_string(), farmland);
+        self.spaces.insert(name.to_string(), farmland.space);
+        self.grids.insert(name.to_string(), farmland.grid);
         self.current_farmland = Some(farmland);
+        self
+    }
+
+    pub fn given_buildings(mut self, buildings_map: &str) -> Self {
+        let farmland = self.current_farmland.unwrap();
+        let grid = self.game.building.get_mut_grid(farmland.grid).unwrap();
+        for (y, line) in buildings_map.lines().skip(1).enumerate() {
+            for (x, code) in line.trim().split_whitespace().enumerate() {
+                match code {
+                    "#" => {
+                        grid.cells[y][x].wall = true;
+                    }
+                    _ => {}
+                }
+            }
+        }
+        grid.rooms = Grid::calculate_rooms(&grid.cells);
         self
     }
 
@@ -270,13 +371,8 @@ impl GameTestScenario {
         self
     }
 
-    pub fn given_construction(
-        mut self,
-        construction_name: &str,
-        farmland_name: &str,
-        cell: [usize; 2],
-    ) -> Self {
-        let farmland = self.farmlands.get(farmland_name).unwrap();
+    pub fn given_construction(mut self, name: &str, cell: [usize; 2]) -> Self {
+        let farmland = self.current_farmland.unwrap();
         let grid = farmland.grid;
 
         let kind = self.game.known.containers.find("<construction>").unwrap();
@@ -300,8 +396,8 @@ impl GameTestScenario {
         self.game
             .universe
             .load_constructions(vec![construction], id);
-        self.constructions
-            .insert(construction_name.to_string(), construction);
+        self.constructions.insert(name.to_string(), construction);
+        self.containers.insert(name.to_string(), container);
         self
     }
 
@@ -315,20 +411,20 @@ impl GameTestScenario {
         self
     }
 
-    pub fn then_action_events_should_be<F>(mut self, expected_events: F) -> Self
+    pub fn then_events_should_be<F>(mut self, expected_events: F) -> Self
     where
         F: FnOnce(&Self) -> Vec<Event>,
     {
-        assert!(
-            self.current_action_result.is_ok(),
-            "{:?}",
-            self.current_action_result
-        );
         let actual_events =
-            std::mem::replace(&mut self.current_action_result, Err(ActionError::Test)).unwrap();
-        let expected_events = expected_events(&self);
+            std::mem::replace(&mut self.current_action_result, Err(ActionError::Test));
+        let expected_events: Result<Vec<Event>, ActionError> = Ok(expected_events(&self));
         let actual_events = format!("{:?}", actual_events);
         let expected_events = format!("{:?}", expected_events);
+        if let Some(debug) = self.debug {
+            if actual_events != expected_events {
+                self = (debug)(self);
+            }
+        }
         assert_eq!(actual_events, expected_events);
         self
     }
@@ -337,14 +433,16 @@ impl GameTestScenario {
     where
         F: FnOnce(&Self) -> ActionError,
     {
-        assert!(self.current_action_result.is_err());
         let actual_error =
-            std::mem::replace(&mut self.current_action_result, Err(ActionError::Test))
-                .err()
-                .unwrap();
-        let expected_error = expected_error(&self);
+            std::mem::replace(&mut self.current_action_result, Err(ActionError::Test));
+        let expected_error: Result<Vec<Event>, ActionError> = Err(expected_error(&self));
         let actual_events = format!("{:?}", actual_error);
         let expected_events = format!("{:?}", expected_error);
+        if let Some(debug) = self.debug {
+            if actual_events != expected_events {
+                self = (debug)(self);
+            }
+        }
         assert_eq!(actual_events, expected_events);
         self
     }
@@ -475,9 +573,9 @@ pub struct PhysicsTestScenario {
 }
 
 impl PhysicsTestScenario {
-    pub fn new(name: &str) -> Self {
+    pub fn new(name: String) -> Self {
         let mut scenario = Self::default();
-        scenario.name = name.replace("::", "/").to_string();
+        scenario.name = name;
         scenario
     }
 
@@ -510,7 +608,11 @@ impl PhysicsTestScenario {
     pub fn given_space(mut self, kind_name: &str, space_name: &str) -> Self {
         let id = SpaceId(self.domain.spaces_sequence + 1);
         let kind = self.known_spaces.find(kind_name).unwrap();
-        let space = Space { id, kind };
+        let space = Space {
+            id,
+            kind,
+            holes: vec![],
+        };
         self.domain.load_spaces(vec![space], id.0);
         self.spaces.insert(space_name.to_string(), id);
         self
@@ -695,23 +797,7 @@ impl PhysicsTestScenario {
 
     pub fn debug_space(mut self, space: &str) -> Self {
         let space = self.space(space);
-
-        let x_axis = Axis::new()
-            .range(vec![0.0, 5.0])
-            .auto_margin(true)
-            .zero_line(false);
-        let y_axis = Axis::new()
-            .range(vec![0.0, 5.0])
-            .auto_margin(true)
-            .zero_line(false)
-            .overlaying("x");
-        let mut layout = Layout::new()
-            .x_axis(x_axis)
-            .y_axis(y_axis)
-            .width(512)
-            .height(512)
-            .auto_size(false);
-
+        let mut layout = create_plot_layout();
         for barrier in &self.domain.barriers[space.0] {
             let offset = barrier.kind.bounds.mul(0.5);
             let min = barrier.position.sub(offset);
@@ -731,7 +817,6 @@ impl PhysicsTestScenario {
                     .line(ShapeLine::new().width(0.0)),
             );
         }
-
         for body in &self.domain.bodies[space.0] {
             layout.add_shape(
                 Shape::new()
@@ -748,11 +833,27 @@ impl PhysicsTestScenario {
                     .line(ShapeLine::new().width(0.0)),
             );
         }
-
         self.plot.set_layout(layout);
-
         self
     }
+}
+
+fn create_plot_layout() -> Layout {
+    let x_axis = Axis::new()
+        .range(vec![0.0, 6.0])
+        .auto_margin(true)
+        .zero_line(false);
+    let y_axis = Axis::new()
+        .range(vec![0.0, 6.0])
+        .auto_margin(true)
+        .zero_line(false)
+        .overlaying("x");
+    Layout::new()
+        .x_axis(x_axis)
+        .y_axis(y_axis)
+        .width(512)
+        .height(512)
+        .auto_size(false)
 }
 
 fn create_output_directories(path: &str) {
@@ -769,6 +870,14 @@ macro_rules! scenario {
             std::any::type_name::<T>()
         }
         let name = _type_name_of(_f);
-        &name[..name.len() - 4]
+        (&name[..name.len() - 4]).replace("::", "/").to_string()
     }};
+}
+
+#[macro_export]
+macro_rules! events {
+    () => (
+        vec![]
+    );
+    ($($x:expr,)*) => (vec![$($x.into()),*])
 }

@@ -8,7 +8,6 @@ const DEFAULT_SPACE_BOUNDS: [f32; 2] = [128.0, 128.0];
 const SMALL_SPACE: [f32; 2] = [10.0, 10.0];
 const NORMAL_TICK: f32 = 0.02;
 
-fn test_something() {}
 
 #[test]
 fn test_create_barrier_in_connection_with_others() {

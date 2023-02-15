@@ -48,7 +48,7 @@ def generate_grid(grid_id: int, space_id: int, user_define_map: str):
             inner = 0
             door = 0
             window = 0
-            marker = 0
+            marker = None
             material = 0
             # space
             is_hole = 0
@@ -78,8 +78,11 @@ def generate_grid(grid_id: int, space_id: int, user_define_map: str):
                     constructions.append([x, y])
                     wall = 1
                     inner = 0
-                    marker = 1
-            data.write(struct.pack('BBBBBB', *[wall, inner, door, window, marker, material]))
+                    marker = 0
+            if marker is not None:
+                data.write(struct.pack('BBBBBBB', *[wall, inner, door, window, 1, marker, material]))
+            else:
+                data.write(struct.pack('BBBBBB', *[wall, inner, door, window, 0, material]))
             holes_data.write(struct.pack('B', is_hole))
 
     data = data.getvalue()

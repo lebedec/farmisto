@@ -205,7 +205,7 @@ impl Grid {
         for y in 1..Grid::ROWS {
             let mut row = 0;
             for x in 0..Grid::COLUMNS {
-                if !map[y][x].wall || map[y][x].marker {
+                if !map[y][x].wall || map[y][x].marker.is_some() {
                     row = row | 1 << (Grid::COLUMNS - x - 1);
                 }
             }

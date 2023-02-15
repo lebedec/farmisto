@@ -1,20 +1,21 @@
+extern crate alloc;
+extern crate core;
+
 use datamap::Storage;
 pub use domains::*;
 
-use crate::api::ActionError::{
-    ConstructionContainsUnexpectedItem, FarmerBodyNotFound, PlayerFarmerNotFound,
-};
+use crate::api::ActionError::{ConstructionContainsUnexpectedItem, PlayerFarmerNotFound};
 use crate::api::{Action, ActionError, Event};
-use crate::building::{BuildingDomain, GridId, SurveyorId};
-use crate::inventory::{Function, Inventory, InventoryDomain};
+use crate::building::{BuildingDomain, GridId, Marker, Material, SurveyorId};
+use crate::inventory::{Function, InventoryDomain};
 use crate::model::ItemView;
 use crate::model::Player;
 use crate::model::UniverseDomain;
 use crate::model::UniverseSnapshot;
 use crate::model::{Construction, Farmer, Universe};
-use crate::model::{Drop, Theodolite, Tile};
+use crate::model::{Drop, Theodolite};
 use crate::model::{Farmland, Knowledge};
-use crate::physics::{PhysicsDomain, SpaceId};
+use crate::physics::{Physics, PhysicsDomain};
 use crate::planting::PlantingDomain;
 
 pub mod api;
@@ -23,6 +24,14 @@ mod data;
 mod domains;
 pub mod math;
 pub mod model;
+
+#[macro_export]
+macro_rules! occur {
+    () => (
+        vec![]
+    );
+    ($($x:expr,)*) => (vec![$($x.into()),*])
+}
 
 pub struct Game {
     pub known: Knowledge,
@@ -72,14 +81,16 @@ impl Game {
             Action::MoveFarmer { destination } => {
                 events.extend(self.move_farmer(*farmer, destination)?)
             }
-            Action::BuildWall { cell: _ } => {
-                unimplemented!()
-            }
-            Action::Survey { theodolite, tile } => {
-                events.extend(self.survey(*farmer, theodolite, tile)?)
-            }
+            Action::Survey {
+                theodolite,
+                tile,
+                marker,
+            } => events.extend(self.survey(*farmer, theodolite, tile, marker)?),
             Action::Construct { construction } => {
                 events.extend(self.construct(*farmer, farmland, construction)?)
+            }
+            Action::Deconstruct { tile } => {
+                events.extend(self.deconstruct(*farmer, farmland, tile)?)
             }
             Action::RemoveConstruction { construction } => {
                 events.extend(self.remove_construction(*farmer, farmland, construction)?)
@@ -134,8 +145,10 @@ impl Game {
 
         if is_last_item {
             let destroy_container = self.inventory.destroy_container(drop.container, false)?;
+            let destroy_barrier = self.physics.destroy_barrier(drop.barrier)?;
             events.extend([
                 destroy_container().into(),
+                destroy_barrier().into(),
                 self.universe.vanish_drop(drop).into(),
             ])
         }
@@ -200,38 +213,34 @@ impl Game {
         _farmer: Farmer,
         _theodolite: Theodolite,
         tile: [usize; 2],
+        marker: Marker,
     ) -> Result<Vec<Event>, ActionError> {
-        let surveying = self.building.survey(SurveyorId(0), tile)?;
+        let survey = self.building.survey(SurveyorId(0), tile, marker)?;
         let container_kind = self.known.containers.find("<construction>").unwrap();
         let grid = GridId(1);
         let (container, create_container) =
             self.inventory.create_container(container_kind.clone())?;
-        let appearance = self.universe.appear_construction(
-            container,
-            grid,
-            [surveying.cell.0, surveying.cell.1],
-        );
-        let events = vec![
-            surveying.complete().into(),
-            create_container().into(),
-            appearance.into(),
-        ];
+        let appearance = self.universe.appear_construction(container, grid, tile);
+        let events = occur![survey(), create_container(), appearance,];
         Ok(events)
     }
 
     fn remove_construction(
         &mut self,
         _farmer: Farmer,
-        _farmland: Farmland,
+        farmland: Farmland,
         construction: Construction,
     ) -> Result<Vec<Event>, ActionError> {
-        // let items = self.inventory.get_items(construction.container).unwrap();
         let tile = construction.cell;
-        let barrier_kind = self.known.barriers.find("<drop>").unwrap();
-        let position = position_of(tile);
-        let events = vec![Event::Universe(
+        let destroy_container = self
+            .inventory
+            .destroy_container(construction.container, false)?;
+        let destroy_marker = self.building.destroy_wall(farmland.grid, tile)?;
+        let events = occur![
+            destroy_container(),
+            destroy_marker(),
             self.universe.vanish_construction(construction),
-        )];
+        ];
         Ok(events)
     }
 
@@ -241,11 +250,6 @@ impl Game {
         farmland: Farmland,
         construction: Construction,
     ) -> Result<Vec<Event>, ActionError> {
-        // let body = self
-        //     .physics
-        //     .get_body(farmer.body)
-        //     .ok_or(FarmerBodyNotFound(farmer))?;
-
         let container = self.inventory.get_container(construction.container)?;
         let mut keywords = vec![];
         for item in &container.items {
@@ -257,10 +261,42 @@ impl Game {
                 }
             }
         }
+        let material = Material(0);
+        let tile = construction.cell;
 
         let use_items = self.inventory.use_items_from(construction.container)?;
+        let (marker, create_wall) = self.building.create_wall(farmland.grid, tile, material)?;
+        let create_hole = self.physics.create_hole(farmland.space, tile)?;
 
-        Ok(vec![use_items().into()])
+        if marker == Marker::Door {
+            let events = occur![
+                use_items(),
+                create_hole(),
+                self.universe.vanish_construction(construction),
+            ];
+            Ok(events)
+        } else {
+            let events = occur![
+                use_items(),
+                create_wall(),
+                create_hole(),
+                self.universe.vanish_construction(construction),
+            ];
+            Ok(events)
+        }
+    }
+
+    fn deconstruct(
+        &mut self,
+        farmer: Farmer,
+        farmland: Farmland,
+        tile: [usize; 2],
+    ) -> Result<Vec<Event>, ActionError> {
+        let destroy_wall = self.building.destroy_wall(farmland.grid, tile)?;
+        let destroy_hole = self.physics.destroy_hole(farmland.space, tile)?;
+
+        let events = occur![destroy_wall(), destroy_hole(),];
+        Ok(events)
     }
 
     pub fn update(&mut self, time: f32) -> Vec<Event> {
@@ -281,7 +317,7 @@ impl Game {
         for farmland in self.universe.farmlands.iter() {
             if snapshot.whole || snapshot.farmlands.contains(&farmland.id) {
                 let land = self.planting.get_land(farmland.land).unwrap();
-                let grid = self.building.get_grid(farmland.grid);
+                let grid = self.building.get_grid(farmland.grid).unwrap();
                 let space = self.physics.get_space(farmland.space).unwrap();
                 stream.push(Universe::FarmlandAppeared {
                     farmland: *farmland,
