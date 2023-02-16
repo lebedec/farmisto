@@ -173,8 +173,8 @@ impl Storage {
             .connection
             .prepare(&format!("select max(rowid) from \"{}\"", table))
             .unwrap();
-        let sequence = statement.query_row([], |row| row.get(0)).unwrap();
-        sequence
+        let sequence: Option<usize> = statement.query_row([], |row| row.get(0)).unwrap();
+        sequence.unwrap_or(0)
     }
 
     pub fn select_changes<T>(

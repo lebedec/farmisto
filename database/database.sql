@@ -18,9 +18,9 @@ create table Player
 
 create table SpaceKind
 (
-    id      integer primary key,
-    name    text not null,
-    bounds  json not null
+    id     integer primary key,
+    name   text not null unique,
+    bounds json not null
 );
 
 create table Space
@@ -31,10 +31,10 @@ create table Space
 
 create table BodyKind
 (
-    id      integer primary key,
-    name    text not null,
-    speed   real not null,
-    radius  real not null
+    id     integer primary key,
+    name   text not null unique,
+    speed  real not null,
+    radius real not null
 );
 
 create table Body
@@ -49,7 +49,7 @@ create table Body
 create table BarrierKind
 (
     id     integer primary key,
-    name   text not null,
+    name   text not null unique,
     bounds json not null
 );
 
@@ -66,7 +66,7 @@ create table Barrier
 create table LandKind
 (
     id   integer primary key,
-    name text not null
+    name text not null unique
 );
 
 create table Land
@@ -79,7 +79,7 @@ create table Land
 create table PlantKind
 (
     id     integer primary key,
-    name   text not null,
+    name   text not null unique,
     growth real not null
 );
 
@@ -94,9 +94,9 @@ create table Plant
 
 create table GridKind
 (
-    id          integer primary key,
-    name        text not null,
-    materials   json not null
+    id        integer primary key,
+    name      text not null unique,
+    materials json not null
 );
 
 create table Grid
@@ -106,12 +106,25 @@ create table Grid
     map  blob collate binary not null
 );
 
+create table SurveyorKind
+(
+    id   integer primary key,
+    name text not null unique
+);
+
+create table Surveyor
+(
+    id   integer primary key,
+    kind integer not null references SurveyorKind,
+    grid integer not null references Grid
+);
+
 -- Inventory
 
 create table ContainerKind
 (
     id       integer primary key,
-    name     text    not null,
+    name     text    not null unique,
     capacity integer not null
 );
 
@@ -124,7 +137,7 @@ create table Container
 create table ItemKind
 (
     id        integer primary key,
-    name      text not null,
+    name      text not null unique,
     functions json not null
 );
 
@@ -140,7 +153,7 @@ create table Item
 create table TreeKind
 (
     id      integer primary key,
-    name    text    not null,
+    name    text    not null unique,
     barrier integer not null references BarrierKind,
     plant   integer not null references PlantKind
 );
@@ -156,7 +169,7 @@ create table Tree
 create table FarmlandKind
 (
     id    integer primary key,
-    name  text    not null,
+    name  text    not null unique,
     space integer not null references SpaceKind,
     land  integer not null references LandKind,
     grid  integer not null references GridKind
@@ -174,7 +187,7 @@ create table Farmland
 create table FarmerKind
 (
     id   integer primary key,
-    name text    not null,
+    name text    not null unique,
     body integer not null references BodyKind
 );
 
@@ -207,4 +220,20 @@ create table Theodolite
 (
     id   integer primary key,
     cell json not null
+);
+
+create table EquipmentKind
+(
+    id         integer primary key,
+    name       text not null unique,
+    barrier    text not null references BarrierKind (name),
+    p_surveyor text null references SurveyorKind (name)
+);
+
+create table Equipment
+(
+    id         integer primary key,
+    barrier    integer not null references Barrier,
+    kind       integer not null references EquipmentKind,
+    p_surveyor integer null references Surveyor
 );

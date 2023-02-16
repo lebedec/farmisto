@@ -25,6 +25,7 @@ pub struct Container {
 #[derive(Clone, PartialEq, Eq, Hash, serde::Deserialize)]
 pub enum Function {
     Material { keyword: String },
+    Equipment { kind: usize },
     Carry,
     Hammer,
 }

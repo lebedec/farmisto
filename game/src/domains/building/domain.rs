@@ -75,12 +75,21 @@ impl Grid {
     }
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+pub struct SurveyorKey(pub usize);
+
+pub struct SurveyorKind {
+    pub id: SurveyorKey,
+    pub name: String,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
-pub struct SurveyorId(pub(crate) usize);
+pub struct SurveyorId(pub usize);
 
 pub struct Surveyor {
-    id: SurveyorId,
-    grid: GridId,
+    pub id: SurveyorId,
+    pub grid: GridId,
+    pub kind: Shared<SurveyorKind>,
 }
 
 #[derive(bincode::Encode, bincode::Decode)]
@@ -113,16 +122,21 @@ pub enum BuildingError {
 
 #[derive(Default)]
 pub struct BuildingDomain {
-    pub known_grids: HashMap<GridKey, Shared<GridKind>>,
     pub grids: Vec<Grid>,
     pub grids_sequence: usize,
     pub surveyors: Vec<Surveyor>,
+    pub surveyors_sequence: usize,
 }
 
 impl BuildingDomain {
     pub fn load_grids(&mut self, grids: Vec<Grid>, sequence: usize) {
         self.grids_sequence = sequence;
         self.grids.extend(grids);
+    }
+
+    pub fn load_surveyors(&mut self, surveyors: Vec<Surveyor>, sequence: usize) {
+        self.surveyors_sequence = sequence;
+        self.surveyors.extend(surveyors);
     }
 
     #[inline]
@@ -151,14 +165,6 @@ impl BuildingDomain {
             rooms: vec![],
         });
         id
-    }
-
-    #[inline]
-    pub fn create_surveyor(&self, grid: GridId) -> Result<Surveyor, BuildingError> {
-        Ok(Surveyor {
-            id: SurveyorId(self.surveyors.len()),
-            grid,
-        })
     }
 
     #[inline]

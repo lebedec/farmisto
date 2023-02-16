@@ -1,6 +1,9 @@
 use std::collections::{HashMap, HashSet};
+use std::ptr::eq;
 
-use crate::building::{Cell, GridId, GridKey, Room};
+use crate::building::{
+    Cell, GridId, GridKey, GridKind, Room, SurveyorId, SurveyorKey, SurveyorKind,
+};
 use crate::collections::{Dictionary, Shared};
 use crate::inventory::{ContainerId, ContainerKey, ContainerKind, ItemId, ItemKey, ItemKind};
 use crate::physics::{
@@ -13,6 +16,7 @@ pub struct Knowledge {
     pub trees: Dictionary<TreeKey, TreeKind>,
     pub farmlands: Dictionary<FarmlandKey, FarmlandKind>,
     pub farmers: Dictionary<FarmerKey, FarmerKind>,
+    pub equipments: Dictionary<EquipmentKey, EquipmentKind>,
     // physics
     pub spaces: Dictionary<SpaceKey, SpaceKind>,
     pub bodies: Dictionary<BodyKey, BodyKind>,
@@ -20,6 +24,9 @@ pub struct Knowledge {
     // inventory
     pub containers: Dictionary<ContainerKey, ContainerKind>,
     pub items: Dictionary<ItemKey, ItemKind>,
+    // building
+    pub grids: Dictionary<GridKey, GridKind>,
+    pub surveyors: Dictionary<SurveyorKey, SurveyorKind>,
 }
 
 #[derive(Default)]
@@ -37,6 +44,8 @@ pub struct UniverseDomain {
     pub drops_id: usize,
     pub theodolites: Vec<Theodolite>,
     pub theodolites_id: usize,
+    pub equipments: Vec<Equipment>,
+    pub equipments_id: usize,
 }
 
 #[derive(Debug, bincode::Encode, bincode::Decode)]
@@ -79,13 +88,18 @@ pub enum Universe {
     ConstructionVanished {
         id: Construction,
     },
+    EquipmentAppeared {
+        entity: Equipment,
+        position: [f32; 2]
+    },
+    EquipmentVanished(Equipment),
     TheodoliteAppeared {
         entity: Theodolite,
         cell: [usize; 2],
     },
     TheodoliteVanished(Theodolite),
     ItemsAppeared {
-        items: Vec<ItemView>,
+        items: Vec<ItemRep>,
     },
 }
 
@@ -127,6 +141,11 @@ impl UniverseDomain {
     pub fn load_theodolites(&mut self, theodolites: Vec<Theodolite>, theodolites_id: usize) {
         self.theodolites_id = theodolites_id;
         self.theodolites.extend(theodolites);
+    }
+
+    pub fn load_equipments(&mut self, equipments: Vec<Equipment>, equipments_id: usize) {
+        self.equipments_id = equipments_id;
+        self.equipments.extend(equipments);
     }
 
     pub(crate) fn appear_construction(
@@ -295,29 +314,47 @@ pub struct Theodolite {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
+pub struct EquipmentKey(pub usize);
+
+pub enum PurposeDescription {
+    Surveying { surveyor: SurveyorKey },
+    Moisture { sensor: usize },
+}
+
+pub struct EquipmentKind {
+    pub id: EquipmentKey,
+    pub name: String,
+    pub purpose: PurposeDescription,
+    pub barrier: BarrierKey,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
+pub enum Purpose {
+    Surveying { surveyor: SurveyorId },
+    Moisture { sensor: usize },
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
+pub struct Equipment {
+    pub id: usize,
+    pub kind: EquipmentKey,
+    pub purpose: Purpose,
+    pub barrier: BarrierId,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
 pub struct Drop {
     pub id: usize,
     pub container: ContainerId,
     pub barrier: BarrierId,
 }
 
+// TODO: move to client (fix item appearance events)
 #[derive(Debug, bincode::Encode, bincode::Decode)]
-pub struct ItemView {
+pub struct ItemRep {
     pub id: ItemId,
     pub kind: ItemKey,
     pub container: ContainerId,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
-pub struct Tile {
-    pub x: usize,
-    pub y: usize,
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, bincode::Encode, bincode::Decode)]
-pub struct Position {
-    pub x: f32,
-    pub y: f32,
 }
 
 // Models:

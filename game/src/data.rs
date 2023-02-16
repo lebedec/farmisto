@@ -1,13 +1,16 @@
 use log::info;
 
-use crate::building::{Grid, GridId, GridKey, GridKind};
+use crate::building::{
+    Grid, GridId, GridKey, GridKind, Surveyor, SurveyorId, SurveyorKey, SurveyorKind,
+};
 use crate::collections::Shared;
 use crate::inventory::{
     Container, ContainerId, ContainerKey, ContainerKind, Item, ItemId, ItemKey, ItemKind,
 };
 use crate::model::{
-    Construction, Drop, Farmer, FarmerKey, FarmerKind, Farmland, FarmlandKey, FarmlandKind, Player,
-    PlayerId, Theodolite, Tree, TreeKey, TreeKind,
+    Construction, Drop, Equipment, EquipmentKey, EquipmentKind, Farmer, FarmerKey, FarmerKind,
+    Farmland, FarmlandKey, FarmlandKind, Player, PlayerId, Purpose, PurposeDescription, Theodolite,
+    Tree, TreeKey, TreeKind,
 };
 use crate::physics::{
     Barrier, BarrierId, BarrierKey, BarrierKind, Body, BodyId, BodyKey, BodyKind, Space, SpaceId,
@@ -41,7 +44,12 @@ impl Game {
         }
         // building
         for kind in storage.find_all(|row| self.load_grid_kind(row).unwrap()) {
-            self.building.known_grids.insert(kind.id, Shared::new(kind));
+            self.known.grids.insert(kind.id, kind.name.clone(), kind);
+        }
+        for kind in storage.find_all(|row| self.load_surveyor_kind(row).unwrap()) {
+            self.known
+                .surveyors
+                .insert(kind.id, kind.name.clone(), kind);
         }
         // inventory
         for kind in storage.find_all(|row| self.load_container_kind(row).unwrap()) {
@@ -63,6 +71,11 @@ impl Game {
         }
         for kind in storage.find_all(|row| self.load_farmer_kind(row).unwrap()) {
             self.known.farmers.insert(kind.id, kind.name.clone(), kind);
+        }
+        for kind in storage.find_all(|row| self.load_equipment_kind(row).unwrap()) {
+            self.known
+                .equipments
+                .insert(kind.id, kind.name.clone(), kind);
         }
         info!("End game knowledge loading");
     }
@@ -89,6 +102,8 @@ impl Game {
         // building
         let (grids, sequence) = storage.get_sequence(|row| self.load_grid(row))?;
         self.building.load_grids(grids, sequence);
+        let (surveyors, sequence) = storage.get_sequence(|row| self.load_surveyor(row))?;
+        self.building.load_surveyors(surveyors, sequence);
 
         // inventory
         let (containers, sequence) = storage.get_sequence(|row| self.load_container(row))?;
@@ -105,13 +120,12 @@ impl Game {
         self.universe.load_farmers(farmers, farmers_id);
         let (drops, drops_id) = storage.get_sequence(|row| self.load_drop(row))?;
         self.universe.load_drops(drops, drops_id);
-        let (constructions, constructions_id) =
-            storage.get_sequence(|row| self.load_construction(row))?;
-        self.universe
-            .load_constructions(constructions, constructions_id);
-        let (theodolites, theodolites_id) =
-            storage.get_sequence(|row| self.load_theodolite(row))?;
-        self.universe.load_theodolites(theodolites, theodolites_id);
+        let (constructions, id) = storage.get_sequence(|row| self.load_construction(row))?;
+        self.universe.load_constructions(constructions, id);
+        let (theodolites, id) = storage.get_sequence(|row| self.load_theodolite(row))?;
+        self.universe.load_theodolites(theodolites, id);
+        let (equipments, id) = storage.get_sequence(|row| self.load_equipment(row))?;
+        self.universe.load_equipments(equipments, id);
         info!("End game state loading");
 
         Ok(())
@@ -123,6 +137,47 @@ impl Game {
         let data = Player {
             id: PlayerId(row.get("id")?),
             name: row.get("name")?,
+        };
+        Ok(data)
+    }
+
+    pub(crate) fn load_equipment_kind(
+        &mut self,
+        row: &rusqlite::Row,
+    ) -> Result<EquipmentKind, DataError> {
+        let id = row.get("id")?;
+        let barrier: String = row.get("barrier")?;
+        let purpose = if let Ok(Some(kind)) = row.get::<_, Option<String>>("p_surveyor") {
+            let surveyor = self.known.surveyors.find(&kind).unwrap().id;
+            PurposeDescription::Surveying { surveyor }
+        } else {
+            PurposeDescription::Moisture { sensor: 0 }
+        };
+        let data = EquipmentKind {
+            id: EquipmentKey(id),
+            name: row.get("name")?,
+            purpose,
+            barrier: self.known.barriers.find(&barrier).unwrap().id,
+        };
+        Ok(data)
+    }
+
+    pub(crate) fn load_equipment(&mut self, row: &rusqlite::Row) -> Result<Equipment, DataError> {
+        let id = row.get("id")?;
+        let kind = row.get("kind")?;
+        let barrier = row.get("barrier")?;
+        let purpose = if let Ok(Some(id)) = row.get("p_surveyor") {
+            Purpose::Surveying {
+                surveyor: SurveyorId(id),
+            }
+        } else {
+            Purpose::Moisture { sensor: 0 }
+        };
+        let data = Equipment {
+            id,
+            kind: EquipmentKey(kind),
+            purpose,
+            barrier: BarrierId(barrier),
         };
         Ok(data)
     }
@@ -336,6 +391,17 @@ impl Game {
         Ok(data)
     }
 
+    pub(crate) fn load_surveyor_kind(
+        &mut self,
+        row: &rusqlite::Row,
+    ) -> Result<SurveyorKind, DataError> {
+        let data = SurveyorKind {
+            id: SurveyorKey(row.get("id")?),
+            name: row.get("name")?,
+        };
+        Ok(data)
+    }
+
     pub(crate) fn load_grid(&mut self, row: &rusqlite::Row) -> Result<Grid, DataError> {
         let id = row.get("id")?;
         let kind = row.get("kind")?;
@@ -345,14 +411,21 @@ impl Game {
         let rooms = Grid::calculate_rooms(&cells);
         let data = Grid {
             id: GridId(id),
-            kind: self
-                .building
-                .known_grids
-                .get(&GridKey(kind))
-                .unwrap()
-                .clone(),
+            kind: self.known.grids.get(GridKey(kind)).unwrap(),
             cells,
             rooms,
+        };
+        Ok(data)
+    }
+
+    pub(crate) fn load_surveyor(&mut self, row: &rusqlite::Row) -> Result<Surveyor, DataError> {
+        let id = row.get("id")?;
+        let kind = row.get("kind")?;
+        let grid = row.get("grid")?;
+        let data = Surveyor {
+            id: SurveyorId(id),
+            grid: GridId(grid),
+            kind: self.known.surveyors.get(SurveyorKey(kind)).unwrap(),
         };
         Ok(data)
     }

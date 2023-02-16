@@ -4,18 +4,19 @@ extern crate core;
 use datamap::Storage;
 pub use domains::*;
 use std::collections::HashSet;
+use std::ptr::eq;
 
 use crate::api::ActionError::{ConstructionContainsUnexpectedItem, PlayerFarmerNotFound};
 use crate::api::{Action, ActionError, Event};
 use crate::building::{BuildingDomain, GridId, Marker, Material, SurveyorId};
 use crate::inventory::{Function, InventoryDomain};
-use crate::model::ItemView;
-use crate::model::Player;
 use crate::model::UniverseDomain;
 use crate::model::UniverseSnapshot;
 use crate::model::{Construction, Farmer, Universe};
 use crate::model::{Drop, Theodolite};
+use crate::model::{Equipment, ItemRep};
 use crate::model::{Farmland, Knowledge};
+use crate::model::{Player, Purpose};
 use crate::physics::{Physics, PhysicsDomain};
 use crate::planting::PlantingDomain;
 
@@ -64,7 +65,6 @@ impl Game {
         player_name: &str,
         action: Action,
     ) -> Result<Vec<Event>, ActionError> {
-        let mut events = vec![];
         let player = self
             .players
             .iter()
@@ -78,35 +78,29 @@ impl Game {
             .find(|farmer| farmer.player == player)
             .ok_or(PlayerFarmerNotFound(player_name.to_string()))?;
         let farmland = self.universe.farmlands[0];
-        match action {
-            Action::MoveFarmer { destination } => {
-                events.extend(self.move_farmer(*farmer, destination)?)
-            }
+        let events = match action {
+            Action::MoveFarmer { destination } => self.move_farmer(*farmer, destination)?,
             Action::Survey {
-                theodolite,
+                surveyor,
                 tile,
                 marker,
-            } => events.extend(self.survey(*farmer, theodolite, tile, marker)?),
+            } => self.survey(*farmer, surveyor, tile, marker)?,
             Action::Construct { construction } => {
-                events.extend(self.construct(*farmer, farmland, construction)?)
+                self.construct(*farmer, farmland, construction)?
             }
-            Action::Deconstruct { tile } => {
-                events.extend(self.deconstruct(*farmer, farmland, tile)?)
-            }
+            Action::Deconstruct { tile } => self.deconstruct(*farmer, farmland, tile)?,
             Action::RemoveConstruction { construction } => {
-                events.extend(self.remove_construction(*farmer, farmland, construction)?)
+                self.remove_construction(*farmer, farmland, construction)?
             }
-            Action::TakeItem { drop } => events.extend(self.take_item(*farmer, drop)?),
-            Action::DropItem { tile } => events.extend(self.drop_item(*farmer, tile)?),
-            Action::PutItem { drop } => events.extend(self.put_item(*farmer, drop)?),
-            Action::TakeMaterial { construction } => {
-                events.extend(self.take_material(*farmer, construction)?)
-            }
-            Action::PutMaterial { construction } => {
-                events.extend(self.put_material(*farmer, construction)?)
-            }
-            Action::ToggleBackpack => events.extend(self.toggle_backpack(*farmer)?),
-        }
+            Action::TakeItem { drop } => self.take_item(*farmer, drop)?,
+            Action::DropItem { tile } => self.drop_item(*farmer, tile)?,
+            Action::PutItem { drop } => self.put_item(*farmer, drop)?,
+            Action::TakeMaterial { construction } => self.take_material(*farmer, construction)?,
+            Action::PutMaterial { construction } => self.put_material(*farmer, construction)?,
+            Action::ToggleBackpack => self.toggle_backpack(*farmer)?,
+            Action::Uninstall { equipment } => self.uninstall_equipment(*farmer, equipment)?,
+        };
+
         Ok(events)
     }
 
@@ -116,6 +110,32 @@ impl Game {
         destination: [f32; 2],
     ) -> Result<Vec<Event>, ActionError> {
         self.physics.move_body2(farmer.body, destination);
+        Ok(vec![])
+    }
+
+    fn uninstall_equipment(
+        &mut self,
+        farmer: Farmer,
+        equipment: Equipment,
+    ) -> Result<Vec<Event>, ActionError> {
+        // match equipment.purpose {
+        //     Purpose::Surveying { surveyor } => {
+        //         let destroy_surveyor = self.building.destroy_surveyor(surveyor)?;
+        //         let destroy_barrier = self.physics.destroy_barrier(equipment.barrier)?;
+        //         let function = Function::Equipment {
+        //             kind: equipment.kind,
+        //         };
+        //         let create_item = self.inventory.create_item(function, farmer.hands)?;
+        //         let events = occur![
+        //             destroy_surveyor(),
+        //             destroy_barrier(),
+        //             create_item(),
+        //             self.universe.vanish_equipment(equipment),
+        //         ];
+        //         Ok(events)
+        //     }
+        //     Purpose::Moisture { .. } => Ok(vec![]),
+        // }
         Ok(vec![])
     }
 
@@ -212,11 +232,11 @@ impl Game {
     fn survey(
         &mut self,
         _farmer: Farmer,
-        _theodolite: Theodolite,
+        surveyor: SurveyorId,
         tile: [usize; 2],
         marker: Marker,
     ) -> Result<Vec<Event>, ActionError> {
-        let survey = self.building.survey(SurveyorId(0), tile, marker)?;
+        let survey = self.building.survey(surveyor, tile, marker)?;
         let container_kind = self.known.containers.find("<construction>").unwrap();
         let grid = GridId(1);
         let (container, create_container) =
@@ -401,10 +421,18 @@ impl Game {
             })
         }
 
+        for equipment in &self.universe.equipments {
+            let barrier = self.physics.get_barrier(equipment.barrier).unwrap();
+            stream.push(Universe::EquipmentAppeared {
+                entity: *equipment,
+                position: barrier.position,
+            })
+        }
+
         let mut items_appearance = vec![];
         for container in self.inventory.containers.values() {
             for item in &container.items {
-                items_appearance.push(ItemView {
+                items_appearance.push(ItemRep {
                     id: item.id,
                     kind: item.kind.id,
                     container: item.container,
