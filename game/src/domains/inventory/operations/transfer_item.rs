@@ -64,8 +64,9 @@ impl InventoryDomain {
             let destination = self.containers.get_mut(&destination).unwrap();
             item.container = destination.id;
             events.push(ItemAdded {
-                item: item.id,
+                id: item.id,
                 kind: item.kind.id,
+                functions: item.functions.clone(),
                 container: item.container,
             });
             destination.items.push(item);

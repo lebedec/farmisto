@@ -42,8 +42,6 @@ pub struct UniverseDomain {
     pub constructions_id: usize,
     pub drops: Vec<Drop>,
     pub drops_id: usize,
-    pub theodolites: Vec<Theodolite>,
-    pub theodolites_id: usize,
     pub equipments: Vec<Equipment>,
     pub equipments_id: usize,
 }
@@ -90,14 +88,9 @@ pub enum Universe {
     },
     EquipmentAppeared {
         entity: Equipment,
-        position: [f32; 2]
+        position: [f32; 2],
     },
     EquipmentVanished(Equipment),
-    TheodoliteAppeared {
-        entity: Theodolite,
-        cell: [usize; 2],
-    },
-    TheodoliteVanished(Theodolite),
     ItemsAppeared {
         items: Vec<ItemRep>,
     },
@@ -138,11 +131,6 @@ impl UniverseDomain {
         self.drops.extend(drops);
     }
 
-    pub fn load_theodolites(&mut self, theodolites: Vec<Theodolite>, theodolites_id: usize) {
-        self.theodolites_id = theodolites_id;
-        self.theodolites.extend(theodolites);
-    }
-
     pub fn load_equipments(&mut self, equipments: Vec<Equipment>, equipments_id: usize) {
         self.equipments_id = equipments_id;
         self.equipments.extend(equipments);
@@ -176,6 +164,40 @@ impl UniverseDomain {
         {
             self.constructions.remove(index);
             vec![Universe::ConstructionVanished { id }]
+        } else {
+            vec![]
+        }
+    }
+
+    pub(crate) fn appear_equipment(
+        &mut self,
+        kind: EquipmentKey,
+        purpose: Purpose,
+        barrier: BarrierId,
+        position: [f32; 2],
+    ) -> Vec<Universe> {
+        self.equipments_id += 1;
+        let equipment = Equipment {
+            id: self.equipments_id,
+            kind,
+            purpose,
+            barrier,
+        };
+        self.equipments.push(equipment);
+        vec![Universe::EquipmentAppeared {
+            entity: equipment,
+            position,
+        }]
+    }
+
+    pub(crate) fn vanish_equipment(&mut self, id: Equipment) -> Vec<Universe> {
+        if let Some(index) = self
+            .equipments
+            .iter()
+            .position(|equipment| equipment == &id)
+        {
+            self.equipments.remove(index);
+            vec![Universe::EquipmentVanished(id)]
         } else {
             vec![]
         }
@@ -304,12 +326,6 @@ pub struct Construction {
 pub struct Deconstruction {
     pub id: usize,
     pub grid: GridId,
-    pub cell: [usize; 2],
-}
-
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
-pub struct Theodolite {
-    pub id: usize,
     pub cell: [usize; 2],
 }
 

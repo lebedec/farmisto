@@ -1,16 +1,15 @@
 use crate::engine::Frame;
 use crate::gameplay::representation::{
-    BarrierHint, ConstructionRep, DropRep, EquipmentRep, FarmerRep, FarmlandRep, TheodoliteRep,
-    TreeRep,
+    BarrierHint, ConstructionRep, DropRep, EquipmentRep, FarmerRep, FarmlandRep, TreeRep,
 };
-use crate::gameplay::Gameplay;
+use crate::gameplay::{Activity, Gameplay};
 use game::api::Event;
 use game::building::Building;
-use game::inventory::Inventory;
+use game::inventory::{Function, Inventory};
 use game::model::{ItemRep, Universe};
 use game::physics::Physics;
 use game::planting::Planting;
-use log::info;
+use log::{error, info};
 use std::collections::HashMap;
 
 impl Gameplay {
@@ -56,6 +55,8 @@ impl Gameplay {
                     }
                 }
             }
+            Building::SurveyorCreated { .. } => {}
+            Building::SurveyorDestroyed { .. } => {}
         }
     }
 
@@ -66,9 +67,10 @@ impl Gameplay {
                 self.items.remove(&id);
             }
             Inventory::ItemAdded {
-                item,
+                id: item,
                 kind,
                 container,
+                functions,
             } => {
                 info!("item added {:?} to {:?}", item, container);
                 let items = self.items.entry(container).or_insert(HashMap::new());
@@ -80,6 +82,38 @@ impl Gameplay {
                         container,
                     },
                 );
+
+                let farmer = match self
+                    .farmers
+                    .values_mut()
+                    .find(|farmer| farmer.player == self.client.player)
+                {
+                    None => {
+                        error!("Farmer behaviour not initialized yet");
+                        return;
+                    }
+                    Some(farmer) => {
+                        let ptr = farmer as *mut FarmerRep;
+                        unsafe {
+                            // TODO: safe farmer behaviour mutation
+                            &mut *ptr
+                        }
+                    }
+                };
+
+                if container == farmer.entity.hands {
+                    let mut is_equipment = false;
+                    for f in functions {
+                        if let Function::Equipment { kind } = f {
+                            is_equipment = true;
+                            break;
+                        }
+                    }
+
+                    if is_equipment {
+                        self.activity = Activity::Installing { item }
+                    }
+                }
             }
             Inventory::ItemRemoved { item, container } => {
                 info!("item removed {:?} from {:?}", item, container);
@@ -313,8 +347,6 @@ impl Gameplay {
             Universe::ConstructionVanished { id } => {
                 self.constructions.remove(&id);
             }
-            Universe::TheodoliteAppeared { entity, cell } => {}
-            Universe::TheodoliteVanished(theodolite) => {}
             Universe::ItemsAppeared { items } => {
                 for item in items {
                     let container = self.items.entry(item.container).or_insert(HashMap::new());

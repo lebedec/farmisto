@@ -22,9 +22,11 @@ pub struct Container {
     pub items: Vec<Item>,
 }
 
-#[derive(Clone, PartialEq, Eq, Hash, serde::Deserialize)]
+#[derive(
+    Debug, Copy, Clone, PartialEq, Eq, Hash, serde::Deserialize, bincode::Encode, bincode::Decode,
+)]
 pub enum Function {
-    Material { keyword: String },
+    Material { keyword: usize },
     Equipment { kind: usize },
     Carry,
     Hammer,
@@ -36,7 +38,6 @@ pub struct ItemKey(pub usize);
 pub struct ItemKind {
     pub id: ItemKey,
     pub name: String,
-    pub functions: Vec<Function>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
@@ -46,6 +47,7 @@ pub struct Item {
     pub id: ItemId,
     pub kind: Shared<ItemKind>,
     pub container: ContainerId,
+    pub functions: Vec<Function>,
 }
 
 #[derive(Debug, bincode::Encode, bincode::Decode)]
@@ -57,8 +59,9 @@ pub enum Inventory {
         id: ContainerId,
     },
     ItemAdded {
-        item: ItemId,
+        id: ItemId,
         kind: ItemKey,
+        functions: Vec<Function>,
         container: ContainerId,
     },
     ItemRemoved {

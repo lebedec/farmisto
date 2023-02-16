@@ -99,6 +99,13 @@ pub enum Building {
         cells: Vec<Vec<Cell>>,
         rooms: Vec<Room>,
     },
+    SurveyorCreated {
+        id: SurveyorId,
+        grid: GridId,
+    },
+    SurveyorDestroyed {
+        id: SurveyorId,
+    },
 }
 
 impl Debug for Building {
@@ -118,6 +125,7 @@ pub enum BuildingError {
     CellHasWall { cell: [usize; 2] },
     CellHasNoWall { cell: [usize; 2] },
     CellHasNoMarkers { cell: [usize; 2] },
+    SurveyorNotFound { id: SurveyorId },
 }
 
 #[derive(Default)]
@@ -168,8 +176,19 @@ impl BuildingDomain {
     }
 
     #[inline]
-    pub fn get_surveyor(&self, id: SurveyorId) -> &Surveyor {
-        &self.surveyors[id.0]
+    pub fn get_surveyor(&self, id: SurveyorId) -> Result<&Surveyor, BuildingError> {
+        self.surveyors
+            .iter()
+            .find(|surveyor| surveyor.id == id)
+            .ok_or(BuildingError::SurveyorNotFound { id })
+    }
+
+    #[inline]
+    pub fn index_surveyor(&self, id: SurveyorId) -> Result<usize, BuildingError> {
+        self.surveyors
+            .iter()
+            .position(|surveyor| surveyor.id == id)
+            .ok_or(BuildingError::SurveyorNotFound { id })
     }
 
     pub fn index_material(

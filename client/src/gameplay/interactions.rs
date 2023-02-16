@@ -134,6 +134,30 @@ impl Gameplay {
                     self.activity = Activity::Idle;
                 }
             },
+            Activity::Installing { item } => match intention {
+                Use => match target {
+                    Target::Ground(tile) => {
+                        self.send_action(Action::Install { item, tile });
+                        self.activity = Activity::Idle;
+                    }
+                    _ => {}
+                },
+                Put => match target {
+                    Target::Ground(tile) => {
+                        self.send_action(Action::DropItem { tile });
+                        self.activity = Activity::Idle;
+                    }
+                    Target::Drop(drop) => {
+                        self.send_action(Action::PutItem { drop });
+                        self.activity = Activity::Idle;
+                    }
+                    _ => {}
+                },
+                Swap => {
+                    self.send_action(Action::ToggleBackpack);
+                    self.activity = Activity::Idle;
+                }
+            },
         }
     }
 }

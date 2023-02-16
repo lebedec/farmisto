@@ -74,7 +74,7 @@ fn test_regular_drop_item() {
                     },
                     ContainerCreated { id: ContainerId(2) },
                     ItemAdded {
-                        item: given.item("crate"),
+                        id: given.item("crate"),
                         kind: given.item_key("wood-material"),
                         container: ContainerId(2),
                     },

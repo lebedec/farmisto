@@ -1,6 +1,6 @@
 use crate::building::{Building, BuildingError, Marker, SurveyorId};
-use crate::inventory::{Inventory, InventoryError};
-use crate::model::{Construction, Drop, Equipment, Farmer, Theodolite, Universe, UniverseError};
+use crate::inventory::{Inventory, InventoryError, ItemId};
+use crate::model::{Construction, Drop, Equipment, EquipmentKey, Farmer, Universe, UniverseError};
 use crate::physics::{Physics, PhysicsError};
 use crate::planting::Planting;
 use std::fmt::Debug;
@@ -48,10 +48,10 @@ pub enum Action {
     MoveFarmer {
         destination: [f32; 2],
     },
-    // Install {
-    //     item: ItemId,
-    //     tile: [usize; 2],
-    // },
+    Install {
+        item: ItemId,
+        tile: [usize; 2],
+    },
     Uninstall {
         equipment: Equipment,
     },
@@ -98,6 +98,8 @@ pub enum ActionError {
     ConstructionContainerNotFound(Construction),
     ConstructionContainerNotInitialized(Construction),
     ConstructionContainsUnexpectedItem(Construction),
+    ItemHasNoEquipmentFunction,
+    EquipmentKindNotFound { key: EquipmentKey },
     Test,
 }
 

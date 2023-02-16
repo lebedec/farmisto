@@ -2,16 +2,14 @@ use crate::engine::sprites::SpineSpriteController;
 use crate::engine::{Input, SpineAsset, SpriteAsset, TextureAsset};
 use crate::gameplay::camera::Camera;
 use crate::gameplay::representation::{
-    BarrierHint, ConstructionRep, DropRep, EquipmentRep, FarmerRep, FarmlandRep, TheodoliteRep,
-    TreeRep,
+    BarrierHint, ConstructionRep, DropRep, EquipmentRep, FarmerRep, FarmlandRep, TreeRep,
 };
 use crate::{Frame, Mode};
 use datamap::Storage;
 use game::api::{Action, Event, GameResponse, PlayerRequest};
 use game::math::{test_collisions, VectorMath};
 use game::model::{
-    Construction, Drop, Equipment, Farmer, Farmland, ItemRep, Knowledge, Purpose, Theodolite, Tree,
-    Universe,
+    Construction, Drop, Equipment, Farmer, Farmland, ItemRep, Knowledge, Purpose, Tree, Universe,
 };
 use game::Game;
 use glam::vec3;
@@ -43,7 +41,7 @@ pub fn position_of(tile: [usize; 2]) -> [f32; 2] {
     [tile[0] as f32 + 0.5, tile[1] as f32 + 0.5]
 }
 
-#[derive(PartialEq, Eq)]
+#[derive(PartialEq, Eq, Clone)]
 pub enum Activity {
     Idle,
     Delivery,
@@ -52,6 +50,9 @@ pub enum Activity {
         selection: usize,
     },
     Instrumenting,
+    Installing {
+        item: ItemId,
+    },
 }
 
 pub enum Intention {
@@ -262,7 +263,10 @@ impl Gameplay {
         }
 
         match self.activity {
-            Activity::Instrumenting | Activity::Idle | Activity::Delivery => {}
+            Activity::Instrumenting
+            | Activity::Idle
+            | Activity::Delivery
+            | Activity::Installing { .. } => {}
             _ => {
                 // not movement allowed
                 return;

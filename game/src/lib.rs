@@ -3,21 +3,19 @@ extern crate core;
 
 use datamap::Storage;
 pub use domains::*;
-use std::collections::HashSet;
-use std::ptr::eq;
 
 use crate::api::ActionError::{ConstructionContainsUnexpectedItem, PlayerFarmerNotFound};
 use crate::api::{Action, ActionError, Event};
 use crate::building::{BuildingDomain, GridId, Marker, Material, SurveyorId};
-use crate::inventory::{Function, InventoryDomain};
-use crate::model::UniverseDomain;
+use crate::inventory::{Function, InventoryDomain, ItemId};
+use crate::model::Drop;
 use crate::model::UniverseSnapshot;
 use crate::model::{Construction, Farmer, Universe};
-use crate::model::{Drop, Theodolite};
 use crate::model::{Equipment, ItemRep};
+use crate::model::{EquipmentKey, PurposeDescription, UniverseDomain};
 use crate::model::{Farmland, Knowledge};
 use crate::model::{Player, Purpose};
-use crate::physics::{Physics, PhysicsDomain};
+use crate::physics::PhysicsDomain;
 use crate::planting::PlantingDomain;
 
 pub mod api;
@@ -99,6 +97,9 @@ impl Game {
             Action::PutMaterial { construction } => self.put_material(*farmer, construction)?,
             Action::ToggleBackpack => self.toggle_backpack(*farmer)?,
             Action::Uninstall { equipment } => self.uninstall_equipment(*farmer, equipment)?,
+            Action::Install { item, tile } => {
+                self.install_equipment(*farmer, farmland, item, tile)?
+            }
         };
 
         Ok(events)
@@ -118,25 +119,91 @@ impl Game {
         farmer: Farmer,
         equipment: Equipment,
     ) -> Result<Vec<Event>, ActionError> {
-        // match equipment.purpose {
-        //     Purpose::Surveying { surveyor } => {
-        //         let destroy_surveyor = self.building.destroy_surveyor(surveyor)?;
-        //         let destroy_barrier = self.physics.destroy_barrier(equipment.barrier)?;
-        //         let function = Function::Equipment {
-        //             kind: equipment.kind,
-        //         };
-        //         let create_item = self.inventory.create_item(function, farmer.hands)?;
-        //         let events = occur![
-        //             destroy_surveyor(),
-        //             destroy_barrier(),
-        //             create_item(),
-        //             self.universe.vanish_equipment(equipment),
-        //         ];
-        //         Ok(events)
-        //     }
-        //     Purpose::Moisture { .. } => Ok(vec![]),
-        // }
-        Ok(vec![])
+        match equipment.purpose {
+            Purpose::Surveying { surveyor } => {
+                let destroy_surveyor = self.building.destroy_surveyor(surveyor)?;
+                let destroy_barrier = self.physics.destroy_barrier(equipment.barrier)?;
+                let functions = vec![Function::Equipment {
+                    kind: equipment.kind.0,
+                }];
+                let kind = self.known.items.find("<equipment>").unwrap();
+                let (_, create_item) = self.inventory.create_item(kind, functions, farmer.hands)?;
+                let vanish_equipment = self.universe.vanish_equipment(equipment);
+
+                //
+                // let tile = construction.cell;
+                // let destroy_container = self
+                //     .inventory
+                //     .destroy_container(construction.container, false)?;
+                // let destroy_marker = self.building.destroy_wall(farmland.grid, tile)?;
+                // let events = occur![
+                //     destroy_container(),
+                //     destroy_marker(),
+                //     self.universe.vanish_construction(construction),
+                // ];
+                //
+                // self.universe.vanish_construction(construction);
+
+                let events = occur![
+                    destroy_surveyor(),
+                    destroy_barrier(),
+                    create_item(),
+                    vanish_equipment,
+                ];
+                Ok(events)
+            }
+            Purpose::Moisture { .. } => Ok(vec![]),
+        }
+    }
+
+    fn install_equipment(
+        &mut self,
+        farmer: Farmer,
+        farmland: Farmland,
+        item: ItemId,
+        tile: [usize; 2],
+    ) -> Result<Vec<Event>, ActionError> {
+        let container = self.inventory.get_container(farmer.hands)?;
+        let item = container.get_item(item)?;
+        let function = item.functions[0].clone();
+        let equipment_kind = match function {
+            Function::Equipment { kind } => {
+                let key = EquipmentKey(kind);
+                let equipment_kind = self
+                    .known
+                    .equipments
+                    .get(key)
+                    .ok_or(ActionError::EquipmentKindNotFound { key })?;
+                equipment_kind
+            }
+            _ => {
+                return Err(ActionError::ItemHasNoEquipmentFunction);
+            }
+        };
+
+        match equipment_kind.purpose {
+            PurposeDescription::Surveying { surveyor } => {
+                let position = position_of(tile);
+                let use_item = self.inventory.use_items_from(farmer.hands)?;
+                let kind = self.known.surveyors.get(surveyor).unwrap();
+                let (surveyor, create_surveyor) =
+                    self.building.create_surveyor(farmland.grid, kind)?;
+                let kind = self.known.barriers.find("<equipment>").unwrap();
+                let (barrier, create_barrier) =
+                    self.physics
+                        .create_barrier(farmland.space, kind, position, false)?;
+                let purpose = Purpose::Surveying { surveyor };
+                let events = occur![
+                    use_item(),
+                    create_surveyor(),
+                    create_barrier(),
+                    self.universe
+                        .appear_equipment(equipment_kind.id, purpose, barrier, position),
+                ];
+                Ok(events)
+            }
+            PurposeDescription::Moisture { .. } => Ok(vec![]),
+        }
     }
 
     fn toggle_backpack(&mut self, farmer: Farmer) -> Result<Vec<Event>, ActionError> {
@@ -272,17 +339,18 @@ impl Game {
         construction: Construction,
     ) -> Result<Vec<Event>, ActionError> {
         let container = self.inventory.get_container(construction.container)?;
-        let mut keywords = HashSet::new();
+        let mut keywords = Vec::new();
         for item in &container.items {
-            for function in &item.kind.functions {
+            for function in &item.functions {
                 if let Function::Material { keyword } = function {
-                    keywords.insert(keyword);
+                    keywords.push(*keyword);
                 } else {
                     return Err(ConstructionContainsUnexpectedItem(construction));
                 }
             }
         }
-        let material = self.building.index_material(farmland.grid, keywords)?;
+        // let material = self.building.index_material(farmland.grid, keywords)?;
+        let material = Material(*keywords.get(0).unwrap_or(&0usize) as u8);
         let tile = construction.cell;
 
         let use_items = self.inventory.use_items_from(construction.container)?;
@@ -411,13 +479,6 @@ impl Game {
             stream.push(Universe::ConstructionAppeared {
                 id: *construction,
                 cell: construction.cell,
-            })
-        }
-
-        for theodolite in &self.universe.theodolites {
-            stream.push(Universe::TheodoliteAppeared {
-                entity: *theodolite,
-                cell: theodolite.cell,
             })
         }
 

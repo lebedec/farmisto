@@ -9,8 +9,8 @@ use crate::inventory::{
 };
 use crate::model::{
     Construction, Drop, Equipment, EquipmentKey, EquipmentKind, Farmer, FarmerKey, FarmerKind,
-    Farmland, FarmlandKey, FarmlandKind, Player, PlayerId, Purpose, PurposeDescription, Theodolite,
-    Tree, TreeKey, TreeKind,
+    Farmland, FarmlandKey, FarmlandKind, Player, PlayerId, Purpose, PurposeDescription, Tree,
+    TreeKey, TreeKind,
 };
 use crate::physics::{
     Barrier, BarrierId, BarrierKey, BarrierKind, Body, BodyId, BodyKey, BodyKind, Space, SpaceId,
@@ -122,8 +122,6 @@ impl Game {
         self.universe.load_drops(drops, drops_id);
         let (constructions, id) = storage.get_sequence(|row| self.load_construction(row))?;
         self.universe.load_constructions(constructions, id);
-        let (theodolites, id) = storage.get_sequence(|row| self.load_theodolite(row))?;
-        self.universe.load_theodolites(theodolites, id);
         let (equipments, id) = storage.get_sequence(|row| self.load_equipment(row))?;
         self.universe.load_equipments(equipments, id);
         info!("End game state loading");
@@ -288,15 +286,6 @@ impl Game {
         Ok(data)
     }
 
-    pub(crate) fn load_theodolite(&mut self, row: &rusqlite::Row) -> Result<Theodolite, DataError> {
-        let cell: String = row.get("cell")?;
-        let data = Theodolite {
-            id: row.get("id")?,
-            cell: serde_json::from_str(&cell)?,
-        };
-        Ok(data)
-    }
-
     // physics
 
     pub(crate) fn load_space_kind(&mut self, row: &rusqlite::Row) -> Result<SpaceKind, DataError> {
@@ -455,21 +444,21 @@ impl Game {
     }
 
     pub(crate) fn load_item_kind(&mut self, row: &rusqlite::Row) -> Result<ItemKind, DataError> {
-        let functions: String = row.get("functions")?;
         let data = ItemKind {
             id: ItemKey(row.get("id")?),
             name: row.get("name")?,
-            functions: serde_json::from_str(&functions)?,
         };
         Ok(data)
     }
 
     pub(crate) fn load_item(&mut self, row: &rusqlite::Row) -> Result<Item, DataError> {
+        let functions: String = row.get("functions")?;
         let key = row.get("kind")?;
         let data = Item {
             id: ItemId(row.get("id")?),
             kind: self.known.items.get(ItemKey(key)).unwrap(),
             container: ContainerId(row.get("container")?),
+            functions: serde_json::from_str(&functions)?,
         };
         Ok(data)
     }

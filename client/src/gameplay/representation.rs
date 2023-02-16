@@ -3,9 +3,11 @@ use crate::engine::{FarmerAsset, FarmlandAsset, TreeAsset};
 use game::building::{Cell, Room};
 use game::collections::Shared;
 use game::math::{Collider, VectorMath};
-use game::model::{Construction, Drop, Equipment, Farmer, FarmerKind, Farmland, FarmlandKind, Theodolite, Tree, TreeKind};
-use game::physics::{BarrierId, BarrierKey, BodyKind};
-use log::{error, info};
+use game::model::{
+    Construction, Drop, Equipment, Farmer, FarmerKind, Farmland, FarmlandKind, Tree, TreeKind,
+};
+use game::physics::{BarrierId, BodyKind};
+use log::error;
 
 pub struct FarmerRep {
     pub entity: Farmer,
@@ -108,12 +110,7 @@ pub struct ConstructionRep {
     pub tile: [usize; 2],
 }
 
-pub struct TheodoliteRep {
-    pub entity: Theodolite,
-    pub tile: [usize; 2],
-}
-
 pub struct EquipmentRep {
     pub entity: Equipment,
-    pub position: [f32; 2]
+    pub position: [f32; 2],
 }
