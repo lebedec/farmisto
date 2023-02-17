@@ -1,34 +1,25 @@
 use crate::gameplay::representation::FarmerRep;
 use crate::gameplay::Intention::{Put, Swap, Use};
-use crate::gameplay::{Activity, Gameplay, Intention, Target};
+use crate::gameplay::{Gameplay, Intention, Target};
 use game::api::Action;
 use game::building::Marker;
-use game::model::Purpose;
+use game::model::{Activity, Purpose};
 use log::error;
 
 impl Gameplay {
-    pub fn interact_with(&mut self, farmer: &FarmerRep, target: Target, intention: Intention) {
-        match self.activity {
+    pub fn interact_with(&mut self, farmer: &mut FarmerRep, target: Target, intention: Intention) {
+        match farmer.activity {
             Activity::Idle => match intention {
                 Use => match target {
                     Target::Drop(drop) => {
                         self.send_action(Action::TakeItem { drop });
-                        self.activity = Activity::Delivery;
-                        // if hands capacity
                     }
                     Target::Construction(construction) => {
                         self.send_action(Action::TakeMaterial { construction });
-                        self.activity = Activity::Delivery;
                     }
-                    Target::Equipment(equipment) => match equipment.purpose {
-                        Purpose::Surveying { .. } => {
-                            self.activity = Activity::Surveying {
-                                equipment,
-                                selection: 0,
-                            };
-                        }
-                        Purpose::Moisture { .. } => {}
-                    },
+                    Target::Equipment(equipment) => {
+                        self.send_action(Action::UseEquipment { equipment });
+                    }
                     _ => {}
                 },
                 Put => match target {
@@ -39,7 +30,6 @@ impl Gameplay {
                 },
                 Swap => {
                     self.send_action(Action::ToggleBackpack);
-                    self.activity = Activity::Instrumenting;
                 }
             },
             Activity::Delivery => match intention {
@@ -56,21 +46,12 @@ impl Gameplay {
                 Put => match target {
                     Target::Ground(tile) => {
                         self.send_action(Action::DropItem { tile });
-                        if self.items.get(&farmer.entity.hands).unwrap().len() == 1 {
-                            self.activity = Activity::Idle;
-                        }
                     }
                     Target::Drop(drop) => {
                         self.send_action(Action::PutItem { drop });
-                        if self.items.get(&farmer.entity.hands).unwrap().len() == 1 {
-                            self.activity = Activity::Idle;
-                        }
                     }
                     Target::Construction(construction) => {
                         self.send_action(Action::PutMaterial { construction });
-                        if self.items.get(&farmer.entity.hands).unwrap().len() == 1 {
-                            self.activity = Activity::Idle;
-                        }
                     }
                     Target::Equipment(_) => {
                         // beep error
@@ -110,12 +91,11 @@ impl Gameplay {
                         // beep error
                     }
                 },
-                Put => self.activity = Activity::Idle,
+                Put => {
+                    self.send_action(Action::CancelActivity);
+                }
                 Swap => {
-                    self.activity = Activity::Surveying {
-                        equipment,
-                        selection: (selection + 1) % 4,
-                    }
+                    self.send_action(Action::ToggleSurveyingOption);
                 }
             },
             Activity::Instrumenting => match intention {
@@ -131,31 +111,26 @@ impl Gameplay {
                 Put => {}
                 Swap => {
                     self.send_action(Action::ToggleBackpack);
-                    self.activity = Activity::Idle;
                 }
             },
             Activity::Installing { item } => match intention {
                 Use => match target {
                     Target::Ground(tile) => {
                         self.send_action(Action::Install { item, tile });
-                        self.activity = Activity::Idle;
                     }
                     _ => {}
                 },
                 Put => match target {
                     Target::Ground(tile) => {
                         self.send_action(Action::DropItem { tile });
-                        self.activity = Activity::Idle;
                     }
                     Target::Drop(drop) => {
                         self.send_action(Action::PutItem { drop });
-                        self.activity = Activity::Idle;
                     }
                     _ => {}
                 },
                 Swap => {
                     self.send_action(Action::ToggleBackpack);
-                    self.activity = Activity::Idle;
                 }
             },
         }

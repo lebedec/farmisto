@@ -9,7 +9,8 @@ use datamap::Storage;
 use game::api::{Action, Event, GameResponse, PlayerRequest};
 use game::math::{test_collisions, VectorMath};
 use game::model::{
-    Construction, Drop, Equipment, Farmer, Farmland, ItemRep, Knowledge, Purpose, Tree, Universe,
+    Activity, Construction, Drop, Equipment, Farmer, Farmland, ItemRep, Knowledge, Purpose, Tree,
+    Universe,
 };
 use game::Game;
 use glam::vec3;
@@ -39,20 +40,6 @@ pub fn rendering_position_of(position: [f32; 2]) -> [f32; 2] {
 #[inline]
 pub fn position_of(tile: [usize; 2]) -> [f32; 2] {
     [tile[0] as f32 + 0.5, tile[1] as f32 + 0.5]
-}
-
-#[derive(PartialEq, Eq, Clone)]
-pub enum Activity {
-    Idle,
-    Delivery,
-    Surveying {
-        equipment: Equipment,
-        selection: usize,
-    },
-    Instrumenting,
-    Installing {
-        item: ItemId,
-    },
 }
 
 pub enum Intention {
@@ -112,7 +99,6 @@ pub struct Gameplay {
     pub theodolite_sprite: SpriteAsset,
     pub theodolite_gui_sprite: SpriteAsset,
     pub theodolite_gui_select_sprite: SpriteAsset,
-    pub activity: Activity,
     pub gui_controls: SpriteAsset,
 }
 
@@ -159,7 +145,6 @@ impl Gameplay {
             theodolite_sprite: assets.sprite("theodolite"),
             theodolite_gui_sprite: assets.sprite("building-gui"),
             theodolite_gui_select_sprite: assets.sprite("building-gui-select"),
-            activity: Activity::Idle,
             gui_controls: assets.sprite("gui-controls"),
         }
     }
@@ -177,8 +162,12 @@ impl Gameplay {
                 GameResponse::Login { result } => {
                     error!("Unexpected game login response result={:?}", result);
                 }
-                GameResponse::ActionError { action_id, error } => {
-                    error!("Action {} error {:?}", action_id, error);
+                GameResponse::ActionError {
+                    action_id,
+                    response,
+                } => {
+                    error!("Action {} error response {:?}", action_id, response);
+                    self.farmers.get_mut(&response.farmer).unwrap().activity = response.correction;
                 }
             }
         }
@@ -262,7 +251,7 @@ impl Gameplay {
             self.interact_with(farmer, target, intention);
         }
 
-        match self.activity {
+        match farmer.activity {
             Activity::Instrumenting
             | Activity::Idle
             | Activity::Delivery

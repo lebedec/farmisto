@@ -38,6 +38,7 @@ pub struct UniverseDomain {
     trees_id: usize,
     pub farmers: Vec<Farmer>,
     pub farmers_id: usize,
+    pub farmers_activity: HashMap<Farmer, Activity>,
     pub constructions: Vec<Construction>,
     pub constructions_id: usize,
     pub drops: Vec<Drop>,
@@ -48,6 +49,10 @@ pub struct UniverseDomain {
 
 #[derive(Debug, bincode::Encode, bincode::Decode)]
 pub enum Universe {
+    ActivityChanged {
+        farmer: Farmer,
+        activity: Activity,
+    },
     BarrierHintAppeared {
         id: BarrierId,
         kind: BarrierKey,
@@ -98,7 +103,13 @@ pub enum Universe {
 
 #[derive(Debug, bincode::Encode, bincode::Decode)]
 pub enum UniverseError {
-    Nothing,
+    FarmerActivityNotRegistered {
+        farmer: Farmer,
+    },
+    FarmerActivityMismatch {
+        expected: Activity,
+        actual: Activity,
+    },
 }
 
 impl UniverseDomain {
@@ -109,6 +120,9 @@ impl UniverseDomain {
 
     pub fn load_farmers(&mut self, farmers: Vec<Farmer>, farmers_id: usize) {
         self.farmers_id = farmers_id;
+        for farmer in &farmers {
+            self.farmers_activity.insert(*farmer, Activity::Idle);
+        }
         self.farmers.extend(farmers);
     }
 
@@ -140,6 +154,7 @@ impl UniverseDomain {
         &mut self,
         container: ContainerId,
         grid: GridId,
+        surveyor: SurveyorId,
         cell: [usize; 2],
     ) -> Vec<Universe> {
         self.constructions_id += 1;
@@ -147,6 +162,7 @@ impl UniverseDomain {
             id: self.constructions_id,
             container,
             grid,
+            surveyor,
             cell,
         };
         self.constructions.push(construction);
@@ -228,6 +244,31 @@ impl UniverseDomain {
         self.drops.remove(index);
         vec![Universe::DropVanished(drop)]
     }
+
+    pub fn get_farmer_activity(&self, farmer: Farmer) -> Result<Activity, UniverseError> {
+        self.farmers_activity
+            .get(&farmer)
+            .cloned()
+            .ok_or(UniverseError::FarmerActivityNotRegistered { farmer })
+    }
+
+    pub fn ensure_activity(
+        &self,
+        farmer: Farmer,
+        expected: Activity,
+    ) -> Result<Activity, UniverseError> {
+        let actual = self.get_farmer_activity(farmer)?;
+        if actual != expected {
+            Err(UniverseError::FarmerActivityMismatch { expected, actual })
+        } else {
+            Ok(actual)
+        }
+    }
+
+    pub fn change_activity(&mut self, farmer: Farmer, activity: Activity) -> Vec<Universe> {
+        self.farmers_activity.insert(farmer, activity);
+        vec![Universe::ActivityChanged { farmer, activity }]
+    }
 }
 
 #[derive(Default)]
@@ -264,6 +305,20 @@ pub struct FarmerKind {
     pub id: FarmerKey,
     pub name: String,
     pub body: BodyKey,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
+pub enum Activity {
+    Idle,
+    Delivery,
+    Surveying {
+        equipment: Equipment,
+        selection: usize,
+    },
+    Instrumenting,
+    Installing {
+        item: ItemId,
+    },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
@@ -319,6 +374,7 @@ pub struct Construction {
     pub id: usize,
     pub container: ContainerId,
     pub grid: GridId,
+    pub surveyor: SurveyorId,
     pub cell: [usize; 2],
 }
 

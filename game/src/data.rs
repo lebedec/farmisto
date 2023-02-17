@@ -281,6 +281,7 @@ impl Game {
             id: row.get("id")?,
             container: ContainerId(row.get("container")?),
             grid: GridId(row.get("grid")?),
+            surveyor: SurveyorId(row.get("surveyor")?),
             cell: serde_json::from_str(&cell)?,
         };
         Ok(data)

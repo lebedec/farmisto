@@ -1,6 +1,8 @@
 use crate::building::{Building, BuildingError, Marker, SurveyorId};
 use crate::inventory::{Inventory, InventoryError, ItemId};
-use crate::model::{Construction, Drop, Equipment, EquipmentKey, Farmer, Universe, UniverseError};
+use crate::model::{
+    Activity, Construction, Drop, Equipment, EquipmentKey, Farmer, Universe, UniverseError,
+};
 use crate::physics::{Physics, PhysicsError};
 use crate::planting::Planting;
 use std::fmt::Debug;
@@ -29,7 +31,7 @@ pub enum GameResponse {
     },
     ActionError {
         action_id: usize,
-        error: ActionError,
+        response: ActionResponse,
     },
     Login {
         result: LoginResult,
@@ -55,7 +57,12 @@ pub enum Action {
     Uninstall {
         equipment: Equipment,
     },
+    UseEquipment {
+        equipment: Equipment,
+    },
+    CancelActivity,
     ToggleBackpack,
+    ToggleSurveyingOption,
     TakeMaterial {
         construction: Construction,
     },
@@ -85,6 +92,13 @@ pub enum Action {
     PutItem {
         drop: Drop,
     },
+}
+
+#[derive(Debug, bincode::Encode, bincode::Decode)]
+pub struct ActionResponse {
+    pub error: ActionError,
+    pub farmer: Farmer,
+    pub correction: Activity,
 }
 
 #[derive(Debug, bincode::Encode, bincode::Decode)]

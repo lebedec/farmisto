@@ -136,8 +136,8 @@ create table Container
 
 create table ItemKind
 (
-    id        integer primary key,
-    name      text not null unique
+    id   integer primary key,
+    name text not null unique
 );
 
 create table Item
@@ -145,7 +145,7 @@ create table Item
     id        integer primary key,
     kind      integer not null references ItemKind,
     container integer not null references Container,
-    functions json not null
+    functions json    not null
 );
 
 -- Universe
@@ -213,6 +213,7 @@ create table Construction
     id        integer primary key,
     container integer not null references Container,
     grid      integer not null references Grid,
+    surveyor  integer not null references Surveyor,
     cell      json    not null
 );
 

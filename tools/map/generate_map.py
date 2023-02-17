@@ -27,7 +27,7 @@ def generate_land(land_id: int, user_define: List[str]):
     connection.commit()
 
 
-def generate_grid(grid_id: int, space_id: int, user_define_map: str):
+def generate_grid(grid_id: int, space_id: int, surveyor: int, user_define_map: str):
     user_define = []
     for line in user_define_map.splitlines(keepends=False):
         line = line.strip().replace(' ', '')
@@ -101,8 +101,8 @@ def generate_grid(grid_id: int, space_id: int, user_define_map: str):
         cursor.execute('insert into Container (kind) values (1)')  # 1 - <construction> kind
         container_id = cursor.lastrowid
         cursor.execute(
-            'insert into Construction (container, grid, cell) values (?, ?, ?)',
-            [container_id, grid_id, json.dumps(cell)]
+            'insert into Construction (container, grid, surveyor, cell) values (?, ?, ?, ?)',
+            [container_id, grid_id, surveyor, json.dumps(cell)]
         )
     connection.commit()
 
@@ -140,6 +140,7 @@ if __name__ == '__main__':
     print(len(value), value)
     print(len(result), result)
     generate_grid(
+        1,
         1,
         1,
         """

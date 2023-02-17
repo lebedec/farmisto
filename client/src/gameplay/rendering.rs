@@ -1,7 +1,7 @@
 use crate::engine::Frame;
-use crate::gameplay::{position_of, rendering_position_of, Activity, Gameplay, TILE_SIZE};
+use crate::gameplay::{position_of, rendering_position_of, Gameplay, TILE_SIZE};
 use game::math::VectorMath;
-use game::model::Purpose;
+use game::model::{Activity, Purpose};
 use lazy_static::lazy_static;
 use std::collections::HashMap;
 
@@ -178,11 +178,11 @@ impl Gameplay {
         }
         let cursor_x = cursor_x as f32 * TILE_SIZE + 64.0;
         let cursor_y = cursor_y as f32 * TILE_SIZE + 64.0;
-        let position = [cursor_x, cursor_y];
+        let cursor_position = [cursor_x, cursor_y];
         renderer.render_sprite(
             &self.cursor,
-            position,
-            (position[1] / TILE_SIZE) as usize,
+            cursor_position,
+            (cursor_position[1] / TILE_SIZE) as usize,
             1.0,
         );
 
@@ -291,30 +291,32 @@ impl Gameplay {
                     let sprite_line = equipment.position[1] as usize;
                     let position = rendering_position_of(equipment.position);
                     renderer.render_sprite(&self.theodolite_sprite, position, sprite_line, 1.0);
-
-                    if let Activity::Surveying {
-                        equipment: active_equipment,
-                        selection,
-                    } = self.activity
-                    {
-                        if equipment.entity != active_equipment {
-                            continue;
-                        }
-                        renderer.render_sprite(
-                            &self.theodolite_gui_sprite,
-                            position.add([0.0, -32.0]),
-                            sprite_line,
-                            1.0,
-                        );
-                        renderer.render_sprite(
-                            &self.theodolite_gui_select_sprite,
-                            position.add([-196.0 + 128.0 * (selection as f32), -224.0]),
-                            sprite_line,
-                            1.0,
-                        );
-                    }
                 }
                 Purpose::Moisture { .. } => {}
+            }
+        }
+
+        for farmer in self.farmers.values() {
+            if let Activity::Surveying {
+                equipment,
+                selection,
+            } = farmer.activity
+            {
+                let equipment = self.equipments.get(&equipment).unwrap();
+                let sprite_line = equipment.position[1] as usize;
+                let position = rendering_position_of(equipment.position);
+                renderer.render_sprite(
+                    &self.theodolite_gui_sprite,
+                    position.add([0.0, -32.0]),
+                    sprite_line,
+                    1.0,
+                );
+                renderer.render_sprite(
+                    &self.theodolite_gui_select_sprite,
+                    position.add([-196.0 + 128.0 * (selection as f32), -224.0]),
+                    sprite_line,
+                    1.0,
+                );
             }
         }
 

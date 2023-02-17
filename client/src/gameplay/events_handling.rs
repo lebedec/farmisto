@@ -2,11 +2,11 @@ use crate::engine::Frame;
 use crate::gameplay::representation::{
     BarrierHint, ConstructionRep, DropRep, EquipmentRep, FarmerRep, FarmlandRep, TreeRep,
 };
-use crate::gameplay::{Activity, Gameplay};
+use crate::gameplay::Gameplay;
 use game::api::Event;
 use game::building::Building;
 use game::inventory::{Function, Inventory};
-use game::model::{ItemRep, Universe};
+use game::model::{Activity, ItemRep, Universe};
 use game::physics::Physics;
 use game::planting::Planting;
 use log::{error, info};
@@ -82,38 +82,6 @@ impl Gameplay {
                         container,
                     },
                 );
-
-                let farmer = match self
-                    .farmers
-                    .values_mut()
-                    .find(|farmer| farmer.player == self.client.player)
-                {
-                    None => {
-                        error!("Farmer behaviour not initialized yet");
-                        return;
-                    }
-                    Some(farmer) => {
-                        let ptr = farmer as *mut FarmerRep;
-                        unsafe {
-                            // TODO: safe farmer behaviour mutation
-                            &mut *ptr
-                        }
-                    }
-                };
-
-                if container == farmer.entity.hands {
-                    let mut is_equipment = false;
-                    for f in functions {
-                        if let Function::Equipment { kind } = f {
-                            is_equipment = true;
-                            break;
-                        }
-                    }
-
-                    if is_equipment {
-                        self.activity = Activity::Installing { item }
-                    }
-                }
             }
             Inventory::ItemRemoved { item, container } => {
                 info!("item removed {:?} from {:?}", item, container);
@@ -307,6 +275,7 @@ impl Gameplay {
                         estimated_position: position,
                         rendering_position: position,
                         last_sync_position: position,
+                        activity: Activity::Idle,
                     },
                 );
             }
@@ -360,6 +329,9 @@ impl Gameplay {
             }
             Universe::EquipmentVanished(equipment) => {
                 self.equipments.remove(&equipment);
+            }
+            Universe::ActivityChanged { farmer, activity } => {
+                self.farmers.get_mut(&farmer).unwrap().activity = activity;
             }
         }
     }

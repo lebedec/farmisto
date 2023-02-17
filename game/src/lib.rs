@@ -5,17 +5,18 @@ use datamap::Storage;
 pub use domains::*;
 
 use crate::api::ActionError::{ConstructionContainsUnexpectedItem, PlayerFarmerNotFound};
-use crate::api::{Action, ActionError, Event};
+use crate::api::{Action, ActionError, ActionResponse, Event};
 use crate::building::{BuildingDomain, GridId, Marker, Material, SurveyorId};
 use crate::inventory::{Function, InventoryDomain, ItemId};
-use crate::model::Drop;
-use crate::model::UniverseSnapshot;
+use crate::model::Activity::Idle;
+use crate::model::{Activity, Drop};
 use crate::model::{Construction, Farmer, Universe};
 use crate::model::{Equipment, ItemRep};
 use crate::model::{EquipmentKey, PurposeDescription, UniverseDomain};
 use crate::model::{Farmland, Knowledge};
 use crate::model::{Player, Purpose};
-use crate::physics::PhysicsDomain;
+use crate::model::{UniverseError, UniverseSnapshot};
+use crate::physics::{BarrierId, PhysicsDomain};
 use crate::planting::PlantingDomain;
 
 pub mod api;
@@ -62,6 +63,36 @@ impl Game {
         &mut self,
         player_name: &str,
         action: Action,
+    ) -> Result<Vec<Event>, ActionResponse> {
+        match self.perform_action_internal(player_name, action) {
+            Ok(events) => Ok(events),
+            Err(error) => {
+                let player = self
+                    .players
+                    .iter()
+                    .find(|player| &player.name == player_name)
+                    .unwrap()
+                    .id;
+                let farmer = self
+                    .universe
+                    .farmers
+                    .iter()
+                    .find(|farmer| farmer.player == player)
+                    .unwrap();
+
+                Err(ActionResponse {
+                    error,
+                    farmer: *farmer,
+                    correction: self.universe.get_farmer_activity(*farmer).unwrap(),
+                })
+            }
+        }
+    }
+
+    pub fn perform_action_internal(
+        &mut self,
+        player_name: &str,
+        action: Action,
     ) -> Result<Vec<Event>, ActionError> {
         let player = self
             .players
@@ -96,10 +127,15 @@ impl Game {
             Action::TakeMaterial { construction } => self.take_material(*farmer, construction)?,
             Action::PutMaterial { construction } => self.put_material(*farmer, construction)?,
             Action::ToggleBackpack => self.toggle_backpack(*farmer)?,
-            Action::Uninstall { equipment } => self.uninstall_equipment(*farmer, equipment)?,
+            Action::Uninstall { equipment } => {
+                self.uninstall_equipment(*farmer, farmland, equipment)?
+            }
             Action::Install { item, tile } => {
                 self.install_equipment(*farmer, farmland, item, tile)?
             }
+            Action::UseEquipment { equipment } => self.use_equipment(*farmer, equipment)?,
+            Action::CancelActivity => self.cancel_activity(*farmer)?,
+            Action::ToggleSurveyingOption => self.toggle_surveying_option(*farmer)?,
         };
 
         Ok(events)
@@ -114,45 +150,142 @@ impl Game {
         Ok(vec![])
     }
 
+    fn teardown_constructions(
+        &mut self,
+        farmer: Farmer,
+        farmland: Farmland,
+        surveyor: SurveyorId,
+    ) -> Result<Vec<Event>, ActionError> {
+        let constructions: Vec<Construction> = self
+            .universe
+            .constructions
+            .iter()
+            .filter(|construction| construction.surveyor == surveyor)
+            .cloned()
+            .collect();
+
+        let containers = constructions
+            .iter()
+            .map(|construction| construction.container)
+            .collect();
+
+        let tiles = constructions
+            .iter()
+            .map(|construction| construction.cell)
+            .collect();
+
+        let destroy_containers = self.inventory.destroy_containers(containers, false)?;
+        let destroy_markers = self.building.destroy_walls(farmland.grid, tiles)?;
+
+        let events = occur![
+            destroy_containers(),
+            destroy_markers(),
+            constructions
+                .into_iter()
+                .map(|id| self.universe.vanish_construction(id))
+                .flatten()
+                .collect::<Vec<Universe>>(),
+        ];
+
+        Ok(events)
+    }
+
     fn uninstall_equipment(
         &mut self,
         farmer: Farmer,
+        farmland: Farmland,
         equipment: Equipment,
     ) -> Result<Vec<Event>, ActionError> {
+        self.universe.ensure_activity(farmer, Activity::Idle)?;
         match equipment.purpose {
             Purpose::Surveying { surveyor } => {
+                // TODO: transactional
+                let teardown_constructions =
+                    self.teardown_constructions(farmer, farmland, surveyor)?;
+
                 let destroy_surveyor = self.building.destroy_surveyor(surveyor)?;
                 let destroy_barrier = self.physics.destroy_barrier(equipment.barrier)?;
                 let functions = vec![Function::Equipment {
                     kind: equipment.kind.0,
                 }];
                 let kind = self.known.items.find("<equipment>").unwrap();
-                let (_, create_item) = self.inventory.create_item(kind, functions, farmer.hands)?;
+                let (item, create_item) =
+                    self.inventory.create_item(kind, functions, farmer.hands)?;
                 let vanish_equipment = self.universe.vanish_equipment(equipment);
+                let activity = Activity::Installing { item };
+                let change_activity = self.universe.change_activity(farmer, activity);
 
-                //
-                // let tile = construction.cell;
-                // let destroy_container = self
-                //     .inventory
-                //     .destroy_container(construction.container, false)?;
-                // let destroy_marker = self.building.destroy_wall(farmland.grid, tile)?;
-                // let events = occur![
-                //     destroy_container(),
-                //     destroy_marker(),
-                //     self.universe.vanish_construction(construction),
-                // ];
-                //
-                // self.universe.vanish_construction(construction);
-
-                let events = occur![
+                let mut events = teardown_constructions;
+                events.extend(occur![
                     destroy_surveyor(),
                     destroy_barrier(),
                     create_item(),
                     vanish_equipment,
-                ];
+                    change_activity,
+                ]);
                 Ok(events)
             }
             Purpose::Moisture { .. } => Ok(vec![]),
+        }
+    }
+
+    fn use_equipment(
+        &mut self,
+        farmer: Farmer,
+        equipment: Equipment,
+    ) -> Result<Vec<Event>, ActionError> {
+        self.universe.ensure_activity(farmer, Idle)?;
+        let events = match equipment.purpose {
+            Purpose::Surveying { .. } => {
+                let activity = Activity::Surveying {
+                    equipment,
+                    selection: 0,
+                };
+                self.universe.change_activity(farmer, activity)
+            }
+            Purpose::Moisture { .. } => {
+                vec![]
+            }
+        };
+        Ok(occur![events,])
+    }
+
+    fn cancel_activity(&mut self, farmer: Farmer) -> Result<Vec<Event>, ActionError> {
+        let events = self.universe.change_activity(farmer, Idle);
+        Ok(occur![events,])
+    }
+
+    fn toggle_surveying_option(&mut self, farmer: Farmer) -> Result<Vec<Event>, ActionError> {
+        let activity = self.universe.get_farmer_activity(farmer)?;
+        if let Activity::Surveying {
+            equipment,
+            mut selection,
+        } = activity
+        {
+            selection = (selection + 1) % 4;
+            let activity = Activity::Surveying {
+                equipment,
+                selection,
+            };
+            let events = self.universe.change_activity(farmer, activity);
+            Ok(occur![events,])
+        } else {
+            // TODO: rework expected activity attribute
+            return Err(UniverseError::FarmerActivityMismatch {
+                actual: activity,
+                expected: Activity::Surveying {
+                    equipment: Equipment {
+                        id: 0,
+                        kind: EquipmentKey(0),
+                        purpose: Purpose::Surveying {
+                            surveyor: SurveyorId(0),
+                        },
+                        barrier: BarrierId(0),
+                    },
+                    selection: 0,
+                },
+            }
+            .into());
         }
     }
 
@@ -163,6 +296,8 @@ impl Game {
         item: ItemId,
         tile: [usize; 2],
     ) -> Result<Vec<Event>, ActionError> {
+        self.universe
+            .ensure_activity(farmer, Activity::Installing { item })?;
         let container = self.inventory.get_container(farmer.hands)?;
         let item = container.get_item(item)?;
         let function = item.functions[0].clone();
@@ -193,12 +328,16 @@ impl Game {
                     self.physics
                         .create_barrier(farmland.space, kind, position, false)?;
                 let purpose = Purpose::Surveying { surveyor };
+                let appear_equipment =
+                    self.universe
+                        .appear_equipment(equipment_kind.id, purpose, barrier, position);
+                let change_activity = self.universe.change_activity(farmer, Activity::Idle);
                 let events = occur![
                     use_item(),
                     create_surveyor(),
                     create_barrier(),
-                    self.universe
-                        .appear_equipment(equipment_kind.id, purpose, barrier, position),
+                    appear_equipment,
+                    change_activity,
                 ];
                 Ok(events)
             }
@@ -207,20 +346,27 @@ impl Game {
     }
 
     fn toggle_backpack(&mut self, farmer: Farmer) -> Result<Vec<Event>, ActionError> {
-        let backpack = self
+        let backpack_empty = self
             .inventory
             .get_container(farmer.backpack)?
             .items
             .is_empty();
-        let hands = self.inventory.get_container(farmer.hands)?.items.is_empty();
+        let hands_empty = self.inventory.get_container(farmer.hands)?.items.is_empty();
         let mut events = vec![];
-        if hands && !backpack {
+        if hands_empty && !backpack_empty {
             let transfer = self.inventory.pop_item(farmer.backpack, farmer.hands)?;
-            events.push(transfer().into());
+            events = occur![
+                transfer(),
+                self.universe
+                    .change_activity(farmer, Activity::Instrumenting),
+            ];
         }
-        if !hands && backpack {
+        if !hands_empty && backpack_empty {
             let transfer = self.inventory.pop_item(farmer.hands, farmer.backpack)?;
-            events.push(transfer().into());
+            events = occur![
+                transfer(),
+                self.universe.change_activity(farmer, Activity::Idle),
+            ];
         }
         Ok(events)
     }
@@ -232,7 +378,9 @@ impl Game {
         let mut events = vec![pop_item().into()];
 
         if is_last_item {
-            let destroy_container = self.inventory.destroy_container(drop.container, false)?;
+            let destroy_container = self
+                .inventory
+                .destroy_containers(vec![drop.container], false)?;
             let destroy_barrier = self.physics.destroy_barrier(drop.barrier)?;
             events.extend([
                 destroy_container().into(),
@@ -241,12 +389,18 @@ impl Game {
             ])
         }
 
+        events.push(
+            self.universe
+                .change_activity(farmer, Activity::Delivery)
+                .into(),
+        );
+
         Ok(events)
     }
 
     fn put_item(&mut self, farmer: Farmer, drop: Drop) -> Result<Vec<Event>, ActionError> {
         let transfer = self.inventory.pop_item(farmer.hands, drop.container)?;
-        let events = vec![transfer().into()];
+        let events = occur![transfer(),];
         Ok(events)
     }
 
@@ -308,7 +462,9 @@ impl Game {
         let grid = GridId(1);
         let (container, create_container) =
             self.inventory.create_container(container_kind.clone())?;
-        let appearance = self.universe.appear_construction(container, grid, tile);
+        let appearance = self
+            .universe
+            .appear_construction(container, grid, surveyor, tile);
         let events = occur![survey(), create_container(), appearance,];
         Ok(events)
     }
@@ -322,8 +478,8 @@ impl Game {
         let tile = construction.cell;
         let destroy_container = self
             .inventory
-            .destroy_container(construction.container, false)?;
-        let destroy_marker = self.building.destroy_wall(farmland.grid, tile)?;
+            .destroy_containers(vec![construction.container], false)?;
+        let destroy_marker = self.building.destroy_walls(farmland.grid, vec![tile])?;
         let events = occur![
             destroy_container(),
             destroy_marker(),
@@ -381,7 +537,7 @@ impl Game {
         farmland: Farmland,
         tile: [usize; 2],
     ) -> Result<Vec<Event>, ActionError> {
-        let destroy_wall = self.building.destroy_wall(farmland.grid, tile)?;
+        let destroy_wall = self.building.destroy_walls(farmland.grid, vec![tile])?;
         let destroy_hole = self.physics.destroy_hole(farmland.space, tile)?;
 
         let events = occur![destroy_wall(), destroy_hole(),];

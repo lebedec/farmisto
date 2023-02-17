@@ -73,6 +73,11 @@ impl Grid {
     pub fn default_map() -> Vec<Vec<Cell>> {
         vec![vec![Cell::default(); Grid::COLUMNS]; Grid::ROWS]
     }
+
+    #[inline]
+    pub fn get_cell_mut(&mut self, cell: [usize; 2]) -> &mut Cell {
+        &mut self.cells[cell[1]][cell[0]]
+    }
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]

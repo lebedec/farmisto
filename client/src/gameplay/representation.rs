@@ -4,7 +4,8 @@ use game::building::{Cell, Room};
 use game::collections::Shared;
 use game::math::{Collider, VectorMath};
 use game::model::{
-    Construction, Drop, Equipment, Farmer, FarmerKind, Farmland, FarmlandKind, Tree, TreeKind,
+    Activity, Construction, Drop, Equipment, Farmer, FarmerKind, Farmland, FarmlandKind, Tree,
+    TreeKind,
 };
 use game::physics::{BarrierId, BodyKind};
 use log::error;
@@ -19,6 +20,7 @@ pub struct FarmerRep {
     pub estimated_position: [f32; 2],
     pub rendering_position: [f32; 2],
     pub last_sync_position: [f32; 2],
+    pub activity: Activity,
 }
 
 impl FarmerRep {

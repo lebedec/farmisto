@@ -52,9 +52,12 @@ impl LocalServerThread {
                                     Ok(events) => {
                                         server.broadcast(GameResponse::Events { events });
                                     }
-                                    Err(error) => server.send(
+                                    Err(response) => server.send(
                                         request.player,
-                                        GameResponse::ActionError { action_id, error },
+                                        GameResponse::ActionError {
+                                            action_id,
+                                            response,
+                                        },
                                     ),
                                 }
                             }
