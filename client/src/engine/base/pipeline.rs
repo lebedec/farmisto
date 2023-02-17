@@ -1,7 +1,7 @@
 use crate::engine::base::{Screen, ShaderData, ShaderDataSet};
 use crate::engine::sprites::SpriteVertex;
-use crate::engine::{IndexBuffer, PipelineAsset, VertexBuffer};
-use ash::vk::{DescriptorSet, ImageView, Sampler, SpecializationMapEntry};
+use crate::engine::{IndexBuffer, PipelineAsset, UniformBuffer, VertexBuffer};
+use ash::vk::{Buffer, DescriptorSet, ImageView, Sampler, SpecializationMapEntry};
 use ash::{vk, Device};
 use bytemuck::NoUninit;
 use lazy_static::lazy_static;
@@ -77,6 +77,25 @@ where
         self.bind_texture(descriptor);
     }
 
+    pub fn bind_data(&mut self, buffers: [vk::DescriptorBufferInfo; D]) {
+        let data_descriptor = self
+            .pipeline
+            .data
+            .as_mut()
+            .unwrap()
+            .describe(vec![buffers.map(|info| ShaderData::Uniform(info))])[0];
+        unsafe {
+            self.device.cmd_bind_descriptor_sets(
+                self.buffer,
+                vk::PipelineBindPoint::GRAPHICS,
+                self.pipeline.layout,
+                2,
+                &[data_descriptor],
+                &[],
+            );
+        }
+    }
+
     pub fn bind_texture(&mut self, descriptor: vk::DescriptorSet) {
         unsafe {
             self.device.cmd_bind_descriptor_sets(
@@ -90,7 +109,7 @@ where
         }
     }
 
-    pub fn bind_data(&self, data_descriptor: vk::DescriptorSet) {
+    pub fn bind_data_by_descriptor(&self, data_descriptor: vk::DescriptorSet) {
         unsafe {
             self.device.cmd_bind_descriptor_sets(
                 self.buffer,

@@ -98,6 +98,6 @@ impl ShaderCompiler {
             error!("Unable to compile file {:?}, {:?}", input, output);
         }
 
-        debug!("Compile shader {:?} in {:?}", input, time.elapsed());
+        info!("Compile shader {:?} in {:?}", input, time.elapsed());
     }
 }

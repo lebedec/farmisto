@@ -1,6 +1,7 @@
 use crate::engine::base::create_buffer;
 use ash::{vk, Device};
 use glam::Mat4;
+use std::marker::PhantomData;
 
 #[derive(Clone, Copy)]
 pub struct CameraUniform {
@@ -15,15 +16,19 @@ pub struct LightUniform {
     pub position: [[f32; 4]; 512],
 }
 
-pub struct UniformBuffer {
+pub struct UniformBuffer<T> {
     device: Device,
     pub buffers: Vec<vk::Buffer>,
     memory: Vec<vk::DeviceMemory>,
     memory_size: Vec<vk::DeviceSize>,
+    _data: PhantomData<T>,
 }
 
-impl UniformBuffer {
-    pub fn create<T>(
+impl<T> UniformBuffer<T>
+where
+    T: Copy,
+{
+    pub fn create(
         device: Device,
         device_memory_properties: &vk::PhysicalDeviceMemoryProperties,
         swapchain_image_count: usize,
@@ -52,10 +57,19 @@ impl UniformBuffer {
             memory,
             device,
             memory_size,
+            _data: Default::default(),
         }
     }
 
-    pub fn update<T: Copy>(&self, current: usize, value: T) {
+    pub fn info(&self, present_index: usize) -> vk::DescriptorBufferInfo {
+        vk::DescriptorBufferInfo {
+            buffer: self.buffers[present_index],
+            offset: 0,
+            range: std::mem::size_of::<T>() as u64,
+        }
+    }
+
+    pub fn update(&self, current: usize, value: T) {
         let ptr = unsafe {
             self.device
                 .map_memory(

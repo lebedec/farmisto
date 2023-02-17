@@ -1,5 +1,5 @@
 use crate::engine::sprites::SpineSpriteController;
-use crate::engine::{Input, SpineAsset, SpriteAsset, TextureAsset};
+use crate::engine::{Input, SamplerAsset, SpineAsset, SpriteAsset, TextureAsset};
 use crate::gameplay::camera::Camera;
 use crate::gameplay::representation::{
     BarrierHint, ConstructionRep, DropRep, EquipmentRep, FarmerRep, FarmlandRep, TreeRep,
@@ -100,6 +100,10 @@ pub struct Gameplay {
     pub theodolite_gui_sprite: SpriteAsset,
     pub theodolite_gui_select_sprite: SpriteAsset,
     pub gui_controls: SpriteAsset,
+
+    pub tilemap_roof_texture: TextureAsset,
+    pub tilemap_texture: TextureAsset,
+    pub tilemap_sampler: SamplerAsset,
 }
 
 impl Gameplay {
@@ -146,6 +150,9 @@ impl Gameplay {
             theodolite_gui_sprite: assets.sprite("building-gui"),
             theodolite_gui_select_sprite: assets.sprite("building-gui-select"),
             gui_controls: assets.sprite("gui-controls"),
+            tilemap_roof_texture: assets.texture("./assets/texture/tiles-roof-template.png"),
+            tilemap_texture: assets.texture("./assets/texture/tiles-floor-template.png"),
+            tilemap_sampler: assets.sampler("pixel-perfect"),
         }
     }
 

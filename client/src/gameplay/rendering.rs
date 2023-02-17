@@ -1,5 +1,7 @@
+use crate::engine::sprites::TilemapUniform;
 use crate::engine::Frame;
 use crate::gameplay::{position_of, rendering_position_of, Gameplay, TILE_SIZE};
+use game::building::{Grid, Room};
 use game::math::VectorMath;
 use game::model::{Activity, Purpose};
 use lazy_static::lazy_static;
@@ -59,19 +61,61 @@ impl Gameplay {
                 &farmland.map,
                 &farmland.rooms,
             );
-            renderer.render_floor(
-                self.roof_texture.clone(),
-                farmland.asset.sampler.share(),
-                &farmland.map,
-                &farmland.rooms,
+
+            let mut floor_map = [[[0; 4]; 31]; 18];
+            for room in &farmland.rooms {
+                if room.id == Room::EXTERIOR_ID {
+                    continue;
+                }
+                for (i, row) in room.rows.iter().enumerate() {
+                    let y = room.rows_y + i;
+                    if y < floor_map.len() {
+                        for x in 0..31 {
+                            let interior_bit = 1 << (Grid::COLUMNS - x - 1);
+                            if row & interior_bit == interior_bit {
+                                floor_map[y][x] = [1, 0, 0, 0];
+                            }
+                        }
+                    }
+                }
+            }
+            let mut roof_map = [[[0; 4]; 31]; 18];
+            for room in &farmland.rooms {
+                if room.id == Room::EXTERIOR_ID || room.id == self.cursor_shape {
+                    continue;
+                }
+                for (i, row) in room.rows.iter().enumerate() {
+                    let y = room.rows_y + i;
+                    if y < roof_map.len() {
+                        for x in 0..31 {
+                            let interior_bit = 1 << (Grid::COLUMNS - x - 1);
+                            if row & interior_bit == interior_bit {
+                                roof_map[y][x] = [1, 0, 0, 0];
+                            }
+                        }
+                    }
+                }
+            }
+            renderer.render_tilemap(
+                &farmland.floor,
+                [0.0, 0.0],
+                0,
+                TilemapUniform { map: floor_map },
             );
-            renderer.render_roof(
-                self.roof_texture.clone(),
-                farmland.asset.sampler.share(),
-                &farmland.map,
-                &farmland.rooms,
-                self.cursor_shape,
+            renderer.render_tilemap(
+                &farmland.roof,
+                [0.0, -2.0 * TILE_SIZE],
+                127,
+                TilemapUniform { map: roof_map },
             );
+
+            // renderer.render_roof(
+            //     self.roof_texture.clone(),
+            //     farmland.asset.sampler.share(),
+            //     &farmland.map,
+            //     &farmland.rooms,
+            //     self.cursor_shape,
+            // );
             for (y, line) in farmland.cells.iter().enumerate() {
                 for (x, cell) in line.iter().enumerate() {
                     if cell.wall {

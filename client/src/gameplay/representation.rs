@@ -1,5 +1,6 @@
 use crate::engine::{FarmerAsset, FarmlandAsset, TreeAsset};
 
+use crate::engine::sprites::TilemapController;
 use game::building::{Cell, Room};
 use game::collections::Shared;
 use game::math::{Collider, VectorMath};
@@ -76,6 +77,8 @@ pub struct FarmlandRep {
     pub cells: Vec<Vec<Cell>>,
     pub rooms: Vec<Room>,
     pub holes: Vec<Vec<u8>>,
+    pub floor: TilemapController,
+    pub roof: TilemapController,
 }
 
 pub struct TreeRep {

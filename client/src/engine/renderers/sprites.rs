@@ -14,6 +14,7 @@ use crate::engine::buffers::{CameraUniform, LightUniform, UniformBuffer};
 use crate::engine::{
     IndexBuffer, SamplerAsset, ShaderAsset, SpineAsset, SpriteAsset, TextureAsset, VertexBuffer,
 };
+use crate::gameplay::TILE_SIZE;
 use crate::monitoring::Timer;
 use crate::Assets;
 
@@ -35,8 +36,8 @@ pub struct SpriteRenderer {
     pub zoom: f32,
 
     camera_position: [f32; 2],
-    camera_buffer: UniformBuffer,
-    global_light_buffer: UniformBuffer,
+    camera_buffer: UniformBuffer<CameraUniform>,
+    global_light_buffer: UniformBuffer<LightUniform>,
     global_lights: Vec<Light>,
 
     spine_pipeline: MyPipeline<2, SpinePushConstants, 1>,
@@ -47,18 +48,22 @@ pub struct SpriteRenderer {
     ground_pipeline: MyPipeline<1, GroundPushConstants, 2>,
     grounds: Vec<GroundSprite>,
     ground_vertex_buffer: VertexBuffer,
-    ground_buffer: UniformBuffer,
+    ground_buffer: UniformBuffer<GroundUniform>,
 
-    floor_buffer: UniformBuffer,
+    floor_buffer: UniformBuffer<GroundUniform>,
 
     roof_pipeline: MyPipeline<1, GroundPushConstants, 2>,
     roofs: Vec<GroundSprite>,
     roof_vertex_buffer: VertexBuffer,
-    roof_buffer: UniformBuffer,
+    roof_buffer: UniformBuffer<GroundUniform>,
 
     sprite_pipeline: MyPipeline<1, SpritePushConstants, 1>,
     sprites: Vec<Vec<SpriteRenderObject>>,
     sprite_vertex_buffer: VertexBuffer,
+
+    tilemap_pipeline: MyPipeline<1, TilemapPushConstants, 1>,
+    tilemaps: Vec<Vec<TilemapRenderObject>>,
+    tilemap_vertex_buffer: VertexBuffer,
 
     // light_map_pipeline: MyPipeline<1, SpritePushConstants, 1>,
     // light_map_framebuffer: vk::Framebuffer,
@@ -84,11 +89,9 @@ impl SpriteRenderer {
         let coloration_texture = assets.texture("./assets/spine/lama384/coloration.png");
         let coloration_sampler = assets.sampler("coloration");
         //
-        let camera_buffer =
-            UniformBuffer::create::<CameraUniform>(device.clone(), device_memory, swapchain);
+        let camera_buffer = UniformBuffer::create(device.clone(), device_memory, swapchain);
 
-        let global_light_buffer =
-            UniformBuffer::create::<LightUniform>(device.clone(), device_memory, swapchain);
+        let global_light_buffer = UniformBuffer::create(device.clone(), device_memory, swapchain);
 
         let sprite_vertex_buffer =
             VertexBuffer::create(device, device_memory, SPRITE_VERTICES.to_vec());
@@ -101,8 +104,7 @@ impl SpriteRenderer {
             .data([vk::DescriptorType::UNIFORM_BUFFER])
             .build(device, &screen);
 
-        let ground_buffer =
-            UniformBuffer::create::<GroundUniform>(device.clone(), device_memory, swapchain);
+        let ground_buffer = UniformBuffer::create(device.clone(), device_memory, swapchain);
         let ground_pipeline = MyPipeline::build(assets.pipeline("ground"), pass)
             .material([vk::DescriptorType::COMBINED_IMAGE_SAMPLER])
             .data([
@@ -113,11 +115,9 @@ impl SpriteRenderer {
         let ground_vertex_buffer =
             VertexBuffer::create(device, device_memory, GROUND_VERTICES.to_vec());
 
-        let floor_buffer =
-            UniformBuffer::create::<GroundUniform>(device.clone(), device_memory, swapchain);
+        let floor_buffer = UniformBuffer::create(device.clone(), device_memory, swapchain);
 
-        let roof_buffer =
-            UniformBuffer::create::<GroundUniform>(device.clone(), device_memory, swapchain);
+        let roof_buffer = UniformBuffer::create(device.clone(), device_memory, swapchain);
         let roof_pipeline = MyPipeline::build(assets.pipeline("roof"), pass)
             .material([vk::DescriptorType::COMBINED_IMAGE_SAMPLER])
             .data([
@@ -133,6 +133,11 @@ impl SpriteRenderer {
             .data([vk::DescriptorType::UNIFORM_BUFFER])
             .build(device, &screen);
 
+        let tilemap_pipeline = MyPipeline::build(assets.pipeline("tilemap"), pass)
+            .material([vk::DescriptorType::COMBINED_IMAGE_SAMPLER])
+            .data([vk::DescriptorType::UNIFORM_BUFFER])
+            .build(device, &screen);
+
         // let (light_map_view, light_map_render_pass, light_map_framebuffer) =
         //     Self::create_light_map(device, device_memory).unwrap();
         //
@@ -143,9 +148,11 @@ impl SpriteRenderer {
 
         let mut sprites = vec![];
         let mut spines = vec![];
+        let mut tilemaps = vec![];
         for _ in 0..128 {
             sprites.push(vec![]);
             spines.push(vec![]);
+            tilemaps.push(vec![]);
         }
 
         let mut renderer = Self {
@@ -163,6 +170,9 @@ impl SpriteRenderer {
             roofs: vec![],
             roof_vertex_buffer,
             sprite_vertex_buffer,
+            tilemap_pipeline,
+            tilemaps,
+            tilemap_vertex_buffer: ground_vertex_buffer,
             present_index: 0,
             //light_map_pipeline,
             //light_map_framebuffer,
@@ -332,6 +342,9 @@ impl SpriteRenderer {
         for spines in self.spines.iter_mut() {
             spines.clear();
         }
+        for tilemaps in self.tilemaps.iter_mut() {
+            tilemaps.clear();
+        }
         // self.sprites.clear();
         // self.spines.clear();
         self.grounds.clear();
@@ -343,6 +356,7 @@ impl SpriteRenderer {
         self.ground_pipeline.update(&self.device, &self.screen);
         self.sprite_pipeline.update(&self.device, &self.screen);
         self.roof_pipeline.update(&self.device, &self.screen);
+        self.tilemap_pipeline.update(&self.device, &self.screen);
     }
 
     pub fn set_point_light(&mut self, color: [f32; 4], radius: f32, position: [f32; 2]) {
@@ -456,6 +470,27 @@ impl SpriteRenderer {
         })
     }
 
+    pub fn render_tilemap(
+        &mut self,
+        tilemap: &TilemapController,
+        offset: [f32; 2],
+        layer: usize,
+        data: TilemapUniform,
+    ) {
+        tilemap.data.update(self.present_index, data);
+        self.tilemaps[layer].push(TilemapRenderObject {
+            texture: tilemap.texture.view,
+            sampler: tilemap.sampler.handle,
+            constants: TilemapPushConstants {
+                offset,
+                size: [VISIBLE_MAP_X as f32, VISIBLE_MAP_Y as f32],
+                tile: [TILE_SIZE, TILE_SIZE],
+                layer: 0.0,
+            },
+            data: tilemap.data.info(self.present_index),
+        })
+    }
+
     pub fn render_ground(
         &mut self,
         texture: TextureAsset,
@@ -506,7 +541,6 @@ impl SpriteRenderer {
         self.grounds.push(GroundSprite {
             texture,
             sampler,
-            uniform,
             constants: GroundPushConstants {
                 offset,
                 map_size: [VISIBLE_MAP_X as f32, VISIBLE_MAP_Y as f32],
@@ -578,7 +612,6 @@ impl SpriteRenderer {
         self.grounds.push(GroundSprite {
             texture,
             sampler,
-            uniform,
             constants: GroundPushConstants {
                 offset,
                 map_size: [VISIBLE_MAP_X as f32, VISIBLE_MAP_Y as f32],
@@ -652,7 +685,6 @@ impl SpriteRenderer {
         self.roofs.push(GroundSprite {
             texture,
             sampler,
-            uniform,
             constants: GroundPushConstants {
                 offset,
                 map_size: [VISIBLE_MAP_X as f32, VISIBLE_MAP_Y as f32],
@@ -674,7 +706,20 @@ impl SpriteRenderer {
         })
     }
 
-    pub fn instantiate(
+    pub fn instantiate_tilemap(
+        &mut self,
+        texture: TextureAsset,
+        sampler: SamplerAsset,
+    ) -> TilemapController {
+        let data = UniformBuffer::create(self.device.clone(), &self.device_memory, self.swapchain);
+        TilemapController {
+            texture,
+            sampler,
+            data,
+        }
+    }
+
+    pub fn instantiate_spine(
         &mut self,
         spine: &SpineAsset,
         features: [String; 2],
@@ -796,11 +841,8 @@ impl SpriteRenderer {
         let mega_index_buffer =
             IndexBuffer::create(&self.device, &self.device_memory, mega_indices);
 
-        let lights_buffer = UniformBuffer::create::<SpineUniform>(
-            self.device.clone(),
-            &self.device_memory,
-            self.swapchain,
-        );
+        let lights_buffer =
+            UniformBuffer::create(self.device.clone(), &self.device_memory, self.swapchain);
 
         SpineSpriteController {
             skeleton,
@@ -1034,15 +1076,25 @@ impl SpriteRenderer {
         for ground in &self.grounds {
             pipeline.bind_vertex_buffer(&self.ground_vertex_buffer);
             pipeline.bind_material([(ground.sampler.handle, ground.texture.view)]);
-            pipeline.bind_data(ground.data_descriptor);
+            pipeline.bind_data_by_descriptor(ground.data_descriptor);
             pipeline.push_constants(ground.constants);
             pipeline.draw_vertices(self.ground_vertex_buffer.vertices);
         }
         timer.record("ground", &METRIC_RENDER_SECONDS);
 
         for line in 0..128 {
+            let mut pipeline = self.tilemap_pipeline.perform(device, buffer);
+            pipeline.bind_camera(camera_descriptor);
+            for tilemap in &self.tilemaps[line] {
+                pipeline.bind_vertex_buffer(&self.tilemap_vertex_buffer);
+                pipeline.bind_material([(tilemap.sampler, tilemap.texture)]);
+                pipeline.bind_data([tilemap.data]);
+                pipeline.push_constants(tilemap.constants);
+                pipeline.draw_vertices(self.tilemap_vertex_buffer.vertices);
+            }
+
             let mut pipeline = self.sprite_pipeline.perform(device, buffer);
-            pipeline.bind_data(lights_descriptor);
+            pipeline.bind_data_by_descriptor(lights_descriptor);
             pipeline.bind_camera(camera_descriptor);
             pipeline.bind_vertex_buffer(&self.sprite_vertex_buffer);
             let mut previous_texture = Default::default();
@@ -1064,24 +1116,24 @@ impl SpriteRenderer {
                     (spine.texture.sampler, spine.texture.view),
                     (self.coloration_sampler.handle, self.coloration_texture.view),
                 ]);
-                pipeline.bind_data(spine.lights_descriptor);
+                pipeline.bind_data_by_descriptor(spine.lights_descriptor);
                 pipeline.push_constants(spine.constants);
                 let indices: usize = spine.meshes.iter().map(|mesh| *mesh).sum();
                 // pipeline.draw(indices);
             }
         }
-        timer.record("static+spine", &METRIC_RENDER_SECONDS);
-
-        let mut pipeline = self.roof_pipeline.perform(device, buffer);
-        pipeline.bind_camera(camera_descriptor);
-        for roof in &self.roofs {
-            pipeline.bind_vertex_buffer(&self.roof_vertex_buffer);
-            pipeline.bind_material([(roof.sampler.handle, roof.texture.view)]);
-            pipeline.bind_data(roof.data_descriptor);
-            pipeline.push_constants(roof.constants);
-            pipeline.draw_vertices(self.roof_vertex_buffer.vertices);
-        }
-        timer.record("roof", &METRIC_RENDER_SECONDS);
+        timer.record("static+spine+tilemap", &METRIC_RENDER_SECONDS);
+        //
+        // let mut pipeline = self.roof_pipeline.perform(device, buffer);
+        // pipeline.bind_camera(camera_descriptor);
+        // for roof in &self.roofs {
+        //     pipeline.bind_vertex_buffer(&self.roof_vertex_buffer);
+        //     pipeline.bind_material([(roof.sampler.handle, roof.texture.view)]);
+        //     pipeline.bind_data_by_descriptor(roof.data_descriptor);
+        //     pipeline.push_constants(roof.constants);
+        //     pipeline.draw_vertices(self.roof_vertex_buffer.vertices);
+        // }
+        // timer.record("roof", &METRIC_RENDER_SECONDS);
     }
 }
 
@@ -1092,15 +1144,55 @@ pub struct SpineSpriteController {
     pub mega_texture: TextureAsset,
     pub meshes: Vec<usize>,
     colors: [[f32; 4]; 4],
-    lights_buffer: UniformBuffer,
+    lights_buffer: UniformBuffer<SpineUniform>,
+}
+
+#[derive(Debug, Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
+#[repr(C)]
+pub struct GroundPushConstants {
+    pub offset: [f32; 2],
+    pub map_size: [f32; 2],
+    pub cell_size: [f32; 2],
+    pub layer: f32,
 }
 
 pub struct GroundSprite {
     texture: TextureAsset,
     sampler: SamplerAsset,
-    uniform: GroundUniform,
     constants: GroundPushConstants,
     data_descriptor: vk::DescriptorSet,
+}
+
+#[derive(Clone, Copy)]
+pub struct GroundUniform {
+    pub map: [[[f32; 4]; VISIBLE_MAP_X]; VISIBLE_MAP_Y],
+}
+
+#[derive(Clone, Copy)]
+pub struct TilemapUniform {
+    pub map: [[[u32; 4]; VISIBLE_MAP_X]; VISIBLE_MAP_Y],
+}
+
+pub struct TilemapController {
+    texture: TextureAsset,
+    sampler: SamplerAsset,
+    data: UniformBuffer<TilemapUniform>,
+}
+
+#[derive(Debug, Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
+#[repr(C)]
+pub struct TilemapPushConstants {
+    pub offset: [f32; 2],
+    pub size: [f32; 2],
+    pub tile: [f32; 2],
+    pub layer: f32,
+}
+
+pub struct TilemapRenderObject {
+    texture: vk::ImageView,
+    sampler: vk::Sampler,
+    constants: TilemapPushConstants,
+    data: vk::DescriptorBufferInfo,
 }
 
 pub struct SpineRenderObject {
@@ -1127,15 +1219,6 @@ pub struct SpritePushConstants {
     pub coords: [f32; 4],
     pub pivot: [f32; 2],
     pub highlight: f32,
-}
-
-#[derive(Debug, Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
-#[repr(C)]
-pub struct GroundPushConstants {
-    pub offset: [f32; 2],
-    pub map_size: [f32; 2],
-    pub cell_size: [f32; 2],
-    pub layer: f32,
 }
 
 #[derive(Debug, Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
@@ -1231,6 +1314,33 @@ const SPRITE_VERTICES: [SpriteVertex; 6] = [
     },
 ];
 
+const TILEMAP_VERTICES: [SpriteVertex; 6] = [
+    SpriteVertex {
+        position: [0.0, 0.0],
+        uv: [0.0, 1.0],
+    },
+    SpriteVertex {
+        position: [0.0, 1.0],
+        uv: [0.0, 0.0],
+    },
+    SpriteVertex {
+        position: [1.0, 0.0],
+        uv: [1.0, 1.0],
+    },
+    SpriteVertex {
+        position: [1.0, 0.0],
+        uv: [1.0, 1.0],
+    },
+    SpriteVertex {
+        position: [0.0, 1.0],
+        uv: [0.0, 0.0],
+    },
+    SpriteVertex {
+        position: [1.0, 1.0],
+        uv: [1.0, 0.0],
+    },
+];
+
 const GROUND_VERTICES: [SpriteVertex; 6] = [
     SpriteVertex {
         position: [0.0, 0.0],
@@ -1260,11 +1370,6 @@ const GROUND_VERTICES: [SpriteVertex; 6] = [
 
 const VISIBLE_MAP_Y: usize = 18;
 const VISIBLE_MAP_X: usize = 31;
-
-#[derive(Clone, Copy)]
-pub struct GroundUniform {
-    pub map: [[[f32; 4]; VISIBLE_MAP_X]; VISIBLE_MAP_Y],
-}
 
 #[derive(Clone, Copy)]
 pub struct SpineUniform {

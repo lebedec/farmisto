@@ -195,6 +195,16 @@ impl Gameplay {
 
                 self.current_farmland = Some(farmland);
 
+                let floor = frame.sprites.instantiate_tilemap(
+                    self.tilemap_texture.share(),
+                    self.tilemap_sampler.share(),
+                );
+
+                let roof = frame.sprites.instantiate_tilemap(
+                    self.tilemap_roof_texture.share(),
+                    self.tilemap_sampler.share(),
+                );
+
                 self.farmlands.insert(
                     farmland,
                     FarmlandRep {
@@ -205,6 +215,8 @@ impl Gameplay {
                         cells,
                         rooms,
                         holes,
+                        floor,
+                        roof,
                     },
                 );
             }
@@ -263,6 +275,7 @@ impl Gameplay {
                 let asset = assets.farmer(&kind.name);
                 let body = self.known.bodies.get(kind.body).unwrap();
                 let is_controlled = player == self.client.player;
+
                 self.farmers.insert(
                     farmer,
                     FarmerRep {
