@@ -722,18 +722,19 @@ impl SpriteRenderer {
     pub fn instantiate_spine(
         &mut self,
         spine: &SpineAsset,
-        features: [String; 2],
+        // features: [String; 2],
         colors: [[f32; 4]; 4],
     ) -> SpineSpriteController {
         let mut skeleton = SkeletonController::new(spine.skeleton.clone(), spine.animation.clone());
 
-        let [head, tail] = features;
-        let mut skin = Skin::new("lama-dynamic-848");
-        let head = spine.skeleton.find_skin(&head).unwrap();
-        let tail = spine.skeleton.find_skin(&tail).unwrap();
-        skin.add_skin(&head);
-        skin.add_skin(&tail);
-        skeleton.skeleton.set_skin(&skin);
+        // set skin
+        // let [head, tail] = features;
+        // let mut skin = Skin::new("lama-dynamic-848");
+        // let head = spine.skeleton.find_skin(&head).unwrap();
+        // let tail = spine.skeleton.find_skin(&tail).unwrap();
+        // skin.add_skin(&head);
+        // skin.add_skin(&tail);
+        // skeleton.skeleton.set_skin(&skin);
 
         skeleton
             .animation_state
@@ -1119,7 +1120,7 @@ impl SpriteRenderer {
                 pipeline.bind_data_by_descriptor(spine.lights_descriptor);
                 pipeline.push_constants(spine.constants);
                 let indices: usize = spine.meshes.iter().map(|mesh| *mesh).sum();
-                // pipeline.draw(indices);
+                pipeline.draw(indices);
             }
         }
         timer.record("static+spine+tilemap", &METRIC_RENDER_SECONDS);

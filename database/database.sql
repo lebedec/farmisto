@@ -85,9 +85,10 @@ create table PlantKind
 
 create table Plant
 (
-    id   integer primary key,
-    kind integer not null references PlantKind,
-    land integer not null references Land
+    id     integer primary key,
+    kind   integer not null references PlantKind,
+    land   integer not null references Land,
+    impact real    not null
 );
 
 -- Building
@@ -237,4 +238,20 @@ create table Equipment
     barrier    integer not null references Barrier,
     kind       integer not null references EquipmentKind,
     p_surveyor integer null references Surveyor
+);
+
+create table CropKind
+(
+    id      integer primary key,
+    name    text not null unique,
+    plant   text not null references PlantKind (name),
+    barrier text not null references BarrierKind (name)
+);
+
+create table Crop
+(
+    id      integer primary key,
+    kind    integer not null references CropKind,
+    plant   integer not null references Plant,
+    barrier integer not null references Barrier
 );

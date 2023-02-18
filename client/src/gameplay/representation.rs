@@ -1,12 +1,12 @@
-use crate::engine::{FarmerAsset, FarmlandAsset, TreeAsset};
+use crate::engine::{CropAsset, FarmerAsset, FarmlandAsset, SpineAsset, TreeAsset};
 
-use crate::engine::sprites::TilemapController;
+use crate::engine::sprites::{SpineSpriteController, TilemapController};
 use game::building::{Cell, Room};
 use game::collections::Shared;
 use game::math::{Collider, VectorMath};
 use game::model::{
-    Activity, Construction, Drop, Equipment, Farmer, FarmerKind, Farmland, FarmlandKind, Tree,
-    TreeKind,
+    Activity, Construction, Crop, Drop, Equipment, Farmer, FarmerKind, Farmland, FarmlandKind,
+    Tree, TreeKind,
 };
 use game::physics::{BarrierId, BodyKind};
 use log::error;
@@ -118,4 +118,21 @@ pub struct ConstructionRep {
 pub struct EquipmentRep {
     pub entity: Equipment,
     pub position: [f32; 2],
+}
+
+pub struct CropRep {
+    pub entity: Crop,
+    pub asset: CropAsset,
+    pub spine: SpineSpriteController,
+    pub position: [f32; 2],
+    pub impact: f32,
+}
+
+impl CropRep {
+    pub(crate) fn animate_impact(&mut self, time: f32) {
+        if self.impact.abs() < 0.2 {
+            self.impact = self.impact.signum() * 100.0;
+        }
+        self.impact = self.impact - (self.impact.signum() * 10.0 * time);
+    }
 }

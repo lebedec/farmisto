@@ -28,6 +28,18 @@ impl Gameplay {
             for farmer in self.spines.iter_mut() {
                 farmer.sprite.skeleton.update(frame.input.time);
             }
+            for crop in self.crops.values_mut() {
+                crop.animate_impact(frame.input.time);
+                if let Some(mut impact_bone) = crop.spine.skeleton.skeleton.find_bone_mut("impact")
+                {
+                    if crop.impact > 0.0 {
+                        impact_bone.set_rotation(360.0 - crop.impact);
+                    } else {
+                        impact_bone.set_rotation(-crop.impact);
+                    }
+                }
+                crop.spine.skeleton.update(frame.input.time);
+            }
         });
     }
 
@@ -362,6 +374,10 @@ impl Gameplay {
                     1.0,
                 );
             }
+        }
+
+        for crop in self.crops.values() {
+            renderer.render_spine(&crop.spine, rendering_position_of(crop.position));
         }
 
         METRIC_DRAW_REQUEST_SECONDS.observe_closure_duration(|| {

@@ -1,12 +1,8 @@
-use std::collections::HashMap;
-
 use crate::collections::Shared;
 
 pub const MAX_LANDS: usize = 128;
 
 pub struct PlantingDomain {
-    pub known_lands: HashMap<LandKey, Shared<LandKind>>,
-    pub known_plants: HashMap<PlantKey, Shared<PlantKind>>,
     pub lands: Vec<Land>,
     pub lands_sequence: usize,
     pub plants: Vec<Vec<Plant>>,
@@ -16,8 +12,6 @@ pub struct PlantingDomain {
 impl Default for PlantingDomain {
     fn default() -> Self {
         Self {
-            known_lands: Default::default(),
-            known_plants: Default::default(),
             lands: vec![],
             lands_sequence: 0,
             plants: vec![vec![]; MAX_LANDS],
@@ -60,6 +54,7 @@ pub struct Plant {
     pub id: PlantId,
     pub kind: Shared<PlantKind>,
     pub land: LandId,
+    pub impact: f32,
 }
 
 #[derive(Debug, bincode::Encode, bincode::Decode)]
@@ -68,6 +63,11 @@ pub enum Planting {
         land: LandId,
         map: Vec<Vec<[f32; 2]>>,
     },
+}
+
+#[derive(Debug, bincode::Encode, bincode::Decode)]
+pub enum PlantingError {
+    PlantNotFound { id: PlantId },
 }
 
 impl PlantingDomain {
@@ -87,20 +87,12 @@ impl PlantingDomain {
         self.lands.iter().find(|land| land.id == id)
     }
 
-    pub fn update(&mut self, time: f32) -> Vec<Planting> {
-        let mut events = vec![];
-        for land in self.lands.iter_mut() {
-            for row in land.map.iter_mut() {
-                for cell in row.iter_mut() {
-                    let [capacity, moisture] = *cell;
-                    *cell = [capacity, (moisture - 0.1 * time).max(0.0)];
-                }
+    pub fn get_plant(&self, id: PlantId) -> Result<&Plant, PlantingError> {
+        for plants in &self.plants {
+            if let Some(plant) = plants.iter().find(|plant| plant.id == id) {
+                return Ok(plant);
             }
-            events.push(Planting::LandChanged {
-                land: land.id,
-                map: land.map.clone(),
-            })
         }
-        events
+        Err(PlantingError::PlantNotFound { id })
     }
 }

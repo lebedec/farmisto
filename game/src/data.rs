@@ -8,9 +8,9 @@ use crate::inventory::{
     Container, ContainerId, ContainerKey, ContainerKind, Item, ItemId, ItemKey, ItemKind,
 };
 use crate::model::{
-    Construction, Drop, Equipment, EquipmentKey, EquipmentKind, Farmer, FarmerKey, FarmerKind,
-    Farmland, FarmlandKey, FarmlandKind, Player, PlayerId, Purpose, PurposeDescription, Tree,
-    TreeKey, TreeKind,
+    Construction, Crop, CropKey, CropKind, Drop, Equipment, EquipmentKey, EquipmentKind, Farmer,
+    FarmerKey, FarmerKind, Farmland, FarmlandKey, FarmlandKind, Player, PlayerId, Purpose,
+    PurposeDescription, Tree, TreeKey, TreeKind,
 };
 use crate::physics::{
     Barrier, BarrierId, BarrierKey, BarrierKind, Body, BodyId, BodyKey, BodyKind, Space, SpaceId,
@@ -35,12 +35,10 @@ impl Game {
         }
         // planting
         for kind in storage.find_all(|row| self.load_land_kind(row).unwrap()) {
-            self.planting.known_lands.insert(kind.id, Shared::new(kind));
+            self.known.lands.insert(kind.id, kind.name.clone(), kind);
         }
         for kind in storage.find_all(|row| self.load_plant_kind(row).unwrap()) {
-            self.planting
-                .known_plants
-                .insert(kind.id, Shared::new(kind));
+            self.known.plants.insert(kind.id, kind.name.clone(), kind);
         }
         // building
         for kind in storage.find_all(|row| self.load_grid_kind(row).unwrap()) {
@@ -76,6 +74,9 @@ impl Game {
             self.known
                 .equipments
                 .insert(kind.id, kind.name.clone(), kind);
+        }
+        for kind in storage.find_all(|row| self.load_crop_kind(row).unwrap()) {
+            self.known.crops.insert(kind.id, kind.name.clone(), kind);
         }
         info!("End game knowledge loading");
     }
@@ -124,6 +125,8 @@ impl Game {
         self.universe.load_constructions(constructions, id);
         let (equipments, id) = storage.get_sequence(|row| self.load_equipment(row))?;
         self.universe.load_equipments(equipments, id);
+        let (crops, id) = storage.get_sequence(|row| self.load_crop(row))?;
+        self.universe.load_crops(crops, id);
         info!("End game state loading");
 
         Ok(())
@@ -236,6 +239,29 @@ impl Game {
             body: BodyId(row.get("body")?),
             hands: ContainerId(row.get("hands")?),
             backpack: ContainerId(row.get("backpack")?),
+        };
+        Ok(data)
+    }
+
+    pub(crate) fn load_crop_kind(&mut self, row: &rusqlite::Row) -> Result<CropKind, DataError> {
+        let id = row.get("id")?;
+        let plant: String = row.get("plant")?;
+        let barrier: String = row.get("barrier")?;
+        let data = CropKind {
+            id: CropKey(id),
+            name: row.get("name")?,
+            plant: self.known.plants.find(&plant).unwrap().id,
+            barrier: self.known.barriers.find(&barrier).unwrap().id,
+        };
+        Ok(data)
+    }
+
+    pub(crate) fn load_crop(&mut self, row: &rusqlite::Row) -> Result<Crop, DataError> {
+        let data = Crop {
+            id: row.get("id")?,
+            key: CropKey(row.get("kind")?),
+            plant: PlantId(row.get("plant")?),
+            barrier: BarrierId(row.get("barrier")?),
         };
         Ok(data)
     }
@@ -483,12 +509,7 @@ impl Game {
         let (map, _) = bincode::decode_from_slice(&map, config).unwrap();
         let data = Land {
             id: LandId(id),
-            kind: self
-                .planting
-                .known_lands
-                .get(&LandKey(kind))
-                .unwrap()
-                .clone(),
+            kind: self.known.lands.get(LandKey(kind)).unwrap(),
             map,
         };
         Ok(data)
@@ -510,13 +531,9 @@ impl Game {
         let land = row.get("land")?;
         let data = Plant {
             id: PlantId(id),
-            kind: self
-                .planting
-                .known_plants
-                .get(&PlantKey(kind))
-                .unwrap()
-                .clone(),
+            kind: self.known.plants.get(PlantKey(kind)).unwrap(),
             land: LandId(land),
+            impact: row.get("impact")?,
         };
         Ok(data)
     }

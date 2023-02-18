@@ -2,15 +2,15 @@ use crate::engine::sprites::SpineSpriteController;
 use crate::engine::{Input, SamplerAsset, SpineAsset, SpriteAsset, TextureAsset};
 use crate::gameplay::camera::Camera;
 use crate::gameplay::representation::{
-    BarrierHint, ConstructionRep, DropRep, EquipmentRep, FarmerRep, FarmlandRep, TreeRep,
+    BarrierHint, ConstructionRep, CropRep, DropRep, EquipmentRep, FarmerRep, FarmlandRep, TreeRep,
 };
 use crate::{Frame, Mode};
 use datamap::Storage;
 use game::api::{Action, Event, GameResponse, PlayerRequest};
 use game::math::{test_collisions, VectorMath};
 use game::model::{
-    Activity, Construction, Drop, Equipment, Farmer, Farmland, ItemRep, Knowledge, Purpose, Tree,
-    Universe,
+    Activity, Construction, Crop, Drop, Equipment, Farmer, Farmland, ItemRep, Knowledge, Purpose,
+    Tree, Universe,
 };
 use game::Game;
 use glam::vec3;
@@ -87,6 +87,7 @@ pub struct Gameplay {
     pub drops: HashMap<Drop, DropRep>,
     pub equipments: HashMap<Equipment, EquipmentRep>,
     pub constructions: HashMap<Construction, ConstructionRep>,
+    pub crops: HashMap<Crop, CropRep>,
     pub items: HashMap<ContainerId, HashMap<ItemId, ItemRep>>,
     pub camera: Camera,
     pub spines: Vec<Farmer2d>,
@@ -137,6 +138,7 @@ impl Gameplay {
             drops: Default::default(),
             equipments: Default::default(),
             constructions: Default::default(),
+            crops: Default::default(),
             items: Default::default(),
             camera,
             spines: vec![],

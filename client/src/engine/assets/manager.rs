@@ -22,10 +22,10 @@ use crate::engine::assets::prefabs::{TreeAsset, TreeAssetData};
 use crate::engine::assets::tileset::{TilesetAsset, TilesetAssetData, TilesetItem};
 use crate::engine::base::Queue;
 use crate::engine::{
-    FarmerAsset, FarmerAssetData, FarmlandAsset, FarmlandAssetData, FarmlandAssetPropItem,
-    ItemAsset, ItemAssetData, PipelineAsset, PipelineAssetData, PropsAsset, PropsAssetData,
-    SamplerAsset, SamplerAssetData, ShaderAsset, ShaderAssetData, SpineAsset, SpineAssetData,
-    SpriteAsset, SpriteAssetData, TextureAsset, TextureAssetData,
+    CropAsset, CropAssetData, FarmerAsset, FarmerAssetData, FarmlandAsset, FarmlandAssetData,
+    FarmlandAssetPropItem, ItemAsset, ItemAssetData, PipelineAsset, PipelineAssetData, PropsAsset,
+    PropsAssetData, SamplerAsset, SamplerAssetData, ShaderAsset, ShaderAssetData, SpineAsset,
+    SpineAssetData, SpriteAsset, SpriteAssetData, TextureAsset, TextureAssetData,
 };
 use crate::ShaderCompiler;
 
@@ -58,11 +58,13 @@ pub struct Assets {
     samplers: HashMap<String, SamplerAsset>,
     spines: HashMap<String, SpineAsset>,
 
+    // prefabs
     farmlands: HashMap<String, FarmlandAsset>,
     trees: HashMap<String, TreeAsset>,
     props: HashMap<String, PropsAsset>,
     farmers: HashMap<String, FarmerAsset>,
     items: HashMap<String, ItemAsset>,
+    crops: HashMap<String, CropAsset>,
 
     queue: Arc<Queue>,
 }
@@ -219,6 +221,7 @@ impl Assets {
             samplers: Default::default(),
             spines: Default::default(),
             items: Default::default(),
+            crops: Default::default(),
         }
     }
 
@@ -250,37 +253,30 @@ impl Assets {
         self.textures_white.clone()
     }
 
-    pub fn spine(&mut self, key: &str) -> SpineAsset {
+    pub fn spine(&mut self, path: &str) -> SpineAsset {
         METRIC_REQUESTS_TOTAL.with_label_values(&["spine"]).inc();
-        if let Some(asset) = self.spines.get(key) {
+        if let Some(asset) = self.spines.get(path) {
             return asset.share();
         }
-        info!("begin load spine {}", key);
-        let atlas_path = "assets/spine/lama384/lama.atlas";
-        let json_path = "assets/spine/lama384/lama.json";
-        let mut atlas = Atlas::new_from_file(atlas_path).unwrap();
-
-        let path = PathBuf::from(atlas_path);
-        let path_dir = path.parent().unwrap();
-
+        // Spine files naming convention: place atlas file in same directory and name as data json
         // TODO: support multiple atlases
+        let atlas_path = path.replace(".json", ".atlas");
+        let mut atlas = Atlas::new_from_file(&atlas_path).unwrap();
+        let spine_asset_folder = PathBuf::from(atlas_path);
+        let spine_asset_folder = spine_asset_folder.parent().unwrap();
         let first_page = atlas.pages_mut().next().unwrap();
-        let atlas_path = path_dir.join(first_page.name());
-        info!("load page atlas {:?}", atlas_path);
-        let atlas_texture = self.texture(atlas_path);
-
+        let texture_path = spine_asset_folder.join(first_page.name());
+        let texture = self.texture(texture_path);
         let mut skeleton_json = SkeletonJson::new(Arc::new(atlas));
-        let skeleton = Arc::new(skeleton_json.read_skeleton_data_file(json_path).unwrap());
+        let skeleton = Arc::new(skeleton_json.read_skeleton_data_file(path).unwrap());
         let animation = Arc::new(AnimationStateData::new(skeleton.clone()));
-
-        info!("end load spine {}", key);
         let data = SpineAssetData {
             animation,
             skeleton,
-            atlas: atlas_texture,
+            atlas: texture,
         };
         let asset = SpineAsset::from(data);
-        self.spines.insert(key.to_string(), asset.share());
+        self.spines.insert(path.to_string(), asset.share());
         asset
     }
 
@@ -350,6 +346,17 @@ impl Assets {
         }
     }
 
+    pub fn crop(&mut self, name: &str) -> CropAsset {
+        METRIC_REQUESTS_TOTAL.with_label_values(&["crop"]).inc();
+        match self.crops.get(name) {
+            Some(asset) => asset.share(),
+            None => {
+                let data = self.load_crop_data(name).unwrap();
+                self.crops.publish(name, data)
+            }
+        }
+    }
+
     pub fn farmland(&mut self, name: &str) -> FarmlandAsset {
         METRIC_REQUESTS_TOTAL.with_label_values(&["farmland"]).inc();
         match self.farmlands.get(name) {
@@ -397,6 +404,15 @@ impl Assets {
         let sprite: String = entry.get("sprite")?;
         let data = ItemAssetData {
             sprite: self.sprite(&sprite),
+        };
+        Ok(data)
+    }
+
+    pub fn load_crop_data(&mut self, id: &str) -> Result<CropAssetData, serde_json::Error> {
+        let entry = self.storage.fetch_one::<CropAssetData>(id);
+        let spine: String = entry.get("spine")?;
+        let data = CropAssetData {
+            spine: self.spine(&spine),
         };
         Ok(data)
     }
@@ -606,6 +622,10 @@ impl Assets {
                     "ItemAssetData" => {
                         let data = self.load_item_data(&change.id).unwrap();
                         self.items.get_mut(&change.id).unwrap().update(data);
+                    }
+                    "CropAssetData" => {
+                        let data = self.load_crop_data(&change.id).unwrap();
+                        self.crops.get_mut(&change.id).unwrap().update(data);
                     }
                     "PropsAssetData" => {
                         let data = self.load_props_data(&change.id).unwrap();

@@ -109,3 +109,9 @@ create table ItemAssetData
     id     text primary key unique,
     sprite text not null references SpriteAssetData
 );
+
+create table CropAssetData
+(
+    id    text primary key unique,
+    spine text not null
+);

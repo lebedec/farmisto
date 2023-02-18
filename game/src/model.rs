@@ -9,7 +9,7 @@ use crate::inventory::{ContainerId, ContainerKey, ContainerKind, ItemId, ItemKey
 use crate::physics::{
     BarrierId, BarrierKey, BarrierKind, BodyId, BodyKey, BodyKind, SpaceId, SpaceKey, SpaceKind,
 };
-use crate::planting::{LandId, LandKey, PlantId, PlantKey};
+use crate::planting::{LandId, LandKey, LandKind, PlantId, PlantKey, PlantKind};
 
 #[derive(Default)]
 pub struct Knowledge {
@@ -17,6 +17,7 @@ pub struct Knowledge {
     pub farmlands: Dictionary<FarmlandKey, FarmlandKind>,
     pub farmers: Dictionary<FarmerKey, FarmerKind>,
     pub equipments: Dictionary<EquipmentKey, EquipmentKind>,
+    pub crops: Dictionary<CropKey, CropKind>,
     // physics
     pub spaces: Dictionary<SpaceKey, SpaceKind>,
     pub bodies: Dictionary<BodyKey, BodyKind>,
@@ -27,6 +28,9 @@ pub struct Knowledge {
     // building
     pub grids: Dictionary<GridKey, GridKind>,
     pub surveyors: Dictionary<SurveyorKey, SurveyorKind>,
+    // planting
+    pub lands: Dictionary<LandKey, LandKind>,
+    pub plants: Dictionary<PlantKey, PlantKind>,
 }
 
 #[derive(Default)]
@@ -45,6 +49,8 @@ pub struct UniverseDomain {
     pub drops_id: usize,
     pub equipments: Vec<Equipment>,
     pub equipments_id: usize,
+    pub crops: Vec<Crop>,
+    pub crops_id: usize,
 }
 
 #[derive(Debug, bincode::Encode, bincode::Decode)]
@@ -84,6 +90,12 @@ pub enum Universe {
         position: [f32; 2],
     },
     DropVanished(Drop),
+    CropAppeared {
+        entity: Crop,
+        impact: f32,
+        position: [f32; 2],
+    },
+    CropVanished(Crop),
     ConstructionAppeared {
         id: Construction,
         cell: [usize; 2],
@@ -148,6 +160,11 @@ impl UniverseDomain {
     pub fn load_equipments(&mut self, equipments: Vec<Equipment>, equipments_id: usize) {
         self.equipments_id = equipments_id;
         self.equipments.extend(equipments);
+    }
+
+    pub fn load_crops(&mut self, crops: Vec<Crop>, crops_id: usize) {
+        self.crops_id = crops_id;
+        self.crops.extend(crops);
     }
 
     pub(crate) fn appear_construction(
@@ -427,6 +444,24 @@ pub struct ItemRep {
     pub id: ItemId,
     pub kind: ItemKey,
     pub container: ContainerId,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
+pub struct CropKey(pub usize);
+
+pub struct CropKind {
+    pub id: CropKey,
+    pub name: String,
+    pub plant: PlantKey,
+    pub barrier: BarrierKey,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
+pub struct Crop {
+    pub id: usize,
+    pub key: CropKey,
+    pub plant: PlantId,
+    pub barrier: BarrierId,
 }
 
 // Models:

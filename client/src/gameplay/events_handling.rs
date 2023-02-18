@@ -1,6 +1,6 @@
 use crate::engine::Frame;
 use crate::gameplay::representation::{
-    BarrierHint, ConstructionRep, DropRep, EquipmentRep, FarmerRep, FarmlandRep, TreeRep,
+    BarrierHint, ConstructionRep, CropRep, DropRep, EquipmentRep, FarmerRep, FarmlandRep, TreeRep,
 };
 use crate::gameplay::Gameplay;
 use game::api::Event;
@@ -151,6 +151,7 @@ impl Gameplay {
 
     pub fn handle_universe_event(&mut self, frame: &mut Frame, event: Universe) {
         let assets = &mut frame.assets;
+        let renderer = &mut frame.sprites;
         match event {
             Universe::TreeAppeared {
                 tree,
@@ -231,7 +232,7 @@ impl Gameplay {
             } => {
                 let kind = self.known.farmers.get(farmer.kind).unwrap();
                 info!("Appear farmer {:?} at {:?}", farmer, position);
-                let asset = assets.spine(&kind.name);
+                // let asset = assets.spine(&kind.name);
 
                 let max_y = 7 * 2;
                 let max_x = 14 * 2;
@@ -322,7 +323,7 @@ impl Gameplay {
                 self.drops.remove(&drop);
             }
             Universe::ConstructionAppeared { id: entity, cell } => {
-                info!("Appear construction {:?} at {:?}", entity, cell);
+                info!("Appear {:?} at {:?}", entity, cell);
                 self.constructions
                     .insert(entity, ConstructionRep { entity, tile: cell });
             }
@@ -336,7 +337,7 @@ impl Gameplay {
                 }
             }
             Universe::EquipmentAppeared { entity, position } => {
-                info!("Appear equipment {:?} at {:?}", entity, position);
+                info!("Appear {:?} at {:?}", entity, position);
                 self.equipments
                     .insert(entity, EquipmentRep { entity, position });
             }
@@ -345,6 +346,33 @@ impl Gameplay {
             }
             Universe::ActivityChanged { farmer, activity } => {
                 self.farmers.get_mut(&farmer).unwrap().activity = activity;
+            }
+            Universe::CropAppeared {
+                entity,
+                position,
+                impact,
+            } => {
+                info!("Appear {:?} at {:?}", entity, position);
+                let kind = self.known.crops.get(entity.key).unwrap();
+                let asset = assets.crop(&kind.name);
+                let colors = [
+                    [1.0, 1.0, 1.0, 1.0],
+                    [1.0, 1.0, 1.0, 1.0],
+                    [1.0, 1.0, 1.0, 1.0],
+                    [1.0, 1.0, 1.0, 1.0],
+                ];
+                let spine = renderer.instantiate_spine(&asset.spine, colors);
+                let representation = CropRep {
+                    entity,
+                    asset,
+                    spine,
+                    position,
+                    impact,
+                };
+                self.crops.insert(entity, representation);
+            }
+            Universe::CropVanished(crop) => {
+                self.crops.remove(&crop);
             }
         }
     }

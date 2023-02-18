@@ -638,6 +638,16 @@ impl Game {
             })
         }
 
+        for crop in &self.universe.crops {
+            let plant = self.planting.get_plant(crop.plant).unwrap();
+            let barrier = self.physics.get_barrier(crop.barrier).unwrap();
+            stream.push(Universe::CropAppeared {
+                entity: *crop,
+                impact: plant.impact,
+                position: barrier.position,
+            })
+        }
+
         for equipment in &self.universe.equipments {
             let barrier = self.physics.get_barrier(equipment.barrier).unwrap();
             stream.push(Universe::EquipmentAppeared {
