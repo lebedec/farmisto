@@ -8,6 +8,7 @@ use crate::api::ActionError::{ConstructionContainsUnexpectedItem, PlayerFarmerNo
 use crate::api::{Action, ActionError, ActionResponse, Event};
 use crate::building::{BuildingDomain, GridId, Marker, Material, SurveyorId};
 use crate::inventory::{Function, InventoryDomain, ItemId};
+use crate::math::VectorMath;
 use crate::model::Activity::Idle;
 use crate::model::{Activity, Drop};
 use crate::model::{Construction, Farmer, Universe};
@@ -545,10 +546,22 @@ impl Game {
     }
 
     pub fn update(&mut self, time: f32) -> Vec<Event> {
-        vec![
-            self.physics.update(time).into(),
-            self.planting.update(time).into(),
-        ]
+        let physics_events = self.physics.update(time);
+
+        for crop in &mut self.universe.crops {
+            let sensor = self.physics.get_sensor(crop.sensor).unwrap();
+            let mut impact = [0.0, 0.0];
+            for signal in &sensor.signals {
+                impact = impact.add(*signal);
+            }
+            impact = impact.normalize().neg();
+
+            self.planting
+                .integrate_impact(crop.plant, impact[0])
+                .unwrap();
+        }
+
+        occur![physics_events, self.planting.update(time),]
     }
 
     /// # Safety

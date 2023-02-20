@@ -1,4 +1,4 @@
-use crate::math::{test_collisions, VectorMath};
+use crate::math::{collide_circle_to_circle, test_collisions, VectorMath};
 use crate::physics::{Hole, Physics, PhysicsDomain};
 
 const MAX_ELAPSED_TIME: f32 = 0.03; // 40 ms
@@ -24,6 +24,7 @@ impl PhysicsDomain {
         for space in self.spaces.iter() {
             let bodies = &mut self.bodies[space.id.0];
             let barriers = &mut self.barriers[space.id.0];
+            let sensors = &mut self.sensors[space.id.0];
             for index in 0..bodies.len() {
                 let _id = bodies[index].id;
 
@@ -80,6 +81,22 @@ impl PhysicsDomain {
                         space: body.space.into(),
                         position: body.position,
                     });
+                }
+            }
+
+            for index in 0..sensors.len() {
+                let sensor = &mut sensors[index];
+                sensor.signals = vec![];
+                for body in &self.bodies[space.id.0] {
+                    let collision = collide_circle_to_circle(
+                        sensor.position,
+                        sensor.kind.radius,
+                        body.position,
+                        body.kind.radius,
+                    );
+                    if let Some(_) = collision {
+                        sensor.signals.push(body.position.sub(sensor.position));
+                    }
                 }
             }
         }

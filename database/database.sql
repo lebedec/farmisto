@@ -61,6 +61,22 @@ create table Barrier
     position json    not null
 );
 
+create table SensorKind
+(
+    id     integer primary key,
+    name   text not null unique,
+    radius real not null
+);
+
+create table Sensor
+(
+    id       integer primary key,
+    kind     integer not null references SensorKind,
+    space    integer not null references Space,
+    position json    not null,
+    signals  json    not null
+);
+
 -- Planting
 
 create table LandKind
@@ -78,9 +94,10 @@ create table Land
 
 create table PlantKind
 (
-    id     integer primary key,
-    name   text not null unique,
-    growth real not null
+    id          integer primary key,
+    name        text not null unique,
+    growth      real not null,
+    flexibility real not null
 );
 
 create table Plant
@@ -245,7 +262,8 @@ create table CropKind
     id      integer primary key,
     name    text not null unique,
     plant   text not null references PlantKind (name),
-    barrier text not null references BarrierKind (name)
+    barrier text not null references BarrierKind (name),
+    sensor  text not null references SensorKind (name)
 );
 
 create table Crop
@@ -253,5 +271,6 @@ create table Crop
     id      integer primary key,
     kind    integer not null references CropKind,
     plant   integer not null references Plant,
-    barrier integer not null references Barrier
+    barrier integer not null references Barrier,
+    sensor  integer not null references Sensor
 );

@@ -13,8 +13,8 @@ use crate::model::{
     PurposeDescription, Tree, TreeKey, TreeKind,
 };
 use crate::physics::{
-    Barrier, BarrierId, BarrierKey, BarrierKind, Body, BodyId, BodyKey, BodyKind, Space, SpaceId,
-    SpaceKey, SpaceKind,
+    Barrier, BarrierId, BarrierKey, BarrierKind, Body, BodyId, BodyKey, BodyKind, Sensor, SensorId,
+    SensorKey, SensorKind, Space, SpaceId, SpaceKey, SpaceKind,
 };
 use crate::planting::{Land, LandId, LandKey, LandKind, Plant, PlantId, PlantKey, PlantKind};
 use crate::Game;
@@ -32,6 +32,9 @@ impl Game {
         }
         for kind in storage.find_all(|row| self.load_barrier_kind(row).unwrap()) {
             self.known.barriers.insert(kind.id, kind.name.clone(), kind);
+        }
+        for kind in storage.find_all(|row| self.load_sensor_kind(row).unwrap()) {
+            self.known.sensors.insert(kind.id, kind.name.clone(), kind);
         }
         // planting
         for kind in storage.find_all(|row| self.load_land_kind(row).unwrap()) {
@@ -93,6 +96,8 @@ impl Game {
         self.physics.load_bodies(bodies, sequence);
         let (barriers, sequence) = storage.get_sequence(|row| self.load_barrier(row))?;
         self.physics.load_barriers(barriers, sequence);
+        let (sensors, sequence) = storage.get_sequence(|row| self.load_sensor(row))?;
+        self.physics.load_sensors(sensors, sequence);
 
         // planting
         let (lands, sequence) = storage.get_sequence(|row| self.load_land(row))?;
@@ -247,11 +252,13 @@ impl Game {
         let id = row.get("id")?;
         let plant: String = row.get("plant")?;
         let barrier: String = row.get("barrier")?;
+        let sensor: String = row.get("sensor")?;
         let data = CropKind {
             id: CropKey(id),
             name: row.get("name")?,
             plant: self.known.plants.find(&plant).unwrap().id,
             barrier: self.known.barriers.find(&barrier).unwrap().id,
+            sensor: self.known.sensors.find(&sensor).unwrap().id,
         };
         Ok(data)
     }
@@ -262,6 +269,7 @@ impl Game {
             key: CropKey(row.get("kind")?),
             plant: PlantId(row.get("plant")?),
             barrier: BarrierId(row.get("barrier")?),
+            sensor: SensorId(row.get("sensor")?),
         };
         Ok(data)
     }
@@ -394,6 +402,33 @@ impl Game {
         Ok(data)
     }
 
+    pub(crate) fn load_sensor_kind(
+        &mut self,
+        row: &rusqlite::Row,
+    ) -> Result<SensorKind, DataError> {
+        let data = SensorKind {
+            id: SensorKey(row.get("id")?),
+            name: row.get("name")?,
+            radius: row.get("radius")?,
+        };
+        Ok(data)
+    }
+
+    pub(crate) fn load_sensor(&mut self, row: &rusqlite::Row) -> Result<Sensor, DataError> {
+        let key = SensorKey(row.get("kind")?);
+        let space = row.get("space")?;
+        let position: String = row.get("position")?;
+        let signals: String = row.get("signals")?;
+        let data = Sensor {
+            id: SensorId(row.get("id")?),
+            kind: self.known.sensors.get(key).unwrap(),
+            position: serde_json::from_str(&position)?,
+            space: SpaceId(space),
+            signals: serde_json::from_str(&signals)?,
+        };
+        Ok(data)
+    }
+
     // building
 
     pub(crate) fn load_grid_kind(&mut self, row: &rusqlite::Row) -> Result<GridKind, DataError> {
@@ -516,11 +551,11 @@ impl Game {
     }
 
     pub(crate) fn load_plant_kind(&mut self, row: &rusqlite::Row) -> Result<PlantKind, DataError> {
-        let id = row.get("id")?;
         let data = PlantKind {
-            id: PlantKey(id),
+            id: PlantKey(row.get("id")?),
             name: row.get("name")?,
             growth: row.get("growth")?,
+            flexibility: row.get("flexibility")?,
         };
         Ok(data)
     }

@@ -1,6 +1,6 @@
 use crate::math::VectorMath;
 
-fn collide_aabb_circle(
+fn collide_aabb_to_circle(
     a_pos: [f32; 2],
     a_bounds: [f32; 2],
     b_pos: [f32; 2],
@@ -58,70 +58,6 @@ fn collide_aabb_circle(
     }
 }
 
-// bool AABBvsCircle( Manifold *m )
-// {
-// // Setup a couple pointers to each object
-// Object *A = m->A
-// Object *B = m->B
-// // Vector from A to B
-// Vec2 n = B->pos - A->pos
-// // Closest point on A to center of B
-// Vec2 closest = n
-// // Calculate half extents along each axis
-// float x_extent = (A->aabb.max.x - A->aabb.min.x) / 2
-// float y_extent = (A->aabb.max.y - A->aabb.min.y) / 2
-// // Clamp point to edges of the AABB
-// closest.x = Clamp( -x_extent, x_extent, closest.x )
-// closest.y = Clamp( -y_extent, y_extent, closest.y )
-// bool inside = false
-// // Circle is inside the AABB, so we need to clamp the circle's center
-// // to the closest edge
-// if(n == closest)
-// {
-// inside = true
-// // Find closest axis
-// if(abs( n.x ) > abs( n.y ))
-// {
-// // Clamp to closest extent
-// if(closest.x > 0)
-// closest.x = x_extent
-// else
-// closest.x = -x_extent
-// }
-// // y axis is shorter
-// else
-// {
-// // Clamp to closest extent
-// if(closest.y > 0)
-// closest.y = y_extent
-// else
-// closest.y = -y_extent
-// }
-// }
-// Vec2 normal = n - closest
-// real d = normal.LengthSquared( )
-// real r = B->radius
-// // Early out of the radius is shorter than distance to closest point and
-// // Circle not inside the AABB
-// if(d > r * r && !inside)
-// return false
-// // Avoided sqrt until we needed
-// d = sqrt( d )
-// // Collision normal needs to be flipped to point outside if circle was
-// // inside the AABB
-// if(inside)
-// {
-// m->normal = -n
-// m->penetration = r - d
-// }
-// else
-// {
-// m->normal = n
-// m->penetration = r - d
-// }
-// return true
-// }
-
 #[derive(Debug)]
 pub struct Collision {
     point: [f32; 2],
@@ -129,7 +65,7 @@ pub struct Collision {
     penetration: f32,
 }
 
-pub fn collide_circle_to_circle(p1: [f32; 2], p2: [f32; 2], r1: f32, r2: f32) -> Option<Collision> {
+pub fn collide_circle_to_circle(p1: [f32; 2], r1: f32, p2: [f32; 2], r2: f32) -> Option<Collision> {
     let mindist = r1 + r2;
     let delta = p2.sub(p1);
     let distsq = delta.length_squared();
@@ -159,80 +95,6 @@ pub fn collide_circle_to_circle(p1: [f32; 2], p2: [f32; 2], r1: f32, r2: f32) ->
     }
 }
 
-pub fn collide_circle_to_segment(
-    center: [f32; 2],
-    r: f32,
-    seg_a: [f32; 2],
-    seg_b: [f32; 2],
-    seg_r: f32,
-) -> Option<Collision> {
-    let seg_delta = seg_b.sub(seg_a);
-    let closest_t = seg_delta.dot(center.sub(seg_a)).clamp(0.0, 1.0) / seg_delta.length_squared();
-    let closest = seg_a.add(seg_delta.mul(closest_t));
-    collide_circle_to_circle(center, closest, r, seg_r)
-}
-
-pub fn collide_circle_to_rect(
-    center: [f32; 2],
-    radius: f32,
-    rect_center: [f32; 2],
-    rect_bounds: [f32; 2],
-) -> Option<[f32; 2]> {
-    let [cx, cy] = center;
-    let [rx, ry] = rect_center.sub(rect_bounds.mul(0.5));
-    let [rw, rh] = rect_bounds;
-    let test_x = if cx < rx {
-        rx
-    } else if cx > rx + rw {
-        rx + rw
-    } else {
-        cx
-    };
-
-    let test_y = if cy < ry {
-        ry
-    } else if cy > ry + rh {
-        ry + rh
-    } else {
-        cy
-    };
-
-    let dist_x = cx - test_x;
-    let dist_y = cy - test_y;
-    let distance = ((dist_x * dist_x) + (dist_y * dist_y)).sqrt();
-
-    if distance <= radius {
-        println!("TEST {}x{}", test_x, test_y);
-        Some([test_x, test_y])
-    } else {
-        None
-    }
-}
-
-// boolean circleRect(float cx, float cy, float radius, float rx, float ry, float rw, float rh) {
-//
-// // temporary variables to set edges for testing
-// float testX = cx;
-// float testY = cy;
-//
-// // which edge is closest?
-// if (cx < rx)         testX = rx;      // test left edge
-// else if (cx > rx+rw) testX = rx+rw;   // right edge
-// if (cy < ry)         testY = ry;      // top edge
-// else if (cy > ry+rh) testY = ry+rh;   // bottom edge
-//
-// // get distance from closest edges
-// float distX = cx-testX;
-// float distY = cy-testY;
-// float distance = sqrt( (distX*distX) + (distY*distY) );
-//
-// // if the distance is less than the radius, collision!
-// if (distance <= radius) {
-// return true;
-// }
-// return false;
-// }
-
 #[inline]
 pub fn test_rect_collision(
     a: [f32; 2],
@@ -260,63 +122,13 @@ pub fn test_collisions(
     let mut blocked = false;
     let mut offsets = vec![];
     for barrier in barriers.iter() {
-        // let collision = collide_circle_to_segment(
-        //     destination,
-        //     body.bounds()[0],
-        //     barrier.position().add([-0.5, -0.5]),
-        //     barrier.position().add([-0.5, 0.5]),
-        //     0.0,
-        // );
-        // if let Some(collision) = collision {
-        //     println!("COLLISION {:?}", collision);
-        //     blocked = true;
-        //     // return Some(
-        //     //     collision
-        //     //         .point
-        //     //         .add(collision.normal.mul(-collision.penetration)),
-        //     // );
-        //     break;
-        // }
-        // if let Some(contact) = collide_circle_to_rect(
-        //     destination,
-        //     body.bounds()[0],
-        //     barrier.position(),
-        //     barrier.bounds(),
-        // ) {
-        //     blocked = true;
-        //     let offset = contact.direction_to(body.position()).mul(body.bounds()[0]);
-        //     //break;
-        //     return Some(contact.add(offset));
-        // }
-        // if test_rect_collision(
-        //     destination,
-        //     body.bounds(), // body radius
-        //     barrier.position(),
-        //     barrier.bounds(),
-        // ) {
-        //     blocked = true;
-        //     break;
-        // }
-        if let Some(contact) = collide_aabb_circle(
+        if let Some(contact) = collide_aabb_to_circle(
             barrier.position(),
             barrier.bounds(),
             destination,
             body.bounds()[0],
         ) {
-            let movement = destination.sub(body.position());
             let offset = contact.normal.normalize().mul(contact.penetration);
-            // println!(
-            //     "CONTACT {:?} offset {:?} movement {:?} dir {:?} L {} NEW {:?} R {}",
-            //     contact,
-            //     offset,
-            //     movement,
-            //     movement.normalize(),
-            //     movement.length(),
-            //     movement
-            //         .normalize()
-            //         .mul(movement.length() - contact.penetration),
-            //     body.bounds()[0],
-            // );
             blocked = true;
             offsets.push(offset);
         }

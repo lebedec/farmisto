@@ -1,6 +1,7 @@
+use core::fmt::{Debug, Formatter};
+
 use crate::collections::Shared;
 use crate::math::Collider;
-use core::fmt::{Debug, Formatter};
 
 pub const MAX_SPACES: usize = 128;
 
@@ -11,6 +12,8 @@ pub struct PhysicsDomain {
     pub bodies_sequence: usize,
     pub barriers: Vec<Vec<Barrier>>,
     pub barriers_sequence: usize,
+    pub sensors: Vec<Vec<Sensor>>,
+    pub sensors_sequence: usize,
 }
 
 impl Default for PhysicsDomain {
@@ -22,6 +25,8 @@ impl Default for PhysicsDomain {
             bodies_sequence: 0,
             barriers: vec![vec![]; MAX_SPACES],
             barriers_sequence: 0,
+            sensors: vec![vec![]; MAX_SPACES],
+            sensors_sequence: 0,
         }
     }
 }
@@ -86,6 +91,27 @@ pub struct Barrier {
     pub space: SpaceId,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
+pub struct SensorKey(pub usize);
+
+pub struct SensorKind {
+    pub id: SensorKey,
+    pub name: String,
+    pub radius: f32,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
+pub struct SensorId(pub usize);
+
+#[derive(Clone)]
+pub struct Sensor {
+    pub id: SensorId,
+    pub kind: Shared<SensorKind>,
+    pub position: [f32; 2],
+    pub space: SpaceId,
+    pub signals: Vec<[f32; 2]>,
+}
+
 #[derive(bincode::Encode, bincode::Decode)]
 pub enum Physics {
     BodyPositionChanged {
@@ -125,6 +151,7 @@ pub enum PhysicsError {
     BodyNotFound { id: BodyId },
     BarrierCreationOverlaps { other: BarrierId },
     BarrierNotFound { id: BarrierId },
+    SensorNotFound { id: SensorId },
     HoleNotFound { hole: [usize; 2] },
     HoleAlreadyExists { hole: [usize; 2] },
     HoleCreationContainsBody { hole: [usize; 2] },
@@ -147,6 +174,13 @@ impl PhysicsDomain {
         self.barriers_sequence = sequence;
         for barrier in barriers {
             self.barriers[barrier.space.0].push(barrier);
+        }
+    }
+
+    pub fn load_sensors(&mut self, sensors: Vec<Sensor>, sequence: usize) {
+        self.sensors_sequence = sequence;
+        for sensor in sensors {
+            self.sensors[sensor.space.0].push(sensor);
         }
     }
 
@@ -195,6 +229,17 @@ impl PhysicsDomain {
             }
         }
         return Err(PhysicsError::BarrierNotFound { id });
+    }
+
+    pub fn get_sensor(&self, id: SensorId) -> Result<&Sensor, PhysicsError> {
+        for sensors in self.sensors.iter() {
+            for sensor in sensors {
+                if sensor.id == id {
+                    return Ok(sensor);
+                }
+            }
+        }
+        return Err(PhysicsError::SensorNotFound { id });
     }
 }
 

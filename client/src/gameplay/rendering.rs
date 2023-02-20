@@ -29,13 +29,12 @@ impl Gameplay {
                 farmer.sprite.skeleton.update(frame.input.time);
             }
             for crop in self.crops.values_mut() {
-                crop.animate_impact(frame.input.time);
                 if let Some(mut impact_bone) = crop.spine.skeleton.skeleton.find_bone_mut("impact")
                 {
                     if crop.impact > 0.0 {
-                        impact_bone.set_rotation(360.0 - crop.impact);
+                        impact_bone.set_rotation(360.0 - crop.impact * 90.0);
                     } else {
-                        impact_bone.set_rotation(-crop.impact);
+                        impact_bone.set_rotation(-crop.impact * 90.0);
                     }
                 }
                 crop.spine.skeleton.update(frame.input.time);

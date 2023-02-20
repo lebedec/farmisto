@@ -129,10 +129,7 @@ pub struct CropRep {
 }
 
 impl CropRep {
-    pub(crate) fn animate_impact(&mut self, time: f32) {
-        if self.impact.abs() < 0.2 {
-            self.impact = self.impact.signum() * 100.0;
-        }
-        self.impact = self.impact - (self.impact.signum() * 10.0 * time);
+    pub fn synchronize_impact(&mut self, impact: f32) {
+        self.impact = impact;
     }
 }

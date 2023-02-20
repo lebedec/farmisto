@@ -44,6 +44,7 @@ pub struct PlantKind {
     pub id: PlantKey,
     pub name: String,
     pub growth: f32,
+    pub flexibility: f32,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
@@ -62,6 +63,10 @@ pub enum Planting {
     LandChanged {
         land: LandId,
         map: Vec<Vec<[f32; 2]>>,
+    },
+    PlantUpdated {
+        id: PlantId,
+        impact: f32,
     },
 }
 
@@ -94,5 +99,26 @@ impl PlantingDomain {
             }
         }
         Err(PlantingError::PlantNotFound { id })
+    }
+
+    pub fn get_plant_mut(&mut self, id: PlantId) -> Result<&mut Plant, PlantingError> {
+        for plants in &mut self.plants {
+            if let Some(plant) = plants.iter_mut().find(|plant| plant.id == id) {
+                return Ok(plant);
+            }
+        }
+        Err(PlantingError::PlantNotFound { id })
+    }
+
+    pub fn integrate_impact(&mut self, id: PlantId, impact: f32) -> Result<(), PlantingError> {
+        let plant = self.get_plant_mut(id)?;
+        plant.impact += impact;
+        if plant.impact < -1.0 {
+            plant.impact = -1.0;
+        }
+        if plant.impact > 1.0 {
+            plant.impact = 1.0;
+        }
+        Ok(())
     }
 }

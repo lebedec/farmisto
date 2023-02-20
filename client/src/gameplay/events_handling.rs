@@ -103,6 +103,14 @@ impl Gameplay {
                     }
                 }
             }
+            Planting::PlantUpdated { id, impact } => {
+                for crop in self.crops.values_mut() {
+                    if crop.entity.plant != id {
+                        continue;
+                    }
+                    crop.synchronize_impact(impact);
+                }
+            }
         }
     }
 

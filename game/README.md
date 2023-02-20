@@ -1,6 +1,6 @@
 # Game
 
-Game is heart of the project. Module handles mechanics, 
+Game crate is heart of the project, handles mechanics, 
 provides game model and API for interaction.
 Designed as server side of client-server architecture
 to serve local and remote players on host computer.
@@ -30,11 +30,19 @@ This leads to a number of features:
 
 ![](../.readme/diagrams/game.png)
 
-## Domains
+## Modules
+
+### Domains
 
 It is the bounds within which certain game processes are implemented
 and certain rules/actions are applied. In fact, each domain is unique game mechanic.
 Domains are independent Rust modules.
+
+*   [Universe](src/model.rs) 
+
+    A game world is an artificial universe. In the context of the domain driven development,
+    this is root domain which contains aggregates — clusters of domain objects that can be treated as a single 
+    game object. 
 
 *   [Physics](src/domains/physics)
 
@@ -61,6 +69,31 @@ Domains are independent Rust modules.
 
 *   [Inventory](src/domains/inventory)
 
-    While playing game, player will acquire a good many items. Some will be looted from fallen enemies.
-    Some will be purchased from a merchant or crafted.
+    While playing game, player will acquire a good many items. Some will be purchased from a merchant or crafted.
     Inventory domain represents these items, solves management and storage problems.
+
+### Math
+
+Probably the most common aspect of game development is vector math. This module handles this 
+and provides any math calculations which can be shared between domains, server and client sides.
+For example collision detection need not only for physics domain update,
+but for client side prediction to compensate network lag and make possible smooth animation.
+
+### API
+
+When the player performs any action, the API is the single place where this action should be defined.
+
+### Collections
+
+This module implements specialized collection data types providing alternatives to Rust general purpose built-in 
+collections.
+
+### Data
+
+Defines process of game save and load, separates game domains logic and concrete implementation of
+data access layer.
+
+### Model
+
+The universe domain implements game model by composition of multiple domain objects. Any references from API
+should only go to the universe objects.

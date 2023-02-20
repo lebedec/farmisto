@@ -7,7 +7,8 @@ use crate::building::{
 use crate::collections::{Dictionary, Shared};
 use crate::inventory::{ContainerId, ContainerKey, ContainerKind, ItemId, ItemKey, ItemKind};
 use crate::physics::{
-    BarrierId, BarrierKey, BarrierKind, BodyId, BodyKey, BodyKind, SpaceId, SpaceKey, SpaceKind,
+    BarrierId, BarrierKey, BarrierKind, BodyId, BodyKey, BodyKind, SensorId, SensorKey, SensorKind,
+    SpaceId, SpaceKey, SpaceKind,
 };
 use crate::planting::{LandId, LandKey, LandKind, PlantId, PlantKey, PlantKind};
 
@@ -22,6 +23,7 @@ pub struct Knowledge {
     pub spaces: Dictionary<SpaceKey, SpaceKind>,
     pub bodies: Dictionary<BodyKey, BodyKind>,
     pub barriers: Dictionary<BarrierKey, BarrierKind>,
+    pub sensors: Dictionary<SensorKey, SensorKind>,
     // inventory
     pub containers: Dictionary<ContainerKey, ContainerKind>,
     pub items: Dictionary<ItemKey, ItemKind>,
@@ -454,6 +456,7 @@ pub struct CropKind {
     pub name: String,
     pub plant: PlantKey,
     pub barrier: BarrierKey,
+    pub sensor: SensorKey,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
@@ -462,6 +465,7 @@ pub struct Crop {
     pub key: CropKey,
     pub plant: PlantId,
     pub barrier: BarrierId,
+    pub sensor: SensorId,
 }
 
 // Models:
