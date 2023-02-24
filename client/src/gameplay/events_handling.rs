@@ -369,7 +369,48 @@ impl Gameplay {
                     [1.0, 1.0, 1.0, 1.0],
                     [1.0, 1.0, 1.0, 1.0],
                 ];
-                let spine = renderer.instantiate_spine(&asset.spine, colors);
+
+                info!("instantiates spine data");
+
+                let mut spine = renderer.instantiate_spine(&asset.spine, colors);
+                let spine_data = spine.skeleton.skeleton.data();
+
+                info!("spine data");
+
+                // SPECIFICATION:
+                let growth = spine_data.animation_at_index(3).unwrap();
+                spine
+                    .skeleton
+                    .animation_state
+                    .add_animation(3, growth.as_ref(), false, 0.0);
+                let development = spine_data.animation_at_index(1).unwrap();
+                spine
+                    .skeleton
+                    .animation_state
+                    .add_animation(1, development.as_ref(), false, 0.0);
+                let drying = spine_data.animation_at_index(2).unwrap();
+                spine
+                    .skeleton
+                    .animation_state
+                    .add_animation(2, drying.as_ref(), false, 0.0);
+
+                // set skin
+                // let [head, tail] = features;
+                // let mut skin = Skin::new("lama-dynamic-848");
+                // let head = spine.skeleton.find_skin(&head).unwrap();
+                // let tail = spine.skeleton.find_skin(&tail).unwrap();
+                // skin.add_skin(&head);
+                // skin.add_skin(&tail);
+                // skeleton.skeleton.set_skin(&skin);
+
+                info!("sets skin");
+
+                // spine
+                //     .skeleton
+                //     .skeleton
+                //     .set_skin_by_name("test-skin")
+                //     .unwrap();
+
                 let representation = CropRep {
                     entity,
                     asset,

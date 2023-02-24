@@ -5,6 +5,8 @@ use game::building::{Grid, Room};
 use game::math::VectorMath;
 use game::model::{Activity, Purpose};
 use lazy_static::lazy_static;
+use rusty_spine::AnimationStateData;
+use sdl2::libc::raise;
 use std::collections::HashMap;
 
 lazy_static! {
@@ -37,6 +39,28 @@ impl Gameplay {
                         impact_bone.set_rotation(-crop.impact * 90.0);
                     }
                 }
+                let mut growth = crop
+                    .spine
+                    .skeleton
+                    .animation_state
+                    .track_at_index_mut(3)
+                    .unwrap();
+                growth.set_timescale(1.0);
+                let f = 100.0 * (1.0 / 30.0);
+                growth.set_animation_start(f);
+                growth.set_animation_end(f);
+
+                let mut development = crop
+                    .spine
+                    .skeleton
+                    .animation_state
+                    .track_at_index_mut(1)
+                    .unwrap();
+                development.set_timescale(1.0);
+                let f = 50.0 * (1.0 / 30.0);
+                development.set_animation_start(f);
+                development.set_animation_end(f);
+
                 crop.spine.skeleton.update(frame.input.time);
             }
         });

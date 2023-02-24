@@ -110,6 +110,8 @@ where
 #[derive(Clone, Copy)]
 pub struct IndexBuffer {
     buffer: vk::Buffer,
+    device_memory: vk::DeviceMemory,
+    device_size: vk::DeviceSize,
     count: u32,
 }
 
@@ -129,7 +131,7 @@ impl IndexBuffer {
     ) -> Self {
         let size = (4 * indices.len()) as u64;
 
-        let (buffer, device_memory, memory_size) = create_buffer(
+        let (buffer, device_memory, device_size) = create_buffer(
             device,
             size,
             vk::BufferUsageFlags::INDEX_BUFFER,
@@ -140,11 +142,11 @@ impl IndexBuffer {
         // WRITE
         let ptr = unsafe {
             device
-                .map_memory(device_memory, 0, memory_size, vk::MemoryMapFlags::empty())
+                .map_memory(device_memory, 0, device_size, vk::MemoryMapFlags::empty())
                 .unwrap()
         };
         let mut alignment =
-            unsafe { ash::util::Align::new(ptr, std::mem::align_of::<u32>() as u64, memory_size) };
+            unsafe { ash::util::Align::new(ptr, std::mem::align_of::<u32>() as u64, device_size) };
         alignment.copy_from_slice(&indices);
         unsafe {
             device.unmap_memory(device_memory);
@@ -152,7 +154,30 @@ impl IndexBuffer {
 
         Self {
             buffer,
+            device_memory,
+            device_size,
             count: indices.len() as u32,
+        }
+    }
+
+    pub fn update<T: Copy>(&self, vertices: Vec<T>, device: &Device) {
+        // WRITE
+        let ptr = unsafe {
+            device
+                .map_memory(
+                    self.device_memory,
+                    0,
+                    self.device_size,
+                    vk::MemoryMapFlags::empty(),
+                )
+                .unwrap()
+        };
+        let mut alignment = unsafe {
+            ash::util::Align::new(ptr, std::mem::align_of::<T>() as u64, self.device_size)
+        };
+        alignment.copy_from_slice(&vertices);
+        unsafe {
+            device.unmap_memory(self.device_memory);
         }
     }
 }

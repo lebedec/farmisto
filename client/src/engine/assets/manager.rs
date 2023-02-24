@@ -260,6 +260,7 @@ impl Assets {
         }
         // Spine files naming convention: place atlas file in same directory and name as data json
         // TODO: support multiple atlases
+        info!("Reads atlas");
         let atlas_path = path.replace(".json", ".atlas");
         let mut atlas = Atlas::new_from_file(&atlas_path).unwrap();
         let spine_asset_folder = PathBuf::from(atlas_path);
@@ -267,8 +268,12 @@ impl Assets {
         let first_page = atlas.pages_mut().next().unwrap();
         let texture_path = spine_asset_folder.join(first_page.name());
         let texture = self.texture(texture_path);
+
         let mut skeleton_json = SkeletonJson::new(Arc::new(atlas));
-        let skeleton = Arc::new(skeleton_json.read_skeleton_data_file(path).unwrap());
+        let s = skeleton_json.read_skeleton_data_file(path);
+        info!("Reads skeleton json {}", s.is_ok());
+        let skeleton = Arc::new(s.unwrap());
+        info!("Reads animation");
         let animation = Arc::new(AnimationStateData::new(skeleton.clone()));
         let data = SpineAssetData {
             animation,
