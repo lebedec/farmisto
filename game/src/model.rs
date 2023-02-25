@@ -95,6 +95,7 @@ pub enum Universe {
     CropAppeared {
         entity: Crop,
         impact: f32,
+        thirst: f32,
         position: [f32; 2],
     },
     CropVanished(Crop),
@@ -202,6 +203,33 @@ impl UniverseDomain {
         } else {
             vec![]
         }
+    }
+
+    pub(crate) fn appear_crop(
+        &mut self,
+        key: CropKey,
+        barrier: BarrierId,
+        sensor: SensorId,
+        plant: PlantId,
+        impact: f32,
+        thirst: f32,
+        position: [f32; 2],
+    ) -> Vec<Universe> {
+        self.crops_id += 1;
+        let entity = Crop {
+            id: self.crops_id,
+            key,
+            plant,
+            barrier,
+            sensor,
+        };
+        self.crops.push(entity);
+        vec![Universe::CropAppeared {
+            entity,
+            impact,
+            thirst,
+            position,
+        }]
     }
 
     pub(crate) fn appear_equipment(

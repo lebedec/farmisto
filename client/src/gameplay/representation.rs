@@ -126,10 +126,15 @@ pub struct CropRep {
     pub spine: SpineSpriteController,
     pub position: [f32; 2],
     pub impact: f32,
+    pub thirst: f32,
 }
 
 impl CropRep {
     pub fn synchronize_impact(&mut self, impact: f32) {
         self.impact = impact;
+    }
+
+    pub fn synchronize_thirst(&mut self, thirst: f32) {
+        self.thirst = thirst;
     }
 }

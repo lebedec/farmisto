@@ -401,7 +401,12 @@ impl SpriteRenderer {
         })
     }
 
-    pub fn render_spine(&mut self, sprite: &SpineSpriteController, position: [f32; 2]) {
+    pub fn render_spine(
+        &mut self,
+        sprite: &SpineSpriteController,
+        position: [f32; 2],
+        colors: [[f32; 4]; 4],
+    ) {
         let meshes = self.update_spine_buffers(sprite);
         sprite.lights_buffer.update(
             self.present_index,
@@ -462,10 +467,7 @@ impl SpriteRenderer {
             position,
             colors: sprite.colors,
             meshes,
-            constants: SpinePushConstants {
-                colors: sprite.colors,
-                position,
-            },
+            constants: SpinePushConstants { colors, position },
             lights_descriptor,
         })
     }

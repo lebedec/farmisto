@@ -20,6 +20,7 @@ impl PlantingDomain {
         }
         for plants in &mut self.plants {
             for plant in plants.iter_mut() {
+                let mut plant_updated = false;
                 if plant.impact.abs() > 0.001 {
                     let delta = time * plant.kind.flexibility;
                     plant.impact = if delta > plant.impact.abs() {
@@ -27,9 +28,19 @@ impl PlantingDomain {
                     } else {
                         plant.impact - (plant.impact.signum() * time * plant.kind.flexibility)
                     };
+                    plant_updated = true;
+                }
+                
+                if plant.thirst <= 1.0 {
+                    plant.thirst += plant.kind.transpiration * time;
+                    plant_updated = true;
+                }
+                
+                if plant_updated {
                     events.push(PlantUpdated {
                         id: plant.id,
                         impact: plant.impact,
+                        thirst: plant.thirst,
                     })
                 }
             }

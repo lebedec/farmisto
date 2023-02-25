@@ -94,10 +94,11 @@ create table Land
 
 create table PlantKind
 (
-    id          integer primary key,
-    name        text not null unique,
-    growth      real not null,
-    flexibility real not null
+    id            integer primary key,
+    name          text not null unique,
+    growth        real not null,
+    flexibility   real not null,
+    transpiration real not null
 );
 
 create table Plant
@@ -105,7 +106,8 @@ create table Plant
     id     integer primary key,
     kind   integer not null references PlantKind,
     land   integer not null references Land,
-    impact real    not null
+    impact real    not null,
+    thirst real    not null
 );
 
 -- Building

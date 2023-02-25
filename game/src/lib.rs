@@ -10,7 +10,7 @@ use crate::building::{BuildingDomain, GridId, Marker, Material, SurveyorId};
 use crate::inventory::{Function, InventoryDomain, ItemId};
 use crate::math::VectorMath;
 use crate::model::Activity::Idle;
-use crate::model::{Activity, Drop};
+use crate::model::{Activity, Crop, Drop};
 use crate::model::{Construction, Farmer, Universe};
 use crate::model::{Equipment, ItemRep};
 use crate::model::{EquipmentKey, PurposeDescription, UniverseDomain};
@@ -137,8 +137,39 @@ impl Game {
             Action::UseEquipment { equipment } => self.use_equipment(*farmer, equipment)?,
             Action::CancelActivity => self.cancel_activity(*farmer)?,
             Action::ToggleSurveyingOption => self.toggle_surveying_option(*farmer)?,
+            Action::PlantCrop { tile } => self.plant_crop(*farmer, farmland, tile)?,
+            Action::WaterCrop { crop } => self.water_crop(*farmer, crop)?,
         };
 
+        Ok(events)
+    }
+
+    fn water_crop(&mut self, farmer: Farmer, crop: Crop) -> Result<Vec<Event>, ActionError> {
+        let water_plant = self.planting.water_plant(crop.plant, 0.5)?;
+        let events = occur![water_plant(),];
+        Ok(events)
+    }
+
+    fn plant_crop(
+        &mut self,
+        farmer: Farmer,
+        farmland: Farmland,
+        tile: [usize; 2],
+    ) -> Result<Vec<Event>, ActionError> {
+        let kind = self.known.crops.find("corn").unwrap();
+        let barrier = self.known.barriers.get(kind.barrier).unwrap();
+        let sensor = self.known.sensors.get(kind.sensor).unwrap();
+        let plant = self.known.plants.get(kind.plant).unwrap();
+        let position = position_of(tile);
+        let (barrier, sensor, create_barrier_sensor) =
+            self.physics
+                .create_barrier_sensor(farmland.space, barrier, sensor, position, false)?;
+        let (plant, create_plant) = self.planting.create_plant(farmland.land, plant, 0.0)?;
+        let appear_crop = self
+            .universe
+            .appear_crop(kind.id, barrier, sensor, plant, 0.0, 0.0, position);
+
+        let events = occur![create_barrier_sensor(), create_plant(), appear_crop,];
         Ok(events)
     }
 
@@ -444,10 +475,15 @@ impl Game {
         farmer: Farmer,
         construction: Construction,
     ) -> Result<Vec<Event>, ActionError> {
+        let hands = self.inventory.get_container(farmer.hands)?;
+        let is_last_item = hands.items.len() == 1;
         let pop_item = self
             .inventory
             .pop_item(farmer.hands, construction.container)?;
-        let events = vec![pop_item().into()];
+        let mut events = vec![pop_item().into()];
+        if is_last_item {
+            events.push(self.universe.change_activity(farmer, Activity::Idle).into())
+        }
         Ok(events)
     }
 
@@ -657,6 +693,7 @@ impl Game {
             stream.push(Universe::CropAppeared {
                 entity: *crop,
                 impact: plant.impact,
+                thirst: plant.thirst,
                 position: barrier.position,
             })
         }

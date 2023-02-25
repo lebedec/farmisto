@@ -103,12 +103,13 @@ impl Gameplay {
                     }
                 }
             }
-            Planting::PlantUpdated { id, impact } => {
+            Planting::PlantUpdated { id, impact, thirst } => {
                 for crop in self.crops.values_mut() {
                     if crop.entity.plant != id {
                         continue;
                     }
                     crop.synchronize_impact(impact);
+                    crop.synchronize_thirst(thirst);
                 }
             }
         }
@@ -359,6 +360,7 @@ impl Gameplay {
                 entity,
                 position,
                 impact,
+                thirst,
             } => {
                 info!("Appear {:?} at {:?}", entity, position);
                 let kind = self.known.crops.get(entity.key).unwrap();
@@ -383,11 +385,13 @@ impl Gameplay {
                     .skeleton
                     .animation_state
                     .add_animation(3, growth.as_ref(), false, 0.0);
+
                 let development = spine_data.animation_at_index(1).unwrap();
                 spine
                     .skeleton
                     .animation_state
                     .add_animation(1, development.as_ref(), false, 0.0);
+
                 let drying = spine_data.animation_at_index(2).unwrap();
                 spine
                     .skeleton
@@ -417,6 +421,7 @@ impl Gameplay {
                     spine,
                     position,
                     impact,
+                    thirst,
                 };
                 self.crops.insert(entity, representation);
             }

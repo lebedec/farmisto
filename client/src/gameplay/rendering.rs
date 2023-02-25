@@ -5,6 +5,7 @@ use game::building::{Grid, Room};
 use game::math::VectorMath;
 use game::model::{Activity, Purpose};
 use lazy_static::lazy_static;
+use rand::prelude::*;
 use rusty_spine::AnimationStateData;
 use sdl2::libc::raise;
 use std::collections::HashMap;
@@ -49,6 +50,17 @@ impl Gameplay {
                 let f = 100.0 * (1.0 / 30.0);
                 growth.set_animation_start(f);
                 growth.set_animation_end(f);
+
+                let mut drying = crop
+                    .spine
+                    .skeleton
+                    .animation_state
+                    .track_at_index_mut(2)
+                    .unwrap();
+                drying.set_timescale(1.0);
+                let f = (100.0 * crop.thirst) * (1.0 / 30.0);
+                drying.set_animation_start(f);
+                drying.set_animation_end(f);
 
                 let mut development = crop
                     .spine
@@ -399,13 +411,35 @@ impl Gameplay {
             }
         }
 
-        for crop in self.crops.values() {
-            renderer.render_spine(&crop.spine, rendering_position_of(crop.position));
+        for (index, crop) in self.crops.values().enumerate() {
+            let mut random = StdRng::seed_from_u64(index as u64);
+            let offset_x: f32 = random.gen_range(-0.05..0.05);
+            let offset_y: f32 = random.gen_range(-0.05..0.05);
+            let offset = [offset_x, offset_y];
+            renderer.render_spine(
+                &crop.spine,
+                rendering_position_of(crop.position.add(offset)),
+                [
+                    [1.0, 1.0 - crop.thirst * 0.5, 1.0 - crop.thirst * 0.75, 1.0],
+                    [1.0, 1.0, 1.0, 1.0],
+                    [1.0, 1.0, 1.0, 1.0],
+                    [1.0, 1.0, 1.0, 1.0],
+                ],
+            );
         }
 
         METRIC_DRAW_REQUEST_SECONDS.observe_closure_duration(|| {
             for spine in &self.spines {
-                renderer.render_spine(&spine.sprite, spine.position);
+                renderer.render_spine(
+                    &spine.sprite,
+                    spine.position,
+                    [
+                        [1.0, 1.0, 1.0, 1.0],
+                        [1.0, 1.0, 1.0, 1.0],
+                        [1.0, 1.0, 1.0, 1.0],
+                        [1.0, 1.0, 1.0, 1.0],
+                    ],
+                );
             }
         });
         renderer.set_point_light(

@@ -54,6 +54,7 @@ pub enum Target {
     Construction(Construction),
     Equipment(Equipment),
     Wall([usize; 2]),
+    Crop(Crop)
 }
 
 pub trait InputMethod {
@@ -211,6 +212,12 @@ impl Gameplay {
         for equipment in self.equipments.values() {
             if equipment.position.to_tile() == tile {
                 return Target::Equipment(equipment.entity);
+            }
+        }
+        
+        for crop in self.crops.values() {
+            if crop.position.to_tile() == tile {
+                return Target::Crop(crop.entity);
             }
         }
 

@@ -556,6 +556,7 @@ impl Game {
             name: row.get("name")?,
             growth: row.get("growth")?,
             flexibility: row.get("flexibility")?,
+            transpiration: row.get("transpiration")?,
         };
         Ok(data)
     }
@@ -569,6 +570,7 @@ impl Game {
             kind: self.known.plants.get(PlantKey(kind)).unwrap(),
             land: LandId(land),
             impact: row.get("impact")?,
+            thirst: row.get("thirst")?,
         };
         Ok(data)
     }

@@ -45,6 +45,7 @@ pub struct PlantKind {
     pub name: String,
     pub growth: f32,
     pub flexibility: f32,
+    pub transpiration: f32,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
@@ -56,6 +57,7 @@ pub struct Plant {
     pub kind: Shared<PlantKind>,
     pub land: LandId,
     pub impact: f32,
+    pub thirst: f32,
 }
 
 #[derive(Debug, bincode::Encode, bincode::Decode)]
@@ -67,6 +69,7 @@ pub enum Planting {
     PlantUpdated {
         id: PlantId,
         impact: f32,
+        thirst: f32,
     },
 }
 

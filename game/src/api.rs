@@ -1,10 +1,10 @@
 use crate::building::{Building, BuildingError, Marker, SurveyorId};
 use crate::inventory::{Inventory, InventoryError, ItemId};
 use crate::model::{
-    Activity, Construction, Drop, Equipment, EquipmentKey, Farmer, Universe, UniverseError,
+    Activity, Construction, Crop, Drop, Equipment, EquipmentKey, Farmer, Universe, UniverseError,
 };
 use crate::physics::{Physics, PhysicsError};
-use crate::planting::Planting;
+use crate::planting::{Planting, PlantingError};
 use std::fmt::Debug;
 
 pub const API_VERSION: &str = "0.1";
@@ -92,6 +92,12 @@ pub enum Action {
     PutItem {
         drop: Drop,
     },
+    PlantCrop {
+        tile: [usize; 2],
+    },
+    WaterCrop {
+        crop: Crop,
+    },
 }
 
 #[derive(Debug, bincode::Encode, bincode::Decode)]
@@ -107,6 +113,7 @@ pub enum ActionError {
     Inventory(InventoryError),
     Universe(UniverseError),
     Physics(PhysicsError),
+    Planting(PlantingError),
     PlayerFarmerNotFound(String),
     FarmerBodyNotFound(Farmer),
     ConstructionContainerNotFound(Construction),
@@ -138,6 +145,12 @@ impl From<UniverseError> for ActionError {
 impl From<PhysicsError> for ActionError {
     fn from(error: PhysicsError) -> Self {
         Self::Physics(error)
+    }
+}
+
+impl From<PlantingError> for ActionError {
+    fn from(error: PlantingError) -> Self {
+        Self::Planting(error)
     }
 }
 

@@ -57,6 +57,7 @@ impl Gameplay {
                         // beep error
                     }
                     Target::Wall(_) => {}
+                    _ => {}
                 },
                 Swap => {
                     // swap cargos (usefull for different jobs)
@@ -105,6 +106,12 @@ impl Gameplay {
                     }
                     Target::Wall(tile) => {
                         self.send_action(Action::Deconstruct { tile });
+                    }
+                    Target::Ground(tile) => {
+                        self.send_action(Action::PlantCrop { tile });
+                    }
+                    Target::Crop(crop) => {
+                        self.send_action(Action::WaterCrop { crop });
                     }
                     _ => {}
                 },
