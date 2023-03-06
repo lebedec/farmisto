@@ -362,8 +362,8 @@ impl Gameplay {
                 impact,
                 thirst,
             } => {
-                info!("Appear {:?} at {:?}", entity, position);
                 let kind = self.known.crops.get(entity.key).unwrap();
+                info!("Appear {} {:?} at {:?}", &kind.name, entity, position);
                 let asset = assets.crop(&kind.name);
                 let colors = [
                     [1.0, 1.0, 1.0, 1.0],
@@ -374,29 +374,45 @@ impl Gameplay {
 
                 info!("instantiates spine data");
 
-                let mut spine = renderer.instantiate_spine(&asset.spine, colors);
-                let spine_data = spine.skeleton.skeleton.data();
+                let mut spines = vec![
+                    renderer.instantiate_spine(&asset.sprout, colors),
+                    renderer.instantiate_spine(&asset.vegetating, colors),
+                    renderer.instantiate_spine(&asset.flowering, colors),
+                    renderer.instantiate_spine(&asset.ripening, colors),
+                    renderer.instantiate_spine(&asset.withering, colors),
+                ];
+                for spine in spines.iter_mut() {
+                    spine
+                        .skeleton
+                        .animation_state
+                        .set_animation_by_name(CropRep::ANIMATION_TRACK_GROWTH, "growth", true)
+                        .unwrap();
+                }
+                let spine = 0;
+
+                // let mut spine = renderer.instantiate_spine(&asset.spine, colors);
+                //let spine_data = spine.skeleton.skeleton.data();
 
                 info!("spine data");
 
                 // SPECIFICATION:
-                let growth = spine_data.animation_at_index(3).unwrap();
-                spine
-                    .skeleton
-                    .animation_state
-                    .add_animation(3, growth.as_ref(), false, 0.0);
-
-                let development = spine_data.animation_at_index(1).unwrap();
-                spine
-                    .skeleton
-                    .animation_state
-                    .add_animation(1, development.as_ref(), false, 0.0);
-
-                let drying = spine_data.animation_at_index(2).unwrap();
-                spine
-                    .skeleton
-                    .animation_state
-                    .add_animation(2, drying.as_ref(), false, 0.0);
+                // let growth = spine_data.animation_at_index(3).unwrap();
+                // spine
+                //     .skeleton
+                //     .animation_state
+                //     .add_animation(3, growth.as_ref(), false, 0.0);
+                //
+                // let development = spine_data.animation_at_index(1).unwrap();
+                // spine
+                //     .skeleton
+                //     .animation_state
+                //     .add_animation(1, development.as_ref(), false, 0.0);
+                //
+                // let drying = spine_data.animation_at_index(2).unwrap();
+                // spine
+                //     .skeleton
+                //     .animation_state
+                //     .add_animation(2, drying.as_ref(), false, 0.0);
 
                 // set skin
                 // let [head, tail] = features;
@@ -418,10 +434,12 @@ impl Gameplay {
                 let representation = CropRep {
                     entity,
                     asset,
+                    spines,
                     spine,
                     position,
                     impact,
                     thirst,
+                    growth: 0.0,
                 };
                 self.crops.insert(entity, representation);
             }

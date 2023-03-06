@@ -112,6 +112,6 @@ create table ItemAssetData
 
 create table CropAssetData
 (
-    id    text primary key unique,
-    spine text not null
+    id         text primary key unique,
+    spine     text not null
 );

@@ -1,5 +1,6 @@
 use crate::engine::sprites::TilemapUniform;
 use crate::engine::Frame;
+use crate::gameplay::representation::CropRep;
 use crate::gameplay::{position_of, rendering_position_of, Gameplay, TILE_SIZE};
 use game::building::{Grid, Room};
 use game::math::VectorMath;
@@ -32,7 +33,11 @@ impl Gameplay {
                 farmer.sprite.skeleton.update(frame.input.time);
             }
             for crop in self.crops.values_mut() {
-                if let Some(mut impact_bone) = crop.spine.skeleton.skeleton.find_bone_mut("impact")
+                crop.animate_growth(frame.input.time);
+                if let Some(mut impact_bone) = crop.spines[crop.spine]
+                    .skeleton
+                    .skeleton
+                    .find_bone_mut("impact")
                 {
                     if crop.impact > 0.0 {
                         impact_bone.set_rotation(360.0 - crop.impact * 90.0);
@@ -40,40 +45,47 @@ impl Gameplay {
                         impact_bone.set_rotation(-crop.impact * 90.0);
                     }
                 }
-                let mut growth = crop
-                    .spine
+                let mut growth = crop.spines[crop.spine]
                     .skeleton
                     .animation_state
-                    .track_at_index_mut(3)
+                    .track_at_index_mut(CropRep::ANIMATION_TRACK_GROWTH as usize)
                     .unwrap();
-                growth.set_timescale(1.0);
-                let f = 100.0 * (1.0 / 30.0);
-                growth.set_animation_start(f);
-                growth.set_animation_end(f);
+                growth.set_animation_start(crop.growth);
+                growth.set_animation_end(crop.growth);
+                // let mut growth = crop
+                //     .spine
+                //     .skeleton
+                //     .animation_state
+                //     .track_at_index_mut(3)
+                //     .unwrap();
+                // growth.set_timescale(1.0);
+                // let f = 100.0 * (1.0 / 30.0);
+                // growth.set_animation_start(f);
+                // growth.set_animation_end(f);
+                //
+                // let mut drying = crop
+                //     .spine
+                //     .skeleton
+                //     .animation_state
+                //     .track_at_index_mut(2)
+                //     .unwrap();
+                // drying.set_timescale(1.0);
+                // let f = (100.0 * crop.thirst) * (1.0 / 30.0);
+                // drying.set_animation_start(f);
+                // drying.set_animation_end(f);
+                //
+                // let mut development = crop
+                //     .spine
+                //     .skeleton
+                //     .animation_state
+                //     .track_at_index_mut(1)
+                //     .unwrap();
+                // development.set_timescale(1.0);
+                // let f = 50.0 * (1.0 / 30.0);
+                // development.set_animation_start(f);
+                // development.set_animation_end(f);
 
-                let mut drying = crop
-                    .spine
-                    .skeleton
-                    .animation_state
-                    .track_at_index_mut(2)
-                    .unwrap();
-                drying.set_timescale(1.0);
-                let f = (100.0 * crop.thirst) * (1.0 / 30.0);
-                drying.set_animation_start(f);
-                drying.set_animation_end(f);
-
-                let mut development = crop
-                    .spine
-                    .skeleton
-                    .animation_state
-                    .track_at_index_mut(1)
-                    .unwrap();
-                development.set_timescale(1.0);
-                let f = 50.0 * (1.0 / 30.0);
-                development.set_animation_start(f);
-                development.set_animation_end(f);
-
-                crop.spine.skeleton.update(frame.input.time);
+                crop.spines[crop.spine].skeleton.update(frame.input.time);
             }
         });
     }
@@ -417,10 +429,11 @@ impl Gameplay {
             let offset_y: f32 = random.gen_range(-0.05..0.05);
             let offset = [offset_x, offset_y];
             renderer.render_spine(
-                &crop.spine,
+                &crop.spines[crop.spine],
                 rendering_position_of(crop.position.add(offset)),
                 [
-                    [1.0, 1.0 - crop.thirst * 0.5, 1.0 - crop.thirst * 0.75, 1.0],
+                    // [1.0, 1.0 - crop.thirst * 0.5, 1.0 - crop.thirst * 0.75, 1.0],
+                    [1.0, 1.0, 1.0, 1.0],
                     [1.0, 1.0, 1.0, 1.0],
                     [1.0, 1.0, 1.0, 1.0],
                     [1.0, 1.0, 1.0, 1.0],

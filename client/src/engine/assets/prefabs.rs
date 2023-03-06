@@ -41,5 +41,9 @@ pub struct ItemAssetData {
 pub type CropAsset = Asset<CropAssetData>;
 
 pub struct CropAssetData {
-    pub spine: SpineAsset,
+    pub sprout: SpineAsset,
+    pub vegetating: SpineAsset,
+    pub flowering: SpineAsset,
+    pub ripening: SpineAsset,
+    pub withering: SpineAsset,
 }

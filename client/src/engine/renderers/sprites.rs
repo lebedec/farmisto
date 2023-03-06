@@ -726,13 +726,7 @@ impl SpriteRenderer {
         spine: &SpineAsset,
         colors: [[f32; 4]; 4],
     ) -> SpineSpriteController {
-        let mut skeleton = SkeletonController::new(spine.skeleton.clone(), spine.animation.clone());
-
-        skeleton
-            .animation_state
-            .set_animation_by_name(0, "default", true)
-            .unwrap();
-
+        let skeleton = SkeletonController::new(spine.skeleton.clone(), spine.animation.clone());
         let mut mega_vertices: Vec<SpriteVertex> = vec![];
         let mut mega_indices: Vec<u32> = vec![];
         let mut meshes: Vec<usize> = vec![];

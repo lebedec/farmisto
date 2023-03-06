@@ -123,18 +123,32 @@ pub struct EquipmentRep {
 pub struct CropRep {
     pub entity: Crop,
     pub asset: CropAsset,
-    pub spine: SpineSpriteController,
+    pub spines: Vec<SpineSpriteController>,
+    pub spine: usize,
     pub position: [f32; 2],
     pub impact: f32,
     pub thirst: f32,
+    pub growth: f32,
 }
 
 impl CropRep {
+    pub const ANIMATION_TRACK_GROWTH: i32 = 0;
+
     pub fn synchronize_impact(&mut self, impact: f32) {
         self.impact = impact;
     }
 
     pub fn synchronize_thirst(&mut self, thirst: f32) {
         self.thirst = thirst;
+    }
+
+    pub fn animate_growth(&mut self, time: f32) {
+        // let seconds_per_grow_phase = 1.0 / 360.0; // 6 minutes
+        let seconds_per_grow_phase = 1.0 / 60.0; // 6 minutes
+        self.growth += time * seconds_per_grow_phase;
+        if self.growth > 5.0 {
+            self.growth -= 5.0;
+        }
+        self.spine = self.growth.floor() as usize;
     }
 }

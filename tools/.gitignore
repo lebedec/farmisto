@@ -1,3 +1,4 @@
 *.pyc
 blender/bpy
 venv
+setup/dist/

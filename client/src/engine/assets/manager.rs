@@ -258,10 +258,17 @@ impl Assets {
         if let Some(asset) = self.spines.get(path) {
             return asset.share();
         }
-        // Spine files naming convention: place atlas file in same directory and name as data json
+        // Spine files naming convention: place atlas file in same directory and name as folder
         // TODO: support multiple atlases
         info!("Reads atlas");
-        let atlas_path = path.replace(".json", ".atlas");
+        let spine_folder = Path::new(path)
+            .parent()
+            .unwrap()
+            .file_name()
+            .unwrap()
+            .to_str()
+            .unwrap();
+        let atlas_path = Path::new(path).with_file_name(format!("{}.atlas", spine_folder));
         let mut atlas = Atlas::new_from_file(&atlas_path).unwrap();
         let spine_asset_folder = PathBuf::from(atlas_path);
         let spine_asset_folder = spine_asset_folder.parent().unwrap();
@@ -417,7 +424,11 @@ impl Assets {
         let entry = self.storage.fetch_one::<CropAssetData>(id);
         let spine: String = entry.get("spine")?;
         let data = CropAssetData {
-            spine: self.spine(&spine),
+            sprout: self.spine(&format!("{}/sprout.json", spine)),
+            vegetating: self.spine(&format!("{}/vegetating.json", spine)),
+            flowering: self.spine(&format!("{}/flowering.json", spine)),
+            ripening: self.spine(&format!("{}/ripening.json", spine)),
+            withering: self.spine(&format!("{}/withering.json", spine)),
         };
         Ok(data)
     }
