@@ -422,13 +422,14 @@ impl Assets {
 
     pub fn load_crop_data(&mut self, id: &str) -> Result<CropAssetData, serde_json::Error> {
         let entry = self.storage.fetch_one::<CropAssetData>(id);
-        let spine: String = entry.get("spine")?;
+        let folder: String = entry.get("spine")?;
         let data = CropAssetData {
-            sprout: self.spine(&format!("{}/sprout.json", spine)),
-            vegetating: self.spine(&format!("{}/vegetating.json", spine)),
-            flowering: self.spine(&format!("{}/flowering.json", spine)),
-            ripening: self.spine(&format!("{}/ripening.json", spine)),
-            withering: self.spine(&format!("{}/withering.json", spine)),
+            sprout: self.spine(&format!("{}/sprout.json", folder)),
+            vegetating: self.spine(&format!("{}/vegetating.json", folder)),
+            flowering: self.spine(&format!("{}/flowering.json", folder)),
+            ripening: self.spine(&format!("{}/ripening.json", folder)),
+            withering: self.spine(&format!("{}/withering.json", folder)),
+            damage_mask: self.texture(&format!("{}/damage-mask.png", folder)),
         };
         Ok(data)
     }

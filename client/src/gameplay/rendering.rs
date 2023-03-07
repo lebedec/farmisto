@@ -430,6 +430,7 @@ impl Gameplay {
             let offset = [offset_x, offset_y];
             renderer.render_spine(
                 &crop.spines[crop.spine],
+                crop.asset.damage_mask.share(),
                 rendering_position_of(crop.position.add(offset)),
                 [
                     // [1.0, 1.0 - crop.thirst * 0.5, 1.0 - crop.thirst * 0.75, 1.0],
@@ -442,18 +443,18 @@ impl Gameplay {
         }
 
         METRIC_DRAW_REQUEST_SECONDS.observe_closure_duration(|| {
-            for spine in &self.spines {
-                renderer.render_spine(
-                    &spine.sprite,
-                    spine.position,
-                    [
-                        [1.0, 1.0, 1.0, 1.0],
-                        [1.0, 1.0, 1.0, 1.0],
-                        [1.0, 1.0, 1.0, 1.0],
-                        [1.0, 1.0, 1.0, 1.0],
-                    ],
-                );
-            }
+            // for spine in &self.spines {
+            //     renderer.render_spine(
+            //         &spine.sprite,
+            //         spine.position,
+            //         [
+            //             [1.0, 1.0, 1.0, 1.0],
+            //             [1.0, 1.0, 1.0, 1.0],
+            //             [1.0, 1.0, 1.0, 1.0],
+            //             [1.0, 1.0, 1.0, 1.0],
+            //         ],
+            //     );
+            // }
         });
         renderer.set_point_light(
             [1.0, 0.0, 0.0, 1.0],

@@ -431,7 +431,7 @@ impl Gameplay {
                 //     .set_skin_by_name("test-skin")
                 //     .unwrap();
 
-                let representation = CropRep {
+                let mut representation = CropRep {
                     entity,
                     asset,
                     spines,
@@ -440,7 +440,10 @@ impl Gameplay {
                     impact,
                     thirst,
                     growth: 0.0,
+                    health: 0.0,
+                    fruits: 0,
                 };
+                representation.synchronize_fruits(0);
                 self.crops.insert(entity, representation);
             }
             Universe::CropVanished(crop) => {

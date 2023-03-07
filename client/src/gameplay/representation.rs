@@ -10,6 +10,7 @@ use game::model::{
 };
 use game::physics::{BarrierId, BodyKind};
 use log::error;
+use rusty_spine::Skin;
 
 pub struct FarmerRep {
     pub entity: Farmer,
@@ -129,6 +130,8 @@ pub struct CropRep {
     pub impact: f32,
     pub thirst: f32,
     pub growth: f32,
+    pub health: f32,
+    pub fruits: u8,
 }
 
 impl CropRep {
@@ -144,11 +147,28 @@ impl CropRep {
 
     pub fn animate_growth(&mut self, time: f32) {
         // let seconds_per_grow_phase = 1.0 / 360.0; // 6 minutes
-        let seconds_per_grow_phase = 1.0 / 60.0; // 6 minutes
+        let seconds_per_grow_phase = 1.0 / 30.0; // 30 seconds
         self.growth += time * seconds_per_grow_phase;
         if self.growth > 5.0 {
             self.growth -= 5.0;
         }
+        self.growth = 3.5;
         self.spine = self.growth.floor() as usize;
+    }
+
+    pub fn synchronize_fruits(&mut self, fruits: u8) {
+        if self.fruits != fruits {
+            self.fruits = fruits;
+            let ripening = &mut self.spines[3];
+            let skins = ripening.skeleton.skeleton.data();
+            let skin_names = ["fruit-a", "fruit-b", "fruit-c"];
+            let mut skin = Skin::new(&format!("fruits-{}", fruits));
+            for name in &skin_names[0..fruits as usize] {
+                // TODO: validate skins on load
+                let fruit = skins.find_skin(name).unwrap();
+                skin.add_skin(&fruit);
+            }
+            ripening.skeleton.skeleton.set_skin(&skin);
+        }
     }
 }

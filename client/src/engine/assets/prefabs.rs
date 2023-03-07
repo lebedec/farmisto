@@ -46,4 +46,5 @@ pub struct CropAssetData {
     pub flowering: SpineAsset,
     pub ripening: SpineAsset,
     pub withering: SpineAsset,
+    pub damage_mask: TextureAsset,
 }

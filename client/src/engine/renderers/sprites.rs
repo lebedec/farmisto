@@ -1,13 +1,14 @@
 use ash::prelude::VkResult;
 use ash::{vk, Device};
-use game::building::{Grid, Room};
-use game::math::VectorMath;
 use glam::{vec3, Mat4, Vec3};
 use lazy_static::lazy_static;
 use log::{error, info};
 use rusty_spine::controller::SkeletonController;
 use rusty_spine::{AnimationState, AttachmentType, Skin};
 use sdl2::libc::pipe;
+
+use game::building::{Grid, Room};
+use game::math::VectorMath;
 
 use crate::engine::base::{index_memory_type, MyPipeline, Screen, ShaderData, ShaderDataSet};
 use crate::engine::buffers::{CameraUniform, LightUniform, UniformBuffer};
@@ -42,8 +43,7 @@ pub struct SpriteRenderer {
 
     spine_pipeline: MyPipeline<2, SpinePushConstants, 1>,
     spines: Vec<Vec<SpineRenderObject>>,
-    coloration_texture: TextureAsset,
-    coloration_sampler: SamplerAsset,
+    spine_coloration_sampler: SamplerAsset,
 
     ground_pipeline: MyPipeline<1, GroundPushConstants, 2>,
     grounds: Vec<GroundSprite>,
@@ -85,12 +85,8 @@ impl SpriteRenderer {
         assets: &mut Assets,
         zoom: f32,
     ) -> Self {
-        let lut_texture = assets.texture("./assets/texture/lut-night.png");
-        let coloration_texture = assets.texture("./assets/spine/lama384/coloration.png");
-        let coloration_sampler = assets.sampler("coloration");
-        //
+        let spine_coloration_sampler = assets.sampler("coloration");
         let camera_buffer = UniformBuffer::create(device.clone(), device_memory, swapchain);
-
         let global_light_buffer = UniformBuffer::create(device.clone(), device_memory, swapchain);
 
         let sprite_vertex_buffer =
@@ -177,8 +173,7 @@ impl SpriteRenderer {
             //light_map_pipeline,
             //light_map_framebuffer,
             //light_map_render_pass,
-            coloration_texture,
-            coloration_sampler,
+            spine_coloration_sampler,
             grounds: vec![],
             screen,
             zoom,
@@ -404,6 +399,7 @@ impl SpriteRenderer {
     pub fn render_spine(
         &mut self,
         sprite: &SpineSpriteController,
+        coloration: TextureAsset,
         position: [f32; 2],
         colors: [[f32; 4]; 4],
     ) {
@@ -464,10 +460,15 @@ impl SpriteRenderer {
             vertex_buffer: sprite.vertex_buffer.clone(),
             index_buffer: sprite.index_buffer.clone(),
             texture: sprite.mega_texture.clone(),
+            coloration,
             position,
             colors: sprite.colors,
             meshes,
-            constants: SpinePushConstants { colors, position },
+            constants: SpinePushConstants {
+                colors,
+                position,
+                size: [0.0, 0.0],
+            },
             lights_descriptor,
         })
     }
@@ -1109,7 +1110,7 @@ impl SpriteRenderer {
                 pipeline.bind_index_buffer(&spine.index_buffer);
                 pipeline.bind_material([
                     (spine.texture.sampler, spine.texture.view),
-                    (self.coloration_sampler.handle, self.coloration_texture.view),
+                    (self.spine_coloration_sampler.handle, spine.coloration.view),
                 ]);
                 pipeline.bind_data_by_descriptor(spine.lights_descriptor);
                 pipeline.push_constants(spine.constants);
@@ -1199,6 +1200,7 @@ pub struct SpineRenderObject {
     vertex_buffer: VertexBuffer,
     index_buffer: IndexBuffer,
     texture: TextureAsset,
+    coloration: TextureAsset,
     position: [f32; 2],
     colors: [[f32; 4]; 4],
     pub meshes: Vec<usize>,
@@ -1226,6 +1228,7 @@ pub struct SpritePushConstants {
 pub struct SpinePushConstants {
     pub colors: [[f32; 4]; 4],
     pub position: [f32; 2],
+    pub size: [f32; 2],
 }
 
 #[derive(Default, Clone, Debug, Copy, bytemuck::Pod, bytemuck::Zeroable, serde::Deserialize)]
