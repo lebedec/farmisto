@@ -509,6 +509,8 @@ impl Game {
         let data = ItemKind {
             id: ItemKey(row.get("id")?),
             name: row.get("name")?,
+            stackable: row.get("stackable")?,
+            quantable: row.get("quantable")?,
         };
         Ok(data)
     }
@@ -521,6 +523,7 @@ impl Game {
             kind: self.known.items.get(ItemKey(key)).unwrap(),
             container: ContainerId(row.get("container")?),
             functions: serde_json::from_str(&functions)?,
+            quantity: row.get("quantity")?,
         };
         Ok(data)
     }

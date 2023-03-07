@@ -18,6 +18,7 @@ impl InventoryDomain {
             kind,
             container,
             functions,
+            quantity: 1,
         };
         let operation = move || {
             let events = vec![ItemAdded {
@@ -25,6 +26,7 @@ impl InventoryDomain {
                 kind: item.kind.id,
                 functions: item.functions.clone(),
                 container,
+                quantity: item.quantity,
             }];
             self.items_sequence += 1;
             let container = self.get_mut_container(container).unwrap();

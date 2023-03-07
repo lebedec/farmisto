@@ -10,7 +10,7 @@ use crate::building::{BuildingDomain, GridId, Marker, Material, SurveyorId};
 use crate::inventory::{Function, InventoryDomain, ItemId};
 use crate::math::VectorMath;
 use crate::model::Activity::Idle;
-use crate::model::{Activity, Crop, Drop};
+use crate::model::{Activity, Crop, CropKey, Drop};
 use crate::model::{Construction, Farmer, Universe};
 use crate::model::{Equipment, ItemRep};
 use crate::model::{EquipmentKey, PurposeDescription, UniverseDomain};
@@ -18,7 +18,7 @@ use crate::model::{Farmland, Knowledge};
 use crate::model::{Player, Purpose};
 use crate::model::{UniverseError, UniverseSnapshot};
 use crate::physics::{BarrierId, PhysicsDomain};
-use crate::planting::PlantingDomain;
+use crate::planting::{PlantKey, PlantingDomain};
 
 pub mod api;
 pub mod collections;
@@ -131,9 +131,7 @@ impl Game {
             Action::Uninstall { equipment } => {
                 self.uninstall_equipment(*farmer, farmland, equipment)?
             }
-            Action::Install { item, tile } => {
-                self.install_equipment(*farmer, farmland, item, tile)?
-            }
+            Action::Install { tile } => self.install_equipment(*farmer, farmland, tile)?,
             Action::UseEquipment { equipment } => self.use_equipment(*farmer, equipment)?,
             Action::CancelActivity => self.cancel_activity(*farmer)?,
             Action::ToggleSurveyingOption => self.toggle_surveying_option(*farmer)?,
@@ -156,11 +154,15 @@ impl Game {
         farmland: Farmland,
         tile: [usize; 2],
     ) -> Result<Vec<Event>, ActionError> {
-        let kind = self.known.crops.find("corn").unwrap();
+        self.universe.ensure_activity(farmer, Activity::Usage)?;
+        let item = self.inventory.get_container_item(farmer.hands)?;
+        let kind = item.as_seeds()?;
+        let kind = self.known.crops.get(CropKey(kind)).unwrap();
         let barrier = self.known.barriers.get(kind.barrier).unwrap();
         let sensor = self.known.sensors.get(kind.sensor).unwrap();
         let plant = self.known.plants.get(kind.plant).unwrap();
         let position = position_of(tile);
+        let decrease_item = self.inventory.decrease_item(farmer.hands)?;
         let (barrier, sensor, create_barrier_sensor) =
             self.physics
                 .create_barrier_sensor(farmland.space, barrier, sensor, position, false)?;
@@ -168,8 +170,12 @@ impl Game {
         let appear_crop = self
             .universe
             .appear_crop(kind.id, barrier, sensor, plant, 0.0, 0.0, position);
-
-        let events = occur![create_barrier_sensor(), create_plant(), appear_crop,];
+        let events = occur![
+            decrease_item(),
+            create_barrier_sensor(),
+            create_plant(),
+            appear_crop,
+        ];
         Ok(events)
     }
 
@@ -237,15 +243,14 @@ impl Game {
 
                 let destroy_surveyor = self.building.destroy_surveyor(surveyor)?;
                 let destroy_barrier = self.physics.destroy_barrier(equipment.barrier)?;
-                let functions = vec![Function::Equipment {
+                let functions = vec![Function::Installation {
                     kind: equipment.kind.0,
                 }];
                 let kind = self.known.items.find("<equipment>").unwrap();
                 let (item, create_item) =
                     self.inventory.create_item(kind, functions, farmer.hands)?;
                 let vanish_equipment = self.universe.vanish_equipment(equipment);
-                let activity = Activity::Installing { item };
-                let change_activity = self.universe.change_activity(farmer, activity);
+                let change_activity = self.universe.change_activity(farmer, Activity::Usage);
 
                 let mut events = teardown_constructions;
                 events.extend(occur![
@@ -325,29 +330,17 @@ impl Game {
         &mut self,
         farmer: Farmer,
         farmland: Farmland,
-        item: ItemId,
         tile: [usize; 2],
     ) -> Result<Vec<Event>, ActionError> {
-        self.universe
-            .ensure_activity(farmer, Activity::Installing { item })?;
-        let container = self.inventory.get_container(farmer.hands)?;
-        let item = container.get_item(item)?;
-        let function = item.functions[0].clone();
-        let equipment_kind = match function {
-            Function::Equipment { kind } => {
-                let key = EquipmentKey(kind);
-                let equipment_kind = self
-                    .known
-                    .equipments
-                    .get(key)
-                    .ok_or(ActionError::EquipmentKindNotFound { key })?;
-                equipment_kind
-            }
-            _ => {
-                return Err(ActionError::ItemHasNoEquipmentFunction);
-            }
-        };
-
+        self.universe.ensure_activity(farmer, Activity::Usage)?;
+        let item = self.inventory.get_container_item(farmer.hands)?;
+        let key = item.as_installation()?;
+        let key = EquipmentKey(key);
+        let equipment_kind = self
+            .known
+            .equipments
+            .get(key)
+            .ok_or(ActionError::EquipmentKindNotFound { key })?;
         match equipment_kind.purpose {
             PurposeDescription::Surveying { surveyor } => {
                 let position = position_of(tile);
@@ -389,8 +382,7 @@ impl Game {
             let transfer = self.inventory.pop_item(farmer.backpack, farmer.hands)?;
             events = occur![
                 transfer(),
-                self.universe
-                    .change_activity(farmer, Activity::Instrumenting),
+                self.universe.change_activity(farmer, Activity::Usage),
             ];
         }
         if !hands_empty && backpack_empty {
@@ -423,7 +415,7 @@ impl Game {
 
         events.push(
             self.universe
-                .change_activity(farmer, Activity::Delivery)
+                .change_activity(farmer, Activity::Usage)
                 .into(),
         );
 
@@ -713,6 +705,8 @@ impl Game {
                     id: item.id,
                     kind: item.kind.id,
                     container: item.container,
+                    quantity: item.quantity,
+                    functions: item.functions.clone(),
                 })
             }
         }

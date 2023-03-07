@@ -5,7 +5,9 @@ use crate::building::{
     Cell, GridId, GridKey, GridKind, Room, SurveyorId, SurveyorKey, SurveyorKind,
 };
 use crate::collections::{Dictionary, Shared};
-use crate::inventory::{ContainerId, ContainerKey, ContainerKind, ItemId, ItemKey, ItemKind};
+use crate::inventory::{
+    ContainerId, ContainerKey, ContainerKind, Function, ItemId, ItemKey, ItemKind,
+};
 use crate::physics::{
     BarrierId, BarrierKey, BarrierKind, BodyId, BodyKey, BodyKind, SensorId, SensorKey, SensorKind,
     SpaceId, SpaceKey, SpaceKind,
@@ -357,14 +359,10 @@ pub struct FarmerKind {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
 pub enum Activity {
     Idle,
-    Delivery,
+    Usage,
     Surveying {
         equipment: Equipment,
         selection: usize,
-    },
-    Instrumenting,
-    Installing {
-        item: ItemId,
     },
 }
 
@@ -474,6 +472,8 @@ pub struct ItemRep {
     pub id: ItemId,
     pub kind: ItemKey,
     pub container: ContainerId,
+    pub quantity: u8,
+    pub functions: Vec<Function>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]

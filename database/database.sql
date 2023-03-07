@@ -156,8 +156,10 @@ create table Container
 
 create table ItemKind
 (
-    id   integer primary key,
-    name text not null unique
+    id        integer primary key,
+    name      text not null unique,
+    stackable integer,
+    quantable integer
 );
 
 create table Item
@@ -165,7 +167,8 @@ create table Item
     id        integer primary key,
     kind      integer not null references ItemKind,
     container integer not null references Container,
-    functions json    not null
+    functions json    not null,
+    quantity  integer not null
 );
 
 -- Universe

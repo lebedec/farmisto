@@ -48,13 +48,14 @@ pub enum Intention {
     Swap,
 }
 
+#[derive(Clone)]
 pub enum Target {
-    Ground([usize; 2]),
+    Ground { tile: [usize; 2] },
     Drop(Drop),
     Construction(Construction),
     Equipment(Equipment),
     Wall([usize; 2]),
-    Crop(Crop)
+    Crop(Crop),
 }
 
 pub trait InputMethod {
@@ -214,7 +215,7 @@ impl Gameplay {
                 return Target::Equipment(equipment.entity);
             }
         }
-        
+
         for crop in self.crops.values() {
             if crop.position.to_tile() == tile {
                 return Target::Crop(crop.entity);
@@ -230,7 +231,7 @@ impl Gameplay {
             }
         }
 
-        Target::Ground(tile)
+        Target::Ground { tile }
     }
 
     pub fn handle_user_input(&mut self, frame: &mut Frame) {
@@ -264,14 +265,19 @@ impl Gameplay {
         let target = self.get_target_at(tile);
 
         if let Some(intention) = input.recognize_intention() {
-            self.interact_with(farmer, target, intention);
+            let item = self
+                .items
+                .get(&farmer.entity.hands)
+                .and_then(|hands| hands.values().nth(0));
+            let functions = match item {
+                None => vec![],
+                Some(item) => item.functions.clone(),
+            };
+            self.interact_with(farmer, functions, target, intention);
         }
 
         match farmer.activity {
-            Activity::Instrumenting
-            | Activity::Idle
-            | Activity::Delivery
-            | Activity::Installing { .. } => {}
+            Activity::Idle | Activity::Usage => {}
             _ => {
                 // not movement allowed
                 return;

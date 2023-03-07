@@ -27,9 +27,11 @@ pub struct Container {
 )]
 pub enum Function {
     Material { keyword: usize },
-    Equipment { kind: usize },
+    Installation { kind: usize },
+    Seeding { kind: usize },
     Carry,
-    Hammer,
+    Instrumenting,
+    Shovel,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
@@ -38,6 +40,8 @@ pub struct ItemKey(pub usize);
 pub struct ItemKind {
     pub id: ItemKey,
     pub name: String,
+    pub stackable: Option<u8>,
+    pub quantable: Option<u8>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
@@ -48,6 +52,7 @@ pub struct Item {
     pub kind: Shared<ItemKind>,
     pub container: ContainerId,
     pub functions: Vec<Function>,
+    pub quantity: u8,
 }
 
 #[derive(Debug, bincode::Encode, bincode::Decode)]
@@ -63,10 +68,16 @@ pub enum Inventory {
         kind: ItemKey,
         functions: Vec<Function>,
         container: ContainerId,
+        quantity: u8,
     },
     ItemRemoved {
         item: ItemId,
         container: ContainerId,
+    },
+    ItemQuantityChanged {
+        id: ItemId,
+        container: ContainerId,
+        quantity: u8,
     },
 }
 
@@ -89,6 +100,9 @@ pub enum InventoryError {
     ItemNotFoundByIndex {
         container: ContainerId,
         index: isize,
+    },
+    ItemFunctionNotFound {
+        id: ItemId,
     },
 }
 
@@ -119,6 +133,14 @@ impl InventoryDomain {
         self.containers.get(&id).ok_or(ContainerNotFound { id })
     }
 
+    pub fn get_container_item(&self, id: ContainerId) -> Result<&Item, InventoryError> {
+        let container = self.get_container(id)?;
+        container.items.get(0).ok_or(ItemNotFoundByIndex {
+            container: id,
+            index: 0,
+        })
+    }
+
     pub fn get_mut_container(&mut self, id: ContainerId) -> Result<&mut Container, InventoryError> {
         self.containers.get_mut(&id).ok_or(ContainerNotFound { id })
     }
@@ -132,6 +154,44 @@ impl InventoryDomain {
             .get_mut(&id)
             .ok_or(ContainerNotFound { id })?;
         Ok(container)
+    }
+}
+
+impl Item {
+    pub fn as_seeds(&self) -> Result<usize, InventoryError> {
+        for function in &self.functions {
+            if let Function::Seeding { kind } = function {
+                return Ok(*kind);
+            }
+        }
+        Err(InventoryError::ItemFunctionNotFound { id: self.id })
+    }
+
+    pub fn as_hammer(&self) -> Result<(), InventoryError> {
+        for function in &self.functions {
+            if let Function::Instrumenting = function {
+                return Ok(());
+            }
+        }
+        Err(InventoryError::ItemFunctionNotFound { id: self.id })
+    }
+
+    pub fn as_shovel(&self) -> Result<(), InventoryError> {
+        for function in &self.functions {
+            if let Function::Shovel = function {
+                return Ok(());
+            }
+        }
+        Err(InventoryError::ItemFunctionNotFound { id: self.id })
+    }
+
+    pub fn as_installation(&self) -> Result<usize, InventoryError> {
+        for function in &self.functions {
+            if let Function::Installation { kind } = function {
+                return Ok(*kind);
+            }
+        }
+        Err(InventoryError::ItemFunctionNotFound { id: self.id })
     }
 }
 

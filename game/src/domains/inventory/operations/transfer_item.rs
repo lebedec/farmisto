@@ -68,6 +68,7 @@ impl InventoryDomain {
                 kind: item.kind.id,
                 functions: item.functions.clone(),
                 container: item.container,
+                quantity: item.quantity,
             });
             destination.items.push(item);
             events

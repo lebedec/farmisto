@@ -51,7 +51,6 @@ pub enum Action {
         destination: [f32; 2],
     },
     Install {
-        item: ItemId,
         tile: [usize; 2],
     },
     Uninstall {

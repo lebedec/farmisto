@@ -67,19 +67,22 @@ impl Gameplay {
                 self.items.remove(&id);
             }
             Inventory::ItemAdded {
-                id: item,
+                id,
                 kind,
                 container,
                 functions,
+                quantity,
             } => {
-                info!("item added {:?} to {:?}", item, container);
+                info!("item added {:?} to {:?}", id, container);
                 let items = self.items.entry(container).or_insert(HashMap::new());
                 items.insert(
-                    item,
+                    id,
                     ItemRep {
-                        id: item,
+                        id,
                         kind,
                         container,
+                        quantity,
+                        functions,
                     },
                 );
             }
@@ -87,6 +90,15 @@ impl Gameplay {
                 info!("item removed {:?} from {:?}", item, container);
                 self.items.entry(container).and_modify(|items| {
                     items.remove(&item);
+                });
+            }
+            Inventory::ItemQuantityChanged {
+                id,
+                container,
+                quantity,
+            } => {
+                self.items.entry(container).and_modify(|items| {
+                    items.entry(id).and_modify(|item| item.quantity = quantity);
                 });
             }
         }
