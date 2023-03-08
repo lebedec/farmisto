@@ -3,8 +3,9 @@ use ash::{vk, Device};
 use glam::{vec3, Mat4, Vec3};
 use lazy_static::lazy_static;
 use log::{error, info};
+use rusty_spine::c_interface::CTmpRef;
 use rusty_spine::controller::SkeletonController;
-use rusty_spine::{AnimationState, AttachmentType, Skin};
+use rusty_spine::{AnimationState, Attachment, AttachmentType, Skeleton, Skin, Slot};
 use sdl2::libc::pipe;
 
 use game::building::{Grid, Room};
@@ -459,7 +460,7 @@ impl SpriteRenderer {
         self.spines[line].push(SpineRenderObject {
             vertex_buffer: sprite.vertex_buffer.clone(),
             index_buffer: sprite.index_buffer.clone(),
-            texture: sprite.mega_texture.clone(),
+            texture: sprite.atlas.clone(),
             coloration,
             position,
             colors: sprite.colors,
@@ -728,111 +729,43 @@ impl SpriteRenderer {
         colors: [[f32; 4]; 4],
     ) -> SpineSpriteController {
         let skeleton = SkeletonController::new(spine.skeleton.clone(), spine.animation.clone());
-        let mut mega_vertices: Vec<SpriteVertex> = vec![];
-        let mut mega_indices: Vec<u32> = vec![];
+        let mut vertices: Vec<SpriteVertex> = vec![];
+        let mut indices: Vec<u32> = vec![];
         let mut meshes: Vec<usize> = vec![];
-
-        // TODO: calculate max capacity and make vertex/index buffers from all possible skins
-        // for skin in skeleton.skeleton.data().skins() {
-        //     for attachment in skin.attachments() {
-        //         info!(
-        //             "skin {} {} {} {:?}",
-        //             skin.name(),
-        //             attachment.slot_index, // group by slot index (max)
-        //             attachment.attachment.name(),
-        //             attachment.attachment.attachment_type()
-        //         );
-        //     }
-        // }
-
         let mut index_offset = 0;
-        for index in 0..skeleton.skeleton.slots_count() {
-            let slot = skeleton.skeleton.draw_order_at_index(index).unwrap();
-
-            if let Some(attachment) = slot.attachment() {
-                match attachment.attachment_type() {
-                    AttachmentType::Region => {
-                        let region = attachment.as_region().unwrap();
-                        let mut spine_vertices = vec![0.0; 8];
-                        unsafe {
-                            region.compute_world_vertices(&slot, &mut spine_vertices, 0, 2);
-                        }
-                        let spine_uvs = region.uvs();
-                        for i in 0..4 {
-                            mega_vertices.push(SpriteVertex {
-                                position: [spine_vertices[i * 2], -spine_vertices[i * 2 + 1]],
-                                uv: [spine_uvs[i * 2], 1.0 - spine_uvs[i * 2 + 1]], // inverse
-                            })
-                        }
-                        let indices = [0, 1, 2, 2, 3, 0].map(|index| index + index_offset);
-                        mega_indices.extend_from_slice(&indices);
-                        meshes.push(indices.len());
-                        index_offset += 4;
-                    }
-                    AttachmentType::Mesh => {
-                        let mesh = attachment.as_mesh().unwrap();
-                        let stride = 2;
-                        let spine_vertices_count = mesh.world_vertices_length() as usize;
-                        let mut spine_vertices = vec![0.0; spine_vertices_count];
-                        unsafe {
-                            mesh.compute_world_vertices(
-                                &slot,
-                                0,
-                                spine_vertices_count as i32,
-                                &mut spine_vertices,
-                                0,
-                                stride as i32,
-                            );
-                        }
-                        let uvs_slice =
-                            unsafe { std::slice::from_raw_parts(mesh.uvs(), spine_vertices_count) };
-                        let spine_uvs: Vec<f32> = uvs_slice.to_vec();
-                        let mut vertices = vec![];
-                        for i in 0..(spine_vertices_count / stride) {
-                            vertices.push(SpriteVertex {
-                                position: [
-                                    spine_vertices[i * stride],
-                                    -spine_vertices[i * stride + 1],
-                                ],
-                                uv: [spine_uvs[i * 2], 1.0 - spine_uvs[i * 2 + 1]], // inverse
-                            })
-                        }
-                        let indices_count = mesh.triangles_count() as usize;
-                        let indices_slice =
-                            unsafe { std::slice::from_raw_parts(mesh.triangles(), indices_count) };
-
-                        let indices: Vec<u32> = indices_slice
-                            .iter()
-                            .map(|index| (*index as u32) + index_offset)
-                            .collect();
-
-                        mega_indices.extend_from_slice(&indices);
-                        mega_vertices.extend_from_slice(&vertices);
-                        meshes.push(indices.len());
-
-                        index_offset += vertices.len() as u32;
-                    }
-                    AttachmentType::Point => {}
-                    attachment_type => {
-                        error!("Unknown attachment type {:?}", attachment_type)
-                    }
-                }
+        for skin in skeleton.skeleton.data().skins() {
+            for attachment in skin.attachments() {
+                // info!(
+                //     "skin {} {} {} {:?}",
+                //     skin.name(),
+                //     attachment.slot_index, // group by slot index (max)
+                //     attachment.attachment.name(),
+                //     attachment.attachment.attachment_type()
+                // );
+                // TODO: slot can have multiple attachments, need to reserve max size
+                let slot = skeleton
+                    .skeleton
+                    .slot_at_index(attachment.slot_index)
+                    .unwrap();
+                SpineSpriteController::fill_attachment_buffers(
+                    &slot,
+                    &attachment.attachment,
+                    &mut index_offset,
+                    &mut meshes,
+                    &mut indices,
+                    &mut vertices,
+                )
             }
         }
-
-        let mega_buffer = VertexBuffer::create(&self.device, &self.device_memory, mega_vertices);
-
-        let mega_index_buffer =
-            IndexBuffer::create(&self.device, &self.device_memory, mega_indices);
-
+        let vertex_buffer = VertexBuffer::create(&self.device, &self.device_memory, vertices);
+        let index_buffer = IndexBuffer::create(&self.device, &self.device_memory, indices);
         let lights_buffer =
             UniformBuffer::create(self.device.clone(), &self.device_memory, self.swapchain);
-
         let controller = SpineSpriteController {
             skeleton,
-            vertex_buffer: mega_buffer,
-            index_buffer: mega_index_buffer,
-            mega_texture: spine.atlas.clone(),
+            vertex_buffer,
+            index_buffer,
+            atlas: spine.atlas.clone(),
             colors,
             lights_buffer,
         };
@@ -842,84 +775,30 @@ impl SpriteRenderer {
     pub fn update_spine_buffers(&mut self, controller: &SpineSpriteController) -> Vec<usize> {
         let mut index_offset = 0;
         let mut meshes = vec![];
-        let mut mega_vertices = vec![];
-        let mut mega_indices: Vec<u32> = vec![];
+        let mut vertices = vec![];
+        let mut indices: Vec<u32> = vec![];
         for index in 0..controller.skeleton.skeleton.slots_count() {
             let slot = controller
                 .skeleton
                 .skeleton
                 .draw_order_at_index(index)
                 .unwrap();
-
             if !slot.bone().active() {
                 continue;
             }
             if let Some(attachment) = slot.attachment() {
-                match attachment.attachment_type() {
-                    AttachmentType::Region => {
-                        let region = attachment.as_region().unwrap();
-                        let mut spine_vertices = vec![0.0; 8];
-                        unsafe {
-                            region.compute_world_vertices(&slot, &mut spine_vertices, 0, 2);
-                        }
-                        let spine_uvs = region.uvs();
-                        for i in 0..4 {
-                            mega_vertices.push(SpriteVertex {
-                                position: [spine_vertices[i * 2], -spine_vertices[i * 2 + 1]],
-                                uv: [spine_uvs[i * 2], 1.0 - spine_uvs[i * 2 + 1]], // inverse
-                            });
-                        }
-                        let indices = [0, 1, 2, 2, 3, 0].map(|index| index + index_offset);
-                        mega_indices.extend_from_slice(&indices);
-                        meshes.push(indices.len());
-                        index_offset += 4;
-                    }
-                    AttachmentType::Mesh => {
-                        let mesh = attachment.as_mesh().unwrap();
-                        let stride = 2;
-                        let count = mesh.world_vertices_length() as usize;
-                        let mut verts = vec![0.0; count];
-                        unsafe {
-                            mesh.compute_world_vertices(
-                                &slot,
-                                0,
-                                count as i32,
-                                &mut verts,
-                                0,
-                                stride as i32,
-                            );
-                        }
-                        let uvs_slice = unsafe { std::slice::from_raw_parts(mesh.uvs(), count) };
-                        let spine_uvs: Vec<f32> = uvs_slice.to_vec();
-                        let mut vertices = vec![];
-                        for i in 0..(count / stride) {
-                            vertices.push(SpriteVertex {
-                                position: [verts[i * stride], -verts[i * stride + 1]],
-                                uv: [spine_uvs[i * 2], 1.0 - spine_uvs[i * 2 + 1]], // inverse
-                            })
-                        }
-
-                        let indices_count = mesh.triangles_count() as usize;
-                        let indices_slice =
-                            unsafe { std::slice::from_raw_parts(mesh.triangles(), indices_count) };
-                        let indices: Vec<u32> = indices_slice
-                            .iter()
-                            .map(|index| (*index as u32) + index_offset)
-                            .collect();
-                        mega_indices.extend_from_slice(&indices);
-                        mega_vertices.extend_from_slice(&vertices);
-                        meshes.push(indices.len());
-                        index_offset += vertices.len() as u32;
-                    }
-                    AttachmentType::Point => {}
-                    attachment_type => {
-                        error!("Unknown attachment type {:?}", attachment_type)
-                    }
-                }
+                SpineSpriteController::fill_attachment_buffers(
+                    &slot,
+                    &attachment,
+                    &mut index_offset,
+                    &mut meshes,
+                    &mut indices,
+                    &mut vertices,
+                );
             }
         }
-        controller.vertex_buffer.update(mega_vertices, &self.device);
-        controller.index_buffer.update(mega_indices, &self.device);
+        controller.vertex_buffer.update(vertices, &self.device);
+        controller.index_buffer.update(indices, &self.device);
         meshes
     }
 
@@ -1137,7 +1016,7 @@ pub struct SpineSpriteController {
     pub skeleton: SkeletonController,
     pub vertex_buffer: VertexBuffer,
     pub index_buffer: IndexBuffer,
-    pub mega_texture: TextureAsset,
+    pub atlas: TextureAsset,
     colors: [[f32; 4]; 4],
     lights_buffer: UniformBuffer<SpineUniform>,
 }
@@ -1145,6 +1024,81 @@ pub struct SpineSpriteController {
 impl SpineSpriteController {
     pub fn animation(&self) -> &AnimationState {
         &self.skeleton.animation_state
+    }
+
+    pub fn fill_attachment_buffers(
+        slot: &Slot,
+        attachment: &Attachment,
+        index_offset: &mut u32,
+        meshes: &mut Vec<usize>,
+        mega_indices: &mut Vec<u32>,
+        mega_vertices: &mut Vec<SpriteVertex>,
+    ) {
+        match attachment.attachment_type() {
+            AttachmentType::Region => {
+                let region = attachment.as_region().unwrap();
+                let mut spine_vertices = vec![0.0; 8];
+                unsafe {
+                    region.compute_world_vertices(slot, &mut spine_vertices, 0, 2);
+                }
+
+                let spine_uvs = region.uvs();
+                for i in 0..4 {
+                    mega_vertices.push(SpriteVertex {
+                        position: [spine_vertices[i * 2], -spine_vertices[i * 2 + 1]],
+                        uv: [spine_uvs[i * 2], 1.0 - spine_uvs[i * 2 + 1]], // inverse
+                    })
+                }
+                let indices = [0, 1, 2, 2, 3, 0].map(|index| index + *index_offset);
+                mega_indices.extend_from_slice(&indices);
+                meshes.push(indices.len());
+                *index_offset += 4;
+            }
+            AttachmentType::Mesh => {
+                let mesh = attachment.as_mesh().unwrap();
+                let stride = 2;
+                let spine_vertices_count = mesh.world_vertices_length() as usize;
+                let mut spine_vertices = vec![0.0; spine_vertices_count];
+                unsafe {
+                    mesh.compute_world_vertices(
+                        slot,
+                        0,
+                        spine_vertices_count as i32,
+                        &mut spine_vertices,
+                        0,
+                        stride as i32,
+                    );
+                }
+                let uvs_slice =
+                    unsafe { std::slice::from_raw_parts(mesh.uvs(), spine_vertices_count) };
+                let spine_uvs: Vec<f32> = uvs_slice.to_vec();
+                let mut vertices = vec![];
+                for i in 0..(spine_vertices_count / stride) {
+                    vertices.push(SpriteVertex {
+                        position: [spine_vertices[i * stride], -spine_vertices[i * stride + 1]],
+                        uv: [spine_uvs[i * 2], 1.0 - spine_uvs[i * 2 + 1]], // inverse
+                    })
+                }
+                let indices_count = mesh.triangles_count() as usize;
+                let indices_slice =
+                    unsafe { std::slice::from_raw_parts(mesh.triangles(), indices_count) };
+
+                let indices: Vec<u32> = indices_slice
+                    .iter()
+                    .map(|index| (*index as u32) + *index_offset)
+                    .collect();
+
+                mega_indices.extend_from_slice(&indices);
+                mega_vertices.extend_from_slice(&vertices);
+                meshes.push(indices.len());
+
+                *index_offset += vertices.len() as u32;
+            }
+            AttachmentType::Point => {}
+            attachment_type => {
+                error!("Unknown attachment type {:?}", attachment_type)
+            }
+        }
     }
 }
 

@@ -455,7 +455,7 @@ impl Gameplay {
                     health: 0.0,
                     fruits: 0,
                 };
-                representation.synchronize_fruits(0);
+                representation.synchronize_fruits(2);
                 self.crops.insert(entity, representation);
             }
             Universe::CropVanished(crop) => {

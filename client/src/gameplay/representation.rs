@@ -152,7 +152,7 @@ impl CropRep {
         if self.growth > 5.0 {
             self.growth -= 5.0;
         }
-        self.growth = 3.5;
+        // self.growth = 3.5;
         self.spine = self.growth.floor() as usize;
     }
 
