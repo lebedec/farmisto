@@ -97,6 +97,9 @@ pub enum Action {
     WaterCrop {
         crop: Crop,
     },
+    HarvestCrop {
+        crop: Crop,
+    },
 }
 
 #[derive(Debug, bincode::Encode, bincode::Decode)]

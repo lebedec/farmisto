@@ -11,7 +11,6 @@ impl InventoryDomain {
         let index = container.ensure_item_at(-1)?;
         let operation = move || {
             let mut events = vec![];
-            println!("QUANTITY {}", container.items[index].quantity);
             if container.items[index].quantity > 1 {
                 let item = &mut container.items[index];
                 item.quantity -= 1;

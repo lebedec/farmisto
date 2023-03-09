@@ -1,10 +1,10 @@
 use crate::collections::Shared;
 
-pub const MAX_LANDS: usize = 128;
+pub const MAX_SOILS: usize = 128;
 
 pub struct PlantingDomain {
-    pub lands: Vec<Land>,
-    pub lands_sequence: usize,
+    pub soils: Vec<Soil>,
+    pub soils_sequence: usize,
     pub plants: Vec<Vec<Plant>>,
     pub plants_sequence: usize,
 }
@@ -12,28 +12,28 @@ pub struct PlantingDomain {
 impl Default for PlantingDomain {
     fn default() -> Self {
         Self {
-            lands: vec![],
-            lands_sequence: 0,
-            plants: vec![vec![]; MAX_LANDS],
+            soils: vec![],
+            soils_sequence: 0,
+            plants: vec![vec![]; MAX_SOILS],
             plants_sequence: 0,
         }
     }
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
-pub struct LandKey(pub(crate) usize);
+pub struct SoilKey(pub(crate) usize);
 
-pub struct LandKind {
-    pub id: LandKey,
+pub struct SoilKind {
+    pub id: SoilKey,
     pub name: String,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
-pub struct LandId(pub usize);
+pub struct SoilId(pub usize);
 
-pub struct Land {
-    pub id: LandId,
-    pub kind: Shared<LandKind>,
+pub struct Soil {
+    pub id: SoilId,
+    pub kind: Shared<SoilKind>,
     pub map: Vec<Vec<[f32; 2]>>,
 }
 
@@ -55,44 +55,56 @@ pub struct PlantId(pub(crate) usize);
 pub struct Plant {
     pub id: PlantId,
     pub kind: Shared<PlantKind>,
-    pub land: LandId,
+    pub soil: SoilId,
     pub impact: f32,
     pub thirst: f32,
+    pub hunger: f32,
+    pub health: f32,
+    pub growth: f32,
+    pub fruits: u8,
 }
 
 #[derive(Debug, bincode::Encode, bincode::Decode)]
 pub enum Planting {
-    LandChanged {
-        land: LandId,
+    SoilChanged {
+        soil: SoilId,
         map: Vec<Vec<[f32; 2]>>,
     },
     PlantUpdated {
         id: PlantId,
         impact: f32,
         thirst: f32,
+        hunger: f32,
+        growth: f32,
+    },
+    PlantHarvested {
+        id: PlantId,
+        fruits: u8,
     },
 }
 
 #[derive(Debug, bincode::Encode, bincode::Decode)]
 pub enum PlantingError {
     PlantNotFound { id: PlantId },
+    NotReadyToHarvest { id: PlantId },
+    HasNoFruitsToHarvest { id: PlantId },
 }
 
 impl PlantingDomain {
-    pub fn load_lands(&mut self, lands: Vec<Land>, sequence: usize) {
-        self.lands_sequence = sequence;
-        self.lands.extend(lands);
+    pub fn load_soils(&mut self, soils: Vec<Soil>, sequence: usize) {
+        self.soils_sequence = sequence;
+        self.soils.extend(soils);
     }
 
     pub fn load_plants(&mut self, plants: Vec<Plant>, sequence: usize) {
         self.plants_sequence = sequence;
         for plant in plants {
-            self.plants[plant.land.0].push(plant);
+            self.plants[plant.soil.0].push(plant);
         }
     }
 
-    pub fn get_land(&self, id: LandId) -> Option<&Land> {
-        self.lands.iter().find(|land| land.id == id)
+    pub fn get_soil(&self, id: SoilId) -> Option<&Soil> {
+        self.soils.iter().find(|soil| soil.id == id)
     }
 
     pub fn get_plant(&self, id: PlantId) -> Result<&Plant, PlantingError> {

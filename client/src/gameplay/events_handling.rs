@@ -107,21 +107,38 @@ impl Gameplay {
     pub fn handle_planting_event(&mut self, frame: &mut Frame, event: Planting) {
         let assets = &mut frame.assets;
         match event {
-            Planting::LandChanged { land, map } => {
+            Planting::SoilChanged { soil, map } => {
                 for (farmland, behaviour) in self.farmlands.iter_mut() {
-                    if farmland.land == land {
-                        behaviour.map = map;
+                    if farmland.soil == soil {
+                        behaviour.soil_map = map;
                         break;
                     }
                 }
             }
-            Planting::PlantUpdated { id, impact, thirst } => {
+            Planting::PlantUpdated {
+                id,
+                impact,
+                thirst,
+                hunger,
+                growth,
+            } => {
                 for crop in self.crops.values_mut() {
                     if crop.entity.plant != id {
                         continue;
                     }
                     crop.synchronize_impact(impact);
                     crop.synchronize_thirst(thirst);
+                    crop.synchronize_thirst(hunger);
+                    crop.synchronize_growth(growth);
+                }
+            }
+            Planting::PlantHarvested { id, fruits } => {
+                info!("Plant {:?} harvested {}", id, fruits);
+                for crop in self.crops.values_mut() {
+                    if crop.entity.plant != id {
+                        continue;
+                    }
+                    crop.synchronize_fruits(fruits);
                 }
             }
         }
@@ -233,7 +250,7 @@ impl Gameplay {
                         entity: farmland,
                         kind,
                         asset,
-                        map,
+                        soil_map: map,
                         cells,
                         rooms,
                         holes,
@@ -373,9 +390,16 @@ impl Gameplay {
                 position,
                 impact,
                 thirst,
+                hunger,
+                growth,
+                health,
+                fruits,
             } => {
                 let kind = self.known.crops.get(entity.key).unwrap();
-                info!("Appear {} {:?} at {:?}", &kind.name, entity, position);
+                info!(
+                    "Appear {} {:?} at {:?} g{} f{}",
+                    &kind.name, entity, position, growth, fruits
+                );
                 let asset = assets.crop(&kind.name);
                 let colors = [
                     [1.0, 1.0, 1.0, 1.0],
@@ -405,8 +429,6 @@ impl Gameplay {
                 // let mut spine = renderer.instantiate_spine(&asset.spine, colors);
                 //let spine_data = spine.skeleton.skeleton.data();
 
-                info!("spine data");
-
                 // SPECIFICATION:
                 // let growth = spine_data.animation_at_index(3).unwrap();
                 // spine
@@ -435,8 +457,6 @@ impl Gameplay {
                 // skin.add_skin(&tail);
                 // skeleton.skeleton.set_skin(&skin);
 
-                info!("sets skin");
-
                 // spine
                 //     .skeleton
                 //     .skeleton
@@ -451,11 +471,12 @@ impl Gameplay {
                     position,
                     impact,
                     thirst,
-                    growth: 0.0,
-                    health: 0.0,
+                    hunger,
+                    growth,
+                    health,
                     fruits: 0,
                 };
-                representation.synchronize_fruits(2);
+                representation.synchronize_fruits(fruits);
                 self.crops.insert(entity, representation);
             }
             Universe::CropVanished(crop) => {

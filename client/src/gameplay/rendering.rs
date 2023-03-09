@@ -117,7 +117,7 @@ impl Gameplay {
             renderer.render_ground(
                 farmland.asset.texture.clone(),
                 farmland.asset.sampler.share(),
-                &farmland.map,
+                &farmland.soil_map,
                 &farmland.rooms,
             );
 

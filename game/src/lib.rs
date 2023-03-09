@@ -7,7 +7,7 @@ pub use domains::*;
 use crate::api::ActionError::{ConstructionContainsUnexpectedItem, PlayerFarmerNotFound};
 use crate::api::{Action, ActionError, ActionResponse, Event};
 use crate::building::{BuildingDomain, GridId, Marker, Material, SurveyorId};
-use crate::inventory::{Function, InventoryDomain, ItemId};
+use crate::inventory::{Function, Inventory, InventoryDomain, InventoryError, Item, ItemId};
 use crate::math::VectorMath;
 use crate::model::Activity::Idle;
 use crate::model::{Activity, Crop, CropKey, Drop};
@@ -17,8 +17,8 @@ use crate::model::{EquipmentKey, PurposeDescription, UniverseDomain};
 use crate::model::{Farmland, Knowledge};
 use crate::model::{Player, Purpose};
 use crate::model::{UniverseError, UniverseSnapshot};
-use crate::physics::{BarrierId, PhysicsDomain};
-use crate::planting::{PlantKey, PlantingDomain};
+use crate::physics::{BarrierId, PhysicsDomain, SensorId};
+use crate::planting::{PlantId, PlantKey, PlantingDomain};
 
 pub mod api;
 pub mod collections;
@@ -137,6 +137,7 @@ impl Game {
             Action::ToggleSurveyingOption => self.toggle_surveying_option(*farmer)?,
             Action::PlantCrop { tile } => self.plant_crop(*farmer, farmland, tile)?,
             Action::WaterCrop { crop } => self.water_crop(*farmer, crop)?,
+            Action::HarvestCrop { crop } => self.harvest_crop(*farmer, crop)?,
         };
 
         Ok(events)
@@ -145,6 +146,35 @@ impl Game {
     fn water_crop(&mut self, farmer: Farmer, crop: Crop) -> Result<Vec<Event>, ActionError> {
         let water_plant = self.planting.water_plant(crop.plant, 0.5)?;
         let events = occur![water_plant(),];
+        Ok(events)
+    }
+
+    fn harvest_crop(&mut self, farmer: Farmer, crop: Crop) -> Result<Vec<Event>, ActionError> {
+        let item_kind = self.known.items.find("<harvest>").unwrap();
+        let (new_harvest, capacity) = match self.inventory.get_container_item(farmer.hands) {
+            Ok(item) => {
+                let kind = item.as_product()?;
+                if crop.key != CropKey(kind) {
+                    return Err(InventoryError::ItemFunctionNotFound { id: item.id }.into());
+                }
+                (false, item.kind.max_quantity - item.quantity)
+            }
+            _ => (true, item_kind.max_quantity),
+        };
+        let (fruits, harvest) = self.planting.harvest_plant(crop.plant, capacity)?;
+        let events = if new_harvest {
+            let (_, create_item) = self.inventory.create_item(
+                item_kind,
+                vec![Function::Product { kind: crop.key.0 }],
+                farmer.hands,
+            )?;
+            let change_activity = self.universe.change_activity(farmer, Activity::Usage);
+            occur![harvest(), create_item(), change_activity,]
+        } else {
+            let increase_item = self.inventory.increase_item(farmer.hands, fruits)?;
+
+            occur![harvest(), increase_item(),]
+        };
         Ok(events)
     }
 
@@ -166,15 +196,12 @@ impl Game {
         let (barrier, sensor, create_barrier_sensor) =
             self.physics
                 .create_barrier_sensor(farmland.space, barrier, sensor, position, false)?;
-        let (plant, create_plant) = self.planting.create_plant(farmland.land, plant, 0.0)?;
-        let appear_crop = self
-            .universe
-            .appear_crop(kind.id, barrier, sensor, plant, 0.0, 0.0, position);
+        let (plant, create_plant) = self.planting.create_plant(farmland.soil, plant, 0.0)?;
         let events = occur![
             decrease_item(),
             create_barrier_sensor(),
             create_plant(),
-            appear_crop,
+            self.appear_crop(kind.id, barrier, sensor, plant),
         ];
         Ok(events)
     }
@@ -440,12 +467,11 @@ impl Game {
         let (container, extract_item) =
             self.inventory
                 .extract_item(farmer.hands, -1, container_kind)?;
-        let events = vec![
-            create_barrier().into(),
-            extract_item().into(),
-            self.universe
-                .appear_drop(container, barrier, position)
-                .into(),
+        let events = occur![
+            create_barrier(),
+            extract_item(),
+            self.universe.appear_drop(container, barrier, position),
+            self.universe.change_activity(farmer, Activity::Idle),
         ];
         Ok(events)
     }
@@ -592,6 +618,40 @@ impl Game {
         occur![physics_events, self.planting.update(time),]
     }
 
+    pub fn appear_crop(
+        &mut self,
+        key: CropKey,
+        barrier: BarrierId,
+        sensor: SensorId,
+        plant: PlantId,
+    ) -> Universe {
+        self.universe.crops_id += 1;
+        let entity = Crop {
+            id: self.universe.crops_id,
+            key,
+            plant,
+            barrier,
+            sensor,
+        };
+        self.universe.crops.push(entity);
+        self.look_at_crop(entity)
+    }
+
+    pub fn look_at_crop(&self, entity: Crop) -> Universe {
+        let plant = self.planting.get_plant(entity.plant).unwrap();
+        let barrier = self.physics.get_barrier(entity.barrier).unwrap();
+        Universe::CropAppeared {
+            entity,
+            impact: plant.impact,
+            thirst: plant.thirst,
+            hunger: plant.hunger,
+            growth: plant.growth,
+            health: plant.health,
+            fruits: plant.fruits,
+            position: barrier.position,
+        }
+    }
+
     /// # Safety
     ///
     /// Relational database as source of data guarantees
@@ -602,7 +662,7 @@ impl Game {
 
         for farmland in self.universe.farmlands.iter() {
             if snapshot.whole || snapshot.farmlands.contains(&farmland.id) {
-                let land = self.planting.get_land(farmland.land).unwrap();
+                let land = self.planting.get_soil(farmland.soil).unwrap();
                 let grid = self.building.get_grid(farmland.grid).unwrap();
                 let space = self.physics.get_space(farmland.space).unwrap();
                 stream.push(Universe::FarmlandAppeared {
@@ -680,14 +740,7 @@ impl Game {
         }
 
         for crop in &self.universe.crops {
-            let plant = self.planting.get_plant(crop.plant).unwrap();
-            let barrier = self.physics.get_barrier(crop.barrier).unwrap();
-            stream.push(Universe::CropAppeared {
-                entity: *crop,
-                impact: plant.impact,
-                thirst: plant.thirst,
-                position: barrier.position,
-            })
+            stream.push(self.look_at_crop(*crop));
         }
 
         for equipment in &self.universe.equipments {

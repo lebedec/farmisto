@@ -19,7 +19,7 @@ use game::physics::{
     Barrier, BarrierId, BarrierKey, BarrierKind, Body, BodyId, BodyKey, BodyKind, Physics,
     PhysicsDomain, PhysicsError, Space, SpaceId, SpaceKey, SpaceKind,
 };
-use game::planting::{Land, LandId};
+use game::planting::{Soil, SoilId};
 use game::Game;
 
 pub fn at<T>(x: T, y: T) -> [T; 2] {
@@ -246,20 +246,20 @@ impl GameTestScenario {
             .physics
             .load_spaces(vec![space_component], space.0);
 
-        let land = LandId(self.game.planting.lands_sequence + 1);
+        let land = SoilId(self.game.planting.soils_sequence + 1);
         let kind = self
             .game
             .planting
             .known_lands
-            .get(&farmland_kind.land)
+            .get(&farmland_kind.soil)
             .unwrap()
             .clone();
-        let land_component = Land {
+        let land_component = Soil {
             id: land,
             kind,
             map: vec![],
         };
-        self.game.planting.load_lands(vec![land_component], land.0);
+        self.game.planting.load_soils(vec![land_component], land.0);
 
         let grid = GridId(self.game.building.grids_sequence + 1);
         let kind = self

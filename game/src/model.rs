@@ -12,7 +12,7 @@ use crate::physics::{
     BarrierId, BarrierKey, BarrierKind, BodyId, BodyKey, BodyKind, SensorId, SensorKey, SensorKind,
     SpaceId, SpaceKey, SpaceKind,
 };
-use crate::planting::{LandId, LandKey, LandKind, PlantId, PlantKey, PlantKind};
+use crate::planting::{PlantId, PlantKey, PlantKind, SoilId, SoilKey, SoilKind};
 
 #[derive(Default)]
 pub struct Knowledge {
@@ -33,7 +33,7 @@ pub struct Knowledge {
     pub grids: Dictionary<GridKey, GridKind>,
     pub surveyors: Dictionary<SurveyorKey, SurveyorKind>,
     // planting
-    pub lands: Dictionary<LandKey, LandKind>,
+    pub soils: Dictionary<SoilKey, SoilKind>,
     pub plants: Dictionary<PlantKey, PlantKind>,
 }
 
@@ -98,6 +98,10 @@ pub enum Universe {
         entity: Crop,
         impact: f32,
         thirst: f32,
+        hunger: f32,
+        growth: f32,
+        health: f32,
+        fruits: u8,
         position: [f32; 2],
     },
     CropVanished(Crop),
@@ -205,33 +209,6 @@ impl UniverseDomain {
         } else {
             vec![]
         }
-    }
-
-    pub(crate) fn appear_crop(
-        &mut self,
-        key: CropKey,
-        barrier: BarrierId,
-        sensor: SensorId,
-        plant: PlantId,
-        impact: f32,
-        thirst: f32,
-        position: [f32; 2],
-    ) -> Vec<Universe> {
-        self.crops_id += 1;
-        let entity = Crop {
-            id: self.crops_id,
-            key,
-            plant,
-            barrier,
-            sensor,
-        };
-        self.crops.push(entity);
-        vec![Universe::CropAppeared {
-            entity,
-            impact,
-            thirst,
-            position,
-        }]
     }
 
     pub(crate) fn appear_equipment(
@@ -401,7 +378,7 @@ pub struct FarmlandKind {
     pub id: FarmlandKey,
     pub name: String,
     pub space: SpaceKey,
-    pub land: LandKey,
+    pub soil: SoilKey,
     pub grid: GridKey,
 }
 
@@ -410,7 +387,7 @@ pub struct Farmland {
     pub id: usize,
     pub kind: FarmlandKey,
     pub space: SpaceId,
-    pub land: LandId,
+    pub soil: SoilId,
     pub grid: GridId,
 }
 

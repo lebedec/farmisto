@@ -5,8 +5,8 @@ use crate::gameplay::{Gameplay, Intention, Target};
 use game::api::Action;
 use game::building::Marker;
 use game::inventory::Function;
-use game::inventory::Function::{Installation, Instrumenting, Material, Seeding};
-use game::model::{Activity, ItemRep, Purpose};
+use game::inventory::Function::{Installation, Instrumenting, Material, Product, Seeding};
+use game::model::{Activity, CropKey, ItemRep, Purpose};
 use log::error;
 
 impl Gameplay {
@@ -28,6 +28,9 @@ impl Gameplay {
                     }
                     Equipment(equipment) => {
                         self.send_action(Action::UseEquipment { equipment });
+                    }
+                    Crop(crop) => {
+                        self.send_action(Action::HarvestCrop { crop });
                     }
                     _ => {}
                 },
@@ -74,6 +77,11 @@ impl Gameplay {
                                 // TODO: generic, not material only, generic container?
                                 self.send_action(Action::TakeMaterial { construction });
                                 break;
+                            }
+                            (Product { kind }, Crop(crop)) => {
+                                if CropKey(kind) == crop.key {
+                                    self.send_action(Action::HarvestCrop { crop });
+                                }
                             }
                             _ => {}
                         }

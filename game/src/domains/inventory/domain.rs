@@ -32,6 +32,7 @@ pub enum Function {
     Carry,
     Instrumenting,
     Shovel,
+    Product { kind: usize },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
@@ -41,7 +42,7 @@ pub struct ItemKind {
     pub id: ItemKey,
     pub name: String,
     pub stackable: Option<u8>,
-    pub quantable: Option<u8>,
+    pub max_quantity: u8,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
@@ -102,6 +103,9 @@ pub enum InventoryError {
         index: isize,
     },
     ItemFunctionNotFound {
+        id: ItemId,
+    },
+    ItemQuantityOverflow {
         id: ItemId,
     },
 }
@@ -180,6 +184,15 @@ impl Item {
         for function in &self.functions {
             if let Function::Shovel = function {
                 return Ok(());
+            }
+        }
+        Err(InventoryError::ItemFunctionNotFound { id: self.id })
+    }
+
+    pub fn as_product(&self) -> Result<usize, InventoryError> {
+        for function in &self.functions {
+            if let Function::Product { kind } = function {
+                return Ok(*kind);
             }
         }
         Err(InventoryError::ItemFunctionNotFound { id: self.id })

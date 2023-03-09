@@ -1,6 +1,6 @@
 use crate::collections::Shared;
 use crate::planting::Planting::PlantUpdated;
-use crate::planting::{LandId, Plant, PlantId, PlantKind, Planting, PlantingDomain, PlantingError};
+use crate::planting::{Plant, PlantId, PlantKind, Planting, PlantingDomain, PlantingError, SoilId};
 
 impl PlantingDomain {
     pub fn water_plant<'operation>(
@@ -18,6 +18,8 @@ impl PlantingDomain {
                 id,
                 impact: plant.impact,
                 thirst: plant.thirst,
+                hunger: plant.hunger,
+                growth: plant.growth,
             }]
         };
         Ok(operation)

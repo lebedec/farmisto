@@ -5,7 +5,7 @@ from io import BytesIO
 from typing import List
 
 
-def generate_land(land_id: int, user_define: List[str]):
+def generate_soil(soil_id: int, user_define: List[str]):
     data = BytesIO()
     size_y = 128
     size_x = 128
@@ -23,7 +23,7 @@ def generate_land(land_id: int, user_define: List[str]):
     data = data.getvalue()
     print('data length', len(data))
     connection = sqlite3.connect('../../assets/database.sqlite')
-    connection.execute('update Land set map = ? where id = ?', [data, land_id])
+    connection.execute('update Soil set map = ? where id = ?', [data, soil_id])
     connection.commit()
 
 
@@ -108,7 +108,7 @@ def generate_grid(grid_id: int, space_id: int, surveyor: int, user_define_map: s
 
 
 if __name__ == '__main__':
-    generate_land(1, [
+    generate_soil(1, [
         '7777777777777777777777777',
         '0123456777777777777777012',
         '9999999977777777777777012',

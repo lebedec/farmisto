@@ -16,7 +16,7 @@ use crate::physics::{
     Barrier, BarrierId, BarrierKey, BarrierKind, Body, BodyId, BodyKey, BodyKind, Sensor, SensorId,
     SensorKey, SensorKind, Space, SpaceId, SpaceKey, SpaceKind,
 };
-use crate::planting::{Land, LandId, LandKey, LandKind, Plant, PlantId, PlantKey, PlantKind};
+use crate::planting::{Plant, PlantId, PlantKey, PlantKind, Soil, SoilId, SoilKey, SoilKind};
 use crate::Game;
 
 impl Game {
@@ -38,7 +38,7 @@ impl Game {
         }
         // planting
         for kind in storage.find_all(|row| self.load_land_kind(row).unwrap()) {
-            self.known.lands.insert(kind.id, kind.name.clone(), kind);
+            self.known.soils.insert(kind.id, kind.name.clone(), kind);
         }
         for kind in storage.find_all(|row| self.load_plant_kind(row).unwrap()) {
             self.known.plants.insert(kind.id, kind.name.clone(), kind);
@@ -101,7 +101,7 @@ impl Game {
 
         // planting
         let (lands, sequence) = storage.get_sequence(|row| self.load_land(row))?;
-        self.planting.load_lands(lands, sequence);
+        self.planting.load_soils(lands, sequence);
         let (plants, sequence) = storage.get_sequence(|row| self.load_plant(row))?;
         self.planting.load_plants(plants, sequence);
 
@@ -192,32 +192,23 @@ impl Game {
         &mut self,
         row: &rusqlite::Row,
     ) -> Result<FarmlandKind, DataError> {
-        let id = row.get("id")?;
-        let space = row.get("space")?;
-        let land = row.get("land")?;
-        let grid = row.get("grid")?;
         let data = FarmlandKind {
-            id: FarmlandKey(id),
+            id: FarmlandKey(row.get("id")?),
             name: row.get("name")?,
-            space: SpaceKey(space),
-            land: LandKey(land),
-            grid: GridKey(grid),
+            space: SpaceKey(row.get("space")?),
+            soil: SoilKey(row.get("soil")?),
+            grid: GridKey(row.get("grid")?),
         };
         Ok(data)
     }
 
     pub(crate) fn load_farmland(&mut self, row: &rusqlite::Row) -> Result<Farmland, DataError> {
-        let id = row.get("id")?;
-        let kind = row.get("kind")?;
-        let space = row.get("space")?;
-        let land = row.get("land")?;
-        let grid = row.get("grid")?;
         let data = Farmland {
-            id,
-            kind: FarmlandKey(kind),
-            space: SpaceId(space),
-            land: LandId(land),
-            grid: GridId(grid),
+            id: row.get("id")?,
+            kind: FarmlandKey(row.get("kind")?),
+            space: SpaceId(row.get("space")?),
+            soil: SoilId(row.get("soil")?),
+            grid: GridId(row.get("grid")?),
         };
         Ok(data)
     }
@@ -510,7 +501,7 @@ impl Game {
             id: ItemKey(row.get("id")?),
             name: row.get("name")?,
             stackable: row.get("stackable")?,
-            quantable: row.get("quantable")?,
+            max_quantity: row.get("max_quantity")?,
         };
         Ok(data)
     }
@@ -530,24 +521,24 @@ impl Game {
 
     // planting
 
-    pub(crate) fn load_land_kind(&mut self, row: &rusqlite::Row) -> Result<LandKind, DataError> {
+    pub(crate) fn load_land_kind(&mut self, row: &rusqlite::Row) -> Result<SoilKind, DataError> {
         let id = row.get("id")?;
-        let data = LandKind {
-            id: LandKey(id),
+        let data = SoilKind {
+            id: SoilKey(id),
             name: row.get("name")?,
         };
         Ok(data)
     }
 
-    pub(crate) fn load_land(&mut self, row: &rusqlite::Row) -> Result<Land, DataError> {
+    pub(crate) fn load_land(&mut self, row: &rusqlite::Row) -> Result<Soil, DataError> {
         let id = row.get("id")?;
         let kind = row.get("kind")?;
         let map: Vec<u8> = row.get("map")?;
         let config = bincode::config::standard();
         let (map, _) = bincode::decode_from_slice(&map, config).unwrap();
-        let data = Land {
-            id: LandId(id),
-            kind: self.known.lands.get(LandKey(kind)).unwrap(),
+        let data = Soil {
+            id: SoilId(id),
+            kind: self.known.soils.get(SoilKey(kind)).unwrap(),
             map,
         };
         Ok(data)
@@ -565,15 +556,17 @@ impl Game {
     }
 
     pub(crate) fn load_plant(&mut self, row: &rusqlite::Row) -> Result<Plant, DataError> {
-        let id = row.get("id")?;
         let kind = row.get("kind")?;
-        let land = row.get("land")?;
         let data = Plant {
-            id: PlantId(id),
+            id: PlantId(row.get("id")?),
             kind: self.known.plants.get(PlantKey(kind)).unwrap(),
-            land: LandId(land),
+            soil: SoilId(row.get("soil")?),
             impact: row.get("impact")?,
             thirst: row.get("thirst")?,
+            hunger: row.get("hunger")?,
+            health: row.get("health")?,
+            growth: row.get("growth")?,
+            fruits: row.get("fruits")?,
         };
         Ok(data)
     }

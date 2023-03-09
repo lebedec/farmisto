@@ -79,16 +79,16 @@ create table Sensor
 
 -- Planting
 
-create table LandKind
+create table SoilKind
 (
     id   integer primary key,
     name text not null unique
 );
 
-create table Land
+create table Soil
 (
     id   integer primary key,
-    kind integer             not null references LandKind,
+    kind integer             not null references SoilKind,
     map  blob collate binary not null
 );
 
@@ -105,9 +105,13 @@ create table Plant
 (
     id     integer primary key,
     kind   integer not null references PlantKind,
-    land   integer not null references Land,
+    soil   integer not null references Soil,
     impact real    not null,
-    thirst real    not null
+    thirst real    not null,
+    hunger real    not null,
+    health real    not null,
+    growth real    not null,
+    fruits integer not null
 );
 
 -- Building
@@ -156,10 +160,10 @@ create table Container
 
 create table ItemKind
 (
-    id        integer primary key,
-    name      text not null unique,
-    stackable integer,
-    quantable integer
+    id           integer primary key,
+    name         text not null unique,
+    stackable    integer,
+    max_quantity integer
 );
 
 create table Item
@@ -194,7 +198,7 @@ create table FarmlandKind
     id    integer primary key,
     name  text    not null unique,
     space integer not null references SpaceKind,
-    land  integer not null references LandKind,
+    soil  integer not null references SoilKind,
     grid  integer not null references GridKind
 );
 
@@ -203,7 +207,7 @@ create table Farmland
     id    integer primary key,
     kind  integer not null references FarmlandKind,
     space integer not null references Space,
-    land  integer not null references Land,
+    soil  integer not null references Soil,
     grid  integer not null references Grid
 );
 
