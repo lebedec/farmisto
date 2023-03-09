@@ -3,6 +3,7 @@ extern crate core;
 
 use datamap::Storage;
 pub use domains::*;
+use std::hash::Hash;
 
 use crate::api::ActionError::{ConstructionContainsUnexpectedItem, PlayerFarmerNotFound};
 use crate::api::{Action, ActionError, ActionResponse, Event};
@@ -167,6 +168,7 @@ impl Game {
                 item_kind,
                 vec![Function::Product { kind: crop.key.0 }],
                 farmer.hands,
+                fruits,
             )?;
             let change_activity = self.universe.change_activity(farmer, Activity::Usage);
             occur![harvest(), create_item(), change_activity,]
@@ -275,7 +277,8 @@ impl Game {
                 }];
                 let kind = self.known.items.find("<equipment>").unwrap();
                 let (item, create_item) =
-                    self.inventory.create_item(kind, functions, farmer.hands)?;
+                    self.inventory
+                        .create_item(kind, functions, farmer.hands, 1)?;
                 let vanish_equipment = self.universe.vanish_equipment(equipment);
                 let change_activity = self.universe.change_activity(farmer, Activity::Usage);
 
@@ -450,12 +453,21 @@ impl Game {
     }
 
     fn put_item(&mut self, farmer: Farmer, drop: Drop) -> Result<Vec<Event>, ActionError> {
+        let hands = self.inventory.get_container(farmer.hands)?;
+        let is_last_item = hands.items.len() <= 1;
         let transfer = self.inventory.pop_item(farmer.hands, drop.container)?;
-        let events = occur![transfer(),];
+        let activity = if is_last_item {
+            self.universe.change_activity(farmer, Activity::Idle)
+        } else {
+            vec![]
+        };
+        let events = occur![transfer(), activity,];
         Ok(events)
     }
 
     fn drop_item(&mut self, farmer: Farmer, tile: [usize; 2]) -> Result<Vec<Event>, ActionError> {
+        let hands = self.inventory.get_container(farmer.hands)?;
+        let is_last_item = hands.items.len() <= 1;
         let body = self.physics.get_body(farmer.body)?;
         let space = body.space;
         let barrier_kind = self.known.barriers.find("<drop>").unwrap();
@@ -467,11 +479,16 @@ impl Game {
         let (container, extract_item) =
             self.inventory
                 .extract_item(farmer.hands, -1, container_kind)?;
+        let activity = if is_last_item {
+            self.universe.change_activity(farmer, Activity::Idle)
+        } else {
+            vec![]
+        };
         let events = occur![
             create_barrier(),
             extract_item(),
             self.universe.appear_drop(container, barrier, position),
-            self.universe.change_activity(farmer, Activity::Idle),
+            activity,
         ];
         Ok(events)
     }

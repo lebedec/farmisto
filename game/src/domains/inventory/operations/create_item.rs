@@ -10,6 +10,7 @@ impl InventoryDomain {
         kind: Shared<ItemKind>,
         functions: Vec<Function>,
         container: ContainerId,
+        quantity: u8,
     ) -> Result<(ItemId, impl FnOnce() -> Vec<Inventory> + 'operation), InventoryError> {
         self.get_container(container)?; // ensure container valid
         let id = ItemId(self.items_sequence + 1);
@@ -18,7 +19,7 @@ impl InventoryDomain {
             kind,
             container,
             functions,
-            quantity: 1,
+            quantity,
         };
         let operation = move || {
             let events = vec![ItemAdded {
