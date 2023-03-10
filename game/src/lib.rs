@@ -51,7 +51,6 @@ pub struct Game {
 
 impl Game {
     pub fn new(storage: Storage) -> Self {
-        Nature::test();
         Self {
             known: Knowledge::default(),
             universe: UniverseDomain::default(),

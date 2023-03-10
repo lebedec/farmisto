@@ -147,53 +147,53 @@ pub struct Nature {
 }
 
 impl Nature {
-    pub fn test() {
-        let behaviours = Behaviours {
-            animal_crop: vec![
-                Behaviour {
-                    decisions: vec![Decision {
-                        action: AnimalCropAction::EatCrop,
-                        considerations: vec![
-                            Consideration {
-                                input: AnimalCropInput::MyHunger,
-                                weight: 0.0,
-                                curve: Curve {
-                                    x: vec![0.0, 1.0, 2.0],
-                                    y: vec![5.0; 50],
-                                },
-                            },
-                            Consideration {
-                                input: AnimalCropInput::CropNutritionValue,
-                                weight: 1.0,
-                                curve: Curve {
-                                    x: vec![0.0, 1.0, 2.0],
-                                    y: vec![5.0; 50],
-                                },
-                            },
-                        ],
-                    }],
-                },
-                Behaviour { decisions: vec![] },
-            ],
-            invaser_animal: vec![Behaviour {
-                decisions: vec![Decision {
-                    action: InvaserAnimalAction::Bite,
-                    considerations: vec![Consideration {
-                        input: InvaserAnimalInput::AnimalDistance,
-                        weight: 0.0,
-                        curve: Curve {
-                            x: vec![0.0, 1.0, 2.0],
-                            y: vec![5.0; 50],
-                        },
-                    }],
-                }],
-            }],
-        };
-        fs::write(
-            "ai.json",
-            serde_json::to_string_pretty(&behaviours).unwrap(),
-        );
-    }
+    // pub fn test() {
+    //     let behaviours = Behaviours {
+    //         animal_crop: vec![
+    //             Behaviour {
+    //                 decisions: vec![Decision {
+    //                     action: AnimalCropAction::EatCrop,
+    //                     considerations: vec![
+    //                         Consideration {
+    //                             input: AnimalCropInput::MyHunger,
+    //                             weight: 0.0,
+    //                             curve: Curve {
+    //                                 x: vec![0.0, 1.0, 2.0],
+    //                                 y: vec![5.0; 50],
+    //                             },
+    //                         },
+    //                         Consideration {
+    //                             input: AnimalCropInput::CropNutritionValue,
+    //                             weight: 1.0,
+    //                             curve: Curve {
+    //                                 x: vec![0.0, 1.0, 2.0],
+    //                                 y: vec![5.0; 50],
+    //                             },
+    //                         },
+    //                     ],
+    //                 }],
+    //             },
+    //             Behaviour { decisions: vec![] },
+    //         ],
+    //         invaser_animal: vec![Behaviour {
+    //             decisions: vec![Decision {
+    //                 action: InvaserAnimalAction::Bite,
+    //                 considerations: vec![Consideration {
+    //                     input: InvaserAnimalInput::AnimalDistance,
+    //                     weight: 0.0,
+    //                     curve: Curve {
+    //                         x: vec![0.0, 1.0, 2.0],
+    //                         y: vec![5.0; 50],
+    //                     },
+    //                 }],
+    //             }],
+    //         }],
+    //     };
+    //     fs::write(
+    //         "ai-asset-example.json",
+    //         serde_json::to_string_pretty(&behaviours).unwrap(),
+    //     );
+    // }
 
     pub fn perceive(&mut self, events: Vec<Event>) {
         for event in events {
