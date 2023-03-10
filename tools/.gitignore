@@ -2,3 +2,5 @@
 blender/bpy
 venv
 setup/dist/
+.idea
+.ipynb_checkpoints

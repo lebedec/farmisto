@@ -473,6 +473,12 @@ pub struct Crop {
     pub sensor: SensorId,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
+pub struct Livestock {
+    pub id: usize,
+    pub body: BodyId,
+}
+
 // Models:
 //
 // Entity - aggregate of domain objects (hold identifiers)

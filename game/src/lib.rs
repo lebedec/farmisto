@@ -1,6 +1,7 @@
 extern crate alloc;
 extern crate core;
 
+use crate::ai::Nature;
 use datamap::Storage;
 pub use domains::*;
 use std::hash::Hash;
@@ -21,6 +22,7 @@ use crate::model::{UniverseError, UniverseSnapshot};
 use crate::physics::{BarrierId, PhysicsDomain, SensorId};
 use crate::planting::{PlantId, PlantKey, PlantingDomain};
 
+pub mod ai;
 pub mod api;
 pub mod collections;
 mod data;
@@ -49,6 +51,7 @@ pub struct Game {
 
 impl Game {
     pub fn new(storage: Storage) -> Self {
+        Nature::test();
         Self {
             known: Knowledge::default(),
             universe: UniverseDomain::default(),
@@ -139,6 +142,9 @@ impl Game {
             Action::PlantCrop { tile } => self.plant_crop(*farmer, farmland, tile)?,
             Action::WaterCrop { crop } => self.water_crop(*farmer, crop)?,
             Action::HarvestCrop { crop } => self.harvest_crop(*farmer, crop)?,
+            Action::EatCrop { .. } => {
+                vec![]
+            }
         };
 
         Ok(events)

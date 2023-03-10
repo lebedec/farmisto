@@ -47,6 +47,10 @@ pub enum LoginResult {
 
 #[derive(Debug, bincode::Encode, bincode::Decode)]
 pub enum Action {
+    EatCrop {
+        animal: usize,
+        crop: Crop
+    },
     MoveFarmer {
         destination: [f32; 2],
     },
