@@ -4,10 +4,28 @@ import subprocess
 from datetime import datetime
 from subprocess import Popen
 
-if __name__ == '__main__':
+from PIL import Image
+
+
+def change_icon():
+    main_directory = os.path.dirname(__file__)
+    project_directory = os.path.join(main_directory, '..', '..')
+    icon_image = Image.open(os.path.join(project_directory, 'client/resources/icon.png'))
+    icon_image.save(os.path.join(project_directory, 'client/resources/farmisto.ico'), format='ico', sizes=[(256, 256)])
+
+
+def build(rebuild=True):
     main_directory = os.path.dirname(__file__)
     dist_directory = os.path.join(main_directory, 'dist', 'farmisto')
     project_directory = os.path.join(main_directory, '..', '..')
+
+    if rebuild:
+        client_rebuild = Popen(
+            ['cargo', 'build', '--package', 'client', '--bin', 'client', '--release'],
+            cwd=project_directory,
+        )
+        client_rebuild.wait()
+
     git_commit_fetch = Popen(
         ['git', 'rev-parse', '--short', 'HEAD'],
         cwd=project_directory,
@@ -23,7 +41,7 @@ if __name__ == '__main__':
         shutil.rmtree(dist_directory)
 
     files = [
-        ['target/release/client.exe', 'client.exe'],
+        ['target/release/client.exe', 'farmisto.exe'],
         ['target/release/deps/fmod.dll', 'fmod.dll'],
         ['target/release/deps/fmodstudio.dll', 'fmodstudio.dll'],
         ['assets/audio', 'assets/audio'],
@@ -33,6 +51,7 @@ if __name__ == '__main__':
         ['assets/texture', 'assets/texture'],
         ['assets/assets.sqlite', 'assets/assets.sqlite'],
         ['assets/database.sqlite', 'assets/database.sqlite'],
+        ['tools/setup/debug/debug.bat', 'debug.bat'],
     ]
     for src, dst in files:
         src = os.path.join(project_directory, src)
@@ -47,3 +66,8 @@ if __name__ == '__main__':
     shutil.make_archive(archive_path, 'zip', dist_directory)
 
     print('hello', archive_name)
+
+
+if __name__ == '__main__':
+    # change_icon()
+    build()

@@ -151,7 +151,7 @@ pub fn startup<A: App>(title: String) {
 
         loop {
             METRIC_FRAME.inc();
-            assets.update();
+            assets.process_assets_loading();
             studio.update().unwrap();
 
             input.reset();

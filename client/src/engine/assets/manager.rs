@@ -159,11 +159,6 @@ impl Assets {
         let storage = Storage::open("./assets/assets.sqlite").unwrap();
         storage.setup_tracking().unwrap();
 
-        info!(
-            "Shader compiler version: {}",
-            ShaderCompiler::new().version()
-        );
-
         let textures_default = TextureAssetData::create_and_read_image(
             &device,
             pool,
@@ -198,8 +193,20 @@ impl Assets {
             );
         }
 
-        let files = vec!["png", "json", "yaml", "space3", "frag", "vert", "spv"];
-        let file_system = FileSystem::watch(files);
+        let file_system = if Self::is_development() {
+            // todo: organize pre-processing workers
+            info!(
+                "Shader compiler version: {}",
+                ShaderCompiler::new().version()
+            );
+
+            let files = vec!["png", "json", "yaml", "space3", "frag", "vert", "spv"];
+            info!("Configures file system watch for {:?}", files);
+            FileSystem::watch(files)
+        } else {
+            info!("Skips file system watch configuration because of production mode");
+            FileSystem::idle()
+        };
 
         Self {
             storage,
@@ -619,6 +626,48 @@ impl Assets {
         requests.push(AssetRequest { path, kind });
     }
 
+    pub fn process_assets_loading(&mut self) {
+        if Self::is_development() {
+            self.detect_changes()
+        }
+
+        for payload in self.loading_result.try_iter() {
+            match payload {
+                AssetPayload::Texture { path, data } => match self.textures.get_mut(&path) {
+                    None => {
+                        error!(
+                            "Unable to update texture {:?}, not registered",
+                            path.to_str()
+                        );
+                    }
+                    Some(texture) => {
+                        debug!("Update texture {:?}", path.to_str());
+                        texture.update(data);
+                    }
+                },
+                AssetPayload::Shader { path, data } => match self.shaders.get_mut(&path) {
+                    None => {
+                        error!(
+                            "Unable to update shader {:?}, not registered",
+                            path.to_str()
+                        );
+                    }
+                    Some(shader) => {
+                        debug!("Update shader {:?}", path.to_str());
+                        shader.update(data);
+                        for pipeline in self.pipelines.values_mut() {
+                            if pipeline.fragment.module == shader.module
+                                || pipeline.vertex.module == shader.module
+                            {
+                                pipeline.changed = true;
+                            }
+                        }
+                    }
+                },
+            }
+        }
+    }
+
     fn reload_dictionaries(&mut self) -> Result<(), rusqlite::Error> {
         let changes = self.storage.track_changes::<String>()?;
         for change in changes {
@@ -679,7 +728,11 @@ impl Assets {
         Ok(())
     }
 
-    pub fn update(&mut self) {
+    pub fn is_development() -> bool {
+        std::env::var("DEV_MODE").is_ok()
+    }
+
+    pub fn detect_changes(&mut self) {
         if let Err(error) = self.reload_dictionaries() {
             error!("Unable to reload dictionaries, {:?}", error);
         }
@@ -693,7 +746,7 @@ impl Assets {
             );
 
             if event == FileEvent::Changed || event == FileEvent::Created {
-                // PREPROCESSING
+                // PRE-PROCESSING
                 match path.extension().and_then(|ext| ext.to_str()) {
                     Some("vert") | Some("frag") => {
                         self.require_update(AssetKind::ShaderSrc, path);
@@ -712,42 +765,6 @@ impl Assets {
                     }
                 }
                 FileEvent::Deleted => {}
-            }
-        }
-
-        for payload in self.loading_result.try_iter() {
-            match payload {
-                AssetPayload::Texture { path, data } => match self.textures.get_mut(&path) {
-                    None => {
-                        error!(
-                            "Unable to update texture {:?}, not registered",
-                            path.to_str()
-                        );
-                    }
-                    Some(texture) => {
-                        debug!("Update texture {:?}", path.to_str());
-                        texture.update(data);
-                    }
-                },
-                AssetPayload::Shader { path, data } => match self.shaders.get_mut(&path) {
-                    None => {
-                        error!(
-                            "Unable to update shader {:?}, not registered",
-                            path.to_str()
-                        );
-                    }
-                    Some(shader) => {
-                        debug!("Update shader {:?}", path.to_str());
-                        shader.update(data);
-                        for pipeline in self.pipelines.values_mut() {
-                            if pipeline.fragment.module == shader.module
-                                || pipeline.vertex.module == shader.module
-                            {
-                                pipeline.changed = true;
-                            }
-                        }
-                    }
-                },
             }
         }
     }

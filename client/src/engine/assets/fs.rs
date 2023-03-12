@@ -66,6 +66,13 @@ impl FileSystem {
         shared_events
     }
 
+    pub fn idle() -> FileSystem {
+        FileSystem {
+            events_timer: Instant::now(),
+            events: Arc::new(RwLock::new(HashMap::new())),
+        }
+    }
+
     #[cfg(windows)]
     pub fn watch(extensions: Vec<&'static str>) -> FileSystem {
         let process = Command::new("powershell")
