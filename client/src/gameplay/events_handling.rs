@@ -394,7 +394,7 @@ impl Gameplay {
                     [1.0, 1.0, 1.0, 1.0],
                     [1.0, 1.0, 1.0, 1.0],
                 ];
-                let mut spine = renderer.instantiate_spine(&asset.spine, colors);
+                let mut spine = renderer.instantiate_animal(&asset.spine, colors);
                 spine
                     .skeleton
                     .animation_state
@@ -404,6 +404,7 @@ impl Gameplay {
                     entity,
                     CreatureRep {
                         entity,
+                        asset,
                         kind,
                         body,
                         animal,

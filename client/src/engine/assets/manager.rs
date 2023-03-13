@@ -459,8 +459,10 @@ impl Assets {
     pub fn load_creature_data(&mut self, id: &str) -> Result<CreatureAssetData, serde_json::Error> {
         let entry = self.storage.fetch_one::<CreatureAssetData>(id);
         let spine: String = entry.get("spine")?;
+        let coloration: String = entry.get("coloration")?;
         let data = CreatureAssetData {
             spine: self.spine(&spine),
+            coloration: self.texture(coloration),
         };
         Ok(data)
     }

@@ -428,9 +428,9 @@ impl Gameplay {
         }
 
         for creature in self.creatures.values() {
-            renderer.render_spine(
+            renderer.render_animal(
                 &creature.spine,
-                creature.spine.atlas.share(),
+                &creature.asset.coloration,
                 rendering_position_of(creature.rendering_position),
                 [
                     [1.0, 1.0, 1.0, 1.0],

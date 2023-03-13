@@ -53,4 +53,5 @@ pub type CreatureAsset = Asset<CreatureAssetData>;
 
 pub struct CreatureAssetData {
     pub spine: SpineAsset,
+    pub coloration: TextureAsset,
 }

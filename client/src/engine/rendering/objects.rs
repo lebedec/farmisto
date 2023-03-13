@@ -56,6 +56,26 @@ pub struct SpineRenderObject {
 
 #[derive(Debug, Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
 #[repr(C)]
+pub struct AnimalPushConstants {
+    pub colors: [[f32; 4]; 4],
+    pub position: [f32; 2],
+    pub size: [f32; 2],
+}
+
+pub struct AnimalRenderObject {
+    pub vertex_buffer: VertexBuffer,
+    pub index_buffer: IndexBuffer,
+    pub texture: TextureAsset,
+    pub coloration: TextureAsset,
+    pub position: [f32; 2],
+    pub colors: [[f32; 4]; 4],
+    pub meshes: Vec<usize>,
+    pub constants: AnimalPushConstants,
+    pub lights_descriptor: vk::DescriptorSet,
+}
+
+#[derive(Debug, Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
+#[repr(C)]
 pub struct SpritePushConstants {
     pub position: [f32; 2],
     pub size: [f32; 2],

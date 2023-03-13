@@ -1,4 +1,6 @@
-use crate::engine::{CropAsset, FarmerAsset, FarmlandAsset, SpineAsset, TreeAsset};
+use crate::engine::{
+    CreatureAsset, CreatureAssetData, CropAsset, FarmerAsset, FarmlandAsset, SpineAsset, TreeAsset,
+};
 
 use crate::engine::rendering::{SpineRenderController, TilemapController};
 use game::building::{Cell, Room};
@@ -180,6 +182,7 @@ impl CropRep {
 
 pub struct CreatureRep {
     pub entity: Creature,
+    pub asset: CreatureAsset,
     pub kind: Shared<CreatureKind>,
     pub body: Shared<BodyKind>,
     pub animal: Shared<AnimalKind>,

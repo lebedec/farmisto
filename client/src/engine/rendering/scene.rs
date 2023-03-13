@@ -4,7 +4,6 @@ use lazy_static::lazy_static;
 
 use crate::engine::base::{index_memory_type, MyPipeline, Screen, ShaderData, ShaderDataSet};
 use crate::engine::buffers::{CameraUniform, LightUniform, UniformBuffer};
-use crate::engine::rendering::GroundRenderObject;
 use crate::engine::rendering::SpinePushConstants;
 use crate::engine::rendering::SpineRenderController;
 use crate::engine::rendering::SpineRenderObject;
@@ -17,6 +16,7 @@ use crate::engine::rendering::GROUND_VERTICES;
 use crate::engine::rendering::SPRITE_VERTICES;
 use crate::engine::rendering::VISIBLE_MAP_X;
 use crate::engine::rendering::VISIBLE_MAP_Y;
+use crate::engine::rendering::{AnimalPushConstants, AnimalRenderObject, GroundRenderObject};
 use crate::engine::rendering::{GroundPushConstants, GroundUniform, Light};
 use crate::engine::{
     IndexBuffer, SamplerAsset, ShaderAsset, SpineAsset, SpriteAsset, TextureAsset, VertexBuffer,
@@ -50,6 +50,9 @@ pub struct Scene {
     pub spine_pipeline: MyPipeline<2, SpinePushConstants, 1>,
     pub spines: Vec<Vec<SpineRenderObject>>,
     pub spine_coloration_sampler: SamplerAsset,
+
+    pub animals_pipeline: MyPipeline<2, AnimalPushConstants, 1>,
+    pub animals: Vec<Vec<AnimalRenderObject>>,
 
     pub ground_pipeline: MyPipeline<1, GroundPushConstants, 2>,
     pub grounds: Vec<GroundRenderObject>,
@@ -99,6 +102,14 @@ impl Scene {
             .data([vk::DescriptorType::UNIFORM_BUFFER])
             .build(device, &screen);
 
+        let animals_pipeline = MyPipeline::build(assets.pipeline("spine:animals"), pass)
+            .material([
+                vk::DescriptorType::COMBINED_IMAGE_SAMPLER,
+                vk::DescriptorType::COMBINED_IMAGE_SAMPLER,
+            ])
+            .data([vk::DescriptorType::UNIFORM_BUFFER])
+            .build(device, &screen);
+
         let ground_buffer = UniformBuffer::create(device.clone(), device_memory, swapchain);
         let ground_pipeline = MyPipeline::build(assets.pipeline("ground"), pass)
             .material([vk::DescriptorType::COMBINED_IMAGE_SAMPLER])
@@ -131,10 +142,12 @@ impl Scene {
         let mut sprites = vec![];
         let mut spines = vec![];
         let mut tilemaps = vec![];
+        let mut animals = vec![];
         for _ in 0..128 {
             sprites.push(vec![]);
             spines.push(vec![]);
             tilemaps.push(vec![]);
+            animals.push(vec![]);
         }
 
         let mut renderer = Self {
@@ -155,6 +168,7 @@ impl Scene {
             //light_map_framebuffer,
             //light_map_render_pass,
             spine_coloration_sampler,
+            animals_pipeline,
             grounds: vec![],
             screen,
             zoom,
@@ -168,6 +182,7 @@ impl Scene {
             swapchain,
             global_light_buffer,
             global_lights: vec![],
+            animals,
         };
 
         renderer
@@ -203,6 +218,9 @@ impl Scene {
         for spines in self.spines.iter_mut() {
             spines.clear();
         }
+        for animals in self.animals.iter_mut() {
+            animals.clear();
+        }
         for tilemaps in self.tilemaps.iter_mut() {
             tilemaps.clear();
         }
@@ -213,6 +231,7 @@ impl Scene {
 
     pub fn update(&mut self) {
         self.spine_pipeline.update(&self.device, &self.screen);
+        self.animals_pipeline.update(&self.device, &self.screen);
         self.ground_pipeline.update(&self.device, &self.screen);
         self.sprite_pipeline.update(&self.device, &self.screen);
         self.tilemap_pipeline.update(&self.device, &self.screen);
@@ -320,6 +339,21 @@ impl Scene {
                 pipeline.bind_data_by_descriptor(spine.lights_descriptor);
                 pipeline.push_constants(spine.constants);
                 let indices: usize = spine.meshes.iter().map(|mesh| *mesh).sum();
+                pipeline.draw(indices);
+            }
+
+            let mut pipeline = self.animals_pipeline.perform(device, buffer);
+            pipeline.bind_camera(camera_descriptor);
+            for animal in &self.animals[line] {
+                pipeline.bind_vertex_buffer(&animal.vertex_buffer);
+                pipeline.bind_index_buffer(&animal.index_buffer);
+                pipeline.bind_material([
+                    (animal.texture.sampler, animal.texture.view),
+                    (self.spine_coloration_sampler.handle, animal.coloration.view),
+                ]);
+                pipeline.bind_data_by_descriptor(animal.lights_descriptor);
+                pipeline.push_constants(animal.constants);
+                let indices: usize = animal.meshes.iter().map(|mesh| *mesh).sum();
                 pipeline.draw(indices);
             }
         }
