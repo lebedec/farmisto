@@ -1,6 +1,7 @@
 use crate::engine::Frame;
 use crate::gameplay::representation::{
-    BarrierHint, ConstructionRep, CropRep, DropRep, EquipmentRep, FarmerRep, FarmlandRep, TreeRep,
+    BarrierHint, ConstructionRep, CreatureRep, CropRep, DropRep, EquipmentRep, FarmerRep,
+    FarmlandRep, TreeRep,
 };
 use crate::gameplay::Gameplay;
 use game::api::Event;
@@ -9,6 +10,7 @@ use game::inventory::{Function, Inventory};
 use game::model::{Activity, ItemRep, Universe};
 use game::physics::Physics;
 use game::planting::Planting;
+use game::raising::Raising;
 use log::{error, info};
 use std::collections::HashMap;
 
@@ -38,6 +40,11 @@ impl Gameplay {
             Event::Planting(events) => {
                 for event in events {
                     self.handle_planting_event(frame, event);
+                }
+            }
+            Event::Raising(events) => {
+                for event in events {
+                    self.handle_raising_event(frame, event);
                 }
             }
         }
@@ -133,7 +140,6 @@ impl Gameplay {
                 }
             }
             Planting::PlantHarvested { id, fruits } => {
-                info!("Plant {:?} harvested {}", id, fruits);
                 for crop in self.crops.values_mut() {
                     if crop.entity.plant != id {
                         continue;
@@ -141,6 +147,23 @@ impl Gameplay {
                     crop.synchronize_fruits(fruits);
                 }
             }
+            Planting::PlantDamaged { id, health } => {
+                for crop in self.crops.values_mut() {
+                    if crop.entity.plant == id {
+                        crop.health = health;
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    pub fn handle_raising_event(&mut self, frame: &mut Frame, event: Raising) {
+        let assets = &mut frame.assets;
+        match event {
+            Raising::AnimalChanged { .. } => {}
+            Raising::LeadershipChanged { .. } => {}
+            Raising::HerdsmanChanged { .. } => {}
         }
     }
 
@@ -271,7 +294,6 @@ impl Gameplay {
                 let kind = self.known.farmers.get(farmer.kind).unwrap();
                 info!("Appear farmer {:?} at {:?}", farmer, position);
                 // let asset = assets.spine(&kind.name);
-
                 let max_y = 7 * 2;
                 let max_x = 14 * 2;
                 let colors = [
@@ -282,35 +304,6 @@ impl Gameplay {
                 ];
                 let pool = 256;
                 let mut variant = 0;
-                // for y in 0..max_y {
-                //     for x in 0..max_x {
-                //         let c0 = variant / 64;
-                //         let c1 = (variant % 64) / 16;
-                //         let c2 = (variant % 16) / 4;
-                //         let c3 = variant % 4;
-                //         variant = ((5 * variant) + 1) % pool;
-                //         let asset = asset.share();
-                //         let variant = x + y * max_x;
-                //         let head = format!("head/head-{}", variant % 4);
-                //         let tile = format!("tail/tail-{}", variant % 3);
-                //         let sprite = frame.sprites.instantiate(
-                //             &asset,
-                //             [head, tile],
-                //             [colors[c0], colors[c1], colors[c2], colors[c3]],
-                //         );
-                //         let position = [
-                //             64.0 + 128.0 + 128.0 * x as f32,
-                //             64.0 + 256.0 + 128.0 * y as f32,
-                //         ];
-                //         self.farmers2d.push(Farmer2d {
-                //             asset,
-                //             sprite,
-                //             position,
-                //             variant,
-                //         });
-                //     }
-                // }
-
                 let asset = assets.farmer(&kind.name);
                 let body = self.known.bodies.get(kind.body).unwrap();
                 let is_controlled = player == self.client.player;
@@ -384,6 +377,46 @@ impl Gameplay {
             }
             Universe::ActivityChanged { farmer, activity } => {
                 self.farmers.get_mut(&farmer).unwrap().activity = activity;
+            }
+            Universe::CreatureAppeared {
+                entity,
+                health,
+                position,
+            } => {
+                let kind = self.known.creatures.get(entity.key).unwrap();
+                info!("Appear {} {:?} at {:?}", &kind.name, entity, position);
+                let body = self.known.bodies.get(kind.body).unwrap();
+                let animal = self.known.animals.get(kind.animal).unwrap();
+                let asset = assets.creature(&kind.name);
+                let colors = [
+                    [1.0, 1.0, 1.0, 1.0],
+                    [1.0, 1.0, 1.0, 1.0],
+                    [1.0, 1.0, 1.0, 1.0],
+                    [1.0, 1.0, 1.0, 1.0],
+                ];
+                let mut spine = renderer.instantiate_spine(&asset.spine, colors);
+                spine
+                    .skeleton
+                    .animation_state
+                    .set_animation_by_name(0, "default", true)
+                    .unwrap();
+                self.creatures.insert(
+                    entity,
+                    CreatureRep {
+                        entity,
+                        kind,
+                        body,
+                        animal,
+                        health,
+                        estimated_position: position,
+                        rendering_position: position,
+                        last_sync_position: position,
+                        spine,
+                    },
+                );
+            }
+            Universe::CreatureVanished(creature) => {
+                self.creatures.remove(&creature);
             }
             Universe::CropAppeared {
                 entity,

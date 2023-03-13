@@ -77,6 +77,10 @@ pub enum Planting {
         hunger: f32,
         growth: f32,
     },
+    PlantDamaged {
+        id: PlantId,
+        health: f32,
+    },
     PlantHarvested {
         id: PlantId,
         fruits: u8,

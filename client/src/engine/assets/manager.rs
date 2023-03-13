@@ -15,6 +15,7 @@ use rusty_spine::controller::SkeletonController;
 use rusty_spine::{AnimationStateData, Atlas, AttachmentType, SkeletonJson};
 
 use datamap::{Operation, Storage};
+use game::model::CreatureKind;
 
 use crate::engine::assets::asset::{Asset, AssetMap};
 use crate::engine::assets::fs::{FileEvent, FileSystem};
@@ -22,10 +23,11 @@ use crate::engine::assets::prefabs::{TreeAsset, TreeAssetData};
 use crate::engine::assets::tileset::{TilesetAsset, TilesetAssetData, TilesetItem};
 use crate::engine::base::Queue;
 use crate::engine::{
-    CropAsset, CropAssetData, FarmerAsset, FarmerAssetData, FarmlandAsset, FarmlandAssetData,
-    FarmlandAssetPropItem, ItemAsset, ItemAssetData, PipelineAsset, PipelineAssetData, PropsAsset,
-    PropsAssetData, SamplerAsset, SamplerAssetData, ShaderAsset, ShaderAssetData, SpineAsset,
-    SpineAssetData, SpriteAsset, SpriteAssetData, TextureAsset, TextureAssetData,
+    CreatureAsset, CreatureAssetData, CropAsset, CropAssetData, FarmerAsset, FarmerAssetData,
+    FarmlandAsset, FarmlandAssetData, FarmlandAssetPropItem, ItemAsset, ItemAssetData,
+    PipelineAsset, PipelineAssetData, PropsAsset, PropsAssetData, SamplerAsset, SamplerAssetData,
+    ShaderAsset, ShaderAssetData, SpineAsset, SpineAssetData, SpriteAsset, SpriteAssetData,
+    TextureAsset, TextureAssetData,
 };
 use crate::ShaderCompiler;
 
@@ -65,6 +67,7 @@ pub struct Assets {
     farmers: HashMap<String, FarmerAsset>,
     items: HashMap<String, ItemAsset>,
     crops: HashMap<String, CropAsset>,
+    creatures: HashMap<String, CreatureAsset>,
 
     queue: Arc<Queue>,
 }
@@ -229,6 +232,7 @@ impl Assets {
             spines: Default::default(),
             items: Default::default(),
             crops: Default::default(),
+            creatures: Default::default(),
         }
     }
 
@@ -376,6 +380,17 @@ impl Assets {
         }
     }
 
+    pub fn creature(&mut self, name: &str) -> CreatureAsset {
+        METRIC_REQUESTS_TOTAL.with_label_values(&["creature"]).inc();
+        match self.creatures.get(name) {
+            Some(asset) => asset.share(),
+            None => {
+                let data = self.load_creature_data(name).unwrap();
+                self.creatures.publish(name, data)
+            }
+        }
+    }
+
     pub fn farmland(&mut self, name: &str) -> FarmlandAsset {
         METRIC_REQUESTS_TOTAL.with_label_values(&["farmland"]).inc();
         match self.farmlands.get(name) {
@@ -437,6 +452,15 @@ impl Assets {
             ripening: self.spine(&format!("{}/ripening.json", folder)),
             withering: self.spine(&format!("{}/withering.json", folder)),
             damage_mask: self.texture(&format!("{}/damage-mask.png", folder)),
+        };
+        Ok(data)
+    }
+
+    pub fn load_creature_data(&mut self, id: &str) -> Result<CreatureAssetData, serde_json::Error> {
+        let entry = self.storage.fetch_one::<CreatureAssetData>(id);
+        let spine: String = entry.get("spine")?;
+        let data = CreatureAssetData {
+            spine: self.spine(&spine),
         };
         Ok(data)
     }

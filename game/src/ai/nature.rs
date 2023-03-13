@@ -1,5 +1,5 @@
 use crate::api::{Action, Event};
-use crate::model::{Crop, Universe};
+use crate::model::{Creature, Crop, Universe};
 use serde::Serialize;
 use std::fs;
 
@@ -50,21 +50,21 @@ pub struct CropView {
 
 pub struct FarmerView {}
 
-pub struct AnimalView {
-    authority: f32,
+pub struct CreatureView {
+    entity: Creature,
 }
 
 pub struct InvaserView {
     threat: f32,
 }
 
-pub struct AnimalAgent {
-    animal: usize,
+pub struct CreatureAgent {
+    creature: Creature,
     hunger: f32,
     mindset: Vec<String>,
 }
 
-impl AnimalAgent {
+impl CreatureAgent {
     pub fn consider(
         &self,
         decisions: &Vec<AnimalCropDecision>,
@@ -98,7 +98,7 @@ impl InvaserAgent {
     pub fn consider(
         &self,
         decisions: &Vec<InvaserAnimalDecision>,
-        animals: &Vec<AnimalView>,
+        creatures: &Vec<CreatureView>,
     ) -> (usize, InvaserAnimalAction) {
         (0, InvaserAnimalAction::Bite)
     }
@@ -138,9 +138,9 @@ pub struct Behaviours {
 pub struct Nature {
     // game view
     crops: Vec<CropView>,
-    animals: Vec<AnimalView>,
+    creatures: Vec<CreatureView>,
     // agents
-    animal_agents: Vec<AnimalAgent>,
+    creature_agents: Vec<CreatureAgent>,
     invaser_agents: Vec<InvaserAgent>,
     // definition
     behaviours: Behaviours,
@@ -220,6 +220,15 @@ impl Nature {
                             Universe::EquipmentAppeared { .. } => {}
                             Universe::EquipmentVanished(_) => {}
                             Universe::ItemsAppeared { .. } => {}
+                            Universe::CreatureAppeared { entity, health, .. } => {
+                                self.creatures.push(CreatureView { entity });
+                                self.creature_agents.push(CreatureAgent {
+                                    creature: entity,
+                                    hunger: 0.0,
+                                    mindset: vec![],
+                                })
+                            }
+                            Universe::CreatureVanished(_) => {}
                         }
                     }
                 }
@@ -227,26 +236,27 @@ impl Nature {
                 Event::Building(_) => {}
                 Event::Inventory(_) => {}
                 Event::Planting(_) => {}
+                Event::Raising(_) => {}
             }
         }
     }
 
     pub fn update(&mut self) -> Vec<Action> {
         let mut actions = vec![];
-        for agent in self.animal_agents.iter_mut() {
+        for agent in self.creature_agents.iter_mut() {
             for behaviour in &self.behaviours.animal_crop {
                 let (crop, action) = agent.consider(&behaviour.decisions, &self.crops);
                 match action {
                     AnimalCropAction::EatCrop => actions.push(Action::EatCrop {
                         crop,
-                        animal: agent.animal,
+                        creature: agent.creature,
                     }),
                 }
             }
         }
         for agent in self.invaser_agents.iter_mut() {
             for behaviour in &self.behaviours.invaser_animal {
-                let (animal, action) = agent.consider(&behaviour.decisions, &self.animals);
+                let (animal, action) = agent.consider(&behaviour.decisions, &self.creatures);
                 match action {
                     InvaserAnimalAction::Bite => {}
                 }

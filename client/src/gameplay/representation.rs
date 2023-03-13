@@ -5,10 +5,11 @@ use game::building::{Cell, Room};
 use game::collections::Shared;
 use game::math::{Collider, VectorMath};
 use game::model::{
-    Activity, Construction, Crop, Drop, Equipment, Farmer, FarmerKind, Farmland, FarmlandKind,
-    Tree, TreeKind,
+    Activity, Construction, Creature, CreatureKind, Crop, Drop, Equipment, Farmer, FarmerKind,
+    Farmland, FarmlandKind, Tree, TreeKind,
 };
 use game::physics::{BarrierId, BodyKind};
+use game::raising::AnimalKind;
 use log::error;
 use rusty_spine::Skin;
 
@@ -174,5 +175,48 @@ impl CropRep {
 
     pub fn is_harvest_phase(&self) -> bool {
         self.growth >= 3.0 && self.growth < 4.0
+    }
+}
+
+pub struct CreatureRep {
+    pub entity: Creature,
+    pub kind: Shared<CreatureKind>,
+    pub body: Shared<BodyKind>,
+    pub animal: Shared<AnimalKind>,
+    pub health: f32,
+    pub estimated_position: [f32; 2],
+    pub rendering_position: [f32; 2],
+    pub last_sync_position: [f32; 2],
+    pub spine: SpineSpriteController,
+}
+
+impl CreatureRep {
+    pub fn synchronize_position(&mut self, position: [f32; 2]) {
+        self.last_sync_position = position;
+        let error = position.distance(self.estimated_position);
+        if error > 0.5 {
+            error!(
+                "Correct creature {:?} position error {} {:?} -> {:?}",
+                self.entity, error, self.estimated_position, position
+            );
+            self.estimated_position = position;
+            self.rendering_position = position;
+        }
+    }
+
+    pub fn animate_position(&mut self, time: f32) {
+        // smooth movement
+        let distance = self.estimated_position.distance(self.last_sync_position);
+        let direction = self
+            .estimated_position
+            .direction_to(self.last_sync_position);
+        let translation = self.body.speed * time;
+        let estimated_position = if distance < translation {
+            self.last_sync_position
+        } else {
+            self.estimated_position.add(direction.mul(translation))
+        };
+        self.estimated_position = estimated_position;
+        self.rendering_position = estimated_position;
     }
 }

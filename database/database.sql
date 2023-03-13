@@ -114,6 +114,25 @@ create table Plant
     fruits integer not null
 );
 
+-- Raising
+
+create table AnimalKind
+(
+    id  integer primary key,
+    name text not null unique
+);
+
+create table Animal
+(
+    id     integer primary key,
+    kind   integer not null references AnimalKind,
+    age    real    not null,
+    thirst real    not null,
+    hunger real    not null,
+    health real    not null,
+    stress real    not null
+);
+
 -- Building
 
 create table GridKind
@@ -282,4 +301,20 @@ create table Crop
     plant   integer not null references Plant,
     barrier integer not null references Barrier,
     sensor  integer not null references Sensor
+);
+
+create table CreatureKind
+(
+    id    integer primary key,
+    name   text not null unique,
+    animal text not null references AnimalKind (name),
+    body   text not null references BodyKind (name)
+);
+
+create table Creature
+(
+    id     integer primary key,
+    kind   integer not null references CreatureKind,
+    animal integer not null references Animal,
+    body   integer not null references Body
 );

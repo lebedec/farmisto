@@ -8,15 +8,16 @@ use crate::inventory::{
     Container, ContainerId, ContainerKey, ContainerKind, Item, ItemId, ItemKey, ItemKind,
 };
 use crate::model::{
-    Construction, Crop, CropKey, CropKind, Drop, Equipment, EquipmentKey, EquipmentKind, Farmer,
-    FarmerKey, FarmerKind, Farmland, FarmlandKey, FarmlandKind, Player, PlayerId, Purpose,
-    PurposeDescription, Tree, TreeKey, TreeKind,
+    Construction, Creature, CreatureKey, CreatureKind, Crop, CropKey, CropKind, Drop, Equipment,
+    EquipmentKey, EquipmentKind, Farmer, FarmerKey, FarmerKind, Farmland, FarmlandKey,
+    FarmlandKind, Player, PlayerId, Purpose, PurposeDescription, Tree, TreeKey, TreeKind,
 };
 use crate::physics::{
     Barrier, BarrierId, BarrierKey, BarrierKind, Body, BodyId, BodyKey, BodyKind, Sensor, SensorId,
     SensorKey, SensorKind, Space, SpaceId, SpaceKey, SpaceKind,
 };
 use crate::planting::{Plant, PlantId, PlantKey, PlantKind, Soil, SoilId, SoilKey, SoilKind};
+use crate::raising::{Animal, AnimalId, AnimalKey, AnimalKind};
 use crate::Game;
 
 impl Game {
@@ -42,6 +43,10 @@ impl Game {
         }
         for kind in storage.find_all(|row| self.load_plant_kind(row).unwrap()) {
             self.known.plants.insert(kind.id, kind.name.clone(), kind);
+        }
+        // raising
+        for kind in storage.find_all(|row| self.load_animal_kind(row).unwrap()) {
+            self.known.animals.insert(kind.id, kind.name.clone(), kind);
         }
         // building
         for kind in storage.find_all(|row| self.load_grid_kind(row).unwrap()) {
@@ -81,6 +86,11 @@ impl Game {
         for kind in storage.find_all(|row| self.load_crop_kind(row).unwrap()) {
             self.known.crops.insert(kind.id, kind.name.clone(), kind);
         }
+        for kind in storage.find_all(|row| self.load_creature_kind(row).unwrap()) {
+            self.known
+                .creatures
+                .insert(kind.id, kind.name.clone(), kind);
+        }
         info!("End game knowledge loading");
     }
 
@@ -104,6 +114,10 @@ impl Game {
         self.planting.load_soils(lands, sequence);
         let (plants, sequence) = storage.get_sequence(|row| self.load_plant(row))?;
         self.planting.load_plants(plants, sequence);
+
+        // raising
+        let (animals, sequence) = storage.get_sequence(|row| self.load_animal(row))?;
+        self.raising.load_animals(animals, sequence);
 
         // building
         let (grids, sequence) = storage.get_sequence(|row| self.load_grid(row))?;
@@ -132,6 +146,8 @@ impl Game {
         self.universe.load_equipments(equipments, id);
         let (crops, id) = storage.get_sequence(|row| self.load_crop(row))?;
         self.universe.load_crops(crops, id);
+        let (creatures, id) = storage.get_sequence(|row| self.load_creature(row))?;
+        self.universe.load_creatures(creatures, id);
         info!("End game state loading");
 
         Ok(())
@@ -261,6 +277,31 @@ impl Game {
             plant: PlantId(row.get("plant")?),
             barrier: BarrierId(row.get("barrier")?),
             sensor: SensorId(row.get("sensor")?),
+        };
+        Ok(data)
+    }
+
+    pub(crate) fn load_creature_kind(
+        &mut self,
+        row: &rusqlite::Row,
+    ) -> Result<CreatureKind, DataError> {
+        let body: String = row.get("body")?;
+        let animal: String = row.get("animal")?;
+        let data = CreatureKind {
+            id: CreatureKey(row.get("id")?),
+            name: row.get("name")?,
+            body: self.known.bodies.find(&body).unwrap().id,
+            animal: self.known.animals.find(&animal).unwrap().id,
+        };
+        Ok(data)
+    }
+
+    pub(crate) fn load_creature(&mut self, row: &rusqlite::Row) -> Result<Creature, DataError> {
+        let data = Creature {
+            id: row.get("id")?,
+            key: CreatureKey(row.get("kind")?),
+            body: BodyId(row.get("body")?),
+            animal: AnimalId(row.get("animal")?),
         };
         Ok(data)
     }
@@ -567,6 +608,31 @@ impl Game {
             health: row.get("health")?,
             growth: row.get("growth")?,
             fruits: row.get("fruits")?,
+        };
+        Ok(data)
+    }
+
+    pub(crate) fn load_animal_kind(
+        &mut self,
+        row: &rusqlite::Row,
+    ) -> Result<AnimalKind, DataError> {
+        let data = AnimalKind {
+            id: AnimalKey(row.get("id")?),
+            name: row.get("name")?,
+        };
+        Ok(data)
+    }
+
+    pub(crate) fn load_animal(&mut self, row: &rusqlite::Row) -> Result<Animal, DataError> {
+        let kind = row.get("kind")?;
+        let data = Animal {
+            id: AnimalId(row.get("id")?),
+            kind: self.known.animals.get(AnimalKey(kind)).unwrap(),
+            age: row.get("age")?,
+            thirst: row.get("thirst")?,
+            hunger: row.get("hunger")?,
+            health: row.get("health")?,
+            stress: row.get("stress")?,
         };
         Ok(data)
     }

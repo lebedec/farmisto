@@ -25,15 +25,19 @@ lazy_static! {
 
 impl Gameplay {
     pub fn animate(&mut self, frame: &mut Frame) {
+        let time = frame.input.time;
         for farmer in self.farmers.values_mut() {
-            farmer.animate_position(frame.input.time);
+            farmer.animate_position(time);
+        }
+        for creature in self.creatures.values_mut() {
+            creature.animate_position(time);
         }
         METRIC_ANIMATION_SECONDS.observe_closure_duration(|| {
-            for farmer in self.spines.iter_mut() {
-                farmer.sprite.skeleton.update(frame.input.time);
+            for creature in self.creatures.values_mut() {
+                creature.spine.skeleton.update(time);
             }
             for crop in self.crops.values_mut() {
-                crop.animate_growth(frame.input.time);
+                crop.animate_growth(time);
                 if let Some(mut impact_bone) = crop.spines[crop.spine]
                     .skeleton
                     .skeleton
@@ -85,7 +89,7 @@ impl Gameplay {
                 // development.set_animation_start(f);
                 // development.set_animation_end(f);
 
-                crop.spines[crop.spine].skeleton.update(frame.input.time);
+                crop.spines[crop.spine].skeleton.update(time);
             }
         });
     }
@@ -421,6 +425,20 @@ impl Gameplay {
                     1.0,
                 );
             }
+        }
+
+        for creature in self.creatures.values() {
+            renderer.render_spine(
+                &creature.spine,
+                creature.spine.atlas.share(),
+                rendering_position_of(creature.rendering_position),
+                [
+                    [1.0, 1.0, 1.0, 1.0],
+                    [1.0, 1.0, 1.0, 1.0],
+                    [1.0, 1.0, 1.0, 1.0],
+                    [1.0, 1.0, 1.0, 1.0],
+                ],
+            );
         }
 
         for (index, crop) in self.crops.values().enumerate() {

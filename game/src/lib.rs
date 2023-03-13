@@ -12,15 +12,16 @@ use crate::building::{BuildingDomain, GridId, Marker, Material, SurveyorId};
 use crate::inventory::{Function, Inventory, InventoryDomain, InventoryError, Item, ItemId};
 use crate::math::VectorMath;
 use crate::model::Activity::Idle;
-use crate::model::{Activity, Crop, CropKey, Drop};
+use crate::model::{Activity, Creature, CreatureKey, Crop, CropKey, Drop};
 use crate::model::{Construction, Farmer, Universe};
 use crate::model::{Equipment, ItemRep};
 use crate::model::{EquipmentKey, PurposeDescription, UniverseDomain};
 use crate::model::{Farmland, Knowledge};
 use crate::model::{Player, Purpose};
 use crate::model::{UniverseError, UniverseSnapshot};
-use crate::physics::{BarrierId, PhysicsDomain, SensorId};
+use crate::physics::{BarrierId, BodyId, PhysicsDomain, SensorId};
 use crate::planting::{PlantId, PlantKey, PlantingDomain};
+use crate::raising::{AnimalId, RaisingDomain};
 
 pub mod ai;
 pub mod api;
@@ -45,6 +46,7 @@ pub struct Game {
     pub planting: PlantingDomain,
     pub building: BuildingDomain,
     pub inventory: InventoryDomain,
+    pub raising: RaisingDomain,
     storage: Storage,
     pub players: Vec<Player>,
 }
@@ -58,6 +60,7 @@ impl Game {
             planting: PlantingDomain::default(),
             building: BuildingDomain::default(),
             inventory: InventoryDomain::default(),
+            raising: RaisingDomain::default(),
             storage,
             players: vec![],
         }
@@ -141,11 +144,36 @@ impl Game {
             Action::PlantCrop { tile } => self.plant_crop(*farmer, farmland, tile)?,
             Action::WaterCrop { crop } => self.water_crop(*farmer, crop)?,
             Action::HarvestCrop { crop } => self.harvest_crop(*farmer, crop)?,
-            Action::EatCrop { .. } => {
-                vec![]
-            }
+            Action::EatCrop { creature, crop } => self.eat_crop(creature, crop)?,
+            Action::MoveCreature {
+                creature,
+                destination,
+            } => self.move_creature(creature, destination)?,
+            Action::TakeNap { creature } => self.take_nap(creature)?,
         };
 
+        Ok(events)
+    }
+
+    fn eat_crop(&mut self, creature: Creature, crop: Crop) -> Result<Vec<Event>, ActionError> {
+        let bite = 0.3;
+        let damage_plant = self.planting.damage_plant(crop.plant, bite)?;
+        let feed_animal = self.raising.feed_animal(creature.animal, bite)?;
+        let events = occur![damage_plant(), feed_animal(),];
+        Ok(events)
+    }
+
+    fn move_creature(
+        &mut self,
+        creature: Creature,
+        destination: [f32; 2],
+    ) -> Result<Vec<Event>, ActionError> {
+        self.physics.move_body2(creature.body, destination)?;
+        Ok(vec![])
+    }
+
+    fn take_nap(&mut self, creature: Creature) -> Result<Vec<Event>, ActionError> {
+        let events = vec![];
         Ok(events)
     }
 
@@ -218,7 +246,7 @@ impl Game {
         farmer: Farmer,
         destination: [f32; 2],
     ) -> Result<Vec<Event>, ActionError> {
-        self.physics.move_body2(farmer.body, destination);
+        self.physics.move_body2(farmer.body, destination)?;
         Ok(vec![])
     }
 
@@ -674,6 +702,33 @@ impl Game {
         }
     }
 
+    pub fn appear_creature(
+        &mut self,
+        key: CreatureKey,
+        body: BodyId,
+        animal: AnimalId,
+    ) -> Universe {
+        self.universe.creatures_id += 1;
+        let entity = Creature {
+            id: self.universe.creatures_id,
+            key,
+            body,
+            animal,
+        };
+        self.universe.creatures.push(entity);
+        self.look_at_creature(entity)
+    }
+
+    pub fn look_at_creature(&self, entity: Creature) -> Universe {
+        let animal = self.raising.get_animal(entity.animal).unwrap();
+        let body = self.physics.get_body(entity.body).unwrap();
+        Universe::CreatureAppeared {
+            entity,
+            health: animal.health,
+            position: body.position,
+        }
+    }
+
     /// # Safety
     ///
     /// Relational database as source of data guarantees
@@ -763,6 +818,10 @@ impl Game {
 
         for crop in &self.universe.crops {
             stream.push(self.look_at_crop(*crop));
+        }
+
+        for creature in &self.universe.creatures {
+            stream.push(self.look_at_creature(*creature));
         }
 
         for equipment in &self.universe.equipments {

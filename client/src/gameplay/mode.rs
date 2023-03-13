@@ -2,15 +2,16 @@ use crate::engine::sprites::SpineSpriteController;
 use crate::engine::{Input, SamplerAsset, SpineAsset, SpriteAsset, TextureAsset};
 use crate::gameplay::camera::Camera;
 use crate::gameplay::representation::{
-    BarrierHint, ConstructionRep, CropRep, DropRep, EquipmentRep, FarmerRep, FarmlandRep, TreeRep,
+    BarrierHint, ConstructionRep, CreatureRep, CropRep, DropRep, EquipmentRep, FarmerRep,
+    FarmlandRep, TreeRep,
 };
 use crate::{Frame, Mode};
 use datamap::Storage;
 use game::api::{Action, Event, GameResponse, PlayerRequest};
 use game::math::{test_collisions, VectorMath};
 use game::model::{
-    Activity, Construction, Crop, Drop, Equipment, Farmer, Farmland, ItemRep, Knowledge, Purpose,
-    Tree, Universe,
+    Activity, Construction, Creature, Crop, Drop, Equipment, Farmer, Farmland, ItemRep, Knowledge,
+    Purpose, Tree, Universe,
 };
 use game::Game;
 use glam::vec3;
@@ -90,9 +91,9 @@ pub struct Gameplay {
     pub equipments: HashMap<Equipment, EquipmentRep>,
     pub constructions: HashMap<Construction, ConstructionRep>,
     pub crops: HashMap<Crop, CropRep>,
+    pub creatures: HashMap<Creature, CreatureRep>,
     pub items: HashMap<ContainerId, HashMap<ItemId, ItemRep>>,
     pub camera: Camera,
-    pub spines: Vec<Farmer2d>,
     pub cursor: SpriteAsset,
     pub cursor_shape: usize,
     pub players: Vec<SpriteAsset>,
@@ -141,9 +142,9 @@ impl Gameplay {
             equipments: Default::default(),
             constructions: Default::default(),
             crops: Default::default(),
+            creatures: Default::default(),
             items: Default::default(),
             camera,
-            spines: vec![],
             cursor,
             cursor_shape: 0,
             players,
@@ -360,11 +361,4 @@ impl Mode for Gameplay {
         self.animate(frame);
         self.render(frame);
     }
-}
-
-pub struct Farmer2d {
-    pub asset: SpineAsset,
-    pub sprite: SpineSpriteController,
-    pub position: [f32; 2],
-    pub variant: u32,
 }

@@ -13,6 +13,7 @@ use crate::physics::{
     SpaceId, SpaceKey, SpaceKind,
 };
 use crate::planting::{PlantId, PlantKey, PlantKind, SoilId, SoilKey, SoilKind};
+use crate::raising::{AnimalId, AnimalKey, AnimalKind};
 
 #[derive(Default)]
 pub struct Knowledge {
@@ -21,6 +22,7 @@ pub struct Knowledge {
     pub farmers: Dictionary<FarmerKey, FarmerKind>,
     pub equipments: Dictionary<EquipmentKey, EquipmentKind>,
     pub crops: Dictionary<CropKey, CropKind>,
+    pub creatures: Dictionary<CreatureKey, CreatureKind>,
     // physics
     pub spaces: Dictionary<SpaceKey, SpaceKind>,
     pub bodies: Dictionary<BodyKey, BodyKind>,
@@ -35,6 +37,8 @@ pub struct Knowledge {
     // planting
     pub soils: Dictionary<SoilKey, SoilKind>,
     pub plants: Dictionary<PlantKey, PlantKind>,
+    // raising
+    pub animals: Dictionary<AnimalKey, AnimalKind>,
 }
 
 #[derive(Default)]
@@ -55,6 +59,8 @@ pub struct UniverseDomain {
     pub equipments_id: usize,
     pub crops: Vec<Crop>,
     pub crops_id: usize,
+    pub creatures: Vec<Creature>,
+    pub creatures_id: usize,
 }
 
 #[derive(Debug, bincode::Encode, bincode::Decode)]
@@ -105,6 +111,12 @@ pub enum Universe {
         position: [f32; 2],
     },
     CropVanished(Crop),
+    CreatureAppeared {
+        entity: Creature,
+        health: f32,
+        position: [f32; 2],
+    },
+    CreatureVanished(Creature),
     ConstructionAppeared {
         id: Construction,
         cell: [usize; 2],
@@ -174,6 +186,11 @@ impl UniverseDomain {
     pub fn load_crops(&mut self, crops: Vec<Crop>, crops_id: usize) {
         self.crops_id = crops_id;
         self.crops.extend(crops);
+    }
+
+    pub fn load_creatures(&mut self, creatures: Vec<Creature>, creatures_id: usize) {
+        self.creatures_id = creatures_id;
+        self.creatures.extend(creatures);
     }
 
     pub(crate) fn appear_construction(
@@ -474,9 +491,21 @@ pub struct Crop {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
-pub struct Livestock {
+pub struct CreatureKey(pub usize);
+
+pub struct CreatureKind {
+    pub id: CreatureKey,
+    pub name: String,
+    pub body: BodyKey,
+    pub animal: AnimalKey,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
+pub struct Creature {
     pub id: usize,
+    pub key: CreatureKey,
     pub body: BodyId,
+    pub animal: AnimalId,
 }
 
 // Models:

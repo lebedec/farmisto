@@ -48,3 +48,9 @@ pub struct CropAssetData {
     pub withering: SpineAsset,
     pub damage_mask: TextureAsset,
 }
+
+pub type CreatureAsset = Asset<CreatureAssetData>;
+
+pub struct CreatureAssetData {
+    pub spine: SpineAsset,
+}

@@ -1,10 +1,12 @@
 use crate::building::{Building, BuildingError, Marker, SurveyorId};
 use crate::inventory::{Inventory, InventoryError, ItemId};
 use crate::model::{
-    Activity, Construction, Crop, Drop, Equipment, EquipmentKey, Farmer, Universe, UniverseError,
+    Activity, Construction, Creature, Crop, Drop, Equipment, EquipmentKey, Farmer, Universe,
+    UniverseError,
 };
 use crate::physics::{Physics, PhysicsError};
 use crate::planting::{Planting, PlantingError};
+use crate::raising::{Raising, RaisingError};
 use std::fmt::Debug;
 
 pub const API_VERSION: &str = "0.1";
@@ -48,8 +50,15 @@ pub enum LoginResult {
 #[derive(Debug, bincode::Encode, bincode::Decode)]
 pub enum Action {
     EatCrop {
-        animal: usize,
-        crop: Crop
+        creature: Creature,
+        crop: Crop,
+    },
+    MoveCreature {
+        creature: Creature,
+        destination: [f32; 2],
+    },
+    TakeNap {
+        creature: Creature,
     },
     MoveFarmer {
         destination: [f32; 2],
@@ -120,6 +129,7 @@ pub enum ActionError {
     Universe(UniverseError),
     Physics(PhysicsError),
     Planting(PlantingError),
+    Raising(RaisingError),
     PlayerFarmerNotFound(String),
     FarmerBodyNotFound(Farmer),
     ConstructionContainerNotFound(Construction),
@@ -160,6 +170,12 @@ impl From<PlantingError> for ActionError {
     }
 }
 
+impl From<RaisingError> for ActionError {
+    fn from(error: RaisingError) -> Self {
+        Self::Raising(error)
+    }
+}
+
 #[derive(Debug, bincode::Encode, bincode::Decode)]
 pub enum Event {
     Universe(Vec<Universe>),
@@ -167,6 +183,7 @@ pub enum Event {
     Building(Vec<Building>),
     Inventory(Vec<Inventory>),
     Planting(Vec<Planting>),
+    Raising(Vec<Raising>),
 }
 
 impl Into<Event> for Vec<Universe> {
@@ -199,6 +216,12 @@ impl Into<Event> for Vec<Planting> {
     }
 }
 
+impl Into<Event> for Vec<Raising> {
+    fn into(self) -> Event {
+        Event::Raising(self)
+    }
+}
+
 impl Into<Event> for Planting {
     fn into(self) -> Event {
         Event::Planting(vec![self])
@@ -226,5 +249,11 @@ impl Into<Event> for Building {
 impl Into<Event> for Inventory {
     fn into(self) -> Event {
         Event::Inventory(vec![self])
+    }
+}
+
+impl Into<Event> for Raising {
+    fn into(self) -> Event {
+        Event::Raising(vec![self])
     }
 }
