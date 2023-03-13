@@ -1,6 +1,6 @@
 use crate::engine::{CropAsset, FarmerAsset, FarmlandAsset, SpineAsset, TreeAsset};
 
-use crate::engine::sprites::{SpineSpriteController, TilemapController};
+use crate::engine::rendering::{SpineRenderController, TilemapController};
 use game::building::{Cell, Room};
 use game::collections::Shared;
 use game::math::{Collider, VectorMath};
@@ -125,7 +125,7 @@ pub struct EquipmentRep {
 pub struct CropRep {
     pub entity: Crop,
     pub asset: CropAsset,
-    pub spines: Vec<SpineSpriteController>,
+    pub spines: Vec<SpineRenderController>,
     pub spine: usize,
     pub position: [f32; 2],
     pub impact: f32,
@@ -187,7 +187,7 @@ pub struct CreatureRep {
     pub estimated_position: [f32; 2],
     pub rendering_position: [f32; 2],
     pub last_sync_position: [f32; 2],
-    pub spine: SpineSpriteController,
+    pub spine: SpineRenderController,
 }
 
 impl CreatureRep {

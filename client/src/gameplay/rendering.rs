@@ -1,4 +1,4 @@
-use crate::engine::sprites::TilemapUniform;
+use crate::engine::rendering::TilemapUniform;
 use crate::engine::Frame;
 use crate::gameplay::representation::CropRep;
 use crate::gameplay::{position_of, rendering_position_of, Gameplay, TILE_SIZE};

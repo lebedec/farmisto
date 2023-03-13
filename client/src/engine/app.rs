@@ -1,5 +1,5 @@
 use crate::engine::base::Base;
-use crate::engine::sprites::SpriteRenderer;
+use crate::engine::rendering::Scene;
 use crate::engine::{Assets, Input};
 use ash::vk;
 use std::io::Write;
@@ -23,7 +23,7 @@ lazy_static! {
 
 pub struct Frame<'c> {
     pub input: Input,
-    pub sprites: &'c mut SpriteRenderer,
+    pub sprites: &'c mut Scene,
     pub assets: &'c mut Assets,
     pub studio: &'c Studio,
 }
@@ -112,7 +112,7 @@ pub fn startup<A: App>(title: String) {
 
         let mut assets = Assets::new(base.device.clone(), base.pool, base.queue.clone());
 
-        let mut sprites_renderer = SpriteRenderer::create(
+        let mut sprites_renderer = Scene::create(
             &base.device,
             &base.queue.device_memory,
             base.screen.clone(),
@@ -201,7 +201,7 @@ pub fn startup<A: App>(title: String) {
                 Ok((present_index, _)) => present_index,
                 Err(vk::Result::ERROR_OUT_OF_DATE_KHR) => {
                     base.recreate_swapchain(renderpass);
-                    sprites_renderer = SpriteRenderer::create(
+                    sprites_renderer = Scene::create(
                         &base.device,
                         &base.queue.device_memory,
                         base.screen.clone(),

@@ -1,5 +1,5 @@
 use crate::engine::base::{Screen, ShaderData, ShaderDataSet};
-use crate::engine::sprites::SpriteVertex;
+use crate::engine::rendering::SpriteVertex;
 use crate::engine::{IndexBuffer, PipelineAsset, UniformBuffer, VertexBuffer};
 use ash::vk::{Buffer, DescriptorSet, ImageView, Sampler, SpecializationMapEntry};
 use ash::{vk, Device};

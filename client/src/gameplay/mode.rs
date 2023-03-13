@@ -1,4 +1,4 @@
-use crate::engine::sprites::SpineSpriteController;
+use crate::engine::rendering::SpineRenderController;
 use crate::engine::{Input, SamplerAsset, SpineAsset, SpriteAsset, TextureAsset};
 use crate::gameplay::camera::Camera;
 use crate::gameplay::representation::{
