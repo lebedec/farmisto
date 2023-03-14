@@ -391,16 +391,22 @@ impl Gameplay {
                 position,
             } => {
                 let kind = self.known.creatures.get(entity.key).unwrap();
-                info!("Appear {} {:?} at {:?}", &kind.name, entity, position);
+                let features = entity.animal.variant([4, 3, 3, 3, 3]);
+                let [head, tail, c0, c1, c2] = features;
+                info!(
+                    "Appear {} {:?} at {:?} f{:?}",
+                    &kind.name, entity, position, features
+                );
                 let body = self.known.bodies.get(kind.body).unwrap();
                 let animal = self.known.animals.get(kind.animal).unwrap();
                 let asset = assets.creature(&kind.name);
-                let colors = [
+                let palette = [
                     [1.0, 1.0, 1.0, 1.0],
-                    [1.0, 1.0, 1.0, 1.0],
-                    [1.0, 1.0, 1.0, 1.0],
+                    [0.43, 0.36, 0.31, 1.0],
+                    [0.78, 0.47, 0.25, 1.0],
                     [1.0, 1.0, 1.0, 1.0],
                 ];
+                let colors = [palette[c0], palette[c1], palette[c2], palette[3]];
                 let mut spine = renderer.instantiate_animal(&asset.spine, colors);
                 spine
                     .skeleton
@@ -416,8 +422,16 @@ impl Gameplay {
 
                 // animal variants
                 let mut skin = Skin::new("lama-dynamic-848");
-                let head = asset.spine.skeleton.find_skin("head/head-1").unwrap();
-                let tail = asset.spine.skeleton.find_skin("tail/tail-2").unwrap();
+                let head = asset
+                    .spine
+                    .skeleton
+                    .find_skin(&format!("head/head-{}", head))
+                    .unwrap();
+                let tail = asset
+                    .spine
+                    .skeleton
+                    .find_skin(&format!("tail/tail-{}", tail))
+                    .unwrap();
                 skin.add_skin(&head);
                 skin.add_skin(&tail);
                 spine.skeleton.skeleton.set_skin(&skin);

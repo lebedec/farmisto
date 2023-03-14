@@ -1,4 +1,6 @@
 use crate::collections::Shared;
+use rand::prelude::StdRng;
+use rand::{Rng, SeedableRng};
 
 #[derive(Default)]
 pub struct RaisingDomain {
@@ -25,7 +27,22 @@ pub struct AnimalKind {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
-pub struct AnimalId(pub(crate) usize);
+pub struct AnimalId(pub usize);
+
+impl AnimalId {
+    pub fn variant<const F: usize>(&self, features: [usize; F]) -> [usize; F] {
+        let mut variants = features[0];
+        for i in 1..F {
+            variants *= features[i];
+        }
+        let seed = self.0 % variants;
+        let mut random = StdRng::seed_from_u64(seed as u64);
+        features.map(|size| {
+            let range = random.gen_range(0..size);
+            range
+        })
+    }
+}
 
 pub enum Sex {
     Male,

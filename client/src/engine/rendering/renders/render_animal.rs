@@ -62,7 +62,6 @@ impl Scene {
         spine: &SpineRenderController,
         coloration: &TextureAsset,
         position: [f32; 2],
-        colors: [[f32; 4]; 4],
     ) {
         let meshes = spine.update_spine_buffers(&self.device);
         spine.lights_buffer.update(
@@ -126,7 +125,7 @@ impl Scene {
             colors: spine.colors,
             meshes,
             constants: AnimalPushConstants {
-                colors,
+                colors: spine.colors,
                 position,
                 size: [0.0, 0.0],
             },

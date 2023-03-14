@@ -455,13 +455,7 @@ impl Gameplay {
             renderer.render_animal(
                 &creature.spine,
                 &creature.asset.coloration,
-                rendering_position_of(creature.rendering_position),
-                [
-                    [1.0, 1.0, 1.0, 1.0],
-                    [1.0, 1.0, 1.0, 1.0],
-                    [1.0, 1.0, 1.0, 1.0],
-                    [1.0, 1.0, 1.0, 1.0],
-                ],
+                rendering_position_of(creature.rendering_position)
             );
         }
 
