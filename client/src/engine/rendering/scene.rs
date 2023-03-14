@@ -4,9 +4,9 @@ use lazy_static::lazy_static;
 
 use crate::engine::base::{index_memory_type, MyPipeline, Screen, ShaderData, ShaderDataSet};
 use crate::engine::buffers::{CameraUniform, LightUniform, UniformBuffer};
-use crate::engine::rendering::SpinePushConstants;
+use crate::engine::rendering::PlantPushConstants;
+use crate::engine::rendering::PlantRenderObject;
 use crate::engine::rendering::SpineRenderController;
-use crate::engine::rendering::SpineRenderObject;
 use crate::engine::rendering::SpritePushConstants;
 use crate::engine::rendering::SpriteRenderObject;
 use crate::engine::rendering::SpriteVertex;
@@ -47,8 +47,8 @@ pub struct Scene {
     pub global_light_buffer: UniformBuffer<LightUniform>,
     pub global_lights: Vec<Light>,
 
-    pub spine_pipeline: MyPipeline<2, SpinePushConstants, 1>,
-    pub spines: Vec<Vec<SpineRenderObject>>,
+    pub spine_pipeline: MyPipeline<2, PlantPushConstants, 1>,
+    pub spines: Vec<Vec<PlantRenderObject>>,
     pub spine_coloration_sampler: SamplerAsset,
 
     pub animals_pipeline: MyPipeline<2, AnimalPushConstants, 1>,
@@ -94,7 +94,7 @@ impl Scene {
         let sprite_vertex_buffer =
             VertexBuffer::create(device, device_memory, SPRITE_VERTICES.to_vec());
 
-        let spine_pipeline = MyPipeline::build(assets.pipeline("spines"), pass)
+        let spine_pipeline = MyPipeline::build(assets.pipeline("spine:plants"), pass)
             .material([
                 vk::DescriptorType::COMBINED_IMAGE_SAMPLER,
                 vk::DescriptorType::COMBINED_IMAGE_SAMPLER,

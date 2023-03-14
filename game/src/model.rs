@@ -116,6 +116,9 @@ pub enum Universe {
         health: f32,
         position: [f32; 2],
     },
+    CreatureEats {
+        entity: Creature,
+    },
     CreatureVanished(Creature),
     ConstructionAppeared {
         id: Construction,

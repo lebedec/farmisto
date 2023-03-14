@@ -228,6 +228,7 @@ impl Nature {
                                     mindset: vec![],
                                 })
                             }
+                            Universe::CreatureEats { entity } => {}
                             Universe::CreatureVanished(_) => {}
                         }
                     }

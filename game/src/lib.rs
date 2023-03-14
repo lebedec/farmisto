@@ -159,7 +159,11 @@ impl Game {
         let bite = 0.3;
         let damage_plant = self.planting.damage_plant(crop.plant, bite)?;
         let feed_animal = self.raising.feed_animal(creature.animal, bite)?;
-        let events = occur![damage_plant(), feed_animal(),];
+        let events = occur![
+            damage_plant(),
+            feed_animal(),
+            Universe::CreatureEats { entity: creature },
+        ];
         Ok(events)
     }
 

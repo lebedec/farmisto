@@ -12,6 +12,7 @@ use game::physics::Physics;
 use game::planting::Planting;
 use game::raising::Raising;
 use log::{error, info};
+use rusty_spine::Skin;
 use std::collections::HashMap;
 
 impl Gameplay {
@@ -130,27 +131,27 @@ impl Gameplay {
                 growth,
             } => {
                 for crop in self.crops.values_mut() {
-                    if crop.entity.plant != id {
-                        continue;
+                    if crop.entity.plant == id {
+                        crop.synchronize_impact(impact);
+                        crop.synchronize_thirst(thirst);
+                        crop.synchronize_thirst(hunger);
+                        crop.synchronize_growth(growth);
+                        break;
                     }
-                    crop.synchronize_impact(impact);
-                    crop.synchronize_thirst(thirst);
-                    crop.synchronize_thirst(hunger);
-                    crop.synchronize_growth(growth);
                 }
             }
             Planting::PlantHarvested { id, fruits } => {
                 for crop in self.crops.values_mut() {
-                    if crop.entity.plant != id {
-                        continue;
+                    if crop.entity.plant == id {
+                        crop.synchronize_fruits(fruits);
+                        break;
                     }
-                    crop.synchronize_fruits(fruits);
                 }
             }
             Planting::PlantDamaged { id, health } => {
                 for crop in self.crops.values_mut() {
                     if crop.entity.plant == id {
-                        crop.health = health;
+                        crop.synchronize_health(health);
                         break;
                     }
                 }
@@ -180,6 +181,12 @@ impl Gameplay {
                         continue;
                     }
                     farmer.synchronize_position(position);
+                }
+                for creature in self.creatures.values_mut() {
+                    if creature.entity.body == id {
+                        creature.synchronize_position(position);
+                        break;
+                    }
                 }
             }
             Physics::BarrierCreated {
@@ -398,8 +405,23 @@ impl Gameplay {
                 spine
                     .skeleton
                     .animation_state
-                    .set_animation_by_name(0, "default", true)
+                    .set_animation_by_name(CreatureRep::ANIMATION_TRACK_IDLE, "idle", true)
                     .unwrap();
+
+                spine
+                    .skeleton
+                    .animation_state
+                    .set_animation_by_name(CreatureRep::ANIMATION_TRACK_WALK, "move", true)
+                    .unwrap();
+
+                // animal variants
+                let mut skin = Skin::new("lama-dynamic-848");
+                let head = asset.spine.skeleton.find_skin("head/head-1").unwrap();
+                let tail = asset.spine.skeleton.find_skin("tail/tail-2").unwrap();
+                skin.add_skin(&head);
+                skin.add_skin(&tail);
+                spine.skeleton.skeleton.set_skin(&skin);
+
                 self.creatures.insert(
                     entity,
                     CreatureRep {
@@ -413,8 +435,14 @@ impl Gameplay {
                         rendering_position: position,
                         last_sync_position: position,
                         spine,
+                        direction: [1.0, 0.0],
+                        velocity: [0.0, 0.0],
                     },
                 );
+            }
+            Universe::CreatureEats { entity } => {
+                let creature = self.creatures.get_mut(&entity).unwrap();
+                creature.play_eat();
             }
             Universe::CreatureVanished(creature) => {
                 self.creatures.remove(&creature);
@@ -445,11 +473,11 @@ impl Gameplay {
                 info!("instantiates spine data");
 
                 let mut spines = vec![
-                    renderer.instantiate_spine(&asset.sprout, colors),
-                    renderer.instantiate_spine(&asset.vegetating, colors),
-                    renderer.instantiate_spine(&asset.flowering, colors),
-                    renderer.instantiate_spine(&asset.ripening, colors),
-                    renderer.instantiate_spine(&asset.withering, colors),
+                    renderer.instantiate_plant(&asset.sprout, colors),
+                    renderer.instantiate_plant(&asset.vegetating, colors),
+                    renderer.instantiate_plant(&asset.flowering, colors),
+                    renderer.instantiate_plant(&asset.ripening, colors),
+                    renderer.instantiate_plant(&asset.withering, colors),
                 ];
                 for spine in spines.iter_mut() {
                     spine

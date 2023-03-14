@@ -1,6 +1,6 @@
 use crate::engine::rendering::TilemapUniform;
 use crate::engine::Frame;
-use crate::gameplay::representation::CropRep;
+use crate::gameplay::representation::{CreatureRep, CropRep};
 use crate::gameplay::{position_of, rendering_position_of, Gameplay, TILE_SIZE};
 use game::building::{Grid, Room};
 use game::math::VectorMath;
@@ -31,9 +31,33 @@ impl Gameplay {
         }
         for creature in self.creatures.values_mut() {
             creature.animate_position(time);
+            let alpha = if creature.velocity.length() > 0.0 {
+                1.0
+            } else {
+                0.0
+            };
+            let mut walk = creature
+                .spine
+                .skeleton
+                .animation_state
+                .track_at_index_mut(CreatureRep::ANIMATION_TRACK_WALK as usize)
+                .unwrap();
+            walk.set_alpha(alpha);
+            let mut idle = creature
+                .spine
+                .skeleton
+                .animation_state
+                .track_at_index_mut(CreatureRep::ANIMATION_TRACK_IDLE as usize)
+                .unwrap();
+            idle.set_alpha(1.0 - alpha);
         }
         METRIC_ANIMATION_SECONDS.observe_closure_duration(|| {
             for creature in self.creatures.values_mut() {
+                creature
+                    .spine
+                    .skeleton
+                    .skeleton
+                    .set_scale_x(creature.direction[0].signum());
                 creature.spine.skeleton.update(time);
             }
             for crop in self.crops.values_mut() {
@@ -441,15 +465,17 @@ impl Gameplay {
             );
         }
 
-        for (index, crop) in self.crops.values().enumerate() {
-            let mut random = StdRng::seed_from_u64(index as u64);
+        for crop in self.crops.values() {
+            let mut random = StdRng::seed_from_u64(crop.entity.id as u64);
             let offset_x: f32 = random.gen_range(-0.05..0.05);
             let offset_y: f32 = random.gen_range(-0.05..0.05);
             let offset = [offset_x, offset_y];
-            renderer.render_spine(
+            renderer.render_plant(
                 &crop.spines[crop.spine],
                 crop.asset.damage_mask.share(),
                 rendering_position_of(crop.position.add(offset)),
+                crop.health,
+                crop.thirst,
                 [
                     // [1.0, 1.0 - crop.thirst * 0.5, 1.0 - crop.thirst * 0.75, 1.0],
                     [1.0, 1.0, 1.0, 1.0],

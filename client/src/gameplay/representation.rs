@@ -141,6 +141,10 @@ pub struct CropRep {
 impl CropRep {
     pub const ANIMATION_TRACK_GROWTH: i32 = 0;
 
+    pub fn synchronize_health(&mut self, health: f32) {
+        self.health = health;
+    }
+
     pub fn synchronize_impact(&mut self, impact: f32) {
         self.impact = impact;
     }
@@ -191,9 +195,32 @@ pub struct CreatureRep {
     pub rendering_position: [f32; 2],
     pub last_sync_position: [f32; 2],
     pub spine: SpineRenderController,
+    pub direction: [f32; 2],
+    pub velocity: [f32; 2],
 }
 
 impl CreatureRep {
+    pub const ANIMATION_TRACK_IDLE: i32 = 0;
+    pub const ANIMATION_TRACK_WALK: i32 = 1;
+    pub const ANIMATION_TRACK_EAT: i32 = 2;
+
+    pub fn play_eat(&mut self) {
+        self.spine
+            .skeleton
+            .animation_state
+            .clear_track(CreatureRep::ANIMATION_TRACK_IDLE);
+        self.spine
+            .skeleton
+            .animation_state
+            .add_animation_by_name(CreatureRep::ANIMATION_TRACK_IDLE, "eat", false, 0.0)
+            .unwrap();
+        self.spine
+            .skeleton
+            .animation_state
+            .add_animation_by_name(CreatureRep::ANIMATION_TRACK_IDLE, "idle", true, 0.0)
+            .unwrap();
+    }
+
     pub fn synchronize_position(&mut self, position: [f32; 2]) {
         self.last_sync_position = position;
         let error = position.distance(self.estimated_position);
@@ -217,9 +244,11 @@ impl CreatureRep {
         let estimated_position = if distance < translation {
             self.last_sync_position
         } else {
+            self.direction = direction;
             self.estimated_position.add(direction.mul(translation))
         };
         self.estimated_position = estimated_position;
         self.rendering_position = estimated_position;
+        self.velocity = direction.mul(translation);
     }
 }

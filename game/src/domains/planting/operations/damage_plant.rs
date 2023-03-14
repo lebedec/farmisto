@@ -12,7 +12,7 @@ impl PlantingDomain {
     ) -> Result<impl FnOnce() -> Vec<Planting> + 'operation, PlantingError> {
         let plant = self.get_plant_mut(id)?;
         let operation = move || {
-            plant.health = (plant.health - damage).max(0.0);
+            plant.health = (plant.health - damage).max(0.1);
             vec![PlantDamaged {
                 id,
                 health: plant.health,

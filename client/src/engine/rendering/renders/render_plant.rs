@@ -1,13 +1,13 @@
 use crate::engine::base::ShaderData;
 use crate::engine::rendering::{
-    Scene, SpinePushConstants, SpineRenderController, SpineRenderObject, SpineUniform, SpriteVertex,
+    PlantPushConstants, PlantRenderObject, Scene, SpineRenderController, SpineUniform, SpriteVertex,
 };
 use crate::engine::{IndexBuffer, SpineAsset, TextureAsset, UniformBuffer, VertexBuffer};
 use ash::vk;
 use rusty_spine::controller::SkeletonController;
 
 impl Scene {
-    pub fn instantiate_spine(
+    pub fn instantiate_plant(
         &mut self,
         spine: &SpineAsset,
         colors: [[f32; 4]; 4],
@@ -56,11 +56,13 @@ impl Scene {
         controller
     }
 
-    pub fn render_spine(
+    pub fn render_plant(
         &mut self,
         spine: &SpineRenderController,
         coloration: TextureAsset,
         position: [f32; 2],
+        health: f32,
+        thirst: f32,
         colors: [[f32; 4]; 4],
     ) {
         let meshes = spine.update_spine_buffers(&self.device);
@@ -116,7 +118,7 @@ impl Scene {
                     range: std::mem::size_of::<SpineUniform>() as u64,
                 })]])[0];
         let line = (position[1] / 128.0) as usize;
-        self.spines[line].push(SpineRenderObject {
+        self.spines[line].push(PlantRenderObject {
             vertex_buffer: spine.vertex_buffer.clone(),
             index_buffer: spine.index_buffer.clone(),
             texture: spine.atlas.clone(),
@@ -124,10 +126,10 @@ impl Scene {
             position,
             colors: spine.colors,
             meshes,
-            constants: SpinePushConstants {
+            constants: PlantPushConstants {
                 colors,
                 position,
-                size: [0.0, 0.0],
+                attributes: [health, thirst, 0.0, 0.0],
             },
             lights_descriptor,
         })

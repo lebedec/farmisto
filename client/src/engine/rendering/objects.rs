@@ -36,13 +36,13 @@ pub struct TilemapRenderObject {
 
 #[derive(Debug, Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
 #[repr(C)]
-pub struct SpinePushConstants {
+pub struct PlantPushConstants {
     pub colors: [[f32; 4]; 4],
+    pub attributes: [f32; 4],
     pub position: [f32; 2],
-    pub size: [f32; 2],
 }
 
-pub struct SpineRenderObject {
+pub struct PlantRenderObject {
     pub vertex_buffer: VertexBuffer,
     pub index_buffer: IndexBuffer,
     pub texture: TextureAsset,
@@ -50,7 +50,7 @@ pub struct SpineRenderObject {
     pub position: [f32; 2],
     pub colors: [[f32; 4]; 4],
     pub meshes: Vec<usize>,
-    pub constants: SpinePushConstants,
+    pub constants: PlantPushConstants,
     pub lights_descriptor: vk::DescriptorSet,
 }
 

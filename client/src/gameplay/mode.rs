@@ -57,6 +57,7 @@ pub enum Target {
     Equipment(Equipment),
     Wall([usize; 2]),
     Crop(Crop),
+    Creature(Creature),
 }
 
 pub trait InputMethod {
@@ -217,6 +218,12 @@ impl Gameplay {
             }
         }
 
+        for creature in self.creatures.values() {
+            if creature.estimated_position.to_tile() == tile {
+                return Target::Creature(creature.entity);
+            }
+        }
+
         for crop in self.crops.values() {
             if crop.position.to_tile() == tile {
                 return Target::Crop(crop.entity);
@@ -264,6 +271,27 @@ impl Gameplay {
         }
 
         let target = self.get_target_at(tile);
+
+        if input.pressed(Keycode::E) {
+            if let Target::Crop(crop) = target {
+                let creature = self.creatures.values_mut().nth(0).unwrap();
+                let entity = creature.entity;
+                self.send_action(Action::EatCrop {
+                    crop,
+                    creature: entity,
+                });
+            }
+        }
+
+        if input.pressed(Keycode::R) {
+            if let Target::Ground { .. } = target {
+                let creature = self.creatures.values().nth(0).unwrap().entity;
+                self.send_action(Action::MoveCreature {
+                    destination: cursor.position,
+                    creature,
+                });
+            }
+        }
 
         if let Some(intention) = input.recognize_intention() {
             let item = self

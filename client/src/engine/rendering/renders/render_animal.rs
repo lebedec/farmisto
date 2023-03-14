@@ -1,7 +1,7 @@
 use crate::engine::base::ShaderData;
 use crate::engine::rendering::{
-    AnimalPushConstants, AnimalRenderObject, Scene, SpinePushConstants, SpineRenderController,
-    SpineRenderObject, SpineUniform, SpriteVertex,
+    AnimalPushConstants, AnimalRenderObject, PlantPushConstants, PlantRenderObject, Scene,
+    SpineRenderController, SpineUniform, SpriteVertex,
 };
 use crate::engine::{IndexBuffer, SpineAsset, TextureAsset, UniformBuffer, VertexBuffer};
 use ash::vk;
