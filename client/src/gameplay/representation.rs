@@ -1,8 +1,6 @@
-use crate::engine::{
-    CreatureAsset, CreatureAssetData, CropAsset, FarmerAsset, FarmlandAsset, SpineAsset, TreeAsset,
-};
+use log::error;
+use rusty_spine::Skin;
 
-use crate::engine::rendering::{SpineRenderController, TilemapController};
 use game::building::{Cell, Room};
 use game::collections::Shared;
 use game::math::{Collider, VectorMath};
@@ -12,8 +10,13 @@ use game::model::{
 };
 use game::physics::{BarrierId, BodyKind};
 use game::raising::AnimalKind;
-use log::error;
-use rusty_spine::Skin;
+
+use crate::assets::CreatureAsset;
+use crate::assets::CropAsset;
+use crate::assets::FarmerAsset;
+use crate::assets::FarmlandAsset;
+use crate::assets::TreeAsset;
+use crate::engine::rendering::{SpineRenderController, TilemapController};
 
 pub struct FarmerRep {
     pub entity: Farmer,

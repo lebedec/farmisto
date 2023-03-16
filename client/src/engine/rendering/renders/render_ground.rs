@@ -1,11 +1,13 @@
+use ash::vk;
+
+use game::building::{Grid, Room};
+use game::math::VectorMath;
+
+use crate::assets::{SamplerAsset, TextureAsset};
 use crate::engine::base::ShaderData;
 use crate::engine::rendering::{
     GroundPushConstants, GroundRenderObject, GroundUniform, Scene, VISIBLE_MAP_X, VISIBLE_MAP_Y,
 };
-use crate::engine::{SamplerAsset, TextureAsset};
-use ash::vk;
-use game::building::{Grid, Room};
-use game::math::VectorMath;
 
 impl Scene {
     pub fn render_ground(

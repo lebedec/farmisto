@@ -1,7 +1,8 @@
+use crate::assets::{SamplerAsset, TextureAsset};
 use crate::engine::rendering::{
     Scene, TilemapPushConstants, TilemapRenderObject, TilemapUniform, VISIBLE_MAP_X, VISIBLE_MAP_Y,
 };
-use crate::engine::{SamplerAsset, TextureAsset, UniformBuffer};
+use crate::engine::UniformBuffer;
 use crate::gameplay::TILE_SIZE;
 
 pub struct TilemapController {

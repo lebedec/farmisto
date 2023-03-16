@@ -1,12 +1,14 @@
 extern crate core;
 
-use crate::engine::{startup, App, Assets, Frame, Input, ShaderCompiler};
+use crate::assets::Assets;
+use crate::engine::{startup, App, Frame, Input};
 use crate::intro::Intro;
 use crate::mode::Mode;
 use log::info;
 use std::io::Write;
 use std::time::Instant;
 
+pub mod assets;
 pub mod engine;
 pub mod gameplay;
 pub mod intro;

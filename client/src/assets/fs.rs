@@ -1,4 +1,4 @@
-use log::{debug, error, info};
+use log::{error, info};
 use std::collections::HashMap;
 use std::io::{BufRead, BufReader};
 use std::path::PathBuf;
@@ -76,7 +76,7 @@ impl FileSystem {
     #[cfg(windows)]
     pub fn watch(extensions: Vec<&'static str>) -> FileSystem {
         let process = Command::new("powershell")
-            .arg(include_str!("./includes/watcher.ps1"))
+            .arg(include_str!("includes/watcher.ps1"))
             .stdout(Stdio::piped())
             .spawn()
             .expect("failed to spawn powershell file watcher");

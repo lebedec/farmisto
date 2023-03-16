@@ -1,5 +1,6 @@
-use crate::engine::assets::asset::Asset;
 use ash::vk;
+
+use crate::assets::Asset;
 
 pub type SamplerAsset = Asset<SamplerAssetData>;
 

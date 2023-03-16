@@ -1,11 +1,13 @@
-use crate::engine::base::ShaderData;
-use crate::engine::rendering::{
-    AnimalPushConstants, AnimalRenderObject, PlantPushConstants, PlantRenderObject, Scene,
-    SpineRenderController, SpineUniform, SpriteVertex,
-};
-use crate::engine::{IndexBuffer, SpineAsset, TextureAsset, UniformBuffer, VertexBuffer};
 use ash::vk;
 use rusty_spine::controller::SkeletonController;
+
+use crate::assets::{SpineAsset, TextureAsset};
+use crate::engine::base::ShaderData;
+use crate::engine::rendering::{
+    AnimalPushConstants, AnimalRenderObject, Scene, SpineRenderController, SpineUniform,
+    SpriteVertex,
+};
+use crate::engine::{IndexBuffer, UniformBuffer, VertexBuffer};
 
 impl Scene {
     pub fn instantiate_animal(

@@ -1,7 +1,7 @@
-use crate::engine::assets::asset::Asset;
-use crate::engine::{
+use crate::assets::{
     PropsAsset, SamplerAsset, SpineAsset, SpriteAsset, TextureAsset, TilesetAsset,
 };
+use crate::assets::Asset;
 
 pub type FarmlandAsset = Asset<FarmlandAssetData>;
 

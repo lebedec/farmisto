@@ -1,6 +1,7 @@
 use ash::vk;
 
-use crate::engine::{IndexBuffer, SamplerAsset, TextureAsset, VertexBuffer};
+use crate::assets::{SamplerAsset, TextureAsset};
+use crate::engine::{IndexBuffer, VertexBuffer};
 
 #[derive(Debug, Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
 #[repr(C)]

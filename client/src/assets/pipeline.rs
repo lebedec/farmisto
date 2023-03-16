@@ -1,5 +1,5 @@
-use crate::engine::assets::asset::Asset;
-use crate::engine::ShaderAsset;
+use crate::assets::Asset;
+use crate::assets::ShaderAsset;
 
 pub type PipelineAsset = Asset<PipelineAssetData>;
 

@@ -1,5 +1,5 @@
-use crate::engine::assets::asset::Asset;
-use crate::engine::TextureAsset;
+use crate::assets::Asset;
+use crate::assets::TextureAsset;
 
 pub type PropsAsset = Asset<PropsAssetData>;
 

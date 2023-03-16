@@ -1,10 +1,11 @@
+use crate::assets::TextureAsset;
 use ash::Device;
 use log::error;
 use rusty_spine::controller::SkeletonController;
 use rusty_spine::{AnimationState, Attachment, AttachmentType, Slot};
 
 use crate::engine::rendering::{SpineUniform, SpriteVertex};
-use crate::engine::{IndexBuffer, TextureAsset, UniformBuffer, VertexBuffer};
+use crate::engine::{IndexBuffer, UniformBuffer, VertexBuffer};
 
 pub struct SpineRenderController {
     pub skeleton: SkeletonController,

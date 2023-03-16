@@ -2,8 +2,8 @@ use std::sync::Arc;
 
 use rusty_spine::{AnimationStateData, SkeletonData};
 
-use crate::engine::assets::asset::Asset;
-use crate::engine::TextureAsset;
+use crate::assets::Asset;
+use crate::assets::TextureAsset;
 
 pub type SpineAsset = Asset<SpineAssetData>;
 

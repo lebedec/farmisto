@@ -1,5 +1,5 @@
-use crate::engine::assets::asset::Asset;
-use crate::engine::{SamplerAsset, TextureAsset};
+use crate::assets::Asset;
+use crate::assets::{SamplerAsset, TextureAsset};
 
 pub type SpriteAsset = Asset<SpriteAssetData>;
 

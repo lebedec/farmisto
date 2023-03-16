@@ -1,5 +1,3 @@
-use std::borrow::BorrowMut;
-use std::cell::RefCell;
 use std::collections::HashMap;
 use std::path::{Path, PathBuf};
 use std::sync::mpsc::{channel, Receiver, Sender};
@@ -10,26 +8,22 @@ use std::{fs, ptr, thread};
 use ash::{vk, Device};
 use lazy_static::lazy_static;
 use log::{debug, error, info, warn};
-use rusqlite::types::{FromSql, FromSqlResult, ValueRef};
-use rusty_spine::controller::SkeletonController;
-use rusty_spine::{AnimationStateData, Atlas, AttachmentType, SkeletonJson};
+use rusty_spine::{AnimationStateData, Atlas, SkeletonJson};
 
 use datamap::{Operation, Storage};
-use game::model::CreatureKind;
 
-use crate::engine::assets::asset::{Asset, AssetMap};
-use crate::engine::assets::fs::{FileEvent, FileSystem};
-use crate::engine::assets::prefabs::{TreeAsset, TreeAssetData};
-use crate::engine::assets::tileset::{TilesetAsset, TilesetAssetData, TilesetItem};
-use crate::engine::base::Queue;
-use crate::engine::{
+use crate::assets::fs::{FileEvent, FileSystem};
+use crate::assets::prefabs::{TreeAsset, TreeAssetData};
+use crate::assets::tileset::{TilesetAsset, TilesetAssetData, TilesetItem};
+use crate::assets::AssetMap;
+use crate::assets::{
     CreatureAsset, CreatureAssetData, CropAsset, CropAssetData, FarmerAsset, FarmerAssetData,
     FarmlandAsset, FarmlandAssetData, FarmlandAssetPropItem, ItemAsset, ItemAssetData,
     PipelineAsset, PipelineAssetData, PropsAsset, PropsAssetData, SamplerAsset, SamplerAssetData,
-    ShaderAsset, ShaderAssetData, SpineAsset, SpineAssetData, SpriteAsset, SpriteAssetData,
-    TextureAsset, TextureAssetData,
+    ShaderAsset, ShaderAssetData, ShaderCompiler, SpineAsset, SpineAssetData, SpriteAsset,
+    SpriteAssetData, TextureAsset, TextureAssetData,
 };
-use crate::ShaderCompiler;
+use crate::engine::base::Queue;
 
 lazy_static! {
     static ref METRIC_REQUESTS_TOTAL: prometheus::IntCounterVec =

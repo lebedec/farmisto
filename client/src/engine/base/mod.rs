@@ -3,7 +3,6 @@ extern crate ash;
 use std::borrow::Cow;
 use std::default::Default;
 use std::ffi::CStr;
-use std::mem::swap;
 use std::ops::Drop;
 use std::os::raw::c_char;
 use std::sync::{Arc, Mutex};
@@ -13,9 +12,9 @@ use ash::extensions::{
     khr::{Surface, Swapchain},
 };
 use ash::prelude::VkResult;
+use ash::vk::Handle;
 #[cfg(any(target_os = "macos", target_os = "ios"))]
 use ash::vk::KhrPortabilitySubsetFn;
-use ash::vk::{Handle, PhysicalDevice};
 use ash::{vk, Entry};
 pub use ash::{Device, Instance};
 use log::{info, log, Level};

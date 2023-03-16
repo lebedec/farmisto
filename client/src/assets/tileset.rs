@@ -1,5 +1,5 @@
-use crate::engine::assets::asset::Asset;
-use crate::engine::{SamplerAsset, SpriteAsset, SpriteAssetData, TextureAsset};
+use crate::assets::Asset;
+use crate::assets::{SamplerAsset, SpriteAsset, SpriteAssetData, TextureAsset};
 
 pub type TilesetAsset = Asset<TilesetAssetData>;
 

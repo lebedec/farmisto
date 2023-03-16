@@ -1,13 +1,14 @@
-use crate::engine::base::{create_buffer, index_memory_type, Queue};
-use crate::engine::commands::Single;
+use std::sync::Arc;
+use std::{fs, ptr};
 
-use crate::engine::assets::asset::Asset;
-use crate::monitoring::Timer;
 use ash::vk::Handle;
 use ash::{vk, Device};
 use lazy_static::lazy_static;
-use std::sync::Arc;
-use std::{fs, ptr};
+
+use crate::assets::Asset;
+use crate::engine::base::{create_buffer, index_memory_type, Queue};
+use crate::engine::commands::Single;
+use crate::monitoring::Timer;
 
 lazy_static! {
     static ref METRIC_LOADING_SECONDS: prometheus::HistogramVec =

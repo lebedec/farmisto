@@ -1,14 +1,16 @@
-use crate::engine::assets::asset::Asset;
-use crate::engine::base::Queue;
-use ash::util::read_spv;
-use ash::vk;
-use log::{debug, error, info};
 use std::fs::File;
 use std::io;
 use std::path::Path;
 use std::process::Command;
 use std::sync::Arc;
 use std::time::Instant;
+
+use ash::util::read_spv;
+use ash::vk;
+use log::{error, info};
+
+use crate::assets::Asset;
+use crate::engine::base::Queue;
 
 pub type ShaderAsset = Asset<ShaderAssetData>;
 

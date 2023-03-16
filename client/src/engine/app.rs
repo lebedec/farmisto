@@ -1,6 +1,6 @@
 use crate::engine::base::Base;
 use crate::engine::rendering::Scene;
-use crate::engine::{Assets, Input};
+use crate::engine::Input;
 use ash::vk;
 use std::io::Write;
 use std::net::TcpListener;
@@ -12,6 +12,7 @@ use log::info;
 use std::thread;
 use std::time::Instant;
 
+use crate::assets::Assets;
 use lazy_static::lazy_static;
 use sdl2::keyboard::Keycode;
 use sdl2::video::FullscreenType;

@@ -2,26 +2,22 @@ use ash::{vk, Device};
 use glam::{vec3, Mat4, Vec3};
 use lazy_static::lazy_static;
 
-use crate::engine::base::{index_memory_type, MyPipeline, Screen, ShaderData, ShaderDataSet};
+use crate::assets::SamplerAsset;
+use crate::engine::base::MyPipeline;
+use crate::engine::base::Screen;
+use crate::engine::base::ShaderData;
 use crate::engine::buffers::{CameraUniform, LightUniform, UniformBuffer};
 use crate::engine::rendering::PlantPushConstants;
 use crate::engine::rendering::PlantRenderObject;
-use crate::engine::rendering::SpineRenderController;
 use crate::engine::rendering::SpritePushConstants;
 use crate::engine::rendering::SpriteRenderObject;
-use crate::engine::rendering::SpriteVertex;
 use crate::engine::rendering::TilemapPushConstants;
 use crate::engine::rendering::TilemapRenderObject;
 use crate::engine::rendering::GROUND_VERTICES;
 use crate::engine::rendering::SPRITE_VERTICES;
-use crate::engine::rendering::VISIBLE_MAP_X;
-use crate::engine::rendering::VISIBLE_MAP_Y;
 use crate::engine::rendering::{AnimalPushConstants, AnimalRenderObject, GroundRenderObject};
 use crate::engine::rendering::{GroundPushConstants, GroundUniform, Light};
-use crate::engine::{
-    IndexBuffer, SamplerAsset, ShaderAsset, SpineAsset, SpriteAsset, TextureAsset, VertexBuffer,
-};
-use crate::gameplay::TILE_SIZE;
+use crate::engine::VertexBuffer;
 use crate::monitoring::Timer;
 use crate::Assets;
 

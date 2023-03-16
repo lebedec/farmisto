@@ -1,6 +1,6 @@
+use crate::assets::SpriteAsset;
 use crate::engine::base::ShaderData;
 use crate::engine::rendering::{Scene, SpritePushConstants, SpriteRenderObject};
-use crate::engine::SpriteAsset;
 use ash::vk;
 
 impl Scene {

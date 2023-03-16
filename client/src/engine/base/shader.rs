@@ -1,13 +1,13 @@
-use crate::engine::TextureAsset;
-use ash::vk::Handle;
-use ash::{vk, Device};
-use lazy_static::lazy_static;
-use log::error;
 use std::collections::hash_map::DefaultHasher;
 use std::collections::HashMap;
 use std::hash::{Hash, Hasher};
 use std::ptr;
-use std::ptr::hash;
+
+use ash::vk::Handle;
+use ash::{vk, Device};
+use lazy_static::lazy_static;
+
+use crate::assets::TextureAsset;
 
 lazy_static! {
     static ref METRIC_DESCRIBES_TOTAL: prometheus::IntCounterVec =
