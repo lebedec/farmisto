@@ -1,17 +1,25 @@
-use log::{error, info};
 use std::cell::RefCell;
+use std::fmt::Debug;
 use std::sync::{Arc, RwLock};
 use std::thread;
 use std::time::{Duration, Instant};
+
+use log::{error, info};
 
 use game::api::{Action, Event, GameResponse, PlayerRequest};
 use game::model::{Creature, Crop, Universe};
 use network::TcpClient;
 
+use crate::interop::serve;
+
+mod interop;
+
 pub struct AiThread {}
 
 impl AiThread {
     pub fn spawn(mut client: TcpClient, behaviours: Arc<RwLock<Behaviours>>) -> Self {
+        thread::spawn(|| serve());
+
         thread::spawn(move || {
             let mut nature = Nature {
                 crops: vec![],
@@ -71,7 +79,25 @@ pub struct Curve {
 }
 
 impl Curve {
-    pub fn respond(&self, x: f32) -> f32 {
+    pub fn respond(&self, mut t: f32) -> f32 {
+        if t < 0.0 {
+            t = 0.0;
+        }
+        if t > 1.0 {
+            t = 1.0;
+        }
+        for (index, x) in self.x.iter().enumerate() {
+            let x = *x;
+            if x > t || x >= 1.0 {
+                let start = index - 1;
+                let end = index;
+                let segment = self.x[end] - self.x[start];
+                let progress = (t - self.x[start]) / segment;
+                let delta = self.y[end] - self.y[start];
+                let value = self.y[start] + delta * progress;
+                return value;
+            }
+        }
         1.0
     }
 }
@@ -89,7 +115,7 @@ where
 #[derive(serde::Deserialize)]
 pub struct Decision<I, A>
 where
-    A: Copy + Sized,
+    A: Copy + Sized + Debug,
     I: Sized,
 {
     pub action: A,
@@ -131,11 +157,13 @@ impl CreatureAgent {
         decisions: &Vec<AnimalCropDecision>,
         crops: &Vec<CropView>,
     ) -> (Crop, AnimalCropAction) {
-        let best_crop = 0;
-        let best = 0;
-        for crop in crops {
-            for decision in decisions {
-                let mut scores = 0.0;
+        let mut best_crop = 0;
+        let mut best_crop_scores = 0.0;
+        let mut best = 0;
+        let mut best_scores = 0.0;
+        for (crop_index, crop) in crops.iter().enumerate() {
+            for (index, decision) in decisions.iter().enumerate() {
+                let mut scores = 1.0;
                 for consideration in &decision.considerations {
                     let x = match consideration.input {
                         AnimalCropInput::Hunger => self.hunger,
@@ -144,8 +172,16 @@ impl CreatureAgent {
                         AnimalCropInput::Constant => 1.0,
                     };
                     let score = consideration.curve.respond(x);
-                    scores += score;
+                    scores *= score;
                 }
+                if scores > best_scores {
+                    best_scores = scores;
+                    best = index;
+                }
+            }
+            if best_scores > best_crop_scores {
+                best_crop_scores = best_scores;
+                best_crop = crop_index;
             }
         }
         return (crops[best_crop].entity, decisions[best].action);
@@ -166,7 +202,7 @@ impl InvaserAgent {
     }
 }
 
-#[derive(Copy, Clone, serde::Deserialize)]
+#[derive(Debug, Copy, Clone, serde::Deserialize)]
 pub enum AnimalCropAction {
     Nothing,
     EatCrop,
@@ -180,7 +216,7 @@ pub enum AnimalCropInput {
     CropNutritionValue,
 }
 
-#[derive(Copy, Clone, serde::Deserialize)]
+#[derive(Debug, Copy, Clone, serde::Deserialize)]
 pub enum InvaserAnimalAction {
     Bite,
 }
