@@ -8,6 +8,7 @@ build = "build.rs"
 game = { path = "../game" }
 network = { path = "../network" }
 server = { path = "../server" }
+ai = { path = "../ai" }
 log = "0.4"
 env_logger = { version = "0.9", default-features = false, features = ["humantime"] }
 sdl2 = { version = "0.35" }

@@ -5,6 +5,7 @@ use std::sync::{Arc, RwLock};
 use std::time::Duration;
 use std::{fs, ptr, thread};
 
+use ai::Behaviours;
 use ash::{vk, Device};
 use lazy_static::lazy_static;
 use log::{debug, error, info, warn};
@@ -15,7 +16,7 @@ use datamap::{Operation, Storage};
 use crate::assets::fs::{FileEvent, FileSystem};
 use crate::assets::prefabs::{TreeAsset, TreeAssetData};
 use crate::assets::tileset::{TilesetAsset, TilesetAssetData, TilesetItem};
-use crate::assets::AssetMap;
+use crate::assets::{AssetMap, BehavioursAsset};
 use crate::assets::{
     CreatureAsset, CreatureAssetData, CropAsset, CropAssetData, FarmerAsset, FarmerAssetData,
     FarmlandAsset, FarmlandAssetData, FarmlandAssetPropItem, ItemAsset, ItemAssetData,
@@ -53,6 +54,8 @@ pub struct Assets {
     tilesets: HashMap<String, TilesetAsset>,
     samplers: HashMap<String, SamplerAsset>,
     spines: HashMap<String, SpineAsset>,
+
+    behaviours: HashMap<PathBuf, BehavioursAsset>,
 
     // prefabs
     farmlands: HashMap<String, FarmlandAsset>,
@@ -227,6 +230,23 @@ impl Assets {
             items: Default::default(),
             crops: Default::default(),
             creatures: Default::default(),
+            behaviours: Default::default(),
+        }
+    }
+
+    pub fn behaviours<P: AsRef<Path>>(&mut self, path: P) -> BehavioursAsset {
+        METRIC_REQUESTS_TOTAL
+            .with_label_values(&["behaviours"])
+            .inc();
+        let path = fs::canonicalize(path).unwrap();
+        match self.behaviours.get(&path) {
+            Some(asset) => asset.share(),
+            None => {
+                let data = self.load_behaviours_data(path.clone());
+                let behaviours = BehavioursAsset::from(data);
+                self.behaviours.insert(path, behaviours.share());
+                behaviours
+            }
         }
     }
 
@@ -558,6 +578,10 @@ impl Assets {
         Ok(data)
     }
 
+    pub fn load_behaviours_data(&mut self, path: PathBuf) -> Behaviours {
+        serde_json::from_slice(&fs::read(path).unwrap()).unwrap()
+    }
+
     pub fn create_sampler_from_data(
         &mut self,
         id: &str,
@@ -782,6 +806,11 @@ impl Assets {
                         self.require_update(AssetKind::Texture, path);
                     } else if self.shaders.contains_key(&path) {
                         self.require_update(AssetKind::Shader, path);
+                    } else if self.behaviours.contains_key(&path) {
+                        let data = self.load_behaviours_data(path.clone());
+                        let behaviours = self.behaviours.get_mut(&path).unwrap();
+                        info!("UPDATE BEH {:?}", path.to_str());
+                        behaviours.update(data);
                     }
                 }
                 FileEvent::Deleted => {}

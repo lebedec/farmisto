@@ -1,6 +1,7 @@
-use crate::gameplay::Gameplay;
+use crate::gameplay::{Gameplay, Host};
 use crate::Frame;
 use crate::Mode;
+use ai::AiThread;
 use log::info;
 use network::{Configuration, TcpClient};
 use sdl2::keyboard::Keycode;
@@ -48,7 +49,13 @@ impl Mode for Menu {
             };
             let server = LocalServerThread::spawn(config);
             let client = TcpClient::connect(&server.address, player.clone(), None).unwrap();
-            let gameplay = Gameplay::new(Some(server), client, frame);
+
+            let ai_client = TcpClient::connect(&server.address, "<AI>".to_string(), None).unwrap();
+            let ai_behaviours = frame.assets.behaviours("./assets/ai/nature.json");
+            let ai = AiThread::spawn(ai_client, ai_behaviours.share_data());
+
+            let host = Host { server, ai };
+            let gameplay = Gameplay::new(Some(host), client, frame);
             return Some(Box::new(gameplay));
         }
         if let Some(player) = self.join.as_ref() {

@@ -1,5 +1,6 @@
 use std::collections::HashMap;
 
+use ai::AiThread;
 use glam::vec3;
 use log::{error, info};
 use sdl2::keyboard::Keycode;
@@ -80,8 +81,13 @@ impl InputMethod for Input {
     }
 }
 
+pub struct Host {
+    pub server: LocalServerThread,
+    pub ai: AiThread,
+}
+
 pub struct Gameplay {
-    _server: Option<LocalServerThread>,
+    pub host: Option<Host>,
     pub client: TcpClient,
     pub action_id: usize,
     pub known: Knowledge,
@@ -114,7 +120,7 @@ pub struct Gameplay {
 }
 
 impl Gameplay {
-    pub fn new(server: Option<LocalServerThread>, client: TcpClient, frame: &mut Frame) -> Self {
+    pub fn new(host: Option<Host>, client: TcpClient, frame: &mut Frame) -> Self {
         let assets = &mut frame.assets;
         let mut camera = Camera::new();
         camera.eye = vec3(0.0, 0.0, -1.0);
@@ -132,7 +138,7 @@ impl Gameplay {
         ];
 
         Self {
-            _server: server,
+            host,
             client,
             action_id: 0,
             known: knowledge,

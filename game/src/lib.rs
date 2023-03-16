@@ -1,15 +1,13 @@
 extern crate alloc;
 extern crate core;
 
-use crate::ai::Nature;
 use datamap::Storage;
 pub use domains::*;
-use std::hash::Hash;
 
 use crate::api::ActionError::{ConstructionContainsUnexpectedItem, PlayerFarmerNotFound};
 use crate::api::{Action, ActionError, ActionResponse, Event};
 use crate::building::{BuildingDomain, GridId, Marker, Material, SurveyorId};
-use crate::inventory::{Function, Inventory, InventoryDomain, InventoryError, Item, ItemId};
+use crate::inventory::{Function, InventoryDomain, InventoryError, Item, ItemId};
 use crate::math::VectorMath;
 use crate::model::Activity::Idle;
 use crate::model::{Activity, Creature, CreatureKey, Crop, CropKey, Drop};
@@ -20,10 +18,9 @@ use crate::model::{Farmland, Knowledge};
 use crate::model::{Player, Purpose};
 use crate::model::{UniverseError, UniverseSnapshot};
 use crate::physics::{BarrierId, BodyId, PhysicsDomain, SensorId};
-use crate::planting::{PlantId, PlantKey, PlantingDomain};
+use crate::planting::{PlantId, PlantingDomain};
 use crate::raising::{AnimalId, RaisingDomain};
 
-pub mod ai;
 pub mod api;
 pub mod collections;
 mod data;

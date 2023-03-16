@@ -1,4 +1,5 @@
 pub use asset::*;
+pub use behaviours::*;
 pub use manager::*;
 pub use pipeline::*;
 pub use prefabs::*;
@@ -11,6 +12,7 @@ pub use texture::*;
 pub use tileset::*;
 
 mod asset;
+mod behaviours;
 mod fs;
 mod manager;
 mod pipeline;

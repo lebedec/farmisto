@@ -4,47 +4,67 @@
 
 Farmisto is a game about farming within are different planets of
 the solar system. Use your imagination to design farm,
-harvest crops, tend to animals, manage productions and finally 
+harvest crops, tend to animals, manage productions and finally
 take on planet environment challenges.
 
 ## Project Overview
 
 ![](.readme/diagrams/project.png)
 
-- [game](game) 
+- [game](game)
 
   Module handles mechanics and gameplay in general.
 
+- [ai](ai)
+
+  AI is used to generate responsive, adaptive behaviors primarily in non-player entities like animals or drones. AI
+  designed as separate process which acts like regular player via game API.
+
 - [client](client)
-  
-  Game engine primarily designed 
+
+  Game engine primarily designed
   for game development with "hot reload" experience for editing game scenes.
-  Includes 2D rendering, sound, animation,
-  AI configuration tools, networking, localization support.
+  Includes 2D rendering, sound, animation, networking, localization support.
+
+- [database](database)
+
+  Contains schemas which defines the structure and interrelations of data managed by SQLite database.
+
+- [datamap](datamap)
+
+  ORM library to map data in Rust objects and detect changes in data stored by SQLite.
+
+- [assets](assets)
+
+  Contains all game assets.
 
 - [server](server)
+
+  A thread that is responsible for the communication of players over the network and the execution of the main game
+  cycle.
+
 - [network](network)
-- [database](database)
-- [assets](assets)
+
+  Small and simple network library based on TCP blocking sockets.
+
 - [tools](tools)
 
-  Suite supports the entirety of the game development process — external editors formats import and export, 
-  performance monitoring, instrumentation, scripting to customize the game creation scenarios, etc.
-
+  Suite supports the entirety of the game development process — external editors formats import and export,
+  performance monitoring, instrumentation, AI configuration, scripting to customize the game creation scenarios, etc.
 
 ## Design Principles
 
 ### Database as Single Source of Data
 
 One of the trickiest parts of developing games is managing data.
-Using configuration files works well in many simple cases, 
+Using configuration files works well in many simple cases,
 populating game object properties or pre-fabricating assets.
 
-But if you want to combine datasets from a whole range of domains, 
-for example, to change a balance of game object properties 
+But if you want to combine datasets from a whole range of domains,
+for example, to change a balance of game object properties
 or build a context for editor mode the separated file reads turn out to be far more painful.
 The bigger the game model gets, the more data becomes fragmented,
-and the harder these challenges become. 
+and the harder these challenges become.
 
 Traditional SQL database help with this:
 
@@ -72,7 +92,7 @@ Here is table, showing dependencies reduction (about):
 It is better to use the amazing features of Rust: traits, generics, const expressions.
 There are only a few "legal" reasons to use macros:
 
-- Data structure introspection to eliminate mapping code 
+- Data structure introspection to eliminate mapping code
 - The variation of arguments to simplify non-game aspects, logging and stuff like that
 
 ## Development
@@ -88,7 +108,7 @@ There are only a few "legal" reasons to use macros:
    > ./target/debug/deps
 
 5. Run `client/src/main.rs`, specify env variables:
-   - `RUST_LOG=info` for logging
-   - `FARMISTO_EDITOR=1` for dev mode
-6. When you're shipping `client.exe` make sure to copy development libraries 
-to the same directory that your compiled exe is in.
+    - `RUST_LOG=info` for logging
+    - `FARMISTO_EDITOR=1` for dev mode
+6. When you're shipping `client.exe` make sure to copy development libraries
+   to the same directory that your compiled exe is in.
