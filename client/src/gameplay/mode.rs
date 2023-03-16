@@ -6,7 +6,7 @@ use log::{error, info};
 use sdl2::keyboard::Keycode;
 
 use datamap::Storage;
-use game::api::{Action, GameResponse, PlayerRequest};
+use game::api::{Action, FarmerBound, GameResponse, PlayerRequest};
 use game::inventory::{ContainerId, ItemId};
 use game::math::{test_collisions, VectorMath};
 use game::model::Activity;
@@ -194,12 +194,26 @@ impl Gameplay {
         }
     }
 
-    pub fn send_action(&mut self, action: Action) -> usize {
+    pub fn send_action(&mut self, action: FarmerBound) -> usize {
         self.action_id += 1;
-        if let Action::MoveFarmer { .. } = action {
-        } else {
-            info!("Sends {:?}", action);
+        match action {
+            FarmerBound::Move { .. } => {
+                // do not spam logs with real time movement
+            }
+            _ => {
+                info!("Client sends id={} {:?}", self.action_id, action);
+            }
         }
+        self.client.send(PlayerRequest::Perform {
+            action: Action::Farmer { action },
+            action_id: self.action_id,
+        });
+        self.action_id
+    }
+
+    pub fn send_action_as_ai(&mut self, action: Action) -> usize {
+        self.action_id += 1;
+        info!("Client sends as AI id={} {:?}", self.action_id, action);
         self.client.send(PlayerRequest::Perform {
             action,
             action_id: self.action_id,
@@ -284,7 +298,7 @@ impl Gameplay {
             if let Target::Crop(crop) = target {
                 let creature = self.creatures.values_mut().nth(0).unwrap();
                 let entity = creature.entity;
-                self.send_action(Action::EatCrop {
+                self.send_action_as_ai(Action::EatCrop {
                     crop,
                     creature: entity,
                 });
@@ -294,7 +308,7 @@ impl Gameplay {
         if input.pressed(Keycode::R) {
             if let Target::Ground { .. } = target {
                 let creature = self.creatures.values().nth(0).unwrap().entity;
-                self.send_action(Action::MoveCreature {
+                self.send_action_as_ai(Action::MoveCreature {
                     destination: cursor.position,
                     creature,
                 });
@@ -371,7 +385,7 @@ impl Gameplay {
                 };
                 farmer.estimated_position = estimated_position;
                 if delta.length() > 0.0 {
-                    self.send_action(Action::MoveFarmer {
+                    self.send_action(FarmerBound::Move {
                         destination: estimated_position,
                     });
                 }

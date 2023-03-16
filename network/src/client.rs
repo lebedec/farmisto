@@ -72,7 +72,7 @@ impl TcpClient {
                             }
                             None => {
                                 error!("Unable to receive response, server not working");
-                                break;
+                                break 'running;
                             }
                         }
                         // - buffering
@@ -124,7 +124,7 @@ impl TcpClient {
                             }
                             None => {
                                 error!("Unable to send request, network error");
-                                break;
+                                break 'thread;
                             }
                         }
                     }

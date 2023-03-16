@@ -285,7 +285,6 @@ impl Assets {
         }
         // Spine files naming convention: place atlas file in same directory and name as folder
         // TODO: support multiple atlases
-        info!("Reads atlas");
         let spine_folder = Path::new(path)
             .parent()
             .unwrap()
@@ -303,9 +302,7 @@ impl Assets {
 
         let mut skeleton_json = SkeletonJson::new(Arc::new(atlas));
         let s = skeleton_json.read_skeleton_data_file(path);
-        info!("Reads skeleton json {}", s.is_ok());
         let skeleton = Arc::new(s.unwrap());
-        info!("Reads animation");
         let animation = Arc::new(AnimationStateData::new(skeleton.clone()));
         let data = SpineAssetData {
             animation,

@@ -1,4 +1,4 @@
-use log::error;
+use log::{error, info};
 use std::cell::RefCell;
 use std::sync::{Arc, RwLock};
 use std::thread;
@@ -25,6 +25,7 @@ impl AiThread {
                 let events = handle_server_responses(&mut client);
                 nature.perceive(events);
                 for action in nature.react(&behaviours.read().unwrap()) {
+                    info!("AI sends id={} {:?}", action_id, action);
                     client.send(PlayerRequest::Perform { action, action_id });
                     action_id += 1;
                 }
@@ -137,9 +138,10 @@ impl CreatureAgent {
                 let mut scores = 0.0;
                 for consideration in &decision.considerations {
                     let x = match consideration.input {
-                        AnimalCropInput::MyHunger => self.hunger,
+                        AnimalCropInput::Hunger => self.hunger,
                         AnimalCropInput::CropDistance => 0.0,
                         AnimalCropInput::CropNutritionValue => crop.growth / 5.0,
+                        AnimalCropInput::Constant => 1.0,
                     };
                     let score = consideration.curve.respond(x);
                     scores += score;
@@ -166,12 +168,14 @@ impl InvaserAgent {
 
 #[derive(Copy, Clone, serde::Deserialize)]
 pub enum AnimalCropAction {
+    Nothing,
     EatCrop,
 }
 
 #[derive(serde::Deserialize)]
 pub enum AnimalCropInput {
-    MyHunger,
+    Constant,
+    Hunger,
     CropDistance,
     CropNutritionValue,
 }
@@ -262,6 +266,7 @@ impl Nature {
                         crop,
                         creature: agent.creature,
                     }),
+                    AnimalCropAction::Nothing => {}
                 }
             }
         }

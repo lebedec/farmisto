@@ -484,8 +484,6 @@ impl Gameplay {
                     [1.0, 1.0, 1.0, 1.0],
                 ];
 
-                info!("instantiates spine data");
-
                 let mut spines = vec![
                     renderer.instantiate_plant(&asset.sprout, colors),
                     renderer.instantiate_plant(&asset.vegetating, colors),

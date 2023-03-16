@@ -60,7 +60,14 @@ pub enum Action {
     TakeNap {
         creature: Creature,
     },
-    MoveFarmer {
+    Farmer {
+        action: FarmerBound,
+    },
+}
+
+#[derive(Debug, bincode::Encode, bincode::Decode)]
+pub enum FarmerBound {
+    Move {
         destination: [f32; 2],
     },
     Install {

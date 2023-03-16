@@ -1,9 +1,11 @@
+import json
 from dataclasses import dataclass
 from math import ceil
-from typing import List, Tuple, Dict
+from typing import List, Tuple, Dict, Callable
 
 import numpy as np
-from ipywidgets import interact, FloatSlider
+from IPython.display import display
+from ipywidgets import interact, FloatSlider, Button
 from matplotlib import pyplot as plt, patches
 from numpy import sign
 
@@ -13,6 +15,13 @@ class Curve:
     x: List[float]
     y: List[float]
 
+    @property
+    def json(self) -> dict:
+        return {
+            'x': self.x,
+            'y': self.y
+        }
+
 
 @dataclass
 class Consideration:
@@ -20,23 +29,68 @@ class Consideration:
     weight: float
     curve: Curve
 
+    @property
+    def json(self) -> dict:
+        return {
+            'input': self.input,
+            'weight': self.weight,
+            'curve': self.curve.json
+        }
+
 
 @dataclass
 class Decision:
     action: str
     considerations: List[Consideration]
 
+    @property
+    def json(self) -> dict:
+        return {
+            'action': self.action,
+            'considerations': [consideration.json for consideration in self.considerations]
+        }
+
 
 @dataclass
 class Behaviour:
+    type: str
     name: str
     decisions: List[Decision]
+
+    @property
+    def json(self) -> dict:
+        return {
+            'name': self.name,
+            'decisions': [decision.json for decision in self.decisions]
+        }
 
     def update(self, **inputs):
         view_behaviour(self, inputs)
         return plt.show()
 
     def interact(self):
+        def save_behaviour(_):
+            data = open('../../assets/ai/nature.json', 'r')
+            data = json.load(data)
+            if self.type not in data:
+                # introduce new behaviour type
+                data[self.type] = []
+            behaviour_type = data[self.type]
+            for index, behaviour in enumerate(behaviour_type):
+                if behaviour['name'] == self.name:
+                    # overwrite existed behaviour definition
+                    behaviour_type[index] = self.json
+                    break
+            else:
+                # append new behaviour definition
+                behaviour_type.append(self.json)
+            output = open('../../assets/ai/nature.json', 'w')
+            json.dump(data, output, indent=2)
+
+        button = Button(description='Save')
+        button.on_click(save_behaviour)
+        display(button)
+
         inputs = {}
         for decision in self.decisions:
             for consideration in decision.considerations:
@@ -77,7 +131,7 @@ def evaluate(t: float, curve: Curve) -> Tuple[List[float], List[float]]:
             return points
 
 
-def simplify(curve: List[float], step: float, accuracy: float, clamp: bool = True) -> Curve:
+def simplify(curve: List[float], step: float, accuracy: float) -> Curve:
     x = []
     y = []
     current = 0
@@ -156,3 +210,17 @@ def view_behaviour(behaviour: Behaviour, inputs: Dict[str, float]):
         ncols=4,
         borderaxespad=0.0
     )
+
+
+def linear(function: Callable[[float], float], accuracy: float = 0.1) -> Curve:
+    step = 0.001
+    fx = np.arange(0.0, 1.0 + step, step)
+    fy = list(map(function, fx))
+    return simplify(fy, step, accuracy)
+
+
+def log(accuracy: float = 0.1) -> Curve:
+    step = 0.001
+    fx = np.arange(0.0, 1.0 + step, step)
+    fy = list(map(lambda x: np.log(1.0 + x), fx))
+    return simplify(fy, step, accuracy)

@@ -2,7 +2,7 @@ use crate::gameplay::representation::FarmerRep;
 use crate::gameplay::Intention::{Put, Swap, Use};
 use crate::gameplay::Target::{Construction, Crop, Drop, Equipment, Ground, Wall};
 use crate::gameplay::{Gameplay, Intention, Target};
-use game::api::Action;
+use game::api::FarmerBound;
 use game::building::Marker;
 use game::inventory::Function;
 use game::inventory::Function::{Installation, Instrumenting, Material, Product, Seeding};
@@ -21,27 +21,27 @@ impl Gameplay {
             Activity::Idle => match intention {
                 Use => match target {
                     Drop(drop) => {
-                        self.send_action(Action::TakeItem { drop });
+                        self.send_action(FarmerBound::TakeItem { drop });
                     }
                     Construction(construction) => {
-                        self.send_action(Action::TakeMaterial { construction });
+                        self.send_action(FarmerBound::TakeMaterial { construction });
                     }
                     Equipment(equipment) => {
-                        self.send_action(Action::UseEquipment { equipment });
+                        self.send_action(FarmerBound::UseEquipment { equipment });
                     }
                     Crop(crop) => {
-                        self.send_action(Action::HarvestCrop { crop });
+                        self.send_action(FarmerBound::HarvestCrop { crop });
                     }
                     _ => {}
                 },
                 Put => match target {
                     Equipment(equipment) => {
-                        self.send_action(Action::Uninstall { equipment });
+                        self.send_action(FarmerBound::Uninstall { equipment });
                     }
                     _ => {}
                 },
                 Swap => {
-                    self.send_action(Action::ToggleBackpack);
+                    self.send_action(FarmerBound::ToggleBackpack);
                 }
             },
             Activity::Usage => match intention {
@@ -49,38 +49,38 @@ impl Gameplay {
                     for function in item {
                         match (function, target.clone()) {
                             (Seeding { .. }, Ground { tile }) => {
-                                self.send_action(Action::PlantCrop { tile });
+                                self.send_action(FarmerBound::PlantCrop { tile });
                                 break;
                             }
                             (Installation { .. }, Ground { tile }) => {
-                                self.send_action(Action::Install { tile });
+                                self.send_action(FarmerBound::Install { tile });
                                 break;
                             }
                             (Instrumenting, Construction(construction)) => {
-                                self.send_action(Action::Construct { construction });
+                                self.send_action(FarmerBound::Construct { construction });
                                 break;
                             }
                             (Instrumenting, Wall(tile)) => {
-                                self.send_action(Action::Deconstruct { tile });
+                                self.send_action(FarmerBound::Deconstruct { tile });
                                 break;
                             }
                             (Instrumenting, Crop(crop)) => {
-                                self.send_action(Action::WaterCrop { crop });
+                                self.send_action(FarmerBound::WaterCrop { crop });
                                 break;
                             }
                             (Material { .. }, Drop(drop)) => {
                                 // TODO: generic, not material only
-                                self.send_action(Action::TakeItem { drop });
+                                self.send_action(FarmerBound::TakeItem { drop });
                                 break;
                             }
                             (Material { .. }, Construction(construction)) => {
                                 // TODO: generic, not material only, generic container?
-                                self.send_action(Action::TakeMaterial { construction });
+                                self.send_action(FarmerBound::TakeMaterial { construction });
                                 break;
                             }
                             (Product { kind }, Crop(crop)) => {
                                 if CropKey(kind) == crop.key {
-                                    self.send_action(Action::HarvestCrop { crop });
+                                    self.send_action(FarmerBound::HarvestCrop { crop });
                                 }
                             }
                             _ => {}
@@ -89,18 +89,18 @@ impl Gameplay {
                 }
                 Put => match target {
                     Ground { tile } => {
-                        self.send_action(Action::DropItem { tile });
+                        self.send_action(FarmerBound::DropItem { tile });
                     }
                     Drop(drop) => {
-                        self.send_action(Action::PutItem { drop });
+                        self.send_action(FarmerBound::PutItem { drop });
                     }
                     Construction(construction) => {
-                        self.send_action(Action::PutMaterial { construction });
+                        self.send_action(FarmerBound::PutMaterial { construction });
                     }
                     _ => {}
                 },
                 Swap => {
-                    self.send_action(Action::ToggleBackpack);
+                    self.send_action(FarmerBound::ToggleBackpack);
                 }
             },
             Activity::Surveying {
@@ -116,7 +116,7 @@ impl Gameplay {
                             _ => Marker::Wall,
                         };
                         if let Purpose::Surveying { surveyor } = equipment.purpose {
-                            self.send_action(Action::Survey {
+                            self.send_action(FarmerBound::Survey {
                                 surveyor,
                                 tile,
                                 marker,
@@ -126,17 +126,17 @@ impl Gameplay {
                         }
                     }
                     Construction(construction) => {
-                        self.send_action(Action::RemoveConstruction { construction });
+                        self.send_action(FarmerBound::RemoveConstruction { construction });
                     }
                     _ => {
                         // beep error
                     }
                 },
                 Put => {
-                    self.send_action(Action::CancelActivity);
+                    self.send_action(FarmerBound::CancelActivity);
                 }
                 Swap => {
-                    self.send_action(Action::ToggleSurveyingOption);
+                    self.send_action(FarmerBound::ToggleSurveyingOption);
                 }
             },
         }

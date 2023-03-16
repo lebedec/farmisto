@@ -5,7 +5,7 @@ use datamap::Storage;
 pub use domains::*;
 
 use crate::api::ActionError::{ConstructionContainsUnexpectedItem, PlayerFarmerNotFound};
-use crate::api::{Action, ActionError, ActionResponse, Event};
+use crate::api::{Action, ActionError, ActionResponse, Event, FarmerBound};
 use crate::building::{BuildingDomain, GridId, Marker, Material, SurveyorId};
 use crate::inventory::{Function, InventoryDomain, InventoryError, Item, ItemId};
 use crate::math::VectorMath;
@@ -98,55 +98,70 @@ impl Game {
         player_name: &str,
         action: Action,
     ) -> Result<Vec<Event>, ActionError> {
-        let player = self
-            .players
-            .iter()
-            .find(|player| &player.name == player_name)
-            .unwrap()
-            .id;
-        let farmer = self
-            .universe
-            .farmers
-            .iter()
-            .find(|farmer| farmer.player == player)
-            .ok_or(PlayerFarmerNotFound(player_name.to_string()))?;
-        let farmland = self.universe.farmlands[0];
         let events = match action {
-            Action::MoveFarmer { destination } => self.move_farmer(*farmer, destination)?,
-            Action::Survey {
-                surveyor,
-                tile,
-                marker,
-            } => self.survey(*farmer, surveyor, tile, marker)?,
-            Action::Construct { construction } => {
-                self.construct(*farmer, farmland, construction)?
-            }
-            Action::Deconstruct { tile } => self.deconstruct(*farmer, farmland, tile)?,
-            Action::RemoveConstruction { construction } => {
-                self.remove_construction(*farmer, farmland, construction)?
-            }
-            Action::TakeItem { drop } => self.take_item(*farmer, drop)?,
-            Action::DropItem { tile } => self.drop_item(*farmer, tile)?,
-            Action::PutItem { drop } => self.put_item(*farmer, drop)?,
-            Action::TakeMaterial { construction } => self.take_material(*farmer, construction)?,
-            Action::PutMaterial { construction } => self.put_material(*farmer, construction)?,
-            Action::ToggleBackpack => self.toggle_backpack(*farmer)?,
-            Action::Uninstall { equipment } => {
-                self.uninstall_equipment(*farmer, farmland, equipment)?
-            }
-            Action::Install { tile } => self.install_equipment(*farmer, farmland, tile)?,
-            Action::UseEquipment { equipment } => self.use_equipment(*farmer, equipment)?,
-            Action::CancelActivity => self.cancel_activity(*farmer)?,
-            Action::ToggleSurveyingOption => self.toggle_surveying_option(*farmer)?,
-            Action::PlantCrop { tile } => self.plant_crop(*farmer, farmland, tile)?,
-            Action::WaterCrop { crop } => self.water_crop(*farmer, crop)?,
-            Action::HarvestCrop { crop } => self.harvest_crop(*farmer, crop)?,
             Action::EatCrop { creature, crop } => self.eat_crop(creature, crop)?,
             Action::MoveCreature {
                 creature,
                 destination,
             } => self.move_creature(creature, destination)?,
             Action::TakeNap { creature } => self.take_nap(creature)?,
+            Action::Farmer { action } => {
+                let player = self
+                    .players
+                    .iter()
+                    .find(|player| &player.name == player_name)
+                    .unwrap()
+                    .id;
+                let farmer = self
+                    .universe
+                    .farmers
+                    .iter()
+                    .find(|farmer| farmer.player == player)
+                    .ok_or(PlayerFarmerNotFound(player_name.to_string()))?;
+                let farmland = self.universe.farmlands[0];
+
+                match action {
+                    FarmerBound::Move { destination } => self.move_farmer(*farmer, destination)?,
+                    FarmerBound::Survey {
+                        surveyor,
+                        tile,
+                        marker,
+                    } => self.survey(*farmer, surveyor, tile, marker)?,
+                    FarmerBound::Construct { construction } => {
+                        self.construct(*farmer, farmland, construction)?
+                    }
+                    FarmerBound::Deconstruct { tile } => {
+                        self.deconstruct(*farmer, farmland, tile)?
+                    }
+                    FarmerBound::RemoveConstruction { construction } => {
+                        self.remove_construction(*farmer, farmland, construction)?
+                    }
+                    FarmerBound::TakeItem { drop } => self.take_item(*farmer, drop)?,
+                    FarmerBound::DropItem { tile } => self.drop_item(*farmer, tile)?,
+                    FarmerBound::PutItem { drop } => self.put_item(*farmer, drop)?,
+                    FarmerBound::TakeMaterial { construction } => {
+                        self.take_material(*farmer, construction)?
+                    }
+                    FarmerBound::PutMaterial { construction } => {
+                        self.put_material(*farmer, construction)?
+                    }
+                    FarmerBound::ToggleBackpack => self.toggle_backpack(*farmer)?,
+                    FarmerBound::Uninstall { equipment } => {
+                        self.uninstall_equipment(*farmer, farmland, equipment)?
+                    }
+                    FarmerBound::Install { tile } => {
+                        self.install_equipment(*farmer, farmland, tile)?
+                    }
+                    FarmerBound::UseEquipment { equipment } => {
+                        self.use_equipment(*farmer, equipment)?
+                    }
+                    FarmerBound::CancelActivity => self.cancel_activity(*farmer)?,
+                    FarmerBound::ToggleSurveyingOption => self.toggle_surveying_option(*farmer)?,
+                    FarmerBound::PlantCrop { tile } => self.plant_crop(*farmer, farmland, tile)?,
+                    FarmerBound::WaterCrop { crop } => self.water_crop(*farmer, crop)?,
+                    FarmerBound::HarvestCrop { crop } => self.harvest_crop(*farmer, crop)?,
+                }
+            }
         };
 
         Ok(events)

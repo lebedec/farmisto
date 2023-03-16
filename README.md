@@ -109,6 +109,6 @@ There are only a few "legal" reasons to use macros:
 
 5. Run `client/src/main.rs`, specify env variables:
     - `RUST_LOG=info` for logging
-    - `FARMISTO_EDITOR=1` for dev mode
+    - `DEV_MODE=1` for dev mode
 6. When you're shipping `client.exe` make sure to copy development libraries
    to the same directory that your compiled exe is in.
