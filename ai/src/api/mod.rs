@@ -1,4 +1,5 @@
 pub use server::*;
 
-mod server;
 mod handlers;
+pub mod rpc;
+mod server;

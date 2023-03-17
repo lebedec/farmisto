@@ -8,7 +8,7 @@ use std::time::{Duration, Instant};
 use log::{error, info};
 use serde::Serialize;
 
-use crate::api::serve_api;
+use crate::api::serve_web_socket;
 use game::api::{Action, Event, GameResponse, PlayerRequest};
 use game::math::VectorMath;
 use game::model::{Creature, Crop, Universe};
@@ -29,7 +29,7 @@ impl AiThread {
         };
         let nature_lock = Arc::new(RwLock::new(nature));
         let nature_read_access = nature_lock.clone();
-        thread::spawn(move || serve_api(nature_read_access));
+        thread::spawn(move || serve_web_socket(nature_read_access));
         thread::spawn(move || {
             let mut action_id = 0;
             loop {
