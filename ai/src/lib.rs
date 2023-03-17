@@ -1,41 +1,48 @@
 use std::cell::RefCell;
-use std::fmt::Debug;
+use std::collections::HashMap;
+use std::fmt::{format, Debug};
 use std::sync::{Arc, RwLock};
 use std::thread;
 use std::time::{Duration, Instant};
 
 use log::{error, info};
+use serde::Serialize;
 
+use crate::api::serve_api;
 use game::api::{Action, Event, GameResponse, PlayerRequest};
+use game::math::VectorMath;
 use game::model::{Creature, Crop, Universe};
+use game::physics::Physics;
 use network::TcpClient;
 
-use crate::interop::serve;
-
-mod interop;
+mod api;
 
 pub struct AiThread {}
 
 impl AiThread {
     pub fn spawn(mut client: TcpClient, behaviours: Arc<RwLock<Behaviours>>) -> Self {
-        thread::spawn(|| serve());
-
+        let nature = Nature {
+            crops: vec![],
+            creatures: vec![],
+            creature_agents: vec![],
+            invaser_agents: vec![],
+        };
+        let nature_lock = Arc::new(RwLock::new(nature));
+        let nature_read_access = nature_lock.clone();
+        thread::spawn(move || serve_api(nature_read_access));
         thread::spawn(move || {
-            let mut nature = Nature {
-                crops: vec![],
-                creatures: vec![],
-                creature_agents: vec![],
-                invaser_agents: vec![],
-            };
             let mut action_id = 0;
             loop {
                 let t = Instant::now();
-                let events = handle_server_responses(&mut client);
-                nature.perceive(events);
-                for action in nature.react(&behaviours.read().unwrap()) {
-                    info!("AI sends id={} {:?}", action_id, action);
-                    client.send(PlayerRequest::Perform { action, action_id });
-                    action_id += 1;
+                {
+                    let mut nature = nature_lock.write().unwrap();
+                    let events = handle_server_responses(&mut client);
+                    nature.perceive(events);
+                    for action in nature.react(&behaviours.read().unwrap()) {
+                        info!("AI sends id={} {:?}", action_id, action);
+                        client.send(PlayerRequest::Perform { action, action_id });
+                        action_id += 1;
+                    }
                 }
                 let elapsed = t.elapsed().as_secs_f32();
 
@@ -72,7 +79,7 @@ fn handle_server_responses(client: &mut TcpClient) -> Vec<Event> {
     all_events
 }
 
-#[derive(serde::Deserialize)]
+#[derive(serde::Serialize, serde::Deserialize)]
 pub struct Curve {
     x: Vec<f32>,
     y: Vec<f32>,
@@ -102,37 +109,39 @@ impl Curve {
     }
 }
 
-#[derive(serde::Deserialize)]
+#[derive(serde::Serialize, serde::Deserialize)]
 pub struct Consideration<I>
 where
-    I: Sized,
+    I: Sized + Serialize,
 {
     pub input: I,
     pub weight: f32,
     pub curve: Curve,
 }
 
-#[derive(serde::Deserialize)]
+#[derive(serde::Serialize, serde::Deserialize)]
 pub struct Decision<I, A>
 where
-    A: Copy + Sized + Debug,
-    I: Sized,
+    A: Copy + Sized + Debug + Serialize,
+    I: Sized + Serialize,
 {
     pub action: A,
     pub considerations: Vec<Consideration<I>>,
 }
 
-#[derive(serde::Deserialize)]
+#[derive(serde::Serialize, serde::Deserialize)]
 pub struct Behaviour<D>
 where
     D: Sized,
 {
+    name: String,
     decisions: Vec<D>,
 }
 
 pub struct CropView {
     entity: Crop,
     growth: f32,
+    position: [f32; 2],
 }
 
 pub struct FarmerView {}
@@ -149,34 +158,54 @@ pub struct CreatureAgent {
     creature: Creature,
     hunger: f32,
     mindset: Vec<String>,
+    animal_crop: Thinking,
+    position: [f32; 2],
+}
+
+#[derive(Debug, Clone, serde::Serialize)]
+pub struct AgentRef {
+    id: usize,
+}
+
+#[derive(Default, Clone, serde::Serialize)]
+pub struct Thinking {
+    pub scores: HashMap<String, (f32, f32)>,
+    pub best_scores: f32,
+    pub best_target: usize,
+    pub best_decision: usize,
 }
 
 impl CreatureAgent {
     pub fn consider(
-        &self,
+        &mut self,
         decisions: &Vec<AnimalCropDecision>,
         crops: &Vec<CropView>,
     ) -> (Crop, AnimalCropAction) {
+        self.animal_crop = Thinking::default();
         let mut best_crop = 0;
         let mut best_crop_scores = 0.0;
         let mut best = 0;
         let mut best_scores = 0.0;
         for (crop_index, crop) in crops.iter().enumerate() {
-            for (index, decision) in decisions.iter().enumerate() {
+            for (d_index, decision) in decisions.iter().enumerate() {
                 let mut scores = 1.0;
-                for consideration in &decision.considerations {
+                for (c_index, consideration) in decision.considerations.iter().enumerate() {
                     let x = match consideration.input {
                         AnimalCropInput::Hunger => self.hunger,
-                        AnimalCropInput::CropDistance => 0.0,
+                        AnimalCropInput::CropDistance => {
+                            crop.position.distance(self.position) / 10.0
+                        }
                         AnimalCropInput::CropNutritionValue => crop.growth / 5.0,
                         AnimalCropInput::Constant => 1.0,
                     };
                     let score = consideration.curve.respond(x);
                     scores *= score;
+                    let key = format!("{crop_index}:{d_index}:{c_index}");
+                    self.animal_crop.scores.insert(key, (x, score));
                 }
                 if scores > best_scores {
                     best_scores = scores;
-                    best = index;
+                    best = d_index;
                 }
             }
             if best_scores > best_crop_scores {
@@ -184,6 +213,9 @@ impl CreatureAgent {
                 best_crop = crop_index;
             }
         }
+        self.animal_crop.best_decision = best;
+        self.animal_crop.best_scores = best_crop_scores;
+        self.animal_crop.best_target = best_crop;
         return (crops[best_crop].entity, decisions[best].action);
     }
 }
@@ -202,13 +234,13 @@ impl InvaserAgent {
     }
 }
 
-#[derive(Debug, Copy, Clone, serde::Deserialize)]
+#[derive(Debug, Copy, Clone, serde::Serialize, serde::Deserialize)]
 pub enum AnimalCropAction {
     Nothing,
     EatCrop,
 }
 
-#[derive(serde::Deserialize)]
+#[derive(serde::Serialize, serde::Deserialize)]
 pub enum AnimalCropInput {
     Constant,
     Hunger,
@@ -216,12 +248,12 @@ pub enum AnimalCropInput {
     CropNutritionValue,
 }
 
-#[derive(Debug, Copy, Clone, serde::Deserialize)]
+#[derive(Debug, Copy, Clone, serde::Serialize, serde::Deserialize)]
 pub enum InvaserAnimalAction {
     Bite,
 }
 
-#[derive(serde::Deserialize)]
+#[derive(serde::Serialize, serde::Deserialize)]
 pub enum InvaserAnimalInput {
     AnimalDistance,
 }
@@ -229,7 +261,7 @@ pub enum InvaserAnimalInput {
 type AnimalCropDecision = Decision<AnimalCropInput, AnimalCropAction>;
 type InvaserAnimalDecision = Decision<InvaserAnimalInput, InvaserAnimalAction>;
 
-#[derive(serde::Deserialize)]
+#[derive(serde::Serialize, serde::Deserialize)]
 pub struct Behaviours {
     animal_crop: Vec<Behaviour<AnimalCropDecision>>,
     invaser_animal: Vec<Behaviour<InvaserAnimalDecision>>,
@@ -261,21 +293,35 @@ impl Nature {
                             Universe::FarmerVanished(_) => {}
                             Universe::DropAppeared { .. } => {}
                             Universe::DropVanished(_) => {}
-                            Universe::CropAppeared { entity, growth, .. } => {
-                                self.crops.push(CropView { entity, growth })
-                            }
+                            Universe::CropAppeared {
+                                entity,
+                                growth,
+                                position,
+                                ..
+                            } => self.crops.push(CropView {
+                                entity,
+                                growth,
+                                position,
+                            }),
                             Universe::CropVanished(_) => {}
                             Universe::ConstructionAppeared { .. } => {}
                             Universe::ConstructionVanished { .. } => {}
                             Universe::EquipmentAppeared { .. } => {}
                             Universe::EquipmentVanished(_) => {}
                             Universe::ItemsAppeared { .. } => {}
-                            Universe::CreatureAppeared { entity, health, .. } => {
+                            Universe::CreatureAppeared {
+                                entity,
+                                health,
+                                position,
+                                ..
+                            } => {
                                 self.creatures.push(CreatureView { entity });
                                 self.creature_agents.push(CreatureAgent {
                                     creature: entity,
                                     hunger: 0.0,
                                     mindset: vec![],
+                                    animal_crop: Thinking::default(),
+                                    position,
                                 })
                             }
                             Universe::CreatureEats { entity } => {}
@@ -283,7 +329,23 @@ impl Nature {
                         }
                     }
                 }
-                Event::Physics(_) => {}
+                Event::Physics(events) => {
+                    for event in events {
+                        match event {
+                            Physics::BodyPositionChanged { id, position, .. } => {
+                                for agent in self.creature_agents.iter_mut() {
+                                    if agent.creature.body == id {
+                                        agent.position = position;
+                                        break;
+                                    }
+                                }
+                            }
+                            Physics::BarrierCreated { .. } => {}
+                            Physics::BarrierDestroyed { .. } => {}
+                            Physics::SpaceUpdated { .. } => {}
+                        }
+                    }
+                }
                 Event::Building(_) => {}
                 Event::Inventory(_) => {}
                 Event::Planting(_) => {}
@@ -315,5 +377,20 @@ impl Nature {
             }
         }
         actions
+    }
+
+    pub fn get_creature_agents(&self) -> Vec<AgentRef> {
+        self.creature_agents
+            .iter()
+            .map(|agent| AgentRef {
+                id: agent.creature.id,
+            })
+            .collect()
+    }
+
+    pub fn get_creature_agent(&mut self, id: usize) -> Option<&CreatureAgent> {
+        self.creature_agents
+            .iter()
+            .find(|agent| agent.creature.id == id)
     }
 }
