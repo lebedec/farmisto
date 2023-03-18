@@ -1,11 +1,12 @@
 use std::fs;
 
 use crate::api::rpc::ProcedureResult;
-use crate::api::rpc::ProcedureResult::LoadBehaviours;
 use crate::Behaviours;
+use anyhow::Result;
 
-pub fn get_behaviours() -> Result<ProcedureResult, serde_json::Error> {
-    let data = fs::read("./assets/ai/nature.json").unwrap();
+pub fn get_behaviours() -> Result<ProcedureResult> {
+    let path = "./assets/ai/nature.json";
+    let data = fs::read(path)?;
     let behaviours: Behaviours = serde_json::from_slice(&data)?;
-    Ok(LoadBehaviours { behaviours })
+    Ok(ProcedureResult::GetBehaviours { behaviours })
 }

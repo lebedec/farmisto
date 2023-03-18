@@ -115,7 +115,6 @@ where
     I: Sized + Serialize,
 {
     pub input: I,
-    pub weight: f32,
     pub curve: Curve,
 }
 

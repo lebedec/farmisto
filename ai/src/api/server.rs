@@ -5,8 +5,10 @@ use log::{error, info};
 use tungstenite::Message;
 
 use crate::api::handlers;
-use crate::api::rpc::Procedure::{GetAgentThinking, LoadBehaviours};
-use crate::api::rpc::{Procedure, ProcedureResult};
+use crate::api::rpc::Procedure;
+use crate::api::rpc::Procedure::{
+    GetAgentThinking, GetAgents, GetBehaviours, GetViews, SaveBehaviours,
+};
 use crate::Nature;
 
 pub fn serve_web_socket(nature: Arc<RwLock<Nature>>) {
@@ -19,13 +21,22 @@ pub fn serve_web_socket(nature: Arc<RwLock<Nature>>) {
         while let Ok(msg) = websocket.read_message() {
             if let Message::Text(data) = msg {
                 let procedure: Procedure = serde_json::from_str(&data).unwrap();
-                let nature = nature.read().unwrap();
+                let nature = &nature.read().unwrap();
                 let result = match procedure {
-                    LoadBehaviours { .. } => handlers::get_behaviours().unwrap(),
-                    GetAgentThinking { .. } => ProcedureResult::Nothing,
+                    GetAgentThinking { id } => handlers::get_agent_thinking(nature, id),
+                    GetAgents { .. } => handlers::get_agents(nature),
+                    GetBehaviours { .. } => handlers::get_behaviours(),
+                    GetViews { .. } => handlers::get_views(nature),
+                    SaveBehaviours { behaviours } => handlers::save_behaviours(behaviours),
                 };
-                let text = serde_json::to_string(&result).unwrap();
-                if let Err(error) = websocket.write_message(Message::text(text)) {
+                let message = match result {
+                    Ok(result) => serde_json::to_string(&result).unwrap(),
+                    Err(error) => {
+                        error!("Unable to handle message because of error, {error}");
+                        continue;
+                    }
+                };
+                if let Err(error) = websocket.write_message(Message::text(message)) {
                     error!("Unable to send message, {error}");
                     break;
                 }
