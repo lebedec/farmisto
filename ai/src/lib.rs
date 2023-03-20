@@ -320,6 +320,7 @@ pub enum AnimalGroundAction {
 #[derive(Debug, Copy, Clone, serde::Serialize, serde::Deserialize)]
 pub enum AnimalGroundInput {
     Random { min: f32, max: f32 },
+    Cooldown(usize),
     Distance,
 }
 
@@ -346,9 +347,11 @@ pub struct Behaviours {
 #[derive(serde::Serialize, serde::Deserialize)]
 pub enum AnimalBehaviourSet {
     Crop {
+        name: String,
         behaviours: Vec<Behaviour<AnimalCropDecision>>,
     },
     Ground {
+        name: String,
         behaviours: Vec<Behaviour<AnimalGroundDecision>>,
     },
 }
@@ -446,7 +449,7 @@ impl Nature {
         let mut actions = vec![];
         for agent in self.creature_agents.iter_mut() {
             let (action, thinking) = make_decision(&behaviours.animals, |set| match set {
-                AnimalBehaviourSet::Crop { behaviours } => {
+                AnimalBehaviourSet::Crop { behaviours, .. } => {
                     let (b, t, d) =
                         consider_vec(&behaviours, &self.crops, |input, crop| match input {
                             AnimalCropInput::Hunger => agent.hunger,
@@ -469,7 +472,7 @@ impl Nature {
                     };
                     (0.0, action)
                 }
-                AnimalBehaviourSet::Ground { behaviours } => {
+                AnimalBehaviourSet::Ground { behaviours, .. } => {
                     let targets = vec![[0, 0]];
                     for behaviour in behaviours {}
                     (0.0, Action::Nothing)
