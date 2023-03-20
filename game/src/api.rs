@@ -49,6 +49,7 @@ pub enum LoginResult {
 
 #[derive(Debug, bincode::Encode, bincode::Decode)]
 pub enum Action {
+    Nothing,
     EatCrop {
         creature: Creature,
         crop: Crop,
