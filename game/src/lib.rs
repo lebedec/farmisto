@@ -741,7 +741,9 @@ impl Game {
         let body = self.physics.get_body(entity.body).unwrap();
         Universe::CreatureAppeared {
             entity,
+            space: body.space,
             health: animal.health,
+            hunger: animal.hunger,
             position: body.position,
         }
     }

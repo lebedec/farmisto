@@ -13,9 +13,13 @@ impl PhysicsDomain {
                 .iter()
                 .position(|barrier| barrier.id == id)
                 .unwrap();
-            self.barriers[space.0].remove(index);
+            let barrier = self.barriers[space.0].remove(index);
 
-            vec![BarrierDestroyed { id }]
+            vec![BarrierDestroyed {
+                id,
+                space,
+                position: barrier.position,
+            }]
         };
         Ok(operation)
     }

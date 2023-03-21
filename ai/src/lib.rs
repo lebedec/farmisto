@@ -6,13 +6,14 @@ use std::thread;
 use std::time::{Duration, Instant};
 
 use log::{error, info};
+use rand::{thread_rng, Rng};
 use serde::Serialize;
 
 use crate::api::serve_web_socket;
 use game::api::{Action, Event, GameResponse, PlayerRequest};
 use game::math::VectorMath;
 use game::model::{Creature, Crop, Universe};
-use game::physics::Physics;
+use game::physics::{Physics, SpaceId};
 use network::TcpClient;
 
 mod api;
@@ -26,7 +27,7 @@ impl AiThread {
             creatures: vec![],
             creature_agents: vec![],
             invaser_agents: vec![],
-            shared_influence_map: vec![],
+            tiles: Default::default(),
         };
         let nature_lock = Arc::new(RwLock::new(nature));
         let nature_read_access = nature_lock.clone();
@@ -40,6 +41,12 @@ impl AiThread {
                     let events = handle_server_responses(&mut client);
                     nature.perceive(events);
                     for action in nature.react(&behaviours.read().unwrap()) {
+                        match action {
+                            Action::Nothing => {
+                                continue;
+                            }
+                            _ => {}
+                        }
                         info!("AI sends id={} {:?}", action_id, action);
                         client.send(PlayerRequest::Perform { action, action_id });
                         action_id += 1;
@@ -47,7 +54,7 @@ impl AiThread {
                 }
                 let elapsed = t.elapsed().as_secs_f32();
 
-                // 250 ms delay to simulate human reaction
+                // delay to simulate human reaction
                 let delay = (0.25 - elapsed).max(0.0);
                 thread::sleep(Duration::from_secs_f32(delay));
             }
@@ -156,6 +163,7 @@ pub struct InvaserView {
 
 pub struct CreatureAgent {
     creature: Creature,
+    space: SpaceId,
     hunger: f32,
     mindset: Vec<String>,
     thinking: Thinking,
@@ -171,118 +179,115 @@ pub struct AgentRef {
 /// Represents a decision making report via last update.
 #[derive(Default, Clone, serde::Serialize)]
 pub struct Thinking {
-    pub scores: HashMap<String, (f32, f32)>,
-    pub best_scores: f32,
-    pub best_target: usize,
-    pub best_decision: usize,
+    pub reasons: HashMap<String, f32>,
+    pub current_set: usize,
 }
 
-fn make_decision<S, R>(sets: &Vec<S>, react: R) -> (Option<Action>, Thinking)
-where
-    R: Fn(&S) -> (f32, Action),
-{
-    for set in sets.iter() {
-        let (scores, action) = react(set);
-        return (Some(action), Thinking::default());
+impl Thinking {
+    pub fn reason(&mut self, key: String, score: f32) {
+        let set = self.current_set;
+        self.reasons.insert(format!("{set}:{key}"), score);
     }
-    (None, Thinking::default())
 }
 
-fn consider_vec<I, T, F, A>(
-    behaviours: &Vec<Behaviour<Decision<I, A>>>,
-    targets: &Vec<T>,
-    input: F,
-) -> (usize, usize, usize)
+fn make_decision<S, C>(behaviour_sets: &Vec<S>, consider: C) -> (Option<Action>, Thinking)
 where
-    A: Copy + Sized + Debug + Serialize,
-    I: Copy + Sized + Serialize,
-    F: Fn(I, &T) -> f32,
+    C: Fn(&S, &mut Thinking) -> (f32, Action),
 {
-    for behaviour in behaviours {
-        let (target, best) = consider(&behaviour.decisions, &targets, |i, t| input(i, t));
+    let mut thinking = Thinking::default();
+    let mut best_action = None;
+    let mut best_action_scores = 0.0;
+    for (set_index, set) in behaviour_sets.iter().enumerate() {
+        thinking.current_set = set_index;
+        let (scores, action) = consider(set, &mut thinking);
+        if scores > best_action_scores {
+            best_action = Some(action);
+            best_action_scores = scores;
+        }
     }
-    (0, 0, 0)
+    (best_action, thinking)
 }
 
 fn consider<I, T, F, A>(
-    decisions: &Vec<Decision<I, A>>,
+    behaviours: &Vec<Behaviour<Decision<I, A>>>,
     targets: &Vec<T>,
     input: F,
-) -> (usize, usize)
+    thinking: &mut Thinking,
+) -> (usize, usize, usize, f32)
 where
     A: Copy + Sized + Debug + Serialize,
     I: Copy + Sized + Serialize,
     F: Fn(I, &T) -> f32,
 {
-    let mut best_crop = 0;
-    let mut best_crop_scores = 0.0;
-    let mut best = 0;
-    let mut best_scores = 0.0;
-    for (crop_index, crop) in targets.iter().enumerate() {
-        for (d_index, decision) in decisions.iter().enumerate() {
-            let mut scores = 1.0;
-            for (c_index, consideration) in decision.considerations.iter().enumerate() {
-                let x = input(consideration.input, crop);
-                let score = consideration.curve.respond(x);
-                scores *= score;
+    let mut best_behaviour = 0;
+    let mut best_behaviour_decision = 0;
+    let mut best_behaviour_target = 0;
+    let mut best_behaviour_scores = 0.0;
+    for (behaviour_index, behaviour) in behaviours.iter().enumerate() {
+        let mut best_target = 0;
+        let mut best_target_decision = 0;
+        let mut best_target_scores = 0.0;
+        for (target_index, target) in targets.iter().enumerate() {
+            let mut best_decision = 0;
+            let mut best_decision_scores = 0.0;
+            for (decision_index, decision) in behaviour.decisions.iter().enumerate() {
+                let mut scores = 1.0;
+                for (index, consideration) in decision.considerations.iter().enumerate() {
+                    let x = input(consideration.input, target);
+                    let score = consideration.curve.respond(x);
+                    {
+                        // TODO: exclude from release build
+                        let key =
+                            format!("{behaviour_index}:{target_index}:{decision_index}:{index}");
+                        thinking.reason(key, x);
+                    }
+                    scores *= score;
+                    if scores == 0.0 {
+                        // optimization:
+                        // skip considerations for obviously zero scored decision
+                        break;
+                    }
+                }
+                if scores > best_decision_scores {
+                    best_decision_scores = scores;
+                    best_decision = decision_index;
+                }
+                if best_decision_scores > 0.95 {
+                    // optimization:
+                    // no need to compare decisions very precisely if we found one good enough
+                    break;
+                }
             }
-            if scores > best_scores {
-                best_scores = scores;
-                best = d_index;
+            if best_decision_scores > best_target_scores {
+                best_target = target_index;
+                best_target_decision = best_decision;
+                best_target_scores = best_decision_scores;
+            }
+            if best_target_scores > 0.95 {
+                // optimization:
+                // no need to choose a target very precisely if we found one good enough
+                break;
             }
         }
-        if best_scores > best_crop_scores {
-            best_crop_scores = best_scores;
-            best_crop = crop_index;
+        if best_target_scores > best_behaviour_scores {
+            best_behaviour = behaviour_index;
+            best_behaviour_decision = best_target_decision;
+            best_behaviour_target = best_target;
+            best_behaviour_scores = best_target_scores;
+        }
+        if best_behaviour_scores > 0.95 {
+            // optimization:
+            // not need to consider every behaviour if we found one appropriate enough
+            break;
         }
     }
-    return (best_crop, best);
+    (
+        best_behaviour,
+        best_behaviour_target,
+        best_behaviour_decision,
+        best_behaviour_scores,
+    )
 }
-
-// impl CreatureAgent {
-//     pub fn consider(
-//         &mut self,
-//         decisions: &Vec<AnimalCropDecision>,
-//         crops: &Vec<CropView>,
-//     ) -> (Crop, AnimalCropAction) {
-//         self.animal_crop = Thinking::default();
-//         let mut best_crop = 0;
-//         let mut best_crop_scores = 0.0;
-//         let mut best = 0;
-//         let mut best_scores = 0.0;
-//         for (crop_index, crop) in crops.iter().enumerate() {
-//             for (d_index, decision) in decisions.iter().enumerate() {
-//                 let mut scores = 1.0;
-//                 for (c_index, consideration) in decision.considerations.iter().enumerate() {
-//                     let x = match consideration.input {
-//                         AnimalCropInput::Hunger => self.hunger,
-//                         AnimalCropInput::CropDistance => {
-//                             crop.position.distance(self.position) / 10.0
-//                         }
-//                         AnimalCropInput::CropNutritionValue => crop.growth / 5.0,
-//                         AnimalCropInput::Constant => 1.0,
-//                     };
-//                     let score = consideration.curve.respond(x);
-//                     scores *= score;
-//                     let key = format!("{crop_index}:{d_index}:{c_index}");
-//                     self.animal_crop.scores.insert(key, (x, score));
-//                 }
-//                 if scores > best_scores {
-//                     best_scores = scores;
-//                     best = d_index;
-//                 }
-//             }
-//             if best_scores > best_crop_scores {
-//                 best_crop_scores = best_scores;
-//                 best_crop = crop_index;
-//             }
-//         }
-//         self.animal_crop.best_decision = best;
-//         self.animal_crop.best_scores = best_crop_scores;
-//         self.animal_crop.best_target = best_crop;
-//         return (crops[best_crop].entity, decisions[best].action);
-//     }
-// }
 
 pub struct InvaserAgent {
     mindset: Vec<String>,
@@ -319,6 +324,7 @@ pub enum AnimalGroundAction {
 
 #[derive(Debug, Copy, Clone, serde::Serialize, serde::Deserialize)]
 pub enum AnimalGroundInput {
+    Constant,
     Random { min: f32, max: f32 },
     Cooldown(usize),
     Distance,
@@ -356,6 +362,12 @@ pub enum AnimalBehaviourSet {
     },
 }
 
+#[derive(Default, Clone, Copy)]
+struct Tile {
+    has_hole: bool,
+    has_barrier: bool,
+}
+
 pub struct Nature {
     // game view
     crops: Vec<CropView>,
@@ -363,7 +375,7 @@ pub struct Nature {
     // agents
     creature_agents: Vec<CreatureAgent>,
     invaser_agents: Vec<InvaserAgent>,
-    shared_influence_map: Vec<usize>,
+    tiles: HashMap<SpaceId, Vec<Vec<Tile>>>,
 }
 
 impl Nature {
@@ -374,10 +386,19 @@ impl Nature {
                     for event in events {
                         match event {
                             Universe::ActivityChanged { .. } => {}
-                            Universe::BarrierHintAppeared { .. } => {}
                             Universe::TreeAppeared { .. } => {}
                             Universe::TreeVanished(_) => {}
-                            Universe::FarmlandAppeared { .. } => {}
+                            Universe::FarmlandAppeared {
+                                farmland, holes, ..
+                            } => {
+                                let mut tiles = vec![vec![Tile::default(); 128]; 128];
+                                for y in 0..holes.len() {
+                                    for x in 0..holes.len() {
+                                        tiles[y][x].has_hole = holes[y][x] == 1;
+                                    }
+                                }
+                                self.tiles.insert(farmland.space, tiles);
+                            }
                             Universe::FarmlandVanished(_) => {}
                             Universe::FarmerAppeared { .. } => {}
                             Universe::FarmerVanished(_) => {}
@@ -403,12 +424,15 @@ impl Nature {
                                 entity,
                                 health,
                                 position,
+                                hunger,
+                                space,
                                 ..
                             } => {
                                 self.creatures.push(CreatureView { entity });
                                 self.creature_agents.push(CreatureAgent {
                                     creature: entity,
-                                    hunger: 0.0,
+                                    space,
+                                    hunger,
                                     mindset: vec![],
                                     thinking: Thinking::default(),
                                     position,
@@ -431,9 +455,35 @@ impl Nature {
                                     }
                                 }
                             }
-                            Physics::BarrierCreated { .. } => {}
-                            Physics::BarrierDestroyed { .. } => {}
-                            Physics::SpaceUpdated { .. } => {}
+                            Physics::BarrierCreated {
+                                space,
+                                id,
+                                position,
+                                bounds,
+                            } => {
+                                let tiles = self.tiles.get_mut(&space).unwrap();
+                                let [x, y] = position.to_tile();
+                                // TODO: barrier bounds
+                                tiles[y][x].has_barrier = true;
+                            }
+                            Physics::BarrierDestroyed {
+                                id,
+                                position,
+                                space,
+                            } => {
+                                let tiles = self.tiles.get_mut(&space).unwrap();
+                                let [x, y] = position.to_tile();
+                                // TODO: multiple barriers on same tile
+                                tiles[y][x].has_barrier = false;
+                            }
+                            Physics::SpaceUpdated { id, holes } => {
+                                let tiles = self.tiles.get_mut(&id).unwrap();
+                                for y in 0..holes.len() {
+                                    for x in 0..holes.len() {
+                                        tiles[y][x].has_hole = holes[y][x] == 1;
+                                    }
+                                }
+                            }
                         }
                     }
                 }
@@ -445,130 +495,119 @@ impl Nature {
         }
     }
 
+    fn get_empty_tiles(
+        game_tiles: &Vec<Vec<Tile>>,
+        center: [usize; 2],
+        radius: usize,
+    ) -> Vec<[usize; 2]> {
+        let mut tiles = vec![];
+        let mut map = vec![vec![0; 128]; 128];
+        let mut frontier = vec![center];
+        let mut wave = 1;
+        loop {
+            let mut new_wave = vec![];
+            for current in frontier {
+                let [cx, cy] = current;
+                map[cy][cx] = wave;
+                tiles.push(current);
+                let cx = cx as isize;
+                let cy = cy as isize;
+                let steps: [[isize; 2]; 4] =
+                    [[cx, cy - 1], [cx - 1, cy], [cx + 1, cy], [cx, cy + 1]];
+                for next in steps {
+                    let [nx, ny] = next;
+                    if nx >= 0 && nx < 128 && ny >= 0 && ny < 128 {
+                        let nx = nx as usize;
+                        let ny = ny as usize;
+                        let tile = &game_tiles[ny][nx];
+                        let not_empty = tile.has_barrier || tile.has_hole;
+                        if not_empty {
+                            // mark blocked tiles
+                            map[ny][nx] = 1;
+                        } else if map[ny][nx] == 0 {
+                            map[ny][nx] = wave;
+                            new_wave.push([nx as usize, ny as usize]);
+                        }
+                    }
+                }
+            }
+            wave += 1;
+            if wave == radius + 2 || new_wave.len() == 0 {
+                break;
+            }
+            frontier = new_wave;
+        }
+        tiles
+    }
+
     pub fn react(&mut self, behaviours: &Behaviours) -> Vec<Action> {
         let mut actions = vec![];
         for agent in self.creature_agents.iter_mut() {
-            let (action, thinking) = make_decision(&behaviours.animals, |set| match set {
-                AnimalBehaviourSet::Crop { behaviours, .. } => {
-                    let (b, t, d) =
-                        consider_vec(&behaviours, &self.crops, |input, crop| match input {
-                            AnimalCropInput::Hunger => agent.hunger,
-                            AnimalCropInput::CropDistance => {
-                                crop.position.distance(agent.position) / 10.0
-                            }
-                            AnimalCropInput::CropNutritionValue => crop.growth / 5.0,
-                            AnimalCropInput::Constant => {
-                                1.0 + self.shared_influence_map.len() as f32
-                            }
-                        });
-                    let action = behaviours[b].decisions[d].action;
-                    let crop = self.crops[t].entity;
-                    let action = match action {
-                        AnimalCropAction::EatCrop => Action::EatCrop {
-                            crop,
-                            creature: agent.creature,
-                        },
-                        AnimalCropAction::Nothing => Action::Nothing,
-                    };
-                    (0.0, action)
-                }
-                AnimalBehaviourSet::Ground { behaviours, .. } => {
-                    let targets = vec![[0, 0]];
-                    for behaviour in behaviours {}
-                    (0.0, Action::Nothing)
-                }
-            });
+            let (action, thinking) =
+                make_decision(&behaviours.animals, |set, thinking| match set {
+                    AnimalBehaviourSet::Crop { behaviours, .. } => {
+                        let (b, t, d, scores) = consider(
+                            &behaviours,
+                            &self.crops,
+                            |input, crop| match input {
+                                AnimalCropInput::Hunger => agent.hunger,
+                                AnimalCropInput::CropDistance => {
+                                    crop.position.distance(agent.position) / 10.0
+                                }
+                                AnimalCropInput::CropNutritionValue => crop.growth / 5.0,
+                                AnimalCropInput::Constant => 0.0,
+                            },
+                            thinking,
+                        );
+                        let action = behaviours[b].decisions[d].action;
+                        let crop = self.crops[t].entity;
+                        let action = match action {
+                            AnimalCropAction::EatCrop => Action::EatCrop {
+                                crop,
+                                creature: agent.creature,
+                            },
+                            AnimalCropAction::Nothing => Action::Nothing,
+                        };
+                        (scores, action)
+                    }
+                    AnimalBehaviourSet::Ground { behaviours, .. } => {
+                        let game_tiles = self.tiles.get(&agent.space).unwrap();
+                        let targets = Self::get_empty_tiles(
+                            game_tiles,
+                            agent.position.to_tile(),
+                            agent.radius,
+                        );
+                        let (b, t, d, scores) = consider(
+                            &behaviours,
+                            &targets,
+                            |input, tile| match input {
+                                AnimalGroundInput::Constant => 0.0,
+                                AnimalGroundInput::Random { min, max } => {
+                                    thread_rng().gen_range(min..max)
+                                }
+                                AnimalGroundInput::Cooldown(_) => 1.0,
+                                AnimalGroundInput::Distance => {
+                                    agent.position.distance(position_of(*tile)) / 10.0
+                                }
+                            },
+                            thinking,
+                        );
+                        let action = behaviours[b].decisions[d].action;
+                        let tile = targets[t];
+                        let action = match action {
+                            AnimalGroundAction::MoveCreature => Action::MoveCreature {
+                                creature: agent.creature,
+                                destination: position_of(tile),
+                            },
+                        };
+                        (scores, action)
+                    }
+                });
             agent.thinking = thinking;
 
             if let Some(action) = action {
                 actions.push(action);
             }
-
-            // for set in behaviours.animals.iter() {
-            //     match set {
-            //         AnimalBehaviourSet::Crop { behaviours } => {
-            //             let (b, t, d) =
-            //                 consider_vec(&behaviours, &self.crops, |input, crop| match input {
-            //                     AnimalCropInput::Hunger => agent.hunger,
-            //                     AnimalCropInput::CropDistance => {
-            //                         crop.position.distance(agent.position) / 10.0
-            //                     }
-            //                     AnimalCropInput::CropNutritionValue => crop.growth / 5.0,
-            //                     AnimalCropInput::Constant => 1.0,
-            //                 });
-            //         }
-            //         AnimalBehaviourSet::Ground { behaviours } => {
-            //             let targets = vec![[0, 0]];
-            //             for behaviour in behaviours {}
-            //         }
-            //     }
-            // }
-            //
-            // // consider between behaviours in one type group
-            // let (b, t, d) =
-            //     consider_vec(
-            //         &behaviours.animal_crop,
-            //         &self.crops,
-            //         |input, crop| match input {
-            //             AnimalCropInput::Hunger => agent.hunger,
-            //             AnimalCropInput::CropDistance => {
-            //                 crop.position.distance(agent.position) / 10.0
-            //             }
-            //             AnimalCropInput::CropNutritionValue => crop.growth / 5.0,
-            //             AnimalCropInput::Constant => 1.0,
-            //         },
-            //     );
-            //
-            // let action = behaviours.animal_crop[b].decisions[d].action;
-            // let crop = self.crops[t].entity;
-            // match action {
-            //     AnimalCropAction::EatCrop => actions.push(Action::EatCrop {
-            //         crop,
-            //         creature: agent.creature,
-            //     }),
-            //     AnimalCropAction::Nothing => {}
-            // }
-            //
-            // for behaviour in &behaviours.animal_crop {
-            //     let (target, best) =
-            //         consider(
-            //             &behaviour.decisions,
-            //             &self.crops,
-            //             |input, crop| match input {
-            //                 AnimalCropInput::Hunger => agent.hunger,
-            //                 AnimalCropInput::CropDistance => {
-            //                     crop.position.distance(agent.position) / 10.0
-            //                 }
-            //                 AnimalCropInput::CropNutritionValue => crop.growth / 5.0,
-            //                 AnimalCropInput::Constant => 1.0,
-            //             },
-            //         );
-            //     let action = behaviour.decisions[best].action;
-            //     let crop = self.crops[target].entity;
-            //     match action {
-            //         AnimalCropAction::EatCrop => actions.push(Action::EatCrop {
-            //             crop,
-            //             creature: agent.creature,
-            //         }),
-            //         AnimalCropAction::Nothing => {}
-            //     }
-            // }
-            // for behaviour in &behaviours.animal_ground {
-            //     let grounds = vec![[0, 0]];
-            //     let (target, best) =
-            //         consider(&behaviour.decisions, &grounds, |input, tile| match input {
-            //             AnimalGroundInput::Random { .. } => 1.0,
-            //             AnimalGroundInput::Distance => 1.0,
-            //         });
-            //     let action = behaviour.decisions[best].action;
-            //     let ground = grounds[target];
-            //     match action {
-            //         AnimalGroundAction::MoveCreature => actions.push(Action::MoveCreature {
-            //             creature: agent.creature,
-            //             destination: position_of(ground),
-            //         }),
-            //     }
-            // }
         }
         for agent in self.invaser_agents.iter_mut() {
             for behaviour in &behaviours.invaser_animal {
@@ -590,7 +629,7 @@ impl Nature {
             .collect()
     }
 
-    pub fn get_creature_agent(&mut self, id: usize) -> Option<&CreatureAgent> {
+    pub fn get_creature_agent(&self, id: usize) -> Option<&CreatureAgent> {
         self.creature_agents
             .iter()
             .find(|agent| agent.creature.id == id)

@@ -201,7 +201,7 @@ impl Gameplay {
                     bounds,
                 });
             }
-            Physics::BarrierDestroyed { id } => {
+            Physics::BarrierDestroyed { id, .. } => {
                 if let Some(index) = self.barriers.iter().position(|barrier| barrier.id == id) {
                     self.barriers.remove(index);
                 }
@@ -335,18 +335,6 @@ impl Gameplay {
                 info!("Vanish farmer {:?}", id);
                 self.farmers.remove(&id);
             }
-            Universe::BarrierHintAppeared {
-                id,
-                kind,
-                position,
-                bounds,
-            } => {
-                self.barriers.push(BarrierHint {
-                    id,
-                    position,
-                    bounds,
-                });
-            }
             Universe::DropAppeared { drop, position } => {
                 info!("Appear drop {:?} at {:?}", drop, position,);
                 self.drops.insert(
@@ -387,7 +375,9 @@ impl Gameplay {
             }
             Universe::CreatureAppeared {
                 entity,
+                space,
                 health,
+                hunger,
                 position,
             } => {
                 let kind = self.known.creatures.get(entity.key).unwrap();

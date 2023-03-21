@@ -5,15 +5,24 @@ pub enum Procedure {
     GetAgentThinking { id: usize },
     GetAgents {},
     GetBehaviours {},
-    GetViews {},
+    GetViews { id: usize },
     SaveBehaviours { behaviours: Behaviours },
 }
 
 #[derive(serde::Serialize)]
 pub enum ProcedureResult {
-    GetAgentThinking { animal_crop: Thinking },
-    GetAgents { creatures: Vec<usize> },
-    GetBehaviours { behaviours: Behaviours },
-    GetViews { crops: Vec<usize> },
+    GetAgentThinking {
+        thinking: Thinking,
+    },
+    GetAgents {
+        creatures: Vec<usize>,
+    },
+    GetBehaviours {
+        behaviours: Behaviours,
+    },
+    GetViews {
+        crops: Vec<usize>,
+        tiles: Vec<[usize; 2]>,
+    },
     SaveBehaviours {},
 }

@@ -26,7 +26,7 @@ pub fn serve_web_socket(nature: Arc<RwLock<Nature>>) {
                     GetAgentThinking { id } => handlers::get_agent_thinking(nature, id),
                     GetAgents { .. } => handlers::get_agents(nature),
                     GetBehaviours { .. } => handlers::get_behaviours(),
-                    GetViews { .. } => handlers::get_views(nature),
+                    GetViews { id } => handlers::get_views(id, nature),
                     SaveBehaviours { behaviours } => handlers::save_behaviours(behaviours),
                 };
                 let message = match result {

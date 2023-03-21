@@ -69,12 +69,6 @@ pub enum Universe {
         farmer: Farmer,
         activity: Activity,
     },
-    BarrierHintAppeared {
-        id: BarrierId,
-        kind: BarrierKey,
-        position: [f32; 2],
-        bounds: [f32; 2],
-    },
     TreeAppeared {
         tree: Tree,
         position: [f32; 2],
@@ -113,7 +107,9 @@ pub enum Universe {
     CropVanished(Crop),
     CreatureAppeared {
         entity: Creature,
+        space: SpaceId,
         health: f32,
+        hunger: f32,
         position: [f32; 2],
     },
     CreatureEats {

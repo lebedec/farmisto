@@ -127,6 +127,8 @@ pub enum Physics {
     },
     BarrierDestroyed {
         id: BarrierId,
+        space: SpaceId,
+        position: [f32; 2],
     },
     SpaceUpdated {
         id: SpaceId,
