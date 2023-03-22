@@ -2,6 +2,7 @@ use crate::{Behaviours, Thinking};
 
 #[derive(serde::Deserialize)]
 pub enum Procedure {
+    GetAgentInfo {id: usize },
     GetAgentThinking { id: usize },
     GetAgents {},
     GetBehaviours {},
@@ -11,6 +12,13 @@ pub enum Procedure {
 
 #[derive(serde::Serialize)]
 pub enum ProcedureResult {
+    GetAgentInfo {
+        thinking: Thinking,
+        crops: Vec<usize>,
+        tiles: Vec<[usize; 2]>,
+        position: [f32; 2],
+        radius: usize
+    },
     GetAgentThinking {
         thinking: Thinking,
     },

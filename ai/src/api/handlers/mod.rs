@@ -1,3 +1,4 @@
+pub use get_agent_info::*;
 pub use get_agent_thinking::*;
 pub use get_agents::*;
 pub use get_behaviours::*;
@@ -9,3 +10,4 @@ mod get_agents;
 mod get_behaviours;
 mod get_views;
 mod save_behaviours;
+mod get_agent_info;
