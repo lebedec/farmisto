@@ -278,7 +278,7 @@ impl Gameplay {
                         }
 
                         // exp
-                        if neighbors == Neighbors::WE && line[x - 1].door {
+                        if neighbors == Neighbors::WE && x > 1 && line[x - 1].door {
                             tile = &tileset[20];
                             if is_half {
                                 tile = &tileset[23];
@@ -455,7 +455,7 @@ impl Gameplay {
             renderer.render_animal(
                 &creature.spine,
                 &creature.asset.coloration,
-                rendering_position_of(creature.rendering_position)
+                rendering_position_of(creature.rendering_position),
             );
         }
 

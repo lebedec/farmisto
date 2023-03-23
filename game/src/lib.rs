@@ -99,7 +99,6 @@ impl Game {
         action: Action,
     ) -> Result<Vec<Event>, ActionError> {
         let events = match action {
-            Action::Nothing => vec![],
             Action::EatCrop { creature, crop } => self.eat_crop(creature, crop)?,
             Action::MoveCreature {
                 creature,

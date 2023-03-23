@@ -1,8 +1,10 @@
+use crate::decision_making::DecisionRef;
 use crate::{Behaviours, Thinking};
+use std::collections::HashMap;
 
 #[derive(serde::Deserialize)]
 pub enum Procedure {
-    GetAgentInfo {id: usize },
+    GetAgentInfo { id: usize },
     GetAgentThinking { id: usize },
     GetAgents {},
     GetBehaviours {},
@@ -17,7 +19,8 @@ pub enum ProcedureResult {
         crops: Vec<usize>,
         tiles: Vec<[usize; 2]>,
         position: [f32; 2],
-        radius: usize
+        radius: usize,
+        history: HashMap<String, u64>,
     },
     GetAgentThinking {
         thinking: Thinking,

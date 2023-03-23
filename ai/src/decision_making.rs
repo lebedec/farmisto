@@ -34,35 +34,55 @@ where
 #[derive(Default, Clone, serde::Serialize)]
 pub struct Thinking {
     pub reasons: HashMap<String, f32>,
-    pub current_set: usize,
+    pub best_set: usize,
+    pub best_behaviour: usize,
+    pub best_decision: usize,
 }
 
 impl Thinking {
     pub fn reason(&mut self, key: String, score: f32) {
-        let set = self.current_set;
-        self.reasons.insert(format!("{set}:{key}"), score);
+        self.reasons.insert(key, score);
     }
 }
 
-pub fn make_decision<S, C, A>(behaviour_sets: &Vec<S>, consider: C) -> (Option<A>, Thinking)
+pub enum Choice<A, T> {
+    Nothing,
+    Action(A),
+    Tuning(T),
+}
+
+pub type DecisionRef = [usize; 3];
+
+pub fn make_decision<S, C, A, T>(
+    behaviour_sets: &Vec<S>,
+    consider: C,
+) -> (Choice<A, T>, DecisionRef, Thinking)
 where
-    C: Fn(&S, &mut Thinking) -> (f32, A),
+    C: Fn(usize, &S, &mut Thinking) -> (f32, usize, usize, Choice<A, T>),
 {
     let mut thinking = Thinking::default();
-    let mut best_action = None;
+    let mut best_action = Choice::Nothing;
     let mut best_action_scores = 0.0;
+    let mut best_set = 0;
+    let mut best_behaviour = 0;
+    let mut best_decision = 0;
     for (set_index, set) in behaviour_sets.iter().enumerate() {
-        thinking.current_set = set_index;
-        let (scores, action) = consider(set, &mut thinking);
+        let (scores, behaviour_index, decision_index, action) =
+            consider(set_index, set, &mut thinking);
         if scores > best_action_scores {
-            best_action = Some(action);
+            best_action = action;
             best_action_scores = scores;
+            best_set = set_index;
+            best_behaviour = behaviour_index;
+            best_decision = decision_index;
         }
     }
-    (best_action, thinking)
+    let decision_ref = [best_set, best_behaviour, best_decision];
+    (best_action, decision_ref, thinking)
 }
 
 pub fn consider<I, T, F, A>(
+    set_index: usize,
     behaviours: &Vec<Behaviour<Decision<I, A>>>,
     targets: &Vec<T>,
     input: F,
@@ -71,7 +91,7 @@ pub fn consider<I, T, F, A>(
 where
     A: Copy + Sized + Debug + Serialize,
     I: Copy + Sized + Serialize,
-    F: Fn(I, &T) -> f32,
+    F: Fn(DecisionRef, I, &T) -> f32,
 {
     let mut best_behaviour = 0;
     let mut best_behaviour_decision = 0;
@@ -87,12 +107,15 @@ where
             for (decision_index, decision) in behaviour.decisions.iter().enumerate() {
                 let mut scores = 1.0;
                 for (index, consideration) in decision.considerations.iter().enumerate() {
-                    let x = input(consideration.input, target);
+                    let decision_ref = [set_index, behaviour_index, decision_index];
+                    let x = input(decision_ref, consideration.input, target);
+                    let x = x.clamp(0.0, 1.0);
                     let score = consideration.curve.respond(x);
                     {
                         // TODO: exclude from release build
-                        let key =
-                            format!("{behaviour_index}:{target_index}:{decision_index}:{index}");
+                        let key = format!(
+                            "{set_index}:{behaviour_index}:{target_index}:{decision_index}:{index}"
+                        );
                         thinking.reason(key, x);
                     }
                     scores *= score;

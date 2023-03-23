@@ -1,21 +1,22 @@
-use std::cell::RefCell;
 use std::collections::HashMap;
-use std::fmt::{format, Debug};
+use std::fmt::Debug;
 use std::sync::{Arc, RwLock};
 use std::thread;
 use std::time::{Duration, Instant};
 
 use log::{error, info};
 use rand::{thread_rng, Rng};
-use serde::Serialize;
 
-use crate::api::serve_web_socket;
-use crate::decision_making::{consider, make_decision, Behaviour, Decision, Thinking};
 use game::api::{Action, Event, GameResponse, PlayerRequest};
 use game::math::VectorMath;
 use game::model::{Creature, Crop, Universe};
 use game::physics::{Physics, SpaceId};
 use network::TcpClient;
+
+use crate::api::serve_web_socket;
+use crate::decision_making::{
+    consider, make_decision, Behaviour, Choice, Decision, DecisionRef, Thinking,
+};
 
 mod api;
 mod decision_making;
@@ -28,7 +29,6 @@ impl AiThread {
             crops: vec![],
             creatures: vec![],
             creature_agents: vec![],
-            invaser_agents: vec![],
             tiles: Default::default(),
         };
         let nature_lock = Arc::new(RwLock::new(nature));
@@ -43,12 +43,6 @@ impl AiThread {
                     let events = handle_server_responses(&mut client);
                     nature.perceive(events);
                     for action in nature.react(&behaviours.read().unwrap()) {
-                        match action {
-                            Action::Nothing => {
-                                continue;
-                            }
-                            _ => {}
-                        }
                         info!("AI sends id={} {:?}", action_id, action);
                         client.send(PlayerRequest::Perform { action, action_id });
                         action_id += 1;
@@ -110,6 +104,7 @@ pub struct CreatureAgent {
     space: SpaceId,
     hunger: f32,
     mindset: Vec<String>,
+    history: HashMap<DecisionRef, Instant>,
     thinking: Thinking,
     position: [f32; 2],
     radius: usize,
@@ -120,28 +115,14 @@ pub struct AgentRef {
     id: usize,
 }
 
-pub struct InvaserAgent {
-    mindset: Vec<String>,
-}
-
-impl InvaserAgent {
-    pub fn consider(
-        &self,
-        decisions: &Vec<InvaserAnimalDecision>,
-        creatures: &Vec<CreatureView>,
-    ) -> (usize, InvaserAnimalAction) {
-        (0, InvaserAnimalAction::Bite)
-    }
-}
-
 #[derive(Debug, Copy, Clone, serde::Serialize, serde::Deserialize)]
-pub enum AnimalCropAction {
+pub enum CreatureCropAction {
     Nothing,
     EatCrop,
 }
 
 #[derive(Debug, Copy, Clone, serde::Serialize, serde::Deserialize)]
-pub enum AnimalCropInput {
+pub enum CreatureCropInput {
     Constant,
     Hunger,
     CropDistance,
@@ -149,47 +130,36 @@ pub enum AnimalCropInput {
 }
 
 #[derive(Debug, Copy, Clone, serde::Serialize, serde::Deserialize)]
-pub enum AnimalGroundAction {
+pub enum CreatureGroundAction {
     MoveCreature,
+    Delay { min: f32, max: f32 },
 }
 
 #[derive(Debug, Copy, Clone, serde::Serialize, serde::Deserialize)]
-pub enum AnimalGroundInput {
+pub enum CreatureGroundInput {
     Constant,
-    Random { min: f32, max: f32 },
-    Cooldown(usize),
+    Random,
+    Cooldown(f32, f32),
     Distance,
 }
 
-#[derive(Debug, Copy, Clone, serde::Serialize, serde::Deserialize)]
-pub enum InvaserAnimalAction {
-    Bite,
-}
-
-#[derive(serde::Serialize, serde::Deserialize)]
-pub enum InvaserAnimalInput {
-    AnimalDistance,
-}
-
-type AnimalCropDecision = Decision<AnimalCropInput, AnimalCropAction>;
-type AnimalGroundDecision = Decision<AnimalGroundInput, AnimalGroundAction>;
-type InvaserAnimalDecision = Decision<InvaserAnimalInput, InvaserAnimalAction>;
+type CreatureCropDecision = Decision<CreatureCropInput, CreatureCropAction>;
+type CreatureGroundDecision = Decision<CreatureGroundInput, CreatureGroundAction>;
 
 #[derive(serde::Serialize, serde::Deserialize)]
 pub struct Behaviours {
-    invaser_animal: Vec<Behaviour<InvaserAnimalDecision>>,
-    animals: Vec<AnimalBehaviourSet>,
+    creatures: Vec<CreatureBehaviourSet>,
 }
 
 #[derive(serde::Serialize, serde::Deserialize)]
-pub enum AnimalBehaviourSet {
+pub enum CreatureBehaviourSet {
     Crop {
         name: String,
-        behaviours: Vec<Behaviour<AnimalCropDecision>>,
+        behaviours: Vec<Behaviour<CreatureCropDecision>>,
     },
     Ground {
         name: String,
-        behaviours: Vec<Behaviour<AnimalGroundDecision>>,
+        behaviours: Vec<Behaviour<CreatureGroundDecision>>,
     },
 }
 
@@ -199,13 +169,28 @@ struct Tile {
     has_barrier: bool,
 }
 
+pub enum Tuning {
+    Delay { behaviour: usize },
+}
+
+impl Into<Choice<Action, Tuning>> for Tuning {
+    fn into(self) -> Choice<Action, Tuning> {
+        Choice::Tuning(self)
+    }
+}
+
+impl Into<Choice<Action, Tuning>> for Action {
+    fn into(self) -> Choice<Action, Tuning> {
+        Choice::Action(self)
+    }
+}
+
 pub struct Nature {
     // game view
     crops: Vec<CropView>,
     creatures: Vec<CreatureView>,
     // agents
     creature_agents: Vec<CreatureAgent>,
-    invaser_agents: Vec<InvaserAgent>,
     tiles: HashMap<SpaceId, Vec<Vec<Tile>>>,
 }
 
@@ -253,7 +238,6 @@ impl Nature {
                             Universe::ItemsAppeared { .. } => {}
                             Universe::CreatureAppeared {
                                 entity,
-                                health,
                                 position,
                                 hunger,
                                 space,
@@ -265,12 +249,13 @@ impl Nature {
                                     space,
                                     hunger,
                                     mindset: vec![],
+                                    history: Default::default(),
                                     thinking: Thinking::default(),
                                     position,
                                     radius: 5,
                                 })
                             }
-                            Universe::CreatureEats { entity } => {}
+                            Universe::CreatureEats { .. } => {}
                             Universe::CreatureVanished(_) => {}
                         }
                     }
@@ -287,10 +272,7 @@ impl Nature {
                                 }
                             }
                             Physics::BarrierCreated {
-                                space,
-                                id,
-                                position,
-                                bounds,
+                                space, position, ..
                             } => {
                                 let tiles = self.tiles.get_mut(&space).unwrap();
                                 let [x, y] = position.to_tile();
@@ -298,9 +280,7 @@ impl Nature {
                                 tiles[y][x].has_barrier = true;
                             }
                             Physics::BarrierDestroyed {
-                                id,
-                                position,
-                                space,
+                                position, space, ..
                             } => {
                                 let tiles = self.tiles.get_mut(&space).unwrap();
                                 let [x, y] = position.to_tile();
@@ -374,34 +354,37 @@ impl Nature {
     pub fn react(&mut self, behaviours: &Behaviours) -> Vec<Action> {
         let mut actions = vec![];
         for agent in self.creature_agents.iter_mut() {
-            let (action, thinking) =
-                make_decision(&behaviours.animals, |set, thinking| match set {
-                    AnimalBehaviourSet::Crop { behaviours, .. } => {
+            let (choice, decision, thinking) = make_decision(
+                &behaviours.creatures,
+                |set_index, set, thinking| match set {
+                    CreatureBehaviourSet::Crop { behaviours, .. } => {
                         let (b, t, d, scores) = consider(
+                            set_index,
                             &behaviours,
                             &self.crops,
-                            |input, crop| match input {
-                                AnimalCropInput::Hunger => agent.hunger,
-                                AnimalCropInput::CropDistance => {
+                            |_, input, crop| match input {
+                                CreatureCropInput::Hunger => agent.hunger,
+                                CreatureCropInput::CropDistance => {
                                     crop.position.distance(agent.position) / 10.0
                                 }
-                                AnimalCropInput::CropNutritionValue => crop.growth / 5.0,
-                                AnimalCropInput::Constant => 0.0,
+                                CreatureCropInput::CropNutritionValue => crop.growth / 5.0,
+                                CreatureCropInput::Constant => 0.0,
                             },
                             thinking,
                         );
                         let action = behaviours[b].decisions[d].action;
                         let crop = self.crops[t].entity;
-                        let action = match action {
-                            AnimalCropAction::EatCrop => Action::EatCrop {
+                        let choice = match action {
+                            CreatureCropAction::EatCrop => Action::EatCrop {
                                 crop,
                                 creature: agent.creature,
-                            },
-                            AnimalCropAction::Nothing => Action::Nothing,
+                            }
+                            .into(),
+                            CreatureCropAction::Nothing => Choice::Nothing,
                         };
-                        (scores, action)
+                        (scores, b, d, choice)
                     }
-                    AnimalBehaviourSet::Ground { behaviours, .. } => {
+                    CreatureBehaviourSet::Ground { behaviours, .. } => {
                         let game_tiles = self.tiles.get(&agent.space).unwrap();
                         let targets = Self::get_empty_tiles(
                             game_tiles,
@@ -409,15 +392,22 @@ impl Nature {
                             agent.radius,
                         );
                         let (b, t, d, scores) = consider(
+                            set_index,
                             &behaviours,
                             &targets,
-                            |input, tile| match input {
-                                AnimalGroundInput::Constant => 0.0,
-                                AnimalGroundInput::Random { min, max } => {
-                                    thread_rng().gen_range(min..max)
+                            |decision, input, tile| match input {
+                                CreatureGroundInput::Constant => 1.0,
+                                CreatureGroundInput::Random => thread_rng().gen_range(0.0..=1.0),
+                                CreatureGroundInput::Cooldown(start, end) => {
+                                    let delta = end - start;
+                                    let elapsed = agent
+                                        .history
+                                        .get(&decision)
+                                        .map(|time| time.elapsed().as_secs_f32())
+                                        .unwrap_or(end);
+                                    (elapsed - start) / delta
                                 }
-                                AnimalGroundInput::Cooldown(_) => 1.0,
-                                AnimalGroundInput::Distance => {
+                                CreatureGroundInput::Distance => {
                                     agent.position.distance(position_of(*tile)) / 10.0
                                 }
                             },
@@ -425,29 +415,42 @@ impl Nature {
                         );
                         let action = behaviours[b].decisions[d].action;
                         let tile = targets[t];
-                        let action = match action {
-                            AnimalGroundAction::MoveCreature => Action::MoveCreature {
+                        let choice = match action {
+                            CreatureGroundAction::MoveCreature => Action::MoveCreature {
                                 creature: agent.creature,
                                 destination: position_of(tile),
-                            },
+                            }
+                            .into(),
+                            CreatureGroundAction::Delay { .. } => {
+                                Tuning::Delay { behaviour: b }.into()
+                            }
                         };
-                        (scores, action)
+                        (scores, b, d, choice)
                     }
-                });
-            agent.thinking = thinking;
+                },
+            );
 
-            if let Some(action) = action {
-                actions.push(action);
-            }
-        }
-        for agent in self.invaser_agents.iter_mut() {
-            for behaviour in &behaviours.invaser_animal {
-                let (animal, action) = agent.consider(&behaviour.decisions, &self.creatures);
-                match action {
-                    InvaserAnimalAction::Bite => {}
+            agent.thinking = thinking;
+            agent.history.insert(decision, Instant::now());
+
+            match choice {
+                Choice::Nothing => {}
+                Choice::Action(action) => {
+                    actions.push(action);
                 }
+                Choice::Tuning(tuning) => match tuning {
+                    Tuning::Delay { behaviour } => {}
+                },
             }
         }
+        // for agent in self.invaser_agents.iter_mut() {
+        //     for behaviour in &behaviours.invaser_animal {
+        //         let (animal, action) = agent.consider(&behaviour.decisions, &self.creatures);
+        //         match action {
+        //             InvaserCreatureAction::Bite => {}
+        //         }
+        //     }
+        // }
         actions
     }
 
