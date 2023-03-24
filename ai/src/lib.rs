@@ -218,8 +218,8 @@ impl Nature {
                             Universe::FarmlandVanished(_) => {}
                             Universe::FarmerAppeared { .. } => {}
                             Universe::FarmerVanished(_) => {}
-                            Universe::DropAppeared { .. } => {}
-                            Universe::DropVanished(_) => {}
+                            Universe::StackAppeared { .. } => {}
+                            Universe::StackVanished(_) => {}
                             Universe::CropAppeared {
                                 entity,
                                 growth,

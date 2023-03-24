@@ -247,7 +247,7 @@ create table Farmer
     backpack integer not null references Container
 );
 
-create table "Drop"
+create table Stack
 (
     id        integer primary key,
     container integer not null references Container,

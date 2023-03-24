@@ -14,7 +14,7 @@ use game::inventory::{
     Container, ContainerId, ContainerKey, ContainerKind, InventoryDomain, Item, ItemId, ItemKey,
 };
 use game::math::VectorMath;
-use game::model::{Construction, Drop, Farmer, Farmland, Player, PlayerId, Theodolite};
+use game::model::{Construction, Farmer, Farmland, Player, PlayerId, Stack, Theodolite};
 use game::physics::{
     Barrier, BarrierId, BarrierKey, BarrierKind, Body, BodyId, BodyKey, BodyKind, Physics,
     PhysicsDomain, PhysicsError, Space, SpaceId, SpaceKey, SpaceKind,
@@ -50,7 +50,7 @@ pub struct GameTestScenario {
     debug: Option<fn(Self) -> Self>,
     farmlands: HashMap<String, Farmland>,
     farmers: HashMap<String, Farmer>,
-    drops: HashMap<String, Drop>,
+    drops: HashMap<String, Stack>,
     theodolites: HashMap<String, Theodolite>,
     constructions: HashMap<String, Construction>,
     containers: HashMap<String, ContainerId>,
@@ -135,7 +135,7 @@ impl GameTestScenario {
         self
     }
 
-    pub fn drop(&self, name: &str) -> Drop {
+    pub fn drop(&self, name: &str) -> Stack {
         self.drops.get(name).unwrap().clone()
     }
 
@@ -378,13 +378,13 @@ impl GameTestScenario {
             .physics
             .load_barriers(vec![barrier_component], barrier.0);
 
-        let id = self.game.universe.drops_id + 1;
-        let drop = Drop {
+        let id = self.game.universe.stacks_id + 1;
+        let drop = Stack {
             id,
             container,
             barrier,
         };
-        self.game.universe.load_drops(vec![drop], id);
+        self.game.universe.load_stacks(vec![drop], id);
         self.drops.insert(drop_name.to_string(), drop);
         self.containers
             .insert(drop_name.to_string(), drop.container);

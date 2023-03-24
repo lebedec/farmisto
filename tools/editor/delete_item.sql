@@ -1,0 +1,1 @@
+delete from Item where id = :id;

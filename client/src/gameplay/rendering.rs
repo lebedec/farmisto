@@ -373,13 +373,13 @@ impl Gameplay {
             );
         }
 
-        for drop in self.drops.values() {
-            let sprite_line = drop.position[1] as usize;
-            let position = rendering_position_of(drop.position);
-            renderer.render_sprite(&self.drop_sprite, position, sprite_line, 1.0);
+        for stack in self.stacks.values() {
+            let sprite_line = stack.position[1] as usize;
+            let position = rendering_position_of(stack.position);
+            renderer.render_sprite(&self.stack_sprite, position, sprite_line, 1.0);
             for (i, item) in self
                 .items
-                .get(&drop.entity.container)
+                .get(&stack.entity.container)
                 .unwrap()
                 .values()
                 .enumerate()
@@ -398,7 +398,7 @@ impl Gameplay {
             let sprite_line = construction.tile[1];
             let position = position_of(construction.tile);
             let position = rendering_position_of(position);
-            renderer.render_sprite(&self.drop_sprite, position, sprite_line, 1.0);
+            renderer.render_sprite(&self.stack_sprite, position, sprite_line, 1.0);
             for (i, item) in self
                 .items
                 .entry(construction.entity.container)

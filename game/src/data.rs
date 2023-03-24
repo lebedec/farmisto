@@ -8,9 +8,9 @@ use crate::inventory::{
     Container, ContainerId, ContainerKey, ContainerKind, Item, ItemId, ItemKey, ItemKind,
 };
 use crate::model::{
-    Construction, Creature, CreatureKey, CreatureKind, Crop, CropKey, CropKind, Drop, Equipment,
+    Construction, Creature, CreatureKey, CreatureKind, Crop, CropKey, CropKind, Equipment,
     EquipmentKey, EquipmentKind, Farmer, FarmerKey, FarmerKind, Farmland, FarmlandKey,
-    FarmlandKind, Player, PlayerId, Purpose, PurposeDescription, Tree, TreeKey, TreeKind,
+    FarmlandKind, Player, PlayerId, Purpose, PurposeDescription, Stack, Tree, TreeKey, TreeKind,
 };
 use crate::physics::{
     Barrier, BarrierId, BarrierKey, BarrierKind, Body, BodyId, BodyKey, BodyKind, Sensor, SensorId,
@@ -138,8 +138,8 @@ impl Game {
         self.universe.load_farmlands(farmlands, farmlands_id);
         let (farmers, farmers_id) = storage.get_sequence(|row| self.load_farmer(row))?;
         self.universe.load_farmers(farmers, farmers_id);
-        let (drops, drops_id) = storage.get_sequence(|row| self.load_drop(row))?;
-        self.universe.load_drops(drops, drops_id);
+        let (stacks, stacks_id) = storage.get_sequence(|row| self.load_stack(row))?;
+        self.universe.load_stacks(stacks, stacks_id);
         let (constructions, id) = storage.get_sequence(|row| self.load_construction(row))?;
         self.universe.load_constructions(constructions, id);
         let (equipments, id) = storage.get_sequence(|row| self.load_equipment(row))?;
@@ -329,8 +329,8 @@ impl Game {
         Ok(data)
     }
 
-    pub(crate) fn load_drop(&mut self, row: &rusqlite::Row) -> Result<Drop, DataError> {
-        let data = Drop {
+    pub(crate) fn load_stack(&mut self, row: &rusqlite::Row) -> Result<Stack, DataError> {
+        let data = Stack {
             id: row.get("id")?,
             barrier: BarrierId(row.get("barrier")?),
             container: ContainerId(row.get("container")?),

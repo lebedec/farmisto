@@ -1,7 +1,7 @@
 use crate::building::{Building, BuildingError, Marker, SurveyorId};
 use crate::inventory::{Inventory, InventoryError, ItemId};
 use crate::model::{
-    Activity, Construction, Creature, Crop, Drop, Equipment, EquipmentKey, Farmer, Universe,
+    Activity, Construction, Creature, Crop, Equipment, EquipmentKey, Farmer, Stack, Universe,
     UniverseError,
 };
 use crate::physics::{Physics, PhysicsError};
@@ -103,13 +103,13 @@ pub enum FarmerBound {
         construction: Construction,
     },
     TakeItem {
-        drop: Drop,
+        stack: Stack,
     },
     DropItem {
         tile: [usize; 2],
     },
     PutItem {
-        drop: Drop,
+        stack: Stack,
     },
     PlantCrop {
         tile: [usize; 2],

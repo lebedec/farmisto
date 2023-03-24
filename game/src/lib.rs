@@ -6,18 +6,19 @@ pub use domains::*;
 
 use crate::api::ActionError::{ConstructionContainsUnexpectedItem, PlayerFarmerNotFound};
 use crate::api::{Action, ActionError, ActionResponse, Event, FarmerBound};
+
 use crate::building::{BuildingDomain, GridId, Marker, Material, SurveyorId};
-use crate::inventory::{Function, InventoryDomain, InventoryError, Item, ItemId};
-use crate::math::VectorMath;
+use crate::inventory::{ContainerId, Function, InventoryDomain, InventoryError, Item, ItemId};
+use crate::math::{Collider, VectorMath};
 use crate::model::Activity::Idle;
-use crate::model::{Activity, Creature, CreatureKey, Crop, CropKey, Drop};
+use crate::model::{Activity, Creature, CreatureKey, Crop, CropKey, Stack};
 use crate::model::{Construction, Farmer, Universe};
 use crate::model::{Equipment, ItemRep};
 use crate::model::{EquipmentKey, PurposeDescription, UniverseDomain};
 use crate::model::{Farmland, Knowledge};
 use crate::model::{Player, Purpose};
 use crate::model::{UniverseError, UniverseSnapshot};
-use crate::physics::{BarrierId, BodyId, PhysicsDomain, SensorId};
+use crate::physics::{BarrierId, BodyId, Physics, PhysicsDomain, SensorId};
 use crate::planting::{PlantId, PlantingDomain};
 use crate::raising::{AnimalId, RaisingDomain};
 
@@ -136,9 +137,9 @@ impl Game {
                     FarmerBound::RemoveConstruction { construction } => {
                         self.remove_construction(*farmer, farmland, construction)?
                     }
-                    FarmerBound::TakeItem { drop } => self.take_item(*farmer, drop)?,
-                    FarmerBound::DropItem { tile } => self.drop_item(*farmer, tile)?,
-                    FarmerBound::PutItem { drop } => self.put_item(*farmer, drop)?,
+                    FarmerBound::TakeItem { stack } => self.take_item(*farmer, stack)?,
+                    FarmerBound::DropItem { tile } => self.stack_item(*farmer, tile)?,
+                    FarmerBound::PutItem { stack } => self.put_item(*farmer, stack)?,
                     FarmerBound::TakeMaterial { construction } => {
                         self.take_material(*farmer, construction)?
                     }
@@ -432,15 +433,12 @@ impl Game {
                     self.physics
                         .create_barrier(farmland.space, kind, position, false)?;
                 let purpose = Purpose::Surveying { surveyor };
-                let appear_equipment =
-                    self.universe
-                        .appear_equipment(equipment_kind.id, purpose, barrier, position);
                 let change_activity = self.universe.change_activity(farmer, Activity::Idle);
                 let events = occur![
                     use_item(),
                     create_surveyor(),
                     create_barrier(),
-                    appear_equipment,
+                    self.appear_equipment(equipment_kind.id, purpose, barrier),
                     change_activity,
                 ];
                 Ok(events)
@@ -474,21 +472,21 @@ impl Game {
         Ok(events)
     }
 
-    fn take_item(&mut self, farmer: Farmer, drop: Drop) -> Result<Vec<Event>, ActionError> {
-        let container = self.inventory.get_container(drop.container)?;
+    fn take_item(&mut self, farmer: Farmer, stack: Stack) -> Result<Vec<Event>, ActionError> {
+        let container = self.inventory.get_container(stack.container)?;
         let is_last_item = container.items.len() == 1;
-        let pop_item = self.inventory.pop_item(drop.container, farmer.hands)?;
+        let pop_item = self.inventory.pop_item(stack.container, farmer.hands)?;
         let mut events = vec![pop_item().into()];
 
         if is_last_item {
             let destroy_container = self
                 .inventory
-                .destroy_containers(vec![drop.container], false)?;
-            let destroy_barrier = self.physics.destroy_barrier(drop.barrier)?;
+                .destroy_containers(vec![stack.container], false)?;
+            let destroy_barrier = self.physics.destroy_barrier(stack.barrier)?;
             events.extend([
                 destroy_container().into(),
                 destroy_barrier().into(),
-                self.universe.vanish_drop(drop).into(),
+                self.universe.vanish_stack(stack).into(),
             ])
         }
 
@@ -501,10 +499,10 @@ impl Game {
         Ok(events)
     }
 
-    fn put_item(&mut self, farmer: Farmer, drop: Drop) -> Result<Vec<Event>, ActionError> {
+    fn put_item(&mut self, farmer: Farmer, stack: Stack) -> Result<Vec<Event>, ActionError> {
         let hands = self.inventory.get_container(farmer.hands)?;
         let is_last_item = hands.items.len() <= 1;
-        let transfer = self.inventory.pop_item(farmer.hands, drop.container)?;
+        let transfer = self.inventory.pop_item(farmer.hands, stack.container)?;
         let activity = if is_last_item {
             self.universe.change_activity(farmer, Activity::Idle)
         } else {
@@ -514,7 +512,7 @@ impl Game {
         Ok(events)
     }
 
-    fn drop_item(&mut self, farmer: Farmer, tile: [usize; 2]) -> Result<Vec<Event>, ActionError> {
+    fn stack_item(&mut self, farmer: Farmer, tile: [usize; 2]) -> Result<Vec<Event>, ActionError> {
         let hands = self.inventory.get_container(farmer.hands)?;
         let is_last_item = hands.items.len() <= 1;
         let body = self.physics.get_body(farmer.body)?;
@@ -536,7 +534,7 @@ impl Game {
         let events = occur![
             create_barrier(),
             extract_item(),
-            self.universe.appear_drop(container, barrier, position),
+            self.appear_stack(container, barrier),
             activity,
         ];
         Ok(events)
@@ -747,6 +745,50 @@ impl Game {
         }
     }
 
+    pub fn appear_stack(&mut self, container: ContainerId, barrier: BarrierId) -> Universe {
+        self.universe.stacks_id += 1;
+        let stack = Stack {
+            id: self.universe.stacks_id,
+            container,
+            barrier,
+        };
+        self.universe.stacks.push(stack);
+        self.look_at_stack(stack)
+    }
+
+    pub fn look_at_stack(&self, stack: Stack) -> Universe {
+        let barrier = self.physics.get_barrier(stack.barrier).unwrap();
+        Universe::StackAppeared {
+            stack,
+            position: barrier.position,
+        }
+    }
+
+    pub fn appear_equipment(
+        &mut self,
+        kind: EquipmentKey,
+        purpose: Purpose,
+        barrier: BarrierId,
+    ) -> Universe {
+        self.universe.equipments_id += 1;
+        let equipment = Equipment {
+            id: self.universe.equipments_id,
+            kind,
+            purpose,
+            barrier,
+        };
+        self.universe.equipments.push(equipment);
+        self.look_at_equipment(equipment)
+    }
+
+    pub fn look_at_equipment(&self, entity: Equipment) -> Universe {
+        let barrier = self.physics.get_barrier(entity.barrier).unwrap();
+        Universe::EquipmentAppeared {
+            entity,
+            position: barrier.position,
+        }
+    }
+
     /// # Safety
     ///
     /// Relational database as source of data guarantees
@@ -819,12 +861,8 @@ impl Game {
         //     .map(Universe::FarmerVanished);
         // stream.extend(events);
 
-        for drop in &self.universe.drops {
-            let barrier = self.physics.get_barrier(drop.barrier).unwrap();
-            stream.push(Universe::DropAppeared {
-                drop: *drop,
-                position: barrier.position,
-            })
+        for stack in &self.universe.stacks {
+            stream.push(self.look_at_stack(*stack));
         }
 
         for construction in &self.universe.constructions {
@@ -843,11 +881,7 @@ impl Game {
         }
 
         for equipment in &self.universe.equipments {
-            let barrier = self.physics.get_barrier(equipment.barrier).unwrap();
-            stream.push(Universe::EquipmentAppeared {
-                entity: *equipment,
-                position: barrier.position,
-            })
+            stream.push(self.look_at_equipment(*equipment));
         }
 
         let mut items_appearance = vec![];
@@ -866,7 +900,19 @@ impl Game {
             items: items_appearance,
         });
 
-        vec![Event::Universe(stream)]
+        // client uses barrier hints to simulate physics locally to smooth network lag
+        // so, send information about all barriers like it just created
+        let barriers_hint = self.physics.barriers[1]
+            .iter()
+            .map(|barrier| Physics::BarrierCreated {
+                id: barrier.id,
+                space: barrier.space,
+                position: barrier.position,
+                bounds: barrier.kind.bounds,
+            })
+            .collect();
+
+        vec![Event::Universe(stream), Event::Physics(barriers_hint)]
     }
 
     pub fn load_game_full(&mut self) {

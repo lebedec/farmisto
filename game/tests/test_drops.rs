@@ -3,8 +3,8 @@ use game::api::ActionError;
 use game::inventory::ContainerId;
 use game::inventory::Inventory::{ContainerCreated, ItemAdded, ItemRemoved};
 use game::inventory::InventoryError::{ContainerIsFull, ItemNotFoundByIndex};
-use game::model::Drop;
-use game::model::Universe::DropAppeared;
+use game::model::Stack;
+use game::model::Universe::StackAppeared;
 use game::physics::BarrierId;
 use game::physics::Physics::BarrierCreated;
 use game::physics::PhysicsError::BarrierCreationOverlaps;
@@ -80,8 +80,8 @@ fn test_regular_drop_item() {
                     },
                 ]
                 .into(),
-                vec![DropAppeared {
-                    drop: Drop {
+                vec![StackAppeared {
+                    stack: Stack {
                         id: 1,
                         container: ContainerId(2),
                         barrier: BarrierId(1),

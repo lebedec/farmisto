@@ -53,8 +53,8 @@ pub struct UniverseDomain {
     pub farmers_activity: HashMap<Farmer, Activity>,
     pub constructions: Vec<Construction>,
     pub constructions_id: usize,
-    pub drops: Vec<Drop>,
-    pub drops_id: usize,
+    pub stacks: Vec<Stack>,
+    pub stacks_id: usize,
     pub equipments: Vec<Equipment>,
     pub equipments_id: usize,
     pub crops: Vec<Crop>,
@@ -89,11 +89,11 @@ pub enum Universe {
         position: [f32; 2],
     },
     FarmerVanished(Farmer),
-    DropAppeared {
-        drop: Drop,
+    StackAppeared {
+        stack: Stack,
         position: [f32; 2],
     },
-    DropVanished(Drop),
+    StackVanished(Stack),
     CropAppeared {
         entity: Crop,
         impact: f32,
@@ -172,9 +172,9 @@ impl UniverseDomain {
         self.constructions.extend(constructions);
     }
 
-    pub fn load_drops(&mut self, drops: Vec<Drop>, drops_id: usize) {
-        self.drops_id = drops_id;
-        self.drops.extend(drops);
+    pub fn load_stacks(&mut self, stacks: Vec<Stack>, stacks_id: usize) {
+        self.stacks_id = stacks_id;
+        self.stacks.extend(stacks);
     }
 
     pub fn load_equipments(&mut self, equipments: Vec<Equipment>, equipments_id: usize) {
@@ -227,27 +227,6 @@ impl UniverseDomain {
         }
     }
 
-    pub(crate) fn appear_equipment(
-        &mut self,
-        kind: EquipmentKey,
-        purpose: Purpose,
-        barrier: BarrierId,
-        position: [f32; 2],
-    ) -> Vec<Universe> {
-        self.equipments_id += 1;
-        let equipment = Equipment {
-            id: self.equipments_id,
-            kind,
-            purpose,
-            barrier,
-        };
-        self.equipments.push(equipment);
-        vec![Universe::EquipmentAppeared {
-            entity: equipment,
-            position,
-        }]
-    }
-
     pub(crate) fn vanish_equipment(&mut self, id: Equipment) -> Vec<Universe> {
         if let Some(index) = self
             .equipments
@@ -261,30 +240,14 @@ impl UniverseDomain {
         }
     }
 
-    pub fn appear_drop(
-        &mut self,
-        container: ContainerId,
-        barrier: BarrierId,
-        position: [f32; 2],
-    ) -> Vec<Universe> {
-        self.drops_id += 1;
-        let drop = Drop {
-            id: self.drops_id,
-            container,
-            barrier,
-        };
-        self.drops.push(drop);
-        vec![Universe::DropAppeared { drop, position }]
-    }
-
-    pub fn vanish_drop(&mut self, drop: Drop) -> Vec<Universe> {
+    pub fn vanish_stack(&mut self, stack: Stack) -> Vec<Universe> {
         let index = self
-            .drops
+            .stacks
             .iter()
-            .position(|search| search.id == drop.id)
+            .position(|search| search.id == stack.id)
             .unwrap();
-        self.drops.remove(index);
-        vec![Universe::DropVanished(drop)]
+        self.stacks.remove(index);
+        vec![Universe::StackVanished(stack)]
     }
 
     pub fn get_farmer_activity(&self, farmer: Farmer) -> Result<Activity, UniverseError> {
@@ -453,7 +416,7 @@ pub struct Equipment {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
-pub struct Drop {
+pub struct Stack {
     pub id: usize,
     pub container: ContainerId,
     pub barrier: BarrierId,

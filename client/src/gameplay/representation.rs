@@ -5,8 +5,8 @@ use game::building::{Cell, Room};
 use game::collections::Shared;
 use game::math::{Collider, VectorMath};
 use game::model::{
-    Activity, Construction, Creature, CreatureKind, Crop, Drop, Equipment, Farmer, FarmerKind,
-    Farmland, FarmlandKind, Tree, TreeKind,
+    Activity, Construction, Creature, CreatureKind, Crop, Equipment, Farmer, FarmerKind, Farmland,
+    FarmlandKind, Stack, Tree, TreeKind,
 };
 use game::physics::{BarrierId, BodyKind};
 use game::raising::AnimalKind;
@@ -112,8 +112,8 @@ impl Collider for BarrierHint {
     }
 }
 
-pub struct DropRep {
-    pub entity: Drop,
+pub struct StackRep {
+    pub entity: Stack,
     pub position: [f32; 2],
 }
 

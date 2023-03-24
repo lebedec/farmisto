@@ -1,6 +1,6 @@
 use crate::gameplay::representation::FarmerRep;
 use crate::gameplay::Intention::{Put, Swap, Use};
-use crate::gameplay::Target::{Construction, Crop, Drop, Equipment, Ground, Wall};
+use crate::gameplay::Target::{Construction, Crop, Equipment, Ground, Stack, Wall};
 use crate::gameplay::{Gameplay, Intention, Target};
 use game::api::FarmerBound;
 use game::building::Marker;
@@ -20,8 +20,8 @@ impl Gameplay {
         match farmer.activity {
             Activity::Idle => match intention {
                 Use => match target {
-                    Drop(drop) => {
-                        self.send_action(FarmerBound::TakeItem { drop });
+                    Stack(stack) => {
+                        self.send_action(FarmerBound::TakeItem { stack });
                     }
                     Construction(construction) => {
                         self.send_action(FarmerBound::TakeMaterial { construction });
@@ -68,9 +68,9 @@ impl Gameplay {
                                 self.send_action(FarmerBound::WaterCrop { crop });
                                 break;
                             }
-                            (Material { .. }, Drop(drop)) => {
+                            (Material { .. }, Stack(stack)) => {
                                 // TODO: generic, not material only
-                                self.send_action(FarmerBound::TakeItem { drop });
+                                self.send_action(FarmerBound::TakeItem { stack });
                                 break;
                             }
                             (Material { .. }, Construction(construction)) => {
@@ -91,8 +91,8 @@ impl Gameplay {
                     Ground { tile } => {
                         self.send_action(FarmerBound::DropItem { tile });
                     }
-                    Drop(drop) => {
-                        self.send_action(FarmerBound::PutItem { drop });
+                    Stack(stack) => {
+                        self.send_action(FarmerBound::PutItem { stack });
                     }
                     Construction(construction) => {
                         self.send_action(FarmerBound::PutMaterial { construction });

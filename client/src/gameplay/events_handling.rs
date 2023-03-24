@@ -1,7 +1,7 @@
 use crate::engine::Frame;
 use crate::gameplay::representation::{
-    BarrierHint, ConstructionRep, CreatureRep, CropRep, DropRep, EquipmentRep, FarmerRep,
-    FarmlandRep, TreeRep,
+    BarrierHint, ConstructionRep, CreatureRep, CropRep, EquipmentRep, FarmerRep, FarmlandRep,
+    StackRep, TreeRep,
 };
 use crate::gameplay::Gameplay;
 use game::api::Event;
@@ -228,7 +228,7 @@ impl Gameplay {
             } => {
                 let kind = self.known.trees.get(tree.kind).unwrap().clone();
                 info!(
-                    "Appear tree {:?} kind='{}' at {:?} (g {})",
+                    "Appear {:?} kind='{}' at {:?} (g {})",
                     tree, kind.name, position, growth
                 );
 
@@ -258,7 +258,7 @@ impl Gameplay {
                 holes,
             } => {
                 let kind = self.known.farmlands.get(farmland.kind).unwrap().clone();
-                info!("Appear farmland {:?} kind='{}'", farmland, kind.name);
+                info!("Appear {:?} kind='{}'", farmland, kind.name);
 
                 let asset = assets.farmland(&kind.name);
 
@@ -299,7 +299,7 @@ impl Gameplay {
                 player,
             } => {
                 let kind = self.known.farmers.get(farmer.kind).unwrap();
-                info!("Appear farmer {:?} at {:?}", farmer, position);
+                info!("Appear {:?} at {:?}", farmer, position);
                 // let asset = assets.spine(&kind.name);
                 let max_y = 7 * 2;
                 let max_x = 14 * 2;
@@ -335,18 +335,15 @@ impl Gameplay {
                 info!("Vanish farmer {:?}", id);
                 self.farmers.remove(&id);
             }
-            Universe::DropAppeared { drop, position } => {
-                info!("Appear drop {:?} at {:?}", drop, position,);
-                self.drops.insert(
-                    drop,
-                    DropRep {
-                        entity: drop,
-                        position,
-                    },
-                );
+            Universe::StackAppeared {
+                stack: entity,
+                position,
+            } => {
+                info!("Appear {:?} at {:?}", entity, position,);
+                self.stacks.insert(entity, StackRep { entity, position });
             }
-            Universe::DropVanished(drop) => {
-                self.drops.remove(&drop);
+            Universe::StackVanished(entity) => {
+                self.stacks.remove(&entity);
             }
             Universe::ConstructionAppeared { id: entity, cell } => {
                 info!("Appear {:?} at {:?}", entity, cell);

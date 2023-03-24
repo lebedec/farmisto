@@ -13,12 +13,12 @@ use game::model::Activity;
 use game::model::Construction;
 use game::model::Creature;
 use game::model::Crop;
-use game::model::Drop;
 use game::model::Equipment;
 use game::model::Farmer;
 use game::model::Farmland;
 use game::model::ItemRep;
 use game::model::Knowledge;
+use game::model::Stack;
 use game::model::Tree;
 use game::physics::generate_holes;
 use game::Game;
@@ -29,8 +29,8 @@ use crate::assets::{SamplerAsset, SpriteAsset, TextureAsset};
 use crate::engine::Input;
 use crate::gameplay::camera::Camera;
 use crate::gameplay::representation::{
-    BarrierHint, ConstructionRep, CreatureRep, CropRep, DropRep, EquipmentRep, FarmerRep,
-    FarmlandRep, TreeRep,
+    BarrierHint, ConstructionRep, CreatureRep, CropRep, EquipmentRep, FarmerRep, FarmlandRep,
+    StackRep, TreeRep,
 };
 use crate::{Frame, Mode};
 
@@ -55,7 +55,7 @@ pub enum Intention {
 #[derive(Clone)]
 pub enum Target {
     Ground { tile: [usize; 2] },
-    Drop(Drop),
+    Stack(Stack),
     Construction(Construction),
     Equipment(Equipment),
     Wall([usize; 2]),
@@ -96,7 +96,7 @@ pub struct Gameplay {
     pub current_farmland: Option<Farmland>,
     pub trees: HashMap<Tree, TreeRep>,
     pub farmers: HashMap<Farmer, FarmerRep>,
-    pub drops: HashMap<Drop, DropRep>,
+    pub stacks: HashMap<Stack, StackRep>,
     pub equipments: HashMap<Equipment, EquipmentRep>,
     pub constructions: HashMap<Construction, ConstructionRep>,
     pub crops: HashMap<Crop, CropRep>,
@@ -108,7 +108,7 @@ pub struct Gameplay {
     pub players: Vec<SpriteAsset>,
     pub players_index: usize,
     pub roof_texture: TextureAsset,
-    pub drop_sprite: SpriteAsset,
+    pub stack_sprite: SpriteAsset,
     pub theodolite_sprite: SpriteAsset,
     pub theodolite_gui_sprite: SpriteAsset,
     pub theodolite_gui_select_sprite: SpriteAsset,
@@ -147,7 +147,7 @@ impl Gameplay {
             current_farmland: None,
             trees: HashMap::new(),
             farmers: Default::default(),
-            drops: Default::default(),
+            stacks: Default::default(),
             equipments: Default::default(),
             constructions: Default::default(),
             crops: Default::default(),
@@ -159,7 +159,7 @@ impl Gameplay {
             players,
             players_index: 0,
             roof_texture: assets.texture("./assets/texture/building-roof-template-2.png"),
-            drop_sprite: assets.sprite("<drop>"),
+            stack_sprite: assets.sprite("<drop>"),
             theodolite_sprite: assets.sprite("theodolite"),
             theodolite_gui_sprite: assets.sprite("building-gui"),
             theodolite_gui_select_sprite: assets.sprite("building-gui-select"),
@@ -222,9 +222,9 @@ impl Gameplay {
     }
 
     pub fn get_target_at(&self, tile: [usize; 2]) -> Target {
-        for drop in self.drops.values() {
-            if drop.position.to_tile() == tile {
-                return Target::Drop(drop.entity);
+        for stack in self.stacks.values() {
+            if stack.position.to_tile() == tile {
+                return Target::Stack(stack.entity);
             }
         }
 
