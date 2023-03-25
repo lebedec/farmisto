@@ -6,6 +6,7 @@ use game::building::{Grid, Room};
 use game::math::VectorMath;
 use game::model::{Activity, Purpose};
 use lazy_static::lazy_static;
+use log::info;
 use rand::prelude::*;
 use std::collections::HashMap;
 
@@ -127,17 +128,28 @@ impl Gameplay {
             .mouse_position(self.camera.position(), TILE_SIZE);
         let [cursor_x, cursor_y] = cursor.tile;
 
+        let farmer = match self.get_my_farmer_mut() {
+            Some(farmer) => unsafe { &mut *farmer }.rendering_position.to_tile(),
+            None => [0, 0],
+        };
+
+        let render_offset = self.camera.position().div(TILE_SIZE).to_tile();
+        let [render_offset_x, render_offset_y] = render_offset;
+
         for farmland in self.farmlands.values() {
-            self.cursor_shape = 0;
+            self.cursor_room = 0;
+            self.farmer_room = 0;
+
             let mut cursor_room = None;
             for (i, room) in farmland.rooms.iter().enumerate() {
                 if room.contains(cursor.tile) {
-                    self.cursor_shape = room.id;
+                    self.cursor_room = room.id;
                     if room.id != Room::EXTERIOR_ID {
                         cursor_room = Some(i);
                     }
-
-                    break;
+                }
+                if room.contains(farmer) {
+                    self.farmer_room = room.id;
                 }
             }
 
@@ -155,11 +167,12 @@ impl Gameplay {
                 }
                 for (i, row) in room.rows.iter().enumerate() {
                     let y = room.rows_y + i;
-                    if y < floor_map.len() {
+                    if y >= render_offset_y && (y - render_offset_y) < floor_map.len() {
                         for x in 0..31 {
+                            let x = x + render_offset_x;
                             let interior_bit = 1 << (Grid::COLUMNS - x - 1);
                             if row & interior_bit == interior_bit {
-                                floor_map[y][x] = [1, 0, 0, 0];
+                                floor_map[y - render_offset_y][x - render_offset_x] = [1, 0, 0, 0];
                             }
                         }
                     }
@@ -167,30 +180,40 @@ impl Gameplay {
             }
             let mut roof_map = [[[0; 4]; 31]; 18];
             for room in &farmland.rooms {
-                if room.id == Room::EXTERIOR_ID || room.id == self.cursor_shape {
+                if room.id == Room::EXTERIOR_ID
+                    || room.id == self.cursor_room
+                    || room.id == self.farmer_room
+                {
                     continue;
                 }
                 for (i, row) in room.rows.iter().enumerate() {
                     let y = room.rows_y + i;
-                    if y < roof_map.len() {
+                    if y >= render_offset_y && (y - render_offset_y) < roof_map.len() {
                         for x in 0..31 {
+                            let x = x + render_offset_x;
                             let interior_bit = 1 << (Grid::COLUMNS - x - 1);
                             if row & interior_bit == interior_bit {
-                                roof_map[y][x] = [1, 0, 0, 0];
+                                roof_map[y - render_offset_y][x - render_offset_x] = [1, 0, 0, 0];
                             }
                         }
                     }
                 }
             }
             renderer.render_tilemap(
-                &farmland.building_marker.floor, // TODO: detect floor
-                [0.0, 0.0],
+                &farmland.building_marker.floor, // TODO: detect floor,
+                [
+                    render_offset_x as f32 * TILE_SIZE,
+                    render_offset_y as f32 * TILE_SIZE,
+                ],
                 0,
                 TilemapUniform { map: floor_map },
             );
             renderer.render_tilemap(
                 &farmland.building_marker.roof, // TODO: detect roof
-                [0.0, -2.0 * TILE_SIZE],
+                [
+                    render_offset_x as f32 * TILE_SIZE,
+                    render_offset_y as f32 * TILE_SIZE + -2.0 * TILE_SIZE,
+                ],
                 127,
                 TilemapUniform { map: roof_map },
             );
@@ -224,6 +247,7 @@ impl Gameplay {
 
                         let is_transparent = (y == (cursor_y + 1) || y == (cursor_y));
                         let is_transparent = is_transparent && cursor_room.is_some();
+                        let is_transparent = false;
 
                         // skin
                         let tileset = if cell.marker.is_some() {
@@ -270,20 +294,6 @@ impl Gameplay {
                                 _ => &tileset[13],
                             };
                         }
-
-                        // expand door way
-                        // if neighbors == Neighbors::WE && x > 1 && line[x - 1].door {
-                        //     tile = &tileset[20];
-                        //     if is_half {
-                        //         tile = &tileset[23];
-                        //     }
-                        // }
-                        // if neighbors == Neighbors::WE && line[x + 1].door {
-                        //     tile = &tileset[18];
-                        //     if is_half {
-                        //         tile = &tileset[21];
-                        //     }
-                        // }
 
                         let highlight = if y == cursor_y as usize && x == cursor_x as usize {
                             1.5

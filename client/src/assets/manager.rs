@@ -757,6 +757,10 @@ impl Assets {
                         let data = self.load_crop_data(&change.id).unwrap();
                         self.crops.get_mut(&change.id).unwrap().update(data);
                     }
+                    "BuildingMaterialAssetData" => {
+                        let data = self.load_building_data(&change.id).unwrap();
+                        self.buildings.get_mut(&change.id).unwrap().update(data);
+                    }
                     "PropsAssetData" => {
                         let data = self.load_props_data(&change.id).unwrap();
                         self.props.get_mut(&change.id).unwrap().update(data);

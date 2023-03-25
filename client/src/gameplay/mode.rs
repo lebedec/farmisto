@@ -104,7 +104,8 @@ pub struct Gameplay {
     pub items: HashMap<ContainerId, HashMap<ItemId, ItemRep>>,
     pub camera: Camera,
     pub cursor: SpriteAsset,
-    pub cursor_shape: usize,
+    pub cursor_room: usize,
+    pub farmer_room: usize,
     pub players: Vec<SpriteAsset>,
     pub players_index: usize,
     pub roof_texture: TextureAsset,
@@ -151,7 +152,8 @@ impl Gameplay {
             items: Default::default(),
             camera,
             cursor,
-            cursor_shape: 0,
+            cursor_room: 0,
+            farmer_room: 0,
             players,
             players_index: 0,
             roof_texture: assets.texture("./assets/texture/building-roof-template-2.png"),
@@ -257,22 +259,31 @@ impl Gameplay {
         Target::Ground { tile }
     }
 
-    pub fn handle_user_input(&mut self, frame: &mut Frame) {
+    pub fn get_my_farmer_mut(&mut self) -> Option<*mut FarmerRep> {
         let farmer = match self
             .farmers
             .values_mut()
             .find(|farmer| farmer.player == self.client.player)
         {
             None => {
-                error!("Farmer behaviour not initialized yet");
-                return;
+                return None;
             }
             Some(farmer) => {
                 let ptr = farmer as *mut FarmerRep;
                 unsafe {
                     // TODO: safe farmer behaviour mutation
-                    &mut *ptr
+                    return Some(ptr);
                 }
+            }
+        };
+    }
+
+    pub fn handle_user_input(&mut self, frame: &mut Frame) {
+        let farmer = match self.get_my_farmer_mut() {
+            Some(farmer) => unsafe { &mut *farmer },
+            None => {
+                error!("Farmer behaviour not initialized yet");
+                return;
             }
         };
 
