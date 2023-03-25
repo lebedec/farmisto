@@ -1,7 +1,7 @@
 use log::error;
 use rusty_spine::Skin;
 
-use game::building::{Cell, Room};
+use game::building::{Building, Cell, Room};
 use game::collections::Shared;
 use game::math::{Collider, VectorMath};
 use game::model::{
@@ -11,11 +11,11 @@ use game::model::{
 use game::physics::{BarrierId, BodyKind};
 use game::raising::AnimalKind;
 
-use crate::assets::CreatureAsset;
 use crate::assets::CropAsset;
 use crate::assets::FarmerAsset;
 use crate::assets::FarmlandAsset;
 use crate::assets::TreeAsset;
+use crate::assets::{BuildingMaterialAsset, CreatureAsset};
 use crate::engine::rendering::{SpineRenderController, TilemapController};
 
 pub struct FarmerRep {
@@ -84,6 +84,12 @@ pub struct FarmlandRep {
     pub cells: Vec<Vec<Cell>>,
     pub rooms: Vec<Room>,
     pub holes: Vec<Vec<u8>>,
+    pub building_marker: BuildingRep,
+    pub buildings: Vec<BuildingRep>,
+}
+
+pub struct BuildingRep {
+    pub asset: BuildingMaterialAsset,
     pub floor: TilemapController,
     pub roof: TilemapController,
 }

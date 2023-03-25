@@ -59,26 +59,42 @@ def generate_grid(grid_id: int, space_id: int, surveyor: int, user_define_map: s
                     inner = 1
                     # space
                     is_hole = 1
+                    material = 2
                 if code == '#':
                     wall = 1
                     inner = 0
                     # space
                     is_hole = 1
-                if code == '0':
+                    material = 2
+                if code == 'O':
                     wall = 1
                     inner = 0
                     door = 1
+                    material = 2
                 if code == 'o':
                     wall = 1
                     inner = 0
                     window = 1
                     # space
                     is_hole = 1
+                    material = 2
                 if code == '+':
-                    constructions.append([x, y])
                     wall = 1
                     inner = 0
-                    marker = 0
+                    is_hole = 1
+                    material = 1
+                if code == 'A':
+                    wall = 1
+                    inner = 0
+                    door = 1
+                    material = 1
+                if code == 'a':
+                    wall = 1
+                    inner = 0
+                    window = 1
+                    # space
+                    is_hole = 1
+                    material = 1
             if marker is not None:
                 data.write(struct.pack('BBBBBBB', *[wall, inner, door, window, 1, marker, material]))
             else:
@@ -94,16 +110,16 @@ def generate_grid(grid_id: int, space_id: int, surveyor: int, user_define_map: s
     print('holes data length', len(holes_data))
     connection.execute('update Space set holes = ? where id = ?', [holes_data, space_id])
     # generate Construction entities
-    connection.execute('delete from Container where id in (select container from Construction where grid = ?)', [grid_id])
-    connection.execute('delete from Construction where grid = ?', [grid_id])
-    for cell in constructions:
-        cursor = connection.cursor()
-        cursor.execute('insert into Container (kind) values (1)')  # 1 - <construction> kind
-        container_id = cursor.lastrowid
-        cursor.execute(
-            'insert into Construction (container, grid, surveyor, cell) values (?, ?, ?, ?)',
-            [container_id, grid_id, surveyor, json.dumps(cell)]
-        )
+    # connection.execute('delete from Container where id in (select container from Construction where grid = ?)', [grid_id])
+    # connection.execute('delete from Construction where grid = ?', [grid_id])
+    # for cell in constructions:
+    #     cursor = connection.cursor()
+    #     cursor.execute('insert into Container (kind) values (1)')  # 1 - <construction> kind
+    #     container_id = cursor.lastrowid
+    #     cursor.execute(
+    #         'insert into Construction (container, grid, surveyor, cell) values (?, ?, ?, ?)',
+    #         [container_id, grid_id, surveyor, json.dumps(cell)]
+    #     )
     connection.commit()
 
 
@@ -145,18 +161,18 @@ if __name__ == '__main__':
         1,
         """
         . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-        . . . . . . . . # # # # # # # # # # # . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-        . . . . . . . . # . # . . . . . . . # . . . . . . . . . . . . . . # # # # 0 # # . . . . . . # # # # # # . . . . . . . . . . .
+        . . . . . . . . # # # # O # o # # # # . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+        . . . . . . . . # . # . . . . . . . o . . . . . . . . . . . . . . # # # # O # # . . . . . . # # # # # # . . . . . . . . . . .
         . . . . . . . . # . # . . # # # # . # . . . . . . . . . . . . . . # . . . . . # . . . . . . # . . . . # # # # # . . . . . . .
-        . . . . . . . . # . . . . # . . # # # . . . . . . . . . . . . . . # . # # # . # . # # # . . # # # . . # # . . # . . . . . . .
-        . . . . . . . . # . . . . # . . . . . . # # # . . . . . . . . . . 0 . # . # . 0 . . . # . . . . # . . # # . . # . . . . . . .
-        . . . . . . . . # # # # # # . . . # 0 # # . # # . . . . . . . . . # . # . # . # . . . # . . . . # . . # # # # # . . . . . . .
+        . . . . . . . . O . . . . # . . # # # . . . . . . . . . . . . . . # . # # # . # . # # # . . # # # . . # # . . # . . . . . . .
+        . . . . . . . . # . . . . # . . . . . . # # # . . . . . . . . . . O . # . # . O . . . # . . . . # . . # # . . # . . . . . . .
+        . . . . . . . . # o # O # # . . . # O # # . # # . . . . . . . . . # . # . # . # . . . # . . . . # . . # # # # # . . . . . . .
         . . . . . . . . . . . . . . . . . # . . . . . # . . . . . . . . . # . . . . . # . # . # . . . . # . . # # . . . . . . . . . .
-        . . . . . . . + + + + + + . . . . # . # # # . # # . . . . . . . . # # 0 # o # # . # # # . . . . # . . # # . . . . . . . . . .
-        . . . . . . . + . . . . + . . # o # . # . # . . # . . . . . . . . . . . . . . . . . . . . . . . # . . # # # # # # # . . . . .
-        . . . . . . . + . . . . + . . # . . . # # # . # # . . . . . . . # o # . # # 0 # o # . . . . . . # . . # . . # . . # . . . . .
-        . . . . . . . + + + + + + . . # o # . . . . . # . . . . . . . . # . # . # . . . . # . . . . . . # . . # . . # . . # . . . . .
-        . . . . . . . . . . . . . . . . . # . # 0 # # # . . . . . . . . o . # 0 # . . # # # . . . . . . # . . # # # # # # # . . . . .
+        . . . . . . . + + a + A + . . . . # . # # # . # # . . . . . . . . # # O # o # # . # # # . . . . # . . # # . . . . . . . . . .
+        . . . . . . . A . . . . a . . # o # . # . # . . # . . . . . . . . . . . . . . . . . . . . . . . # . . # # # # # # # . . . . .
+        . . . . . . . + . . . . + . . # . . . # # # . # # . . . . . . . # o # . # # O # o # . . . . . . # . . # . . # . . # . . . . .
+        . . . . . . . + A + + a + . . # o # . . . . . # . . . . . . . . # . # . # . . . . # . . . . . . # . . # . . # . . # . . . . .
+        . . . . . . . . . . . . . . . . . # . # O # # # . . . . . . . . o . # O # . . # # # . . . . . . # . . # # # # # # # . . . . .
         . . . . . . . . . . . . . . . . . # # # . . . . . . . . . . . . # . . . . . . # . . . . . . . . # . . # . . . . . # . . . . .
         . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . # # . # # # . # . # # # # # # . # . . # . . . . . # . . . . .
         . . . . . . . . . . . . . . . . . . . . # . . . . . . . . . . . . # . # . # . # . . . . . . # . # . . # # # # # # # . . . . .

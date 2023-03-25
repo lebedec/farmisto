@@ -16,7 +16,7 @@ use datamap::{Operation, Storage};
 use crate::assets::fs::{FileEvent, FileSystem};
 use crate::assets::prefabs::{TreeAsset, TreeAssetData};
 use crate::assets::tileset::{TilesetAsset, TilesetAssetData, TilesetItem};
-use crate::assets::{AssetMap, BehavioursAsset};
+use crate::assets::{AssetMap, BehavioursAsset, BuildingMaterialAsset, BuildingMaterialAssetData};
 use crate::assets::{
     CreatureAsset, CreatureAssetData, CropAsset, CropAssetData, FarmerAsset, FarmerAssetData,
     FarmlandAsset, FarmlandAssetData, FarmlandAssetPropItem, ItemAsset, ItemAssetData,
@@ -65,6 +65,7 @@ pub struct Assets {
     items: HashMap<String, ItemAsset>,
     crops: HashMap<String, CropAsset>,
     creatures: HashMap<String, CreatureAsset>,
+    buildings: HashMap<String, BuildingMaterialAsset>,
 
     queue: Arc<Queue>,
 }
@@ -231,6 +232,7 @@ impl Assets {
             crops: Default::default(),
             creatures: Default::default(),
             behaviours: Default::default(),
+            buildings: Default::default(),
         }
     }
 
@@ -402,6 +404,17 @@ impl Assets {
         }
     }
 
+    pub fn building(&mut self, name: &str) -> BuildingMaterialAsset {
+        METRIC_REQUESTS_TOTAL.with_label_values(&["building"]).inc();
+        match self.buildings.get(name) {
+            Some(asset) => asset.share(),
+            None => {
+                let data = self.load_building_data(name).unwrap();
+                self.buildings.publish(name, data)
+            }
+        }
+    }
+
     pub fn farmland(&mut self, name: &str) -> FarmlandAsset {
         METRIC_REQUESTS_TOTAL.with_label_values(&["farmland"]).inc();
         match self.farmlands.get(name) {
@@ -478,6 +491,24 @@ impl Assets {
         Ok(data)
     }
 
+    pub fn load_building_data(
+        &mut self,
+        id: &str,
+    ) -> Result<BuildingMaterialAssetData, serde_json::Error> {
+        let entry = self.storage.fetch_one::<BuildingMaterialAssetData>(id);
+        let roof: String = entry.get("roof")?;
+        let floor: String = entry.get("floor")?;
+        let data = BuildingMaterialAssetData {
+            roof: self.texture(roof),
+            roof_sampler: self.sampler(entry.get("roof_sampler")?),
+            floor: self.texture(floor),
+            floor_sampler: self.sampler(entry.get("floor_sampler")?),
+            walls: self.tileset(entry.get("walls")?),
+            walls_transparency: self.tileset(entry.get("walls_transparency")?),
+        };
+        Ok(data)
+    }
+
     pub fn load_farmland_data(&mut self, id: &str) -> Result<FarmlandAssetData, serde_json::Error> {
         let entry = self.storage.fetch_one::<FarmlandAssetData>(id);
         let entries = self.storage.fetch_many::<FarmlandAssetPropItem>(id);
@@ -492,18 +523,10 @@ impl Assets {
             };
             props.push(data)
         }
-        let mut building_templates = vec![];
-        let building_template_names: Vec<String> = entry.get("building_templates")?;
-        for name in &building_template_names {
-            building_templates.push(self.tileset(name));
-        }
-        let building_template_surveying: String = entry.get("building_template_surveying")?;
         let data = FarmlandAssetData {
             props,
             texture: self.texture(entry.get_string("texture")?),
             sampler: self.sampler(entry.get("sampler")?),
-            building_templates,
-            building_template_surveying: self.tileset(&building_template_surveying),
         };
         Ok(data)
     }

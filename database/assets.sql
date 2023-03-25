@@ -8,9 +8,7 @@ create table FarmlandAssetData
 (
     id                          text primary key unique,
     texture                     text not null,
-    sampler                     text not null references SamplerAssetData,
-    building_templates          json not null,
-    building_template_surveying text not null references TilesetAssetData
+    sampler                     text not null references SamplerAssetData
 );
 
 create table PropsAssetData
@@ -120,4 +118,15 @@ create table CreatureAssetData
 (
     id    text primary key unique,
     spine text not null
+);
+
+create table BuildingMaterialAssetData
+(
+    id                 text primary key unique,
+    roof               text not null,
+    roof_sampler       text not null references SamplerAssetData,
+    floor              text not null,
+    floor_sampler      text not null references SamplerAssetData,
+    walls              text not null references TilesetAssetData,
+    walls_transparency text not null references TilesetAssetData
 );

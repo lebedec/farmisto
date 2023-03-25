@@ -57,6 +57,18 @@ impl Debug for Room {
 
 impl Room {
     pub const EXTERIOR_ID: usize = 0;
+
+    pub fn contains(&self, point: [usize; 2]) -> bool {
+        let [x, y] = point;
+        let x_bit = 1 << (128 - x - 1);
+        if y >= self.rows_y && y < self.rows_y + self.rows.len() {
+            let row = self.rows[y - self.rows_y];
+            if row & x_bit != 0 {
+                return true;
+            }
+        }
+        false
+    }
 }
 
 pub struct Grid {

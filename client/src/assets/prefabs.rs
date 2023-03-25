@@ -1,7 +1,7 @@
+use crate::assets::Asset;
 use crate::assets::{
     PropsAsset, SamplerAsset, SpineAsset, SpriteAsset, TextureAsset, TilesetAsset,
 };
-use crate::assets::Asset;
 
 pub type FarmlandAsset = Asset<FarmlandAssetData>;
 
@@ -9,8 +9,6 @@ pub struct FarmlandAssetData {
     pub props: Vec<FarmlandAssetPropItem>,
     pub texture: TextureAsset,
     pub sampler: SamplerAsset,
-    pub building_templates: Vec<TilesetAsset>,
-    pub building_template_surveying: TilesetAsset,
 }
 
 pub struct FarmlandAssetPropItem {
@@ -54,4 +52,15 @@ pub type CreatureAsset = Asset<CreatureAssetData>;
 pub struct CreatureAssetData {
     pub spine: SpineAsset,
     pub coloration: TextureAsset,
+}
+
+pub type BuildingMaterialAsset = Asset<BuildingMaterialAssetData>;
+
+pub struct BuildingMaterialAssetData {
+    pub roof: TextureAsset,
+    pub roof_sampler: SamplerAsset,
+    pub floor: TextureAsset,
+    pub floor_sampler: SamplerAsset,
+    pub walls: TilesetAsset,
+    pub walls_transparency: TilesetAsset,
 }

@@ -7,8 +7,6 @@ use game::math::VectorMath;
 use game::model::{Activity, Purpose};
 use lazy_static::lazy_static;
 use rand::prelude::*;
-use rusty_spine::AnimationStateData;
-use sdl2::libc::raise;
 use std::collections::HashMap;
 
 lazy_static! {
@@ -131,14 +129,15 @@ impl Gameplay {
 
         for farmland in self.farmlands.values() {
             self.cursor_shape = 0;
-            let cursor_pos = 1 << (128 - cursor_x - 1);
-            for shape in &farmland.rooms {
-                if cursor_y >= shape.rows_y && cursor_y < shape.rows_y + shape.rows.len() {
-                    let row = shape.rows[cursor_y - shape.rows_y];
-                    if row & cursor_pos != 0 {
-                        self.cursor_shape = shape.id;
-                        break;
+            let mut cursor_room = None;
+            for (i, room) in farmland.rooms.iter().enumerate() {
+                if room.contains(cursor.tile) {
+                    self.cursor_shape = room.id;
+                    if room.id != Room::EXTERIOR_ID {
+                        cursor_room = Some(i);
                     }
+
+                    break;
                 }
             }
 
@@ -184,25 +183,18 @@ impl Gameplay {
                 }
             }
             renderer.render_tilemap(
-                &farmland.floor,
+                &farmland.building_marker.floor, // TODO: detect floor
                 [0.0, 0.0],
                 0,
                 TilemapUniform { map: floor_map },
             );
             renderer.render_tilemap(
-                &farmland.roof,
+                &farmland.building_marker.roof, // TODO: detect roof
                 [0.0, -2.0 * TILE_SIZE],
                 127,
                 TilemapUniform { map: roof_map },
             );
 
-            // renderer.render_roof(
-            //     self.roof_texture.clone(),
-            //     farmland.asset.sampler.share(),
-            //     &farmland.map,
-            //     &farmland.rooms,
-            //     self.cursor_shape,
-            // );
             for (y, line) in farmland.cells.iter().enumerate() {
                 for (x, cell) in line.iter().enumerate() {
                     if cell.wall {
@@ -230,12 +222,27 @@ impl Gameplay {
                             (false, false, false, false) => Neighbors::Full,
                         };
 
+                        let is_transparent = (y == (cursor_y + 1) || y == (cursor_y));
+                        let is_transparent = is_transparent && cursor_room.is_some();
+
+                        // skin
                         let tileset = if cell.marker.is_some() {
-                            &farmland.asset.building_template_surveying.tiles
+                            &farmland.building_marker.asset.walls.tiles
                         } else {
-                            &farmland.asset.building_templates[cell.material.0 as usize].tiles
+                            if is_transparent {
+                                &farmland.buildings[cell.material.0 as usize]
+                                    .asset
+                                    .walls_transparency
+                                    .tiles
+                            } else {
+                                &farmland.buildings[cell.material.0 as usize]
+                                    .asset
+                                    .walls
+                                    .tiles
+                            }
                         };
 
+                        // tile change
                         let mut tile = match neighbors {
                             Neighbors::WE => &tileset[0],
                             Neighbors::NS => &tileset[1],
@@ -250,6 +257,7 @@ impl Gameplay {
                             Neighbors::WNE => &tileset[10],
                         };
 
+                        // tile change
                         if cell.door {
                             tile = match neighbors {
                                 Neighbors::NS => &tileset[12],
@@ -263,33 +271,19 @@ impl Gameplay {
                             };
                         }
 
-                        let is_half =
-                            (y == (cursor_y + 1) || y == (cursor_y)) && neighbors == Neighbors::WE;
-                        let is_half = false; // disable
-                                             // half
-                        if is_half {
-                            tile = &tileset[15];
-                            if cell.door {
-                                tile = &tileset[22]; // 16 small
-                            }
-                            if cell.window {
-                                tile = &tileset[17];
-                            }
-                        }
-
-                        // exp
-                        if neighbors == Neighbors::WE && x > 1 && line[x - 1].door {
-                            tile = &tileset[20];
-                            if is_half {
-                                tile = &tileset[23];
-                            }
-                        }
-                        if neighbors == Neighbors::WE && line[x + 1].door {
-                            tile = &tileset[18];
-                            if is_half {
-                                tile = &tileset[21];
-                            }
-                        }
+                        // expand door way
+                        // if neighbors == Neighbors::WE && x > 1 && line[x - 1].door {
+                        //     tile = &tileset[20];
+                        //     if is_half {
+                        //         tile = &tileset[23];
+                        //     }
+                        // }
+                        // if neighbors == Neighbors::WE && line[x + 1].door {
+                        //     tile = &tileset[18];
+                        //     if is_half {
+                        //         tile = &tileset[21];
+                        //     }
+                        // }
 
                         let highlight = if y == cursor_y as usize && x == cursor_x as usize {
                             1.5

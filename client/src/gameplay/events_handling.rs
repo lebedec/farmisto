@@ -1,7 +1,7 @@
 use crate::engine::Frame;
 use crate::gameplay::representation::{
-    BarrierHint, ConstructionRep, CreatureRep, CropRep, EquipmentRep, FarmerRep, FarmlandRep,
-    StackRep, TreeRep,
+    BarrierHint, BuildingRep, ConstructionRep, CreatureRep, CropRep, EquipmentRep, FarmerRep,
+    FarmlandRep, StackRep, TreeRep,
 };
 use crate::gameplay::Gameplay;
 use game::api::Event;
@@ -264,15 +264,35 @@ impl Gameplay {
 
                 self.current_farmland = Some(farmland);
 
-                let floor = frame.sprites.instantiate_tilemap(
-                    self.tilemap_texture.share(),
-                    self.tilemap_sampler.share(),
-                );
-
-                let roof = frame.sprites.instantiate_tilemap(
-                    self.tilemap_roof_texture.share(),
-                    self.tilemap_sampler.share(),
-                );
+                let building_marker = assets.building("marker");
+                let buildings = vec![
+                    assets.building("template"),
+                    assets.building("wood"),
+                    assets.building("concrete"),
+                ];
+                let building_marker = BuildingRep {
+                    floor: frame.sprites.instantiate_tilemap(
+                        building_marker.floor.share(),
+                        building_marker.floor_sampler.share(),
+                    ),
+                    roof: frame.sprites.instantiate_tilemap(
+                        building_marker.roof.share(),
+                        building_marker.roof_sampler.share(),
+                    ),
+                    asset: building_marker,
+                };
+                let buildings = buildings
+                    .into_iter()
+                    .map(|asset| BuildingRep {
+                        floor: frame
+                            .sprites
+                            .instantiate_tilemap(asset.floor.share(), asset.floor_sampler.share()),
+                        roof: frame
+                            .sprites
+                            .instantiate_tilemap(asset.roof.share(), asset.roof_sampler.share()),
+                        asset,
+                    })
+                    .collect();
 
                 self.farmlands.insert(
                     farmland,
@@ -284,8 +304,8 @@ impl Gameplay {
                         cells,
                         rooms,
                         holes,
-                        floor,
-                        roof,
+                        building_marker,
+                        buildings,
                     },
                 );
             }
