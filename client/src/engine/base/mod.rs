@@ -101,6 +101,10 @@ impl Base {
 }
 
 impl Base {
+    pub fn is_development() -> bool {
+        std::env::var("DEV_MODE").is_ok()
+    }
+
     pub fn new(window: &Window, sdl_extension_names: Vec<&str>) -> Self {
         unsafe {
             let mut extension_names = vec![DebugUtils::name().as_ptr()];
@@ -111,15 +115,7 @@ impl Base {
             );
 
             let entry = Entry::load().unwrap();
-            let app_name = CStr::from_bytes_with_nul_unchecked(b"VulkanTriangle\0");
-
-            let layer_names = [CStr::from_bytes_with_nul_unchecked(
-                b"VK_LAYER_KHRONOS_validation\0",
-            )];
-            let layers_names_raw: Vec<*const c_char> = layer_names
-                .iter()
-                .map(|raw_name| raw_name.as_ptr())
-                .collect();
+            let app_name = CStr::from_bytes_with_nul_unchecked(b"Farmisto\0");
 
             let appinfo = vk::ApplicationInfo::builder()
                 .application_name(app_name)
@@ -132,6 +128,21 @@ impl Base {
                 vk::InstanceCreateFlags::ENUMERATE_PORTABILITY_KHR
             } else {
                 vk::InstanceCreateFlags::default()
+            };
+
+            let layers_names_raw = if Self::is_development() {
+                let layer_names = [CStr::from_bytes_with_nul_unchecked(
+                    b"VK_LAYER_KHRONOS_validation\0",
+                )];
+                info!("Enables Vulkan layers: {:?}", layer_names);
+                let layers_names_raw: Vec<*const c_char> = layer_names
+                    .iter()
+                    .map(|raw_name| raw_name.as_ptr())
+                    .collect();
+                layers_names_raw
+            } else {
+                info!("Enables no Vulkan layers");
+                vec![]
             };
 
             let create_info = vk::InstanceCreateInfo::builder()

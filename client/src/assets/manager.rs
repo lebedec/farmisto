@@ -24,7 +24,7 @@ use crate::assets::{
     ShaderAsset, ShaderAssetData, ShaderCompiler, SpineAsset, SpineAssetData, SpriteAsset,
     SpriteAssetData, TextureAsset, TextureAssetData,
 };
-use crate::engine::base::Queue;
+use crate::engine::base::{Base, Queue};
 
 lazy_static! {
     static ref METRIC_REQUESTS_TOTAL: prometheus::IntCounterVec =
@@ -194,7 +194,7 @@ impl Assets {
             );
         }
 
-        let file_system = if Self::is_development() {
+        let file_system = if Base::is_development() {
             // todo: organize pre-processing workers
             info!(
                 "Shader compiler version: {}",
@@ -691,7 +691,7 @@ impl Assets {
     }
 
     pub fn process_assets_loading(&mut self) {
-        if Self::is_development() {
+        if Base::is_development() {
             self.detect_changes()
         }
 
@@ -794,10 +794,6 @@ impl Assets {
             }
         }
         Ok(())
-    }
-
-    pub fn is_development() -> bool {
-        std::env::var("DEV_MODE").is_ok()
     }
 
     pub fn detect_changes(&mut self) {
