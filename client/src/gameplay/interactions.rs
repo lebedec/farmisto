@@ -1,12 +1,12 @@
 use crate::gameplay::representation::FarmerRep;
-use crate::gameplay::Intention::{Put, Swap, Use};
+use crate::gameplay::Intention::{Move, Put, Swap, Use};
 use crate::gameplay::Target::{Construction, Crop, Equipment, Ground, Stack, Wall};
 use crate::gameplay::{Gameplay, Intention, Target};
 use game::api::FarmerBound;
-use game::building::Marker;
+use game::building::{Marker, Structure};
 use game::inventory::Function;
 use game::inventory::Function::{Installation, Instrumenting, Material, Product, Seeding};
-use game::model::{Activity, CropKey, ItemRep, Purpose};
+use game::model::{Activity, CropKey, Purpose};
 use log::error;
 
 impl Gameplay {
@@ -43,6 +43,7 @@ impl Gameplay {
                 Swap => {
                     self.send_action(FarmerBound::ToggleBackpack);
                 }
+                Move => {}
             },
             Activity::Usage => match intention {
                 Use => {
@@ -57,11 +58,7 @@ impl Gameplay {
                                 break;
                             }
                             (Instrumenting, Construction(construction)) => {
-                                self.send_action(FarmerBound::Construct { construction });
-                                break;
-                            }
-                            (Instrumenting, Wall(tile)) => {
-                                self.send_action(FarmerBound::Deconstruct { tile });
+                                self.send_action(FarmerBound::Build { construction });
                                 break;
                             }
                             (Instrumenting, Crop(crop)) => {
@@ -102,6 +99,7 @@ impl Gameplay {
                 Swap => {
                     self.send_action(FarmerBound::ToggleBackpack);
                 }
+                Move => {}
             },
             Activity::Surveying {
                 equipment,
@@ -109,17 +107,34 @@ impl Gameplay {
             } => match intention {
                 Use => match target {
                     Ground { tile } => {
-                        let marker = match selection {
-                            0 => Marker::Wall,
-                            1 => Marker::Door,
-                            2 => Marker::Window,
-                            _ => Marker::Wall,
+                        let structure = match selection {
+                            1 => Structure::Door,
+                            2 => Structure::Window,
+                            3 => Structure::Fence,
+                            _ => Structure::Wall,
                         };
                         if let Purpose::Surveying { surveyor } = equipment.purpose {
                             self.send_action(FarmerBound::Survey {
                                 surveyor,
                                 tile,
-                                marker,
+                                marker: Marker::Construction(structure),
+                            });
+                        } else {
+                            error!("Not sur")
+                        }
+                    }
+                    Wall(tile) => {
+                        let structure = match selection {
+                            1 => Structure::Door,
+                            2 => Structure::Window,
+                            3 => Structure::Fence,
+                            _ => Structure::Wall,
+                        };
+                        if let Purpose::Surveying { surveyor } = equipment.purpose {
+                            self.send_action(FarmerBound::Survey {
+                                surveyor,
+                                tile,
+                                marker: Marker::Reconstruction(structure),
                             });
                         } else {
                             error!("Not sur")
@@ -127,16 +142,54 @@ impl Gameplay {
                     }
                     Construction(construction) => {
                         self.send_action(FarmerBound::RemoveConstruction { construction });
+                        let structure = match selection {
+                            1 => Structure::Door,
+                            2 => Structure::Window,
+                            3 => Structure::Fence,
+                            _ => Structure::Wall,
+                        };
+                        if let Purpose::Surveying { surveyor } = equipment.purpose {
+                            let marker = match construction.marker {
+                                Marker::Construction(_) => Marker::Construction(structure),
+                                Marker::Reconstruction(_) => Marker::Reconstruction(structure),
+                                Marker::Deconstruction => Marker::Construction(structure),
+                            };
+                            self.send_action(FarmerBound::Survey {
+                                surveyor,
+                                tile: construction.cell,
+                                marker,
+                            });
+                        } else {
+                            error!("Not sur")
+                        }
                     }
                     _ => {
                         // beep error
                     }
                 },
-                Put => {
-                    self.send_action(FarmerBound::CancelActivity);
-                }
+                Put => match target {
+                    Construction(construction) => {
+                        self.send_action(FarmerBound::RemoveConstruction { construction });
+                    }
+                    Wall(tile) => {
+                        if let Purpose::Surveying { surveyor } = equipment.purpose {
+                            self.send_action(FarmerBound::Survey {
+                                surveyor,
+                                tile,
+                                marker: Marker::Deconstruction,
+                            });
+                        } else {
+                            error!("Not sur")
+                        }
+                    }
+                    _ => {}
+                },
                 Swap => {
                     self.send_action(FarmerBound::ToggleSurveyingOption);
+                }
+                Intention::Move => {
+                    self.send_action(FarmerBound::CancelActivity);
+                    farmer.activity = Activity::Idle;
                 }
             },
         }

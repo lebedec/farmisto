@@ -1,6 +1,6 @@
 use crate::testing::{any, GameTestScenario, ANYWHERE};
 use game::api::Action;
-use game::building::{Building, Cell, Marker};
+use game::building::{Building, Cell, Stake};
 use game::building::{GridId, Room};
 use game::inventory::Inventory;
 use game::model::Universe;
@@ -17,7 +17,7 @@ fn test_first_construction() {
         .when_farmer_perform("Alice", |given| Action::Survey {
             theodolite: given.theodolite("level"),
             tile: [1, 1],
-            marker: Marker::Wall,
+            marker: Stake::Wall,
         })
         .debug(|scenario| scenario.debug_buildings("land").present())
         .then_events_should_be(|given| vec![]);

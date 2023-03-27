@@ -5,20 +5,11 @@ use std::fmt::{Debug, Formatter};
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Default, Debug, bincode::Encode, bincode::Decode)]
 pub struct Material(pub u8);
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
-pub enum Marker {
-    Wall,
-    Window,
-    Door,
-}
-
 #[derive(Clone, Copy, Default, Debug, bincode::Encode, bincode::Decode)]
 pub struct Cell {
     pub wall: bool,
-    pub inner: bool,
     pub door: bool,
     pub window: bool,
-    pub marker: Option<Marker>,
     pub material: Material,
 }
 
@@ -92,6 +83,31 @@ impl Grid {
     }
 }
 
+#[derive(
+    Clone, Copy, Debug, bincode::Encode, serde::Deserialize, bincode::Decode, PartialEq, Eq, Hash,
+)]
+pub enum Structure {
+    Wall,
+    Window,
+    Door,
+    Fence,
+}
+
+#[derive(
+    Clone, Copy, Debug, bincode::Encode, serde::Deserialize, bincode::Decode, PartialEq, Eq, Hash,
+)]
+pub enum Marker {
+    Construction(Structure),
+    Reconstruction(Structure),
+    Deconstruction,
+}
+
+#[derive(Clone, Copy, Debug, bincode::Encode, bincode::Decode)]
+pub struct Stake {
+    pub marker: Marker,
+    pub cell: [usize; 2],
+}
+
 #[derive(Clone, Copy, PartialEq, Eq, Hash)]
 pub struct SurveyorKey(pub usize);
 
@@ -106,6 +122,7 @@ pub struct SurveyorId(pub usize);
 pub struct Surveyor {
     pub id: SurveyorId,
     pub grid: GridId,
+    pub surveying: Vec<Stake>,
     pub kind: Shared<SurveyorKind>,
 }
 
@@ -143,6 +160,8 @@ pub enum BuildingError {
     CellHasNoWall { cell: [usize; 2] },
     CellHasNoMarkers { cell: [usize; 2] },
     SurveyorNotFound { id: SurveyorId },
+    SurveyorMarkerNotFound,
+    ConstructStakeMarkedForDeconstruction,
 }
 
 #[derive(Default)]
@@ -172,6 +191,40 @@ impl BuildingDomain {
             .ok_or(BuildingError::GridNotFound { id })
     }
 
+    pub fn find_surveyor_mut(
+        &mut self,
+        grid: GridId,
+        cell: [usize; 2],
+    ) -> Result<&mut Surveyor, BuildingError> {
+        self.surveyors
+            .iter_mut()
+            .find(|surveyor| {
+                surveyor.grid == grid && surveyor.surveying.iter().any(|stake| stake.cell == cell)
+            })
+            .ok_or(BuildingError::SurveyorMarkerNotFound)
+    }
+
+    pub fn index_surveyor2(
+        &mut self,
+        grid: GridId,
+        cell: [usize; 2],
+    ) -> Result<usize, BuildingError> {
+        self.surveyors
+            .iter_mut()
+            .position(|surveyor| {
+                surveyor.grid == grid && surveyor.surveying.iter().any(|stake| stake.cell == cell)
+            })
+            .ok_or(BuildingError::SurveyorMarkerNotFound)
+    }
+
+    #[inline]
+    pub fn index_grid(&mut self, id: GridId) -> Result<usize, BuildingError> {
+        self.grids
+            .iter_mut()
+            .position(|grid| grid.id == id)
+            .ok_or(BuildingError::GridNotFound { id })
+    }
+
     #[inline]
     pub fn get_mut_grid(&mut self, id: GridId) -> Result<&mut Grid, BuildingError> {
         self.grids
@@ -196,6 +249,14 @@ impl BuildingDomain {
     pub fn get_surveyor(&self, id: SurveyorId) -> Result<&Surveyor, BuildingError> {
         self.surveyors
             .iter()
+            .find(|surveyor| surveyor.id == id)
+            .ok_or(BuildingError::SurveyorNotFound { id })
+    }
+
+    #[inline]
+    pub fn get_surveyor_mut(&mut self, id: SurveyorId) -> Result<&mut Surveyor, BuildingError> {
+        self.surveyors
+            .iter_mut()
             .find(|surveyor| surveyor.id == id)
             .ok_or(BuildingError::SurveyorNotFound { id })
     }

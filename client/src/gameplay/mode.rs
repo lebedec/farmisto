@@ -2,6 +2,7 @@ use std::collections::HashMap;
 
 use ai::AiThread;
 use glam::vec3;
+use libfmod::TagDataType::Int;
 use log::{error, info};
 use sdl2::keyboard::Keycode;
 
@@ -50,6 +51,7 @@ pub enum Intention {
     Use,
     Put,
     Swap,
+    Move,
 }
 
 #[derive(Clone)]
@@ -75,6 +77,12 @@ impl InputMethod for Input {
             Some(Intention::Put)
         } else if self.pressed(Keycode::Tab) {
             Some(Intention::Swap)
+        } else if (self.down(Keycode::A)
+            || self.down(Keycode::S)
+            || self.down(Keycode::D)
+            || self.down(Keycode::W))
+        {
+            Some(Intention::Move)
         } else {
             None
         }
@@ -251,7 +259,7 @@ impl Gameplay {
             let farmland = self.farmlands.get(&farmland).unwrap();
 
             let cell = farmland.cells[tile[1]][tile[0]];
-            if cell.wall && cell.marker.is_none() {
+            if cell.wall {
                 return Target::Wall(tile);
             }
         }

@@ -45,10 +45,8 @@ def generate_grid(grid_id: int, space_id: int, surveyor: int, user_define_map: s
         holes_data.write(struct.pack('B', size_x))
         for x in range(size_x):
             wall = 0
-            inner = 0
             door = 0
             window = 0
-            marker = None
             material = 0
             # space
             is_hole = 0
@@ -56,49 +54,39 @@ def generate_grid(grid_id: int, space_id: int, surveyor: int, user_define_map: s
                 code = user_define[y][x]
                 if code == '=':
                     wall = 1
-                    inner = 1
                     # space
                     is_hole = 1
                     material = 2
                 if code == '#':
                     wall = 1
-                    inner = 0
                     # space
                     is_hole = 1
                     material = 2
                 if code == 'O':
                     wall = 1
-                    inner = 0
                     door = 1
                     material = 2
                 if code == 'o':
                     wall = 1
-                    inner = 0
                     window = 1
                     # space
                     is_hole = 1
                     material = 2
                 if code == '+':
                     wall = 1
-                    inner = 0
                     is_hole = 1
                     material = 1
                 if code == 'A':
                     wall = 1
-                    inner = 0
                     door = 1
                     material = 1
                 if code == 'a':
                     wall = 1
-                    inner = 0
                     window = 1
                     # space
                     is_hole = 1
                     material = 1
-            if marker is not None:
-                data.write(struct.pack('BBBBBBB', *[wall, inner, door, window, 1, marker, material]))
-            else:
-                data.write(struct.pack('BBBBBB', *[wall, inner, door, window, 0, material]))
+            data.write(struct.pack('BBBB', *[wall, door, window, material]))
             holes_data.write(struct.pack('B', is_hole))
 
     data = data.getvalue()

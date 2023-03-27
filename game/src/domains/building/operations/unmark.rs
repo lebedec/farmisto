@@ -1,14 +1,19 @@
 use crate::building::{Building, BuildingDomain, BuildingError, Stake, SurveyorId};
 
 impl BuildingDomain {
-    pub fn survey<'operation>(
+    pub fn unmark<'operation>(
         &'operation mut self,
         surveyor: SurveyorId,
-        stake: Stake,
+        cell: [usize; 2],
     ) -> Result<impl FnOnce() -> Vec<Building> + 'operation, BuildingError> {
         let surveyor = self.get_surveyor_mut(surveyor)?;
         let operation = move || {
-            surveyor.surveying.push(stake);
+            let index = surveyor
+                .surveying
+                .iter()
+                .position(|marker| marker.cell == cell)
+                .unwrap();
+            surveyor.surveying.remove(index);
             vec![]
         };
         Ok(operation)

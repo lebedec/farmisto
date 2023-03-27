@@ -16,7 +16,6 @@ impl BuildingDomain {
         let operation = move || {
             for cell in cells {
                 let cell = grid.get_cell_mut(cell);
-                cell.marker = None;
                 cell.wall = false;
                 cell.window = false;
                 cell.door = false;

@@ -2,7 +2,7 @@ use std::collections::{HashMap, HashSet};
 use std::ptr::eq;
 
 use crate::building::{
-    Cell, GridId, GridKey, GridKind, Room, SurveyorId, SurveyorKey, SurveyorKind,
+    Cell, GridId, GridKey, GridKind, Marker, Room, SurveyorId, SurveyorKey, SurveyorKind,
 };
 use crate::collections::{Dictionary, Shared};
 use crate::inventory::{
@@ -197,6 +197,7 @@ impl UniverseDomain {
         container: ContainerId,
         grid: GridId,
         surveyor: SurveyorId,
+        marker: Marker,
         cell: [usize; 2],
     ) -> Vec<Universe> {
         self.constructions_id += 1;
@@ -205,6 +206,7 @@ impl UniverseDomain {
             container,
             grid,
             surveyor,
+            marker,
             cell,
         };
         self.constructions.push(construction);
@@ -376,6 +378,7 @@ pub struct Construction {
     pub container: ContainerId,
     pub grid: GridId,
     pub surveyor: SurveyorId,
+    pub marker: Marker,
     pub cell: [usize; 2],
 }
 

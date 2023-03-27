@@ -1,4 +1,4 @@
-use crate::building::{Building, BuildingError, Marker, SurveyorId};
+use crate::building::{Building, BuildingError, Marker, Stake, Structure, SurveyorId};
 use crate::inventory::{Inventory, InventoryError, ItemId};
 use crate::model::{
     Activity, Construction, Creature, Crop, Equipment, EquipmentKey, Farmer, Stack, Universe,
@@ -85,11 +85,8 @@ pub enum FarmerBound {
     TakeMaterial {
         construction: Construction,
     },
-    Construct {
+    Build {
         construction: Construction,
-    },
-    Deconstruct {
-        tile: [usize; 2],
     },
     PutMaterial {
         construction: Construction,

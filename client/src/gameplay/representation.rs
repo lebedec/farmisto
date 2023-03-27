@@ -84,7 +84,9 @@ pub struct FarmlandRep {
     pub cells: Vec<Vec<Cell>>,
     pub rooms: Vec<Room>,
     pub holes: Vec<Vec<u8>>,
-    pub building_marker: BuildingRep,
+    pub construction: BuildingRep,
+    pub reconstruction: BuildingRep,
+    pub deconstruction: BuildingRep,
     pub buildings: Vec<BuildingRep>,
 }
 
