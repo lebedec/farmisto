@@ -118,7 +118,7 @@ create table Plant
 
 create table AnimalKind
 (
-    id  integer primary key,
+    id   integer primary key,
     name text not null unique
 );
 
@@ -138,8 +138,7 @@ create table Animal
 create table GridKind
 (
     id        integer primary key,
-    name      text not null unique,
-    materials json not null
+    name      text not null unique
 );
 
 create table Grid
@@ -260,6 +259,7 @@ create table Construction
     container integer not null references Container,
     grid      integer not null references Grid,
     surveyor  integer not null references Surveyor,
+    marker    json    not null,
     cell      json    not null
 );
 
@@ -305,7 +305,7 @@ create table Crop
 
 create table CreatureKind
 (
-    id    integer primary key,
+    id     integer primary key,
     name   text not null unique,
     animal text not null references AnimalKind (name),
     body   text not null references BodyKind (name)

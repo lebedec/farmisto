@@ -264,22 +264,46 @@ impl Gameplay {
 
                 self.current_farmland = Some(farmland);
 
-                let building_marker = assets.building("marker");
+                let construction = assets.building("construction");
+                let reconstruction = assets.building("reconstruction");
+                let deconstruction = assets.building("deconstruction");
                 let buildings = vec![
                     assets.building("template"),
                     assets.building("wood"),
                     assets.building("concrete"),
                 ];
-                let building_marker = BuildingRep {
+                let construction = BuildingRep {
                     floor: frame.sprites.instantiate_tilemap(
-                        building_marker.floor.share(),
-                        building_marker.floor_sampler.share(),
+                        construction.floor.share(),
+                        construction.floor_sampler.share(),
                     ),
                     roof: frame.sprites.instantiate_tilemap(
-                        building_marker.roof.share(),
-                        building_marker.roof_sampler.share(),
+                        construction.roof.share(),
+                        construction.roof_sampler.share(),
                     ),
-                    asset: building_marker,
+                    asset: construction,
+                };
+                let reconstruction = BuildingRep {
+                    floor: frame.sprites.instantiate_tilemap(
+                        reconstruction.floor.share(),
+                        reconstruction.floor_sampler.share(),
+                    ),
+                    roof: frame.sprites.instantiate_tilemap(
+                        reconstruction.roof.share(),
+                        reconstruction.roof_sampler.share(),
+                    ),
+                    asset: reconstruction,
+                };
+                let deconstruction = BuildingRep {
+                    floor: frame.sprites.instantiate_tilemap(
+                        deconstruction.floor.share(),
+                        deconstruction.floor_sampler.share(),
+                    ),
+                    roof: frame.sprites.instantiate_tilemap(
+                        deconstruction.roof.share(),
+                        deconstruction.roof_sampler.share(),
+                    ),
+                    asset: deconstruction,
                 };
                 let buildings = buildings
                     .into_iter()
@@ -304,7 +328,9 @@ impl Gameplay {
                         cells,
                         rooms,
                         holes,
-                        building_marker,
+                        construction,
+                        reconstruction,
+                        deconstruction,
                         buildings,
                     },
                 );

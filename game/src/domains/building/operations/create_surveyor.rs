@@ -11,7 +11,12 @@ impl BuildingDomain {
         kind: Shared<SurveyorKind>,
     ) -> Result<(SurveyorId, impl FnOnce() -> Vec<Building> + 'operation), BuildingError> {
         let id = SurveyorId(self.surveyors_sequence + 1);
-        let surveyor = Surveyor { id, grid, kind };
+        let surveyor = Surveyor {
+            id,
+            grid,
+            surveying: vec![],
+            kind,
+        };
         let operation = move || {
             let events = vec![SurveyorCreated {
                 id: surveyor.id,

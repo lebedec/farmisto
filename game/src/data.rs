@@ -1,7 +1,7 @@
 use log::info;
 
 use crate::building::{
-    Grid, GridId, GridKey, GridKind, Surveyor, SurveyorId, SurveyorKey, SurveyorKind,
+    Grid, GridId, GridKey, GridKind, Marker, Surveyor, SurveyorId, SurveyorKey, SurveyorKind,
 };
 use crate::collections::Shared;
 use crate::inventory::{
@@ -343,11 +343,13 @@ impl Game {
         row: &rusqlite::Row,
     ) -> Result<Construction, DataError> {
         let cell: String = row.get("cell")?;
+        let marker: String = row.get("marker")?;
         let data = Construction {
             id: row.get("id")?,
             container: ContainerId(row.get("container")?),
             grid: GridId(row.get("grid")?),
             surveyor: SurveyorId(row.get("surveyor")?),
+            marker: serde_json::from_str(&marker)?,
             cell: serde_json::from_str(&cell)?,
         };
         Ok(data)
@@ -465,11 +467,9 @@ impl Game {
 
     pub(crate) fn load_grid_kind(&mut self, row: &rusqlite::Row) -> Result<GridKind, DataError> {
         let id = row.get("id")?;
-        let materials: String = row.get("materials")?;
         let data = GridKind {
             id: GridKey(id),
             name: row.get("name")?,
-            materials: serde_json::from_str(&materials)?,
         };
         Ok(data)
     }
@@ -508,6 +508,7 @@ impl Game {
         let data = Surveyor {
             id: SurveyorId(id),
             grid: GridId(grid),
+            surveying: vec![],
             kind: self.known.surveyors.get(SurveyorKey(kind)).unwrap(),
         };
         Ok(data)

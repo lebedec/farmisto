@@ -10,9 +10,9 @@ impl PhysicsDomain {
         let space = self.get_space_mut(id)?;
         let [hole_x, hole_y] = hole;
 
-        if space.holes[hole_y][hole_x] == 1 {
-            return Err(PhysicsError::HoleAlreadyExists { hole });
-        }
+        // if space.holes[hole_y][hole_x] == 1 {
+        //     return Err(PhysicsError::HoleAlreadyExists { hole });
+        // }
 
         let operation = move || {
             space.holes[hole_y][hole_x] = 1;
