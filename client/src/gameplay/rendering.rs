@@ -4,7 +4,7 @@ use crate::gameplay::representation::{CreatureRep, CropRep};
 use crate::gameplay::{position_of, rendering_position_of, Gameplay, TILE_SIZE};
 use game::building::{Cell, Grid, Marker, Room, Structure};
 use game::math::VectorMath;
-use game::model::{Activity, Purpose};
+use game::model::{Activity, Construction, Purpose};
 use lazy_static::lazy_static;
 use log::info;
 use rand::prelude::*;
@@ -161,18 +161,19 @@ impl Gameplay {
             );
 
             let mut floor_map = [[[0; 4]; 31]; 18];
-            for room in &farmland.rooms {
+            for (room_index, room) in farmland.rooms.iter().enumerate() {
                 if room.id == Room::EXTERIOR_ID {
                     continue;
                 }
-                for (i, row) in room.rows.iter().enumerate() {
-                    let y = room.rows_y + i;
+                for (i, row) in room.area.iter().enumerate() {
+                    let y = room.area_y + i;
                     if y >= render_offset_y && (y - render_offset_y) < floor_map.len() {
                         for x in 0..31 {
                             let x = x + render_offset_x;
                             let interior_bit = 1 << (Grid::COLUMNS - x - 1);
                             if row & interior_bit == interior_bit {
-                                floor_map[y - render_offset_y][x - render_offset_x] = [1, 0, 0, 0];
+                                floor_map[y - render_offset_y][x - render_offset_x] =
+                                    [1, 0, 0, room_index as u32];
                             }
                         }
                     }
@@ -186,8 +187,8 @@ impl Gameplay {
                 {
                     continue;
                 }
-                for (i, row) in room.rows.iter().enumerate() {
-                    let y = room.rows_y + i;
+                for (i, row) in room.area.iter().enumerate() {
+                    let y = room.area_y + i;
                     if y >= render_offset_y && (y - render_offset_y) < roof_map.len() {
                         for x in 0..31 {
                             let x = x + render_offset_x;
@@ -227,6 +228,17 @@ impl Gameplay {
                 // create walls from markers via rendering process
                 // to make correct tiling calculation
                 rendering_cells[row][column].wall = true;
+                match construction.entity.marker {
+                    Marker::Construction(structure) => {
+                        rendering_cells[row][column].window = structure == Structure::Window;
+                        rendering_cells[row][column].door = structure == Structure::Door;
+                    }
+                    Marker::Reconstruction(structure) => {
+                        rendering_cells[row][column].window = structure == Structure::Window;
+                        rendering_cells[row][column].door = structure == Structure::Door;
+                    }
+                    Marker::Deconstruction => {}
+                }
             }
 
             for (y, line) in rendering_cells.iter().enumerate() {
@@ -239,12 +251,30 @@ impl Gameplay {
                     let position = [x as f32 * TILE_SIZE, TILE_SIZE + y as f32 * TILE_SIZE];
                     if farmland.cells[y][x].wall {
                         // if origin wall
-                        let neighbors = Neighbors::of(x, y, &rendering_cells);
-                        let tile_index = neighbors.to_tile_index(cell.door, cell.window);
-                        let tileset = &farmland.buildings[cell.material.0 as usize]
-                            .asset
-                            .walls
-                            .tiles;
+                        let neighbors = Neighbors::of(x, y, &farmland.cells);
+                        let mut tile_index = neighbors.to_tile_index();
+                        let tileset = &farmland.buildings[0].asset.walls.tiles;
+
+                        if y >= render_offset_y && x >= render_offset_x {
+                            let y = y - render_offset_y;
+                            let x = x - render_offset_x;
+                            if y + 1 < 18 && x < 31 {
+                                let mut is_exterior_around = floor_map[y + 1][x][3] == 0;
+                                if x > 1 {
+                                    is_exterior_around =
+                                        is_exterior_around || floor_map[y + 1][x - 1][3] == 0;
+                                }
+                                if x + 1 < 31 {
+                                    is_exterior_around =
+                                        is_exterior_around || floor_map[y + 1][x + 1][3] == 0;
+                                }
+                                if !is_exterior_around {
+                                    // shift index to interior tiles
+                                    tile_index += 32;
+                                }
+                            }
+                        }
+
                         let tile = &tileset[tile_index];
                         renderer.render_sprite(
                             tile,
@@ -254,25 +284,13 @@ impl Gameplay {
                         );
                     }
                     if let Some(marker) = surveying.get(&[x, y]) {
-                        let (tileset, is_door, is_window) = match marker {
-                            Marker::Construction(structure) => (
-                                &farmland.construction.asset.walls.tiles,
-                                structure == &Structure::Door,
-                                structure == &Structure::Window,
-                            ),
-                            Marker::Reconstruction(structure) => (
-                                &farmland.reconstruction.asset.walls.tiles,
-                                structure == &Structure::Door,
-                                structure == &Structure::Window,
-                            ),
-                            Marker::Deconstruction => (
-                                &farmland.deconstruction.asset.walls.tiles,
-                                cell.door,
-                                cell.window,
-                            ),
+                        let tileset = match marker {
+                            Marker::Construction(_) => &farmland.construction.asset.walls.tiles,
+                            Marker::Reconstruction(_) => &farmland.reconstruction.asset.walls.tiles,
+                            Marker::Deconstruction => &farmland.deconstruction.asset.walls.tiles,
                         };
                         let neighbors = Neighbors::of(x, y, &rendering_cells);
-                        let tile_index = neighbors.to_tile_index(is_door, is_window);
+                        let tile_index = neighbors.to_tile_index();
                         let tile = &tileset[tile_index];
                         renderer.render_sprite(
                             tile,
@@ -494,73 +512,148 @@ impl Gameplay {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 enum Neighbors {
-    WE,
-    NS,
+    LeftRight,
+    TopDown,
     Full,
-    NW,
-    NE,
-    SE,
-    SW,
-    WNS,
-    NES,
-    ESW,
-    WNE,
+    TopLeft,
+    TopRight,
+    DownRight,
+    DownLeft,
+    TopDownLeft,
+    TopDownRight,
+    DownLeftRight,
+    TopLeftRight,
+    //
+    WindowLeftRight,
+    WindowRight,
+    WindowHorizontal,
+    WindowLeft,
+    WindowTopDown,
+    WindowTop,
+    WindowVertical,
+    WindowDown,
+    //
+    DoorLeftRight,
+    DoorRight,
+    DoorHorizontal,
+    DoorLeft,
+    DoorTopDown,
+    DoorTop,
+    DoorVertical,
+    DoorDown,
+}
+
+pub fn peek(x: isize, y: isize, cells: &Vec<Vec<Cell>>) -> (bool, bool, bool) {
+    if x < 0 || x >= cells[0].len() as isize || y < 0 || y >= cells.len() as isize {
+        (false, false, false)
+    } else {
+        let cell = &cells[y as usize][x as usize];
+        (cell.wall, cell.door, cell.window)
+    }
 }
 
 impl Neighbors {
     pub fn of(x: usize, y: usize, cells: &Vec<Vec<Cell>>) -> Neighbors {
-        let line = &cells[y];
-        let west = x > 0 && line[x - 1].wall;
-        let east = x + 1 < line.len() && line[x + 1].wall;
-        let north = y > 0 && cells[y - 1][x].wall;
-        let south = y + 1 < cells.len() && cells[y + 1][x].wall;
-        match (west, north, east, south) {
+        let cell = &cells[y][x];
+        let (is_door, is_window) = (cell.door, cell.window);
+
+        let x = x as isize;
+        let y = y as isize;
+
+        let (left, left_door, left_window) = peek(x - 1, y, cells);
+        let (right, right_door, right_window) = peek(x + 1, y, cells);
+        let (top, top_door, top_window) = peek(x, y - 1, cells);
+        let (down, down_door, down_window) = peek(x, y + 1, cells);
+
+        if is_window {
+            return match (left_window, top_window, right_window, down_window) {
+                (false, false, true, false) => Neighbors::WindowRight,
+                (true, false, true, false) => Neighbors::WindowHorizontal,
+                (true, false, false, false) => Neighbors::WindowLeft,
+                (false, true, false, false) => Neighbors::WindowTop,
+                (false, true, false, true) => Neighbors::WindowVertical,
+                (false, false, false, true) => Neighbors::WindowDown,
+                _ => {
+                    if top && down {
+                        Neighbors::WindowTopDown
+                    } else {
+                        Neighbors::WindowLeftRight
+                    }
+                }
+            };
+        }
+
+        if is_door {
+            return match (left_door, top_door, right_door, down_door) {
+                (false, false, true, false) => Neighbors::DoorRight,
+                (true, false, true, false) => Neighbors::DoorHorizontal,
+                (true, false, false, false) => Neighbors::DoorLeft,
+                (false, true, false, false) => Neighbors::DoorTop,
+                (false, true, false, true) => Neighbors::DoorVertical,
+                (false, false, false, true) => Neighbors::DoorDown,
+                _ => {
+                    if top && down {
+                        Neighbors::DoorTopDown
+                    } else {
+                        Neighbors::DoorLeftRight
+                    }
+                }
+            };
+        }
+
+        match (left, top, right, down) {
             (true, true, true, true) => Neighbors::Full,
-            (false, true, false, true) => Neighbors::NS,
-            (true, false, true, false) => Neighbors::WE,
-            (true, true, false, false) => Neighbors::NW,
-            (false, true, true, false) => Neighbors::NE,
-            (false, false, true, true) => Neighbors::SE,
-            (true, false, false, true) => Neighbors::SW,
-            (true, true, true, false) => Neighbors::WNE,
-            (true, true, false, true) => Neighbors::WNS,
-            (true, false, true, true) => Neighbors::ESW,
-            (false, true, true, true) => Neighbors::NES,
+            (false, true, false, true) => Neighbors::TopDown,
+            (true, false, true, false) => Neighbors::LeftRight,
+            (true, true, false, false) => Neighbors::TopLeft,
+            (false, true, true, false) => Neighbors::TopRight,
+            (false, false, true, true) => Neighbors::DownRight,
+            (true, false, false, true) => Neighbors::DownLeft,
+            (true, true, true, false) => Neighbors::TopLeftRight,
+            (true, true, false, true) => Neighbors::TopDownLeft,
+            (true, false, true, true) => Neighbors::DownLeftRight,
+            (false, true, true, true) => Neighbors::TopDownRight,
             // unimplemented
-            (true, false, false, false) => Neighbors::WE,
-            (false, true, false, false) => Neighbors::NS,
-            (false, false, false, true) => Neighbors::NS,
-            (false, false, true, false) => Neighbors::WE,
+            (true, false, false, false) => Neighbors::LeftRight,
+            (false, true, false, false) => Neighbors::TopDown,
+            (false, false, false, true) => Neighbors::TopDown,
+            (false, false, true, false) => Neighbors::LeftRight,
             (false, false, false, false) => Neighbors::Full,
         }
     }
 
-    pub fn to_tile_index(&self, is_door: bool, is_window: bool) -> usize {
+    pub fn to_tile_index(&self) -> usize {
         let mut tile = match self {
-            Neighbors::WE => 0,
-            Neighbors::NS => 1,
-            Neighbors::Full => 2,
-            Neighbors::NW => 3,
-            Neighbors::NE => 4,
-            Neighbors::SE => 5,
-            Neighbors::SW => 6,
-            Neighbors::WNS => 7,
-            Neighbors::NES => 8,
-            Neighbors::ESW => 9,
-            Neighbors::WNE => 10,
+            Neighbors::LeftRight => 4 + 1 * 16,
+            Neighbors::TopDown => 4,
+            Neighbors::Full => 0 + 4 * 16,
+            Neighbors::TopLeft => 1,
+            Neighbors::TopRight => 0,
+            Neighbors::DownRight => 2,
+            Neighbors::DownLeft => 3,
+            Neighbors::TopDownLeft => 1 + 1 * 16,
+            Neighbors::TopDownRight => 0 + 1 * 16,
+            Neighbors::DownLeftRight => 3 + 1 * 16,
+            Neighbors::TopLeftRight => 2 + 1 * 16,
+            //
+            Neighbors::WindowLeftRight => 8 + 1 * 16,
+            Neighbors::WindowRight => 9 + 1 * 16,
+            Neighbors::WindowHorizontal => 10 + 1 * 16,
+            Neighbors::WindowLeft => 11 + 1 * 16,
+            Neighbors::WindowTopDown => 8,
+            Neighbors::WindowTop => 9,
+            Neighbors::WindowVertical => 10,
+            Neighbors::WindowDown => 11,
+            //
+            Neighbors::DoorLeftRight => 12 + 1 * 16,
+            Neighbors::DoorRight => 13 + 1 * 16,
+            Neighbors::DoorHorizontal => 14 + 1 * 16,
+            Neighbors::DoorLeft => 15 + 1 * 16,
+            Neighbors::DoorTopDown => 12,
+            Neighbors::DoorTop => 13,
+            Neighbors::DoorVertical => 14,
+            Neighbors::DoorDown => 15,
         };
-        if is_door {
-            tile = match self {
-                Neighbors::NS => 12,
-                _ => 19, // 11 small
-            }
-        }
-        if is_window {
-            tile = match self {
-                Neighbors::NS => 14,
-                _ => 13,
-            };
-        }
         tile
     }
 }

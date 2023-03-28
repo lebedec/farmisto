@@ -8,11 +8,11 @@ impl Grid {
                 continue;
             }
             // grow vertically
-            let mut area = vec![0; room.rows.len() + 2];
-            for i in 1..=room.rows.len() {
-                area[i - 1] |= room.rows[i - 1];
-                area[i] |= room.rows[i - 1];
-                area[i + 1] |= room.rows[i - 1];
+            let mut area = vec![0; room.area.len() + 2];
+            for i in 1..=room.area.len() {
+                area[i - 1] |= room.area[i - 1];
+                area[i] |= room.area[i - 1];
+                area[i + 1] |= room.area[i - 1];
             }
             // grow horizontally by segments
             for row in area.iter_mut() {
@@ -38,8 +38,8 @@ impl Grid {
                 }
                 *row = grow_row;
             }
-            room.rows_y = room.rows_y - 1;
-            room.rows = area;
+            room.area_y = room.area_y - 1;
+            room.area = area;
         }
     }
 
@@ -50,20 +50,20 @@ impl Grid {
                 to_delete.push(source);
                 let source = &mut rooms[source];
                 source.active = false;
-                let source_y = source.rows_y;
-                let source_rows = source.rows.clone();
+                let source_y = source.area_y;
+                let source_rows = source.area.clone();
                 let room = &mut rooms[destination];
 
-                let offset = source_y as isize - room.rows_y as isize;
+                let offset = source_y as isize - room.area_y as isize;
                 if offset < 0 {
-                    room.rows_y = source_y;
+                    room.area_y = source_y;
                     let mut rows = vec![0; offset.abs() as usize];
-                    rows.extend(&room.rows);
-                    room.rows = rows;
+                    rows.extend(&room.area);
+                    room.area = rows;
                 }
                 for (index, row) in source_rows.into_iter().enumerate() {
                     let room_index = (index as isize + offset) as usize;
-                    room.rows[room_index] = room.rows[room_index] | row;
+                    room.area[room_index] = room.area[room_index] | row;
                 }
             }
 
@@ -93,8 +93,8 @@ impl Grid {
                 rooms.push(Room {
                     id: *room_id,
                     contour: false,
-                    rows_y: y,
-                    rows: vec![expansions[room]],
+                    area_y: y,
+                    area: vec![expansions[room]],
                     active: true,
                 });
                 *room_id += 1;
@@ -103,7 +103,7 @@ impl Grid {
                 if expansion != 0 {
                     match trunk.get(&expansion) {
                         None => {
-                            rooms[room].rows.push(expansion);
+                            rooms[room].area.push(expansion);
                             trunk.insert(expansion, room);
                         }
                         Some(trunk) => {
@@ -161,14 +161,14 @@ impl Grid {
                     }
                     let source = &rooms[source_index];
                     let destination = &rooms[destination_index];
-                    let offset = source.rows_y as isize - destination.rows_y as isize;
-                    if offset < 0 || offset >= destination.rows.len() as isize {
+                    let offset = source.area_y as isize - destination.area_y as isize;
+                    if offset < 0 || offset >= destination.area.len() as isize {
                         continue;
                     }
                     let offset = offset as usize;
-                    let overlaps = source.rows.len().min(destination.rows.len() - offset);
+                    let overlaps = source.area.len().min(destination.area.len() - offset);
                     for i in 0..overlaps {
-                        if destination.rows[i + offset] & source.rows[i] != 0 {
+                        if destination.area[i + offset] & source.area[i] != 0 {
                             merge = Some([source_index, destination_index]);
                             break 'collision_detection;
                         }
@@ -196,8 +196,8 @@ impl Grid {
         let exterior = Room {
             id: Room::EXTERIOR_ID,
             contour: false,
-            rows_y: 0,
-            rows: vec![u128::MAX],
+            area_y: 0,
+            area: vec![u128::MAX],
             active: true,
         };
         let mut unique_id = 1;
@@ -212,7 +212,7 @@ impl Grid {
             let rooms_above_row: Vec<u128> = rooms
                 .iter()
                 .map(|room| match room.active {
-                    true => *room.rows.last().unwrap(),
+                    true => *room.area.last().unwrap(),
                     false => 0,
                 })
                 .collect();

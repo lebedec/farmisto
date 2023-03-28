@@ -77,12 +77,12 @@ fn test_something() {
             shape.id,
             shape.contour,
             (shape.id != Room::EXTERIOR_ID && !shape.contour),
-            shape.rows_y,
-            shape.rows.len(),
+            shape.area_y,
+            shape.area.len(),
         );
         for y in 0..def_y {
-            let row = if y >= shape.rows_y && y - shape.rows_y < shape.rows.len() {
-                shape.rows[y - shape.rows_y]
+            let row = if y >= shape.area_y && y - shape.area_y < shape.area.len() {
+                shape.area[y - shape.area_y]
             } else {
                 0
             };

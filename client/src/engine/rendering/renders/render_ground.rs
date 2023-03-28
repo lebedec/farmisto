@@ -22,8 +22,8 @@ impl Scene {
             if shape.id == Room::EXTERIOR_ID {
                 continue;
             }
-            for (i, row) in shape.rows.iter().enumerate() {
-                global_interior_map[shape.rows_y + i] = global_interior_map[shape.rows_y + i] | row;
+            for (i, row) in shape.area.iter().enumerate() {
+                global_interior_map[shape.area_y + i] = global_interior_map[shape.area_y + i] | row;
             }
         }
 

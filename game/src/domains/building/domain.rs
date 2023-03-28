@@ -28,8 +28,8 @@ pub struct GridId(pub usize);
 pub struct Room {
     pub id: usize,
     pub contour: bool,
-    pub rows_y: usize,
-    pub rows: Vec<u128>,
+    pub area_y: usize,
+    pub area: Vec<u128>,
     pub active: bool,
 }
 
@@ -39,7 +39,7 @@ impl Debug for Room {
             .debug_struct("Room")
             .field("id", &self.id)
             .field("contour", &self.contour)
-            .field("rows_y", &self.rows_y)
+            .field("area_y", &self.area_y)
             .field("active", &self.active)
             .finish()
     }
@@ -51,8 +51,8 @@ impl Room {
     pub fn contains(&self, point: [usize; 2]) -> bool {
         let [x, y] = point;
         let x_bit = 1 << (128 - x - 1);
-        if y >= self.rows_y && y < self.rows_y + self.rows.len() {
-            let row = self.rows[y - self.rows_y];
+        if y >= self.area_y && y < self.area_y + self.area.len() {
+            let row = self.area[y - self.area_y];
             if row & x_bit != 0 {
                 return true;
             }
