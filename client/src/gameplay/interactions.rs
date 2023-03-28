@@ -1,5 +1,5 @@
 use crate::gameplay::representation::FarmerRep;
-use crate::gameplay::Intention::{Move, Put, Swap, Use};
+use crate::gameplay::Intention::{Move, Put, QuickSwap, Swap, Use};
 use crate::gameplay::Target::{Construction, Crop, Equipment, Ground, Stack, Wall};
 use crate::gameplay::{Gameplay, Intention, Target};
 use game::api::FarmerBound;
@@ -44,6 +44,7 @@ impl Gameplay {
                     self.send_action(FarmerBound::ToggleBackpack);
                 }
                 Move => {}
+                QuickSwap(_) => {}
             },
             Activity::Usage => match intention {
                 Use => {
@@ -100,6 +101,7 @@ impl Gameplay {
                     self.send_action(FarmerBound::ToggleBackpack);
                 }
                 Move => {}
+                QuickSwap(_) => {}
             },
             Activity::Surveying {
                 equipment,
@@ -185,12 +187,18 @@ impl Gameplay {
                     _ => {}
                 },
                 Swap => {
-                    self.send_action(FarmerBound::ToggleSurveyingOption);
+                    self.send_action(FarmerBound::ToggleSurveyingOption {
+                        option: selection as u8 + 1,
+                    });
                 }
-                Intention::Move => {
+                QuickSwap(option) => {
+                    self.send_action(FarmerBound::ToggleSurveyingOption { option });
+                }
+                Move => {
                     self.send_action(FarmerBound::CancelActivity);
                     farmer.activity = Activity::Idle;
                 }
+                _ => {}
             },
         }
     }

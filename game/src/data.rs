@@ -467,11 +467,9 @@ impl Game {
 
     pub(crate) fn load_grid_kind(&mut self, row: &rusqlite::Row) -> Result<GridKind, DataError> {
         let id = row.get("id")?;
-        let materials: String = row.get("materials")?;
         let data = GridKind {
             id: GridKey(id),
             name: row.get("name")?,
-            materials: serde_json::from_str(&materials)?,
         };
         Ok(data)
     }

@@ -52,6 +52,7 @@ pub enum Intention {
     Put,
     Swap,
     Move,
+    QuickSwap(u8),
 }
 
 #[derive(Clone)]
@@ -77,10 +78,18 @@ impl InputMethod for Input {
             Some(Intention::Put)
         } else if self.pressed(Keycode::Tab) {
             Some(Intention::Swap)
-        } else if (self.down(Keycode::A)
+        } else if self.pressed(Keycode::Num1) {
+            Some(Intention::QuickSwap(0))
+        } else if self.pressed(Keycode::Num2) {
+            Some(Intention::QuickSwap(1))
+        } else if self.pressed(Keycode::Num3) {
+            Some(Intention::QuickSwap(2))
+        } else if self.pressed(Keycode::Num4) {
+            Some(Intention::QuickSwap(3))
+        } else if self.down(Keycode::A)
             || self.down(Keycode::S)
             || self.down(Keycode::D)
-            || self.down(Keycode::W))
+            || self.down(Keycode::W)
         {
             Some(Intention::Move)
         } else {
@@ -136,10 +145,10 @@ impl Gameplay {
 
         let cursor = assets.sprite("cursor");
         let players = vec![
-            assets.sprite("player"),
-            assets.sprite("player-2"),
-            assets.sprite("player-3"),
-            assets.sprite("player-4"),
+            assets.sprite("player-Alice"),
+            assets.sprite("player-Boris"),
+            assets.sprite("player-Carol"),
+            assets.sprite("player-David"),
         ];
 
         Self {

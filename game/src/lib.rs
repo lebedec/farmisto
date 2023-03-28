@@ -154,7 +154,9 @@ impl Game {
                         self.use_equipment(*farmer, equipment)?
                     }
                     FarmerBound::CancelActivity => self.cancel_activity(*farmer)?,
-                    FarmerBound::ToggleSurveyingOption => self.toggle_surveying_option(*farmer)?,
+                    FarmerBound::ToggleSurveyingOption { option } => {
+                        self.toggle_surveying_option(*farmer, option)?
+                    }
                     FarmerBound::PlantCrop { tile } => self.plant_crop(*farmer, farmland, tile)?,
                     FarmerBound::WaterCrop { crop } => self.water_crop(*farmer, crop)?,
                     FarmerBound::HarvestCrop { crop } => self.harvest_crop(*farmer, crop)?,
@@ -362,14 +364,18 @@ impl Game {
         Ok(occur![events,])
     }
 
-    fn toggle_surveying_option(&mut self, farmer: Farmer) -> Result<Vec<Event>, ActionError> {
+    fn toggle_surveying_option(
+        &mut self,
+        farmer: Farmer,
+        option: u8,
+    ) -> Result<Vec<Event>, ActionError> {
         let activity = self.universe.get_farmer_activity(farmer)?;
         if let Activity::Surveying {
             equipment,
             mut selection,
         } = activity
         {
-            selection = (selection + 1) % 4;
+            selection = option as usize % 4;
             let activity = Activity::Surveying {
                 equipment,
                 selection,
@@ -607,19 +613,9 @@ impl Game {
     ) -> Result<Vec<Event>, ActionError> {
         match construction.marker {
             Marker::Construction(_) => {
-                let container = self.inventory.get_container(construction.container)?;
-                let mut keywords = Vec::new();
-                for item in &container.items {
-                    for function in &item.functions {
-                        if let Function::Material { keyword } = function {
-                            keywords.push(*keyword);
-                        } else {
-                            return Err(ConstructionContainsUnexpectedItem(construction));
-                        }
-                    }
-                }
-                // let material = self.building.index_material(farmland.grid, keywords)?;
-                let material = Material(*keywords.get(0).unwrap_or(&0usize) as u8);
+                let item = self.inventory.get_container_item(construction.container)?;
+                let material_index = item.as_material()?;
+                let material = Material(material_index);
                 let tile = construction.cell;
 
                 let use_items = self.inventory.use_items_from(construction.container)?;

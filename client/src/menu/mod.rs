@@ -30,13 +30,23 @@ impl Mode for Menu {
         }
 
         if input.pressed(Keycode::S) {
-            info!("Host as Boris");
-            self.host = Some("Boris".to_string());
+            info!("Host as Alice");
+            self.host = Some("Alice".to_string());
         }
 
-        if input.pressed(Keycode::A) {
-            info!("Join as Alice");
-            self.join = Some("Alice".to_string())
+        if input.pressed(Keycode::Num1) {
+            info!("Join as Boris");
+            self.join = Some("Boris".to_string())
+        }
+
+        if input.pressed(Keycode::Num2) {
+            info!("Join as Carol");
+            self.join = Some("Carol".to_string())
+        }
+
+        if input.pressed(Keycode::Num3) {
+            info!("Join as David");
+            self.join = Some("David".to_string())
         }
     }
 

@@ -347,7 +347,7 @@ impl Gameplay {
             }
 
             renderer.render_sprite(
-                &self.players[farmer.entity.id],
+                &self.players[farmer.entity.id - 1],
                 rendering_position,
                 sprite_line,
                 1.0,

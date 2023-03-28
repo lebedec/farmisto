@@ -81,7 +81,9 @@ pub enum FarmerBound {
     },
     CancelActivity,
     ToggleBackpack,
-    ToggleSurveyingOption,
+    ToggleSurveyingOption {
+        option: u8,
+    },
     TakeMaterial {
         construction: Construction,
     },

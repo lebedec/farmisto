@@ -26,7 +26,7 @@ pub struct Container {
     Debug, Copy, Clone, PartialEq, Eq, Hash, serde::Deserialize, bincode::Encode, bincode::Decode,
 )]
 pub enum Function {
-    Material { keyword: usize },
+    Material(u8),
     Installation { kind: usize },
     Seeding { kind: usize },
     Carry,
@@ -184,6 +184,15 @@ impl Item {
         for function in &self.functions {
             if let Function::Shovel = function {
                 return Ok(());
+            }
+        }
+        Err(InventoryError::ItemFunctionNotFound { id: self.id })
+    }
+
+    pub fn as_material(&self) -> Result<u8, InventoryError> {
+        for function in &self.functions {
+            if let Function::Material(material) = function {
+                return Ok(*material);
             }
         }
         Err(InventoryError::ItemFunctionNotFound { id: self.id })

@@ -138,8 +138,7 @@ create table Animal
 create table GridKind
 (
     id        integer primary key,
-    name      text not null unique,
-    materials json not null
+    name      text not null unique
 );
 
 create table Grid
