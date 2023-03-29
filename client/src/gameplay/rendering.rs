@@ -2,7 +2,7 @@ use crate::engine::rendering::TilemapUniform;
 use crate::engine::Frame;
 use crate::gameplay::representation::{CreatureRep, CropRep};
 use crate::gameplay::{position_of, rendering_position_of, Gameplay, TILE_SIZE};
-use game::building::{Cell, Grid, Marker, Room, Structure};
+use game::building::{Cell, Grid, Marker, Material, Room, Structure};
 use game::math::VectorMath;
 use game::model::{Activity, Construction, Purpose};
 use lazy_static::lazy_static;
@@ -165,13 +165,19 @@ impl Gameplay {
                 if room.id == Room::EXTERIOR_ID {
                     continue;
                 }
-                for (i, row) in room.area.iter().enumerate() {
+                'no_flooring: for (i, row) in room.area.iter().enumerate() {
                     let y = room.area_y + i;
                     if y >= render_offset_y && (y - render_offset_y) < floor_map.len() {
                         for x in 0..31 {
                             let x = x + render_offset_x;
+
                             let interior_bit = 1 << (Grid::COLUMNS - x - 1);
                             if row & interior_bit == interior_bit {
+                                // TODO: room material detection
+                                let material = farmland.cells[y][x].material.index();
+                                if material == Material::PLANKS || material == Material::GLASS {
+                                    break 'no_flooring;
+                                }
                                 floor_map[y - render_offset_y][x - render_offset_x] =
                                     [1, 0, 0, room_index as u32];
                             }
@@ -187,13 +193,18 @@ impl Gameplay {
                 {
                     continue;
                 }
-                for (i, row) in room.area.iter().enumerate() {
+                'no_roofing: for (i, row) in room.area.iter().enumerate() {
                     let y = room.area_y + i;
                     if y >= render_offset_y && (y - render_offset_y) < roof_map.len() {
                         for x in 0..31 {
                             let x = x + render_offset_x;
                             let interior_bit = 1 << (Grid::COLUMNS - x - 1);
                             if row & interior_bit == interior_bit {
+                                // TODO: room material detection
+                                let material = farmland.cells[y][x].material.index();
+                                if material == Material::PLANKS || material == Material::GLASS {
+                                    break 'no_roofing;
+                                }
                                 roof_map[y - render_offset_y][x - render_offset_x] = [1, 0, 0, 0];
                             }
                         }
@@ -253,7 +264,8 @@ impl Gameplay {
                         // if origin wall
                         let neighbors = Neighbors::of(x, y, &farmland.cells);
                         let mut tile_index = neighbors.to_tile_index();
-                        let tileset = &farmland.buildings[0].asset.walls.tiles;
+                        let material = farmland.cells[y][x].material.index();
+                        let tileset = &farmland.buildings.get(&material).unwrap().asset.walls.tiles;
 
                         if y >= render_offset_y && x >= render_offset_x {
                             let y = y - render_offset_y;

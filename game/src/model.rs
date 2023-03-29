@@ -473,6 +473,21 @@ pub struct Creature {
     pub animal: AnimalId,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
+pub struct DoorKey(pub usize);
+
+pub struct DoorKind {
+    pub id: DoorKey,
+    pub name: String,
+    pub barrier: BarrierKey,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
+pub struct Door {
+    pub id: usize,
+    pub barrier: BarrierId,
+}
+
 // Models:
 //
 // Entity - aggregate of domain objects (hold identifiers)

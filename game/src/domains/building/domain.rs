@@ -5,6 +5,28 @@ use std::fmt::{Debug, Formatter};
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Default, Debug, bincode::Encode, bincode::Decode)]
 pub struct Material(pub u8);
 
+impl Material {
+    pub const UNKNOWN: u8 = 0;
+
+    pub const METAL: u8 = 10;
+
+    pub const MESH: u8 = 15;
+
+    pub const CONCRETE: u8 = 20;
+
+    pub const WOOD: u8 = 30;
+
+    pub const PLANKS: u8 = 35;
+
+    pub const GLASS: u8 = 40;
+
+    pub const TARPAULIN: u8 = 50;
+
+    pub fn index(&self) -> u8 {
+        self.0
+    }
+}
+
 #[derive(Clone, Copy, Default, Debug, bincode::Encode, bincode::Decode)]
 pub struct Cell {
     pub wall: bool,

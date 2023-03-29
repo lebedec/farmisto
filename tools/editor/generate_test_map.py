@@ -56,36 +56,37 @@ def generate_grid(grid_id: int, space_id: int, surveyor: int, user_define_map: s
                     wall = 1
                     # space
                     is_hole = 1
-                    material = 2
+                    material = 20
                 if code == '#':
                     wall = 1
                     # space
                     is_hole = 1
-                    material = 2
+                    material = 20
                 if code == 'O':
                     wall = 1
                     door = 1
-                    material = 2
+                    material = 20
                 if code == 'o':
                     wall = 1
                     window = 1
                     # space
                     is_hole = 1
-                    material = 2
+                    material = 20
+
                 if code == '+':
                     wall = 1
                     is_hole = 1
-                    material = 1
+                    material = 40
                 if code == 'A':
                     wall = 1
                     door = 1
-                    material = 1
+                    material = 40
                 if code == 'a':
                     wall = 1
                     window = 1
                     # space
                     is_hole = 1
-                    material = 1
+                    material = 40
             data.write(struct.pack('BBBB', *[wall, door, window, material]))
             holes_data.write(struct.pack('B', is_hole))
 

@@ -18,8 +18,8 @@ select null, :itemKind, (select max(id) from Container), :functions, :quantity
 from seq;
 commit;
 
--- itemKind: 1
--- functions: '[{"Material": {"keyword": 0}}]'
+-- itemKind: 7
+-- functions: '[{"Material": 35}]'
 -- quantity: 1
 -- farmland: 1
--- position: '[2.5, 3.5]'
+-- position: '[1.5, 2.5]'

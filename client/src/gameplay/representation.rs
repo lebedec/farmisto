@@ -1,5 +1,6 @@
 use log::error;
 use rusty_spine::Skin;
+use std::collections::HashMap;
 
 use game::building::{Building, Cell, Room};
 use game::collections::Shared;
@@ -87,7 +88,7 @@ pub struct FarmlandRep {
     pub construction: BuildingRep,
     pub reconstruction: BuildingRep,
     pub deconstruction: BuildingRep,
-    pub buildings: Vec<BuildingRep>,
+    pub buildings: HashMap<u8, BuildingRep>,
 }
 
 pub struct BuildingRep {

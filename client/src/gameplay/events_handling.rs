@@ -5,7 +5,7 @@ use crate::gameplay::representation::{
 };
 use crate::gameplay::Gameplay;
 use game::api::Event;
-use game::building::Building;
+use game::building::{Building, Material};
 use game::inventory::{Function, Inventory};
 use game::model::{Activity, ItemRep, Universe};
 use game::physics::Physics;
@@ -267,11 +267,29 @@ impl Gameplay {
                 let construction = assets.building("construction");
                 let reconstruction = assets.building("reconstruction");
                 let deconstruction = assets.building("deconstruction");
-                let buildings = vec![
-                    assets.building("template"),
-                    assets.building("wood"),
-                    assets.building("concrete"),
+
+                let mut buildings = HashMap::new();
+                let buildings_mapping = [
+                    (Material::UNKNOWN, "template"),
+                    (Material::CONCRETE, "concrete"),
+                    (Material::WOOD, "wood"),
+                    (Material::PLANKS, "planks"),
+                    (Material::GLASS, "glass"),
                 ];
+                for (index, asset) in buildings_mapping {
+                    let asset = assets.building(asset);
+                    let rep = BuildingRep {
+                        floor: frame
+                            .sprites
+                            .instantiate_tilemap(asset.floor.share(), asset.floor_sampler.share()),
+                        roof: frame
+                            .sprites
+                            .instantiate_tilemap(asset.roof.share(), asset.roof_sampler.share()),
+                        asset,
+                    };
+                    buildings.insert(index, rep);
+                }
+
                 let construction = BuildingRep {
                     floor: frame.sprites.instantiate_tilemap(
                         construction.floor.share(),
@@ -305,18 +323,6 @@ impl Gameplay {
                     ),
                     asset: deconstruction,
                 };
-                let buildings = buildings
-                    .into_iter()
-                    .map(|asset| BuildingRep {
-                        floor: frame
-                            .sprites
-                            .instantiate_tilemap(asset.floor.share(), asset.floor_sampler.share()),
-                        roof: frame
-                            .sprites
-                            .instantiate_tilemap(asset.roof.share(), asset.roof_sampler.share()),
-                        asset,
-                    })
-                    .collect();
 
                 self.farmlands.insert(
                     farmland,
