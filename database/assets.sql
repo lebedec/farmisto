@@ -6,9 +6,9 @@ create table FarmerAssetData
 
 create table FarmlandAssetData
 (
-    id                          text primary key unique,
-    texture                     text not null,
-    sampler                     text not null references SamplerAssetData
+    id      text primary key unique,
+    texture text not null,
+    sampler text not null references SamplerAssetData
 );
 
 create table PropsAssetData
@@ -129,4 +129,10 @@ create table BuildingMaterialAssetData
     floor_sampler      text not null references SamplerAssetData,
     walls              text not null references TilesetAssetData,
     walls_transparency text not null references TilesetAssetData
+);
+
+create table DoorAssetData
+(
+    id      text primary key unique,
+    sprites text not null references TilesetAssetData
 );

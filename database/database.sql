@@ -194,6 +194,15 @@ create table Item
     quantity  integer not null
 );
 
+-- Assembling
+
+create table Placement
+(
+    id       integer primary key,
+    rotation json not null,
+    pivot    json not null
+);
+
 -- Universe
 
 create table TreeKind
@@ -320,4 +329,34 @@ create table Creature
     kind   integer not null references CreatureKind,
     animal integer not null references Animal,
     body   integer not null references Body
+);
+
+create table DoorKind
+(
+    id      integer primary key,
+    name    text not null unique,
+    barrier text not null references BarrierKind (name),
+    item    text not null references ItemKind (name)
+);
+
+create table Door
+(
+    id        integer primary key,
+    key       integer not null references CreatureKind (id),
+    barrier   integer not null references Barrier (id),
+    placement integer not null references Placement (id)
+);
+
+create table AssemblyKind
+(
+    id     integer primary key,
+    name   text not null unique,
+    t_door text references DoorKind (name)
+);
+
+create table Assembly
+(
+    id        integer primary key,
+    key       integer not null references AssemblyKind (id),
+    placement integer not null references Placement (id)
 );

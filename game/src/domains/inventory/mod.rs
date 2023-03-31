@@ -1,5 +1,7 @@
+pub use commands::*;
 pub use domain::*;
-pub use operations::*;
+pub use queries::*;
 
+mod commands;
 mod domain;
-mod operations;
+mod queries;

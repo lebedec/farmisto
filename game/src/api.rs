@@ -1,15 +1,16 @@
+use std::fmt::Debug;
+
 use crate::assembling::{Assembling, AssemblingError, Rotation};
-use crate::building::{Building, BuildingError, Marker, Stake, Structure, SurveyorId};
+use crate::building::{Building, BuildingError, Marker, Structure, SurveyorId};
 use crate::collections::DictionaryError;
-use crate::inventory::{Inventory, InventoryError, ItemId};
+use crate::inventory::{Inventory, InventoryError};
 use crate::model::{
-    Activity, AssemblyKey, Construction, Creature, Crop, Equipment, EquipmentKey, Farmer, Stack,
-    Universe, UniverseError,
+    Activity, Construction, Creature, Crop, Equipment, EquipmentKey, Farmer, Stack, Universe,
+    UniverseError,
 };
 use crate::physics::{Physics, PhysicsError};
 use crate::planting::{Planting, PlantingError};
 use crate::raising::{Raising, RaisingError};
-use std::fmt::Debug;
 
 pub const API_VERSION: &str = "0.1";
 
@@ -122,7 +123,11 @@ pub enum FarmerBound {
         crop: Crop,
     },
     StartAssembly {
-        tile: [usize; 2],
+        pivot: [usize; 2],
+        rotation: Rotation,
+    },
+    MoveAssembly {
+        pivot: [usize; 2],
         rotation: Rotation,
     },
 }

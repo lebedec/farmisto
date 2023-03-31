@@ -84,9 +84,9 @@ impl Gameplay {
                                     self.send_action(FarmerBound::HarvestCrop { crop });
                                 }
                             }
-                            (Assembly { kind }, Ground { tile }) => {
+                            (Assembly(kind), Ground { tile }) => {
                                 self.send_action(FarmerBound::StartAssembly {
-                                    tile,
+                                    pivot: tile,
                                     rotation: Rotation::A000,
                                 });
                             }
@@ -209,7 +209,21 @@ impl Gameplay {
                 }
                 _ => {}
             },
-            Activity::Assembling { assembly } => {}
+            Activity::Assembling { assembly } => match intention {
+                Use => match target {
+                    Ground { tile } => {
+                        self.send_action(FarmerBound::MoveAssembly {
+                            pivot: tile,
+                            rotation: Rotation::A000,
+                        });
+                    }
+                    _ => {}
+                },
+                Put => {}
+                Swap => {}
+                Move => {}
+                QuickSwap(_) => {}
+            },
         }
     }
 }

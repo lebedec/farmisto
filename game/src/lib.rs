@@ -121,7 +121,7 @@ impl Game {
                     .find(|player| &player.name == player_name)
                     .unwrap()
                     .id;
-                let farmer = self
+                let farmer = *self
                     .universe
                     .farmers
                     .iter()
@@ -130,46 +130,50 @@ impl Game {
                 let farmland = self.universe.farmlands[0];
 
                 match action {
-                    FarmerBound::Move { destination } => self.move_farmer(*farmer, destination)?,
+                    FarmerBound::Move { destination } => self.move_farmer(farmer, destination)?,
                     FarmerBound::Survey {
                         surveyor,
                         tile,
                         marker,
-                    } => self.survey(*farmer, farmland, surveyor, tile, marker)?,
+                    } => self.survey(farmer, farmland, surveyor, tile, marker)?,
                     FarmerBound::Build { construction } => {
-                        self.build(*farmer, farmland, construction)?
+                        self.build(farmer, farmland, construction)?
                     }
                     FarmerBound::RemoveConstruction { construction } => {
-                        self.remove_construction(*farmer, farmland, construction)?
+                        self.remove_construction(farmer, farmland, construction)?
                     }
-                    FarmerBound::TakeItem { stack } => self.take_item(*farmer, stack)?,
-                    FarmerBound::DropItem { tile } => self.stack_item(*farmer, tile)?,
-                    FarmerBound::PutItem { stack } => self.put_item(*farmer, stack)?,
+                    FarmerBound::TakeItem { stack } => self.take_item(farmer, stack)?,
+                    FarmerBound::DropItem { tile } => self.stack_item(farmer, tile)?,
+                    FarmerBound::PutItem { stack } => self.put_item(farmer, stack)?,
                     FarmerBound::TakeMaterial { construction } => {
-                        self.take_material(*farmer, construction)?
+                        self.take_material(farmer, construction)?
                     }
                     FarmerBound::PutMaterial { construction } => {
-                        self.put_material(*farmer, construction)?
+                        self.put_material(farmer, construction)?
                     }
-                    FarmerBound::ToggleBackpack => self.toggle_backpack(*farmer)?,
+                    FarmerBound::ToggleBackpack => self.toggle_backpack(farmer)?,
                     FarmerBound::Uninstall { equipment } => {
-                        self.uninstall_equipment(*farmer, farmland, equipment)?
+                        self.uninstall_equipment(farmer, farmland, equipment)?
                     }
                     FarmerBound::Install { tile } => {
-                        self.install_equipment(*farmer, farmland, tile)?
+                        self.install_equipment(farmer, farmland, tile)?
                     }
                     FarmerBound::UseEquipment { equipment } => {
-                        self.use_equipment(*farmer, equipment)?
+                        self.use_equipment(farmer, equipment)?
                     }
-                    FarmerBound::CancelActivity => self.cancel_activity(*farmer)?,
+                    FarmerBound::CancelActivity => self.cancel_activity(farmer)?,
                     FarmerBound::ToggleSurveyingOption { option } => {
-                        self.toggle_surveying_option(*farmer, option)?
+                        self.toggle_surveying_option(farmer, option)?
                     }
-                    FarmerBound::PlantCrop { tile } => self.plant_crop(*farmer, farmland, tile)?,
-                    FarmerBound::WaterCrop { crop } => self.water_crop(*farmer, crop)?,
-                    FarmerBound::HarvestCrop { crop } => self.harvest_crop(*farmer, crop)?,
-                    FarmerBound::StartAssembly { tile, rotation } => {
-                        self.start_assembly(*farmer, farmland, tile, rotation)?
+                    FarmerBound::PlantCrop { tile } => self.plant_crop(farmer, farmland, tile)?,
+                    FarmerBound::WaterCrop { crop } => self.water_crop(farmer, crop)?,
+                    FarmerBound::HarvestCrop { crop } => self.harvest_crop(farmer, crop)?,
+                    FarmerBound::StartAssembly {
+                        pivot: tile,
+                        rotation,
+                    } => self.start_assembly(farmer, farmland, tile, rotation)?,
+                    FarmerBound::MoveAssembly { pivot, rotation } => {
+                        self.move_assembly(farmer, farmland, pivot, rotation)?
                     }
                 }
             }
@@ -457,33 +461,25 @@ impl Game {
     ) -> Result<Vec<Event>, ActionError> {
         self.universe.ensure_activity(farmer, Activity::Usage)?;
         let item = self.inventory.get_container_item(farmer.hands)?;
-        let assembly_key = item.kind.functions.as_assembly()?;
-        let key = AssemblyKey(assembly_key);
-        // let assembly_kind = self
-        //     .known
-        //     .assembly
-        //     .get(key)
-        //     .ok_or(ActionError::AssemblyKindNotFound { key })?;
+        let key = item.kind.functions.as_assembly(AssemblyKey)?;
+        self.known.assembly.get(key)?;
         let (placement, start_placement) = self.assembling.start_placement(rotation, pivot)?;
-        // let appear_assembly = self.appear_assembly(key, placement);
-        let assembly = *self.universe.assembly.iter().last().unwrap();
-        let activity = Activity::Assembling { assembly };
         let events = occur![
             start_placement(),
-            // appear_assembly,
-            self.universe.change_activity(farmer, activity),
+            self.appear_assembling_activity(farmer, key, placement),
         ];
         Ok(events)
     }
 
     fn move_assembly(
         &mut self,
-        _farmer: Farmer,
+        farmer: Farmer,
         _farmland: Farmland,
-        assembly: Assembly,
         pivot: [usize; 2],
         rotation: Rotation,
     ) -> Result<Vec<Event>, ActionError> {
+        let activity = self.universe.get_farmer_activity(farmer)?;
+        let assembly = activity.as_assembling()?;
         let update_placement =
             self.assembling
                 .update_placement(assembly.placement, rotation, pivot)?;
@@ -861,15 +857,25 @@ impl Game {
         }
     }
 
-    pub fn appear_assembly(&mut self, key: AssemblyKey, placement: PlacementId) -> Universe {
+    pub fn appear_assembling_activity(
+        &mut self,
+        farmer: Farmer,
+        key: AssemblyKey,
+        placement: PlacementId,
+    ) -> Vec<Universe> {
         self.universe.assembly_id += 1;
-        let entity = Assembly {
+        let assembly = Assembly {
             id: self.universe.creatures_id,
             key,
             placement,
         };
-        self.universe.assembly.push(entity);
-        self.look_at_assembly(entity)
+        self.universe.assembly.push(assembly);
+        let look_event = self.look_at_assembly(assembly);
+        let activity = Activity::Assembling { assembly };
+        let events = self.universe.change_activity(farmer, activity);
+        let mut stream = vec![look_event];
+        stream.extend(events);
+        stream
     }
 
     pub fn look_at_assembly(&self, entity: Assembly) -> Universe {

@@ -100,6 +100,15 @@ where
             })
     }
 
+    pub fn find2(&self, name: &String) -> Result<Shared<T>, DictionaryError> {
+        self.strings
+            .get(name)
+            .cloned()
+            .ok_or(DictionaryError::NameNotFound {
+                name: name.to_string(),
+            })
+    }
+
     pub fn find_by(&self, row: &rusqlite::Row, index: &str) -> Result<Shared<T>, DataError> {
         let name: String = row.get(index)?;
         let kind = self.find(&name)?;

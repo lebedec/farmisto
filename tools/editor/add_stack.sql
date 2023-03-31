@@ -6,20 +6,21 @@ insert into Barrier
 values (null,
         (select id from BarrierKind where name = '<drop>'),
         (select space from Farmland where id = :farmland),
-        :position);
+        :position,
+        true);
 insert into Stack
 values (null,
         (select max(id) from Container),
         (select max(id) from Barrier));
-with recursive seq(x) as (select 1 union all select x + 1 from seq limit :count)
+with items(kind) as (select value from json_each(:items))
 insert
 into Item
-select null, :itemKind, (select max(id) from Container), :functions, :quantity
-from seq;
+select null, (select id from ItemKind where name = items.kind), (select max(id) from Container), :quantity
+from items;
 commit;
 
--- itemKind: 7
--- functions: '[{"Material": 35}]'
+-- items: '["door-x1"]'
 -- quantity: 1
 -- farmland: 1
 -- position: '[1.5, 2.5]'
+

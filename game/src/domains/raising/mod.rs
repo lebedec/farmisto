@@ -1,7 +1,7 @@
+pub use commands::*;
 pub use domain::*;
-pub use operations::*;
 pub use update::*;
 
+mod commands;
 mod domain;
-mod operations;
 mod update;

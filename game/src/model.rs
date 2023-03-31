@@ -215,6 +215,16 @@ impl UniverseDomain {
         self.creatures.extend(creatures);
     }
 
+    pub fn load_assembly(&mut self, assembly: Vec<Assembly>, assembly_id: usize) {
+        self.assembly_id = assembly_id;
+        self.assembly.extend(assembly);
+    }
+
+    pub fn load_doors(&mut self, doors: Vec<Door>, doors_id: usize) {
+        self.doors_id = doors_id;
+        self.doors.extend(doors);
+    }
+
     pub(crate) fn appear_construction(
         &mut self,
         container: ContainerId,

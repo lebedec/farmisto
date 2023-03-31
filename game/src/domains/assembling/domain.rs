@@ -20,7 +20,9 @@ pub enum AssemblingError {
     PlacementNotFound { id: PlacementId },
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
+#[derive(
+    Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode, serde::Deserialize,
+)]
 pub enum Rotation {
     A000,
     A090,

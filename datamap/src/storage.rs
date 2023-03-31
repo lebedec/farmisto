@@ -101,48 +101,23 @@ impl Storage {
         entries
     }
 
-    pub fn find_all<T, M>(&self, map: M) -> Vec<T>
+    pub fn find_all<T, M, E>(&self, map: M) -> Result<Vec<T>, E>
     where
-        M: FnMut(&Row) -> T,
+        M: FnMut(&Row) -> Result<T, E>,
     {
-        self.query_map::<T, _, M>([], "", map)
+        self.query_map::<T, _, M, E>([], "", map)
     }
 
     pub fn get_sequence<T, M, E>(&self, map: M) -> Result<(Vec<T>, usize), E>
     where
         M: FnMut(&Row) -> Result<T, E>,
     {
-        let rows = self.query_map2::<T, _, M, E>([], "", map)?;
+        let rows = self.query_map::<T, _, M, E>([], "", map)?;
         let sequence = self.query_sequence::<T>();
         Ok((rows, sequence))
     }
 
-    pub fn find_one<T, M>(&self, id: &str, map: M) -> T
-    where
-        M: FnMut(&Row) -> T,
-    {
-        self.query_map::<T, _, M>([id], "where id = ?", map)
-            .remove(0)
-    }
-
-    fn query_map<T, P: Params, M>(&self, params: P, where_clause: &str, mut map: M) -> Vec<T>
-    where
-        M: FnMut(&Row) -> T,
-    {
-        let table = std::any::type_name::<T>().split("::").last().unwrap();
-        let mut statement = self
-            .connection
-            .prepare(&format!("select * from \"{}\" {}", table, where_clause))
-            .unwrap();
-        let mut rows = statement.query(params).unwrap();
-        let mut values = vec![];
-        while let Some(row) = rows.next().unwrap() {
-            values.push(map(row));
-        }
-        values
-    }
-
-    fn query_map2<T, P: Params, M, E>(
+    fn query_map<T, P: Params, M, E>(
         &self,
         params: P,
         where_clause: &str,

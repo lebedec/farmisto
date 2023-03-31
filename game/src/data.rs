@@ -1,19 +1,21 @@
 use core::fmt::Debug;
 
+use crate::assembling::PlacementId;
 use log::info;
 use serde::de;
 
 use crate::building::{
     Grid, GridId, GridKey, GridKind, Surveyor, SurveyorId, SurveyorKey, SurveyorKind,
 };
-use crate::collections::{DictionaryError, Shared};
+use crate::collections::DictionaryError;
 use crate::inventory::{
     Container, ContainerId, ContainerKey, ContainerKind, Item, ItemId, ItemKey, ItemKind,
 };
 use crate::model::{
-    Construction, Creature, CreatureKey, CreatureKind, Crop, CropKey, CropKind, Equipment,
-    EquipmentKey, EquipmentKind, Farmer, FarmerKey, FarmerKind, Farmland, FarmlandKey,
-    FarmlandKind, Player, PlayerId, Purpose, PurposeDescription, Stack, Tree, TreeKey, TreeKind,
+    Assembly, AssemblyKey, AssemblyKind, AssemblyTarget, Construction, Creature, CreatureKey,
+    CreatureKind, Crop, CropKey, CropKind, Door, DoorKey, DoorKind, Equipment, EquipmentKey,
+    EquipmentKind, Farmer, FarmerKey, FarmerKind, Farmland, FarmlandKey, FarmlandKind, Player,
+    PlayerId, Purpose, PurposeDescription, Stack, Tree, TreeKey, TreeKind,
 };
 use crate::physics::{
     Barrier, BarrierId, BarrierKey, BarrierKind, Body, BodyId, BodyKey, BodyKind, Sensor, SensorId,
@@ -24,83 +26,93 @@ use crate::raising::{Animal, AnimalId, AnimalKey, AnimalKind};
 use crate::Game;
 
 impl Game {
-    pub fn load_game_knowledge(&mut self) {
+    pub fn load_game_knowledge(&mut self) -> Result<(), DataError> {
         info!("Begin game knowledge loading from ...");
         let storage = self.storage.open_into();
         // physics
-        for kind in storage.find_all(|row| self.load_space_kind(row).unwrap()) {
+        for kind in storage.find_all(|row| self.load_space_kind(row))? {
             self.known.spaces.insert(kind.id, kind.name.clone(), kind);
         }
-        for kind in storage.find_all(|row| self.load_body_kind(row).unwrap()) {
+        for kind in storage.find_all(|row| self.load_body_kind(row))? {
             self.known.bodies.insert(kind.id, kind.name.clone(), kind);
         }
-        for kind in storage.find_all(|row| self.load_barrier_kind(row).unwrap()) {
+        for kind in storage.find_all(|row| self.load_barrier_kind(row))? {
             self.known.barriers.insert(kind.id, kind.name.clone(), kind);
         }
-        for kind in storage.find_all(|row| self.load_sensor_kind(row).unwrap()) {
+        for kind in storage.find_all(|row| self.load_sensor_kind(row))? {
             self.known.sensors.insert(kind.id, kind.name.clone(), kind);
         }
         // planting
-        for kind in storage.find_all(|row| self.load_land_kind(row).unwrap()) {
+        for kind in storage.find_all(|row| self.load_land_kind(row))? {
             self.known.soils.insert(kind.id, kind.name.clone(), kind);
         }
-        for kind in storage.find_all(|row| self.load_plant_kind(row).unwrap()) {
+        for kind in storage.find_all(|row| self.load_plant_kind(row))? {
             self.known.plants.insert(kind.id, kind.name.clone(), kind);
         }
         // raising
-        for kind in storage.find_all(|row| self.load_animal_kind(row).unwrap()) {
+        for kind in storage.find_all(|row| self.load_animal_kind(row))? {
             self.known.animals.insert(kind.id, kind.name.clone(), kind);
         }
         // building
-        for kind in storage.find_all(|row| self.load_grid_kind(row).unwrap()) {
+        for kind in storage.find_all(|row| self.load_grid_kind(row))? {
             self.known.grids.insert(kind.id, kind.name.clone(), kind);
         }
-        for kind in storage.find_all(|row| self.load_surveyor_kind(row).unwrap()) {
+        for kind in storage.find_all(|row| self.load_surveyor_kind(row))? {
             self.known
                 .surveyors
                 .insert(kind.id, kind.name.clone(), kind);
         }
         // inventory
-        for kind in storage.find_all(|row| self.load_container_kind(row).unwrap()) {
+        for kind in storage.find_all(|row| self.load_container_kind(row))? {
             self.known
                 .containers
                 .insert(kind.id, kind.name.clone(), kind);
         }
-        for kind in storage.find_all(|row| self.load_item_kind(row).unwrap()) {
+        for kind in storage.find_all(|row| self.load_item_kind(row))? {
             self.known.items.insert(kind.id, kind.name.clone(), kind);
         }
         // universe
-        for kind in storage.find_all(|row| self.load_tree_kind(row).unwrap()) {
+        for kind in storage.find_all(|row| self.load_door_kind(row))? {
+            self.known.doors.insert(kind.key, kind.name.clone(), kind);
+        }
+        for kind in storage.find_all(|row| self.load_tree_kind(row))? {
             self.known.trees.insert(kind.id, kind.name.clone(), kind);
         }
-        for kind in storage.find_all(|row| self.load_farmland_kind(row).unwrap()) {
+        for kind in storage.find_all(|row| self.load_farmland_kind(row))? {
             self.known
                 .farmlands
                 .insert(kind.id, kind.name.clone(), kind);
         }
-        for kind in storage.find_all(|row| self.load_farmer_kind(row).unwrap()) {
+        for kind in storage.find_all(|row| self.load_farmer_kind(row))? {
             self.known.farmers.insert(kind.id, kind.name.clone(), kind);
         }
-        for kind in storage.find_all(|row| self.load_equipment_kind(row).unwrap()) {
+        for kind in storage.find_all(|row| self.load_equipment_kind(row))? {
             self.known
                 .equipments
                 .insert(kind.id, kind.name.clone(), kind);
         }
-        for kind in storage.find_all(|row| self.load_crop_kind(row).unwrap()) {
+        for kind in storage.find_all(|row| self.load_crop_kind(row))? {
             self.known.crops.insert(kind.id, kind.name.clone(), kind);
         }
-        for kind in storage.find_all(|row| self.load_creature_kind(row).unwrap()) {
+        for kind in storage.find_all(|row| self.load_creature_kind(row))? {
             self.known
                 .creatures
                 .insert(kind.id, kind.name.clone(), kind);
         }
+        for kind in storage.find_all(|row| self.load_assembly_kind(row))? {
+            self.known
+                .assembly
+                .insert(kind.key, kind.name.clone(), kind);
+        }
         info!("End game knowledge loading");
+
+        Ok(())
     }
 
     pub fn load_game_state(&mut self) -> Result<(), DataError> {
         info!("Begin game state loading from ...");
         let storage = self.storage.open_into();
-        self.players = storage.find_all(|row| self.load_player(row).unwrap());
+        self.players = storage.find_all(|row| self.load_player(row))?;
 
         // physics
         let (spaces, sequence) = storage.get_sequence(|row| self.load_space(row))?;
@@ -151,6 +163,10 @@ impl Game {
         self.universe.load_crops(crops, id);
         let (creatures, id) = storage.get_sequence(|row| self.load_creature(row))?;
         self.universe.load_creatures(creatures, id);
+        let (assembly, id) = storage.get_sequence(|row| self.load_assembly(row))?;
+        self.universe.load_assembly(assembly, id);
+        let (doors, id) = storage.get_sequence(|row| self.load_door(row))?;
+        self.universe.load_doors(doors, id);
         info!("End game state loading");
 
         Ok(())
@@ -170,8 +186,8 @@ impl Game {
         &mut self,
         row: &rusqlite::Row,
     ) -> Result<EquipmentKind, DataError> {
-        let purpose = if let Ok(Some(kind)) = row.get::<_, Option<String>>("p_surveyor") {
-            let surveyor = self.known.surveyors.find(&kind)?.id;
+        let purpose = if let Ok(Some(name)) = row.get("p_surveyor") {
+            let surveyor = self.known.surveyors.find2(&name)?.id;
             PurposeDescription::Surveying { surveyor }
         } else {
             PurposeDescription::Moisture { sensor: 0 }
@@ -343,6 +359,53 @@ impl Game {
             surveyor: SurveyorId(row.get("surveyor")?),
             marker: row.get_json("marker")?,
             cell: row.get_json("cell")?,
+        };
+        Ok(data)
+    }
+
+    pub(crate) fn load_assembly_kind(
+        &mut self,
+        row: &rusqlite::Row,
+    ) -> Result<AssemblyKind, DataError> {
+        let target = if let Ok(Some(name)) = row.get("t_door") {
+            let door = self.known.doors.find2(&name)?;
+            AssemblyTarget::Door { door }
+        } else {
+            return Err(DataError::NotSpecifiedVariant);
+        };
+        let data = AssemblyKind {
+            key: AssemblyKey(row.get("id")?),
+            name: row.get("name")?,
+            target,
+        };
+        Ok(data)
+    }
+
+    pub(crate) fn load_assembly(&mut self, row: &rusqlite::Row) -> Result<Assembly, DataError> {
+        let data = Assembly {
+            id: row.get("id")?,
+            key: AssemblyKey(row.get("key")?),
+            placement: PlacementId(row.get("placement")?),
+        };
+        Ok(data)
+    }
+
+    pub(crate) fn load_door_kind(&mut self, row: &rusqlite::Row) -> Result<DoorKind, DataError> {
+        let data = DoorKind {
+            key: DoorKey(row.get("id")?),
+            name: row.get("name")?,
+            barrier: self.known.barriers.find_by(row, "barrier")?,
+            item: self.known.items.find_by(row, "item")?,
+        };
+        Ok(data)
+    }
+
+    pub(crate) fn load_door(&mut self, row: &rusqlite::Row) -> Result<Door, DataError> {
+        let data = Door {
+            id: row.get("id")?,
+            key: DoorKey(row.get("key")?),
+            barrier: BarrierId(row.get("barrier")?),
+            placement: PlacementId(row.get("placement")?),
         };
         Ok(data)
     }
@@ -597,6 +660,7 @@ pub enum DataError {
     Sql(rusqlite::Error),
     Bincode(bincode::error::DecodeError),
     Inconsistency(DictionaryError),
+    NotSpecifiedVariant,
 }
 
 impl From<bincode::error::DecodeError> for DataError {
