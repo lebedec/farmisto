@@ -64,3 +64,9 @@ pub struct BuildingMaterialAssetData {
     pub walls: TilesetAsset,
     pub walls_transparency: TilesetAsset,
 }
+
+pub type DoorAsset = Asset<DoorAssetData>;
+
+pub struct DoorAssetData {
+    pub sprites: TilesetAsset,
+}

@@ -10,6 +10,7 @@ impl PhysicsDomain {
         space: SpaceId,
         kind: Shared<BarrierKind>,
         position: [f32; 2],
+        active: bool,
         overlapping: bool,
     ) -> Result<(BarrierId, impl FnOnce() -> Vec<Physics> + 'operation), PhysicsError> {
         let id = BarrierId(self.barriers_sequence + 1);
@@ -18,6 +19,7 @@ impl PhysicsDomain {
             kind,
             position,
             space,
+            active,
         };
         if !overlapping {
             for barrier in &self.barriers[space.0] {

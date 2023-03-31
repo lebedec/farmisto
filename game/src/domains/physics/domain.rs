@@ -31,7 +31,7 @@ impl Default for PhysicsDomain {
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct SpaceKey(pub usize);
 
 pub struct SpaceKind {
@@ -49,7 +49,7 @@ pub struct Space {
     pub holes: Vec<Vec<u8>>,
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct BodyKey(pub usize);
 
 pub struct BodyKind {
@@ -89,6 +89,7 @@ pub struct Barrier {
     pub kind: Shared<BarrierKind>,
     pub position: [f32; 2],
     pub space: SpaceId,
+    pub active: bool,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
@@ -275,7 +276,12 @@ impl Collider for Barrier {
         self.position
     }
 
+    #[inline]
     fn bounds(&self) -> [f32; 2] {
-        self.kind.bounds
+        if self.active {
+            self.kind.bounds
+        } else {
+            [0.0, 0.0]
+        }
     }
 }

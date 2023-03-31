@@ -16,7 +16,10 @@ use datamap::{Operation, Storage};
 use crate::assets::fs::{FileEvent, FileSystem};
 use crate::assets::prefabs::{TreeAsset, TreeAssetData};
 use crate::assets::tileset::{TilesetAsset, TilesetAssetData, TilesetItem};
-use crate::assets::{AssetMap, BehavioursAsset, BuildingMaterialAsset, BuildingMaterialAssetData};
+use crate::assets::{
+    AssetMap, BehavioursAsset, BuildingMaterialAsset, BuildingMaterialAssetData, DoorAsset,
+    DoorAssetData,
+};
 use crate::assets::{
     CreatureAsset, CreatureAssetData, CropAsset, CropAssetData, FarmerAsset, FarmerAssetData,
     FarmlandAsset, FarmlandAssetData, FarmlandAssetPropItem, ItemAsset, ItemAssetData,
@@ -66,6 +69,7 @@ pub struct Assets {
     crops: HashMap<String, CropAsset>,
     creatures: HashMap<String, CreatureAsset>,
     buildings: HashMap<String, BuildingMaterialAsset>,
+    doors: HashMap<String, DoorAsset>,
 
     queue: Arc<Queue>,
 }
@@ -233,6 +237,7 @@ impl Assets {
             creatures: Default::default(),
             behaviours: Default::default(),
             buildings: Default::default(),
+            doors: Default::default(),
         }
     }
 
@@ -393,6 +398,17 @@ impl Assets {
         }
     }
 
+    pub fn door(&mut self, name: &str) -> DoorAsset {
+        METRIC_REQUESTS_TOTAL.with_label_values(&["door"]).inc();
+        match self.doors.get(name) {
+            Some(asset) => asset.share(),
+            None => {
+                let data = self.load_door_data(name).unwrap();
+                self.doors.publish(name, data)
+            }
+        }
+    }
+
     pub fn creature(&mut self, name: &str) -> CreatureAsset {
         METRIC_REQUESTS_TOTAL.with_label_values(&["creature"]).inc();
         match self.creatures.get(name) {
@@ -476,6 +492,14 @@ impl Assets {
             ripening: self.spine(&format!("{}/ripening.json", folder)),
             withering: self.spine(&format!("{}/withering.json", folder)),
             damage_mask: self.texture(&format!("{}/damage-mask.png", folder)),
+        };
+        Ok(data)
+    }
+
+    pub fn load_door_data(&mut self, id: &str) -> Result<DoorAssetData, serde_json::Error> {
+        let entry = self.storage.fetch_one::<DoorAssetData>(id);
+        let data = DoorAssetData {
+            sprites: self.tileset(entry.get("sprites")?),
         };
         Ok(data)
     }

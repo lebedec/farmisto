@@ -35,7 +35,7 @@ pub struct Cell {
     pub material: Material,
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct GridKey(pub usize);
 
 pub struct GridKind {
@@ -129,7 +129,7 @@ pub struct Stake {
     pub cell: [usize; 2],
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct SurveyorKey(pub usize);
 
 pub struct SurveyorKind {

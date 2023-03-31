@@ -1,8 +1,10 @@
+use crate::assembling::{Assembling, AssemblingError, Rotation};
 use crate::building::{Building, BuildingError, Marker, Stake, Structure, SurveyorId};
+use crate::collections::DictionaryError;
 use crate::inventory::{Inventory, InventoryError, ItemId};
 use crate::model::{
-    Activity, Construction, Creature, Crop, Equipment, EquipmentKey, Farmer, Stack, Universe,
-    UniverseError,
+    Activity, AssemblyKey, Construction, Creature, Crop, Equipment, EquipmentKey, Farmer, Stack,
+    Universe, UniverseError,
 };
 use crate::physics::{Physics, PhysicsError};
 use crate::planting::{Planting, PlantingError};
@@ -119,6 +121,10 @@ pub enum FarmerBound {
     HarvestCrop {
         crop: Crop,
     },
+    StartAssembly {
+        tile: [usize; 2],
+        rotation: Rotation,
+    },
 }
 
 #[derive(Debug, bincode::Encode, bincode::Decode)]
@@ -136,14 +142,23 @@ pub enum ActionError {
     Physics(PhysicsError),
     Planting(PlantingError),
     Raising(RaisingError),
+    Assembling(AssemblingError),
+
+    Inconsistency(DictionaryError),
+
     PlayerFarmerNotFound(String),
     FarmerBodyNotFound(Farmer),
     ConstructionContainerNotFound(Construction),
     ConstructionContainerNotInitialized(Construction),
     ConstructionContainsUnexpectedItem(Construction),
-    ItemHasNoEquipmentFunction,
-    EquipmentKindNotFound { key: EquipmentKey },
+
     Test,
+}
+
+impl From<DictionaryError> for ActionError {
+    fn from(error: DictionaryError) -> Self {
+        Self::Inconsistency(error)
+    }
 }
 
 impl From<BuildingError> for ActionError {
@@ -182,6 +197,12 @@ impl From<RaisingError> for ActionError {
     }
 }
 
+impl From<AssemblingError> for ActionError {
+    fn from(error: AssemblingError) -> Self {
+        Self::Assembling(error)
+    }
+}
+
 #[derive(Debug, bincode::Encode, bincode::Decode)]
 pub enum Event {
     Universe(Vec<Universe>),
@@ -190,6 +211,7 @@ pub enum Event {
     Inventory(Vec<Inventory>),
     Planting(Vec<Planting>),
     Raising(Vec<Raising>),
+    Assembling(Vec<Assembling>),
 }
 
 impl Into<Event> for Vec<Universe> {
@@ -228,6 +250,12 @@ impl Into<Event> for Vec<Raising> {
     }
 }
 
+impl Into<Event> for Vec<Assembling> {
+    fn into(self) -> Event {
+        Event::Assembling(self)
+    }
+}
+
 impl Into<Event> for Planting {
     fn into(self) -> Event {
         Event::Planting(vec![self])
@@ -261,5 +289,11 @@ impl Into<Event> for Inventory {
 impl Into<Event> for Raising {
     fn into(self) -> Event {
         Event::Raising(vec![self])
+    }
+}
+
+impl Into<Event> for Assembling {
+    fn into(self) -> Event {
+        Event::Assembling(vec![self])
     }
 }

@@ -7,8 +7,7 @@ use crate::inventory::{
 impl InventoryDomain {
     pub fn create_item<'operation>(
         &'operation mut self,
-        kind: Shared<ItemKind>,
-        functions: Vec<Function>,
+        kind: &Shared<ItemKind>,
         container: ContainerId,
         quantity: u8,
     ) -> Result<(ItemId, impl FnOnce() -> Vec<Inventory> + 'operation), InventoryError> {
@@ -16,16 +15,14 @@ impl InventoryDomain {
         let id = ItemId(self.items_sequence + 1);
         let item = Item {
             id,
-            kind,
+            kind: kind.clone(),
             container,
-            functions,
             quantity,
         };
         let operation = move || {
             let events = vec![ItemAdded {
                 id: item.id,
                 kind: item.kind.id,
-                functions: item.functions.clone(),
                 container,
                 quantity: item.quantity,
             }];

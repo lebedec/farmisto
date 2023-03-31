@@ -1,9 +1,12 @@
+use core::fmt::Debug;
+
 use log::info;
+use serde::de;
 
 use crate::building::{
-    Grid, GridId, GridKey, GridKind, Marker, Surveyor, SurveyorId, SurveyorKey, SurveyorKind,
+    Grid, GridId, GridKey, GridKind, Surveyor, SurveyorId, SurveyorKey, SurveyorKind,
 };
-use crate::collections::Shared;
+use crate::collections::{DictionaryError, Shared};
 use crate::inventory::{
     Container, ContainerId, ContainerKey, ContainerKind, Item, ItemId, ItemKey, ItemKind,
 };
@@ -167,19 +170,18 @@ impl Game {
         &mut self,
         row: &rusqlite::Row,
     ) -> Result<EquipmentKind, DataError> {
-        let id = row.get("id")?;
-        let barrier: String = row.get("barrier")?;
         let purpose = if let Ok(Some(kind)) = row.get::<_, Option<String>>("p_surveyor") {
-            let surveyor = self.known.surveyors.find(&kind).unwrap().id;
+            let surveyor = self.known.surveyors.find(&kind)?.id;
             PurposeDescription::Surveying { surveyor }
         } else {
             PurposeDescription::Moisture { sensor: 0 }
         };
         let data = EquipmentKind {
-            id: EquipmentKey(id),
+            id: EquipmentKey(row.get("id")?),
             name: row.get("name")?,
             purpose,
-            barrier: self.known.barriers.find(&barrier).unwrap().id,
+            barrier: self.known.barriers.find_by(row, "barrier")?,
+            item: self.known.items.find_by(row, "item")?,
         };
         Ok(data)
     }
@@ -197,7 +199,7 @@ impl Game {
         };
         let data = Equipment {
             id,
-            kind: EquipmentKey(kind),
+            key: EquipmentKey(kind),
             purpose,
             barrier: BarrierId(barrier),
         };
@@ -256,16 +258,13 @@ impl Game {
     }
 
     pub(crate) fn load_crop_kind(&mut self, row: &rusqlite::Row) -> Result<CropKind, DataError> {
-        let id = row.get("id")?;
-        let plant: String = row.get("plant")?;
-        let barrier: String = row.get("barrier")?;
-        let sensor: String = row.get("sensor")?;
         let data = CropKind {
-            id: CropKey(id),
+            id: CropKey(row.get("id")?),
             name: row.get("name")?,
-            plant: self.known.plants.find(&plant).unwrap().id,
-            barrier: self.known.barriers.find(&barrier).unwrap().id,
-            sensor: self.known.sensors.find(&sensor).unwrap().id,
+            plant: self.known.plants.find_by(row, "plant")?,
+            barrier: self.known.barriers.find_by(row, "barrier")?,
+            sensor: self.known.sensors.find_by(row, "sensor")?,
+            fruits: self.known.items.find_by(row, "fruits")?,
         };
         Ok(data)
     }
@@ -285,13 +284,11 @@ impl Game {
         &mut self,
         row: &rusqlite::Row,
     ) -> Result<CreatureKind, DataError> {
-        let body: String = row.get("body")?;
-        let animal: String = row.get("animal")?;
         let data = CreatureKind {
             id: CreatureKey(row.get("id")?),
             name: row.get("name")?,
-            body: self.known.bodies.find(&body).unwrap().id,
-            animal: self.known.animals.find(&animal).unwrap().id,
+            body: self.known.bodies.find_by(row, "body")?,
+            animal: self.known.animals.find_by(row, "animal")?,
         };
         Ok(data)
     }
@@ -307,14 +304,11 @@ impl Game {
     }
 
     pub(crate) fn load_tree_kind(&mut self, row: &rusqlite::Row) -> Result<TreeKind, DataError> {
-        let id = row.get("id")?;
-        let barrier = row.get("barrier")?;
-        let plant = row.get("plant")?;
         let data = TreeKind {
-            id: TreeKey(id),
+            id: TreeKey(row.get("id")?),
             name: row.get("name")?,
-            barrier: BarrierKey(barrier),
-            plant: PlantKey(plant),
+            barrier: self.known.barriers.get_by(row, "barrier", BarrierKey)?,
+            plant: self.known.plants.get_by(row, "plant", PlantKey)?,
         };
         Ok(data)
     }
@@ -342,15 +336,13 @@ impl Game {
         &mut self,
         row: &rusqlite::Row,
     ) -> Result<Construction, DataError> {
-        let cell: String = row.get("cell")?;
-        let marker: String = row.get("marker")?;
         let data = Construction {
             id: row.get("id")?,
             container: ContainerId(row.get("container")?),
             grid: GridId(row.get("grid")?),
             surveyor: SurveyorId(row.get("surveyor")?),
-            marker: serde_json::from_str(&marker)?,
-            cell: serde_json::from_str(&cell)?,
+            marker: row.get_json("marker")?,
+            cell: row.get_json("cell")?,
         };
         Ok(data)
     }
@@ -358,33 +350,26 @@ impl Game {
     // physics
 
     pub(crate) fn load_space_kind(&mut self, row: &rusqlite::Row) -> Result<SpaceKind, DataError> {
-        let bounds: String = row.get("bounds")?;
         let data = SpaceKind {
             id: SpaceKey(row.get("id")?),
             name: row.get("name")?,
-            bounds: serde_json::from_str(&bounds)?,
+            bounds: row.get_json("bounds")?,
         };
         Ok(data)
     }
 
     pub(crate) fn load_space(&mut self, row: &rusqlite::Row) -> Result<Space, DataError> {
-        let id = row.get("id")?;
-        let kind = row.get("kind")?;
-        let holes: Vec<u8> = row.get("holes")?;
-        let config = bincode::config::standard();
-        let (holes, _) = bincode::decode_from_slice(&holes, config).unwrap();
         let data = Space {
-            id: SpaceId(id),
-            kind: self.known.spaces.get(SpaceKey(kind)).unwrap(),
-            holes,
+            id: SpaceId(row.get("id")?),
+            kind: self.known.spaces.get_by(row, "kind", SpaceKey)?,
+            holes: row.decode("holes")?,
         };
         Ok(data)
     }
 
     pub(crate) fn load_body_kind(&mut self, row: &rusqlite::Row) -> Result<BodyKind, DataError> {
-        let id = row.get("id")?;
         let data = BodyKind {
-            id: BodyKey(id),
+            id: BodyKey(row.get("id")?),
             name: row.get("name")?,
             speed: row.get("speed")?,
             radius: row.get("radius")?,
@@ -393,17 +378,12 @@ impl Game {
     }
 
     pub(crate) fn load_body(&mut self, row: &rusqlite::Row) -> Result<Body, DataError> {
-        let id = row.get("id")?;
-        let kind = row.get("kind")?;
-        let space = row.get("space")?;
-        let position: String = row.get("position")?;
-        let destination: String = row.get("destination")?;
         let data = Body {
-            id: BodyId(id),
-            kind: self.known.bodies.get(BodyKey(kind)).unwrap(),
-            position: serde_json::from_str(&position)?,
-            destination: serde_json::from_str(&destination)?,
-            space: SpaceId(space),
+            id: BodyId(row.get("id")?),
+            kind: self.known.bodies.get_by(row, "kind", BodyKey)?,
+            position: row.get_json("position")?,
+            destination: row.get_json("destination")?,
+            space: SpaceId(row.get("space")?),
         };
         Ok(data)
     }
@@ -412,26 +392,21 @@ impl Game {
         &mut self,
         row: &rusqlite::Row,
     ) -> Result<BarrierKind, DataError> {
-        let id = row.get("id")?;
-        let bounds: String = row.get("bounds")?;
         let data = BarrierKind {
-            id: BarrierKey(id),
+            id: BarrierKey(row.get("id")?),
             name: row.get("name")?,
-            bounds: serde_json::from_str(&bounds)?,
+            bounds: row.get_json("bounds")?,
         };
         Ok(data)
     }
 
     pub(crate) fn load_barrier(&mut self, row: &rusqlite::Row) -> Result<Barrier, DataError> {
-        let id = row.get("id")?;
-        let key = BarrierKey(row.get("kind")?);
-        let space = row.get("space")?;
-        let position: String = row.get("position")?;
         let data = Barrier {
-            id: BarrierId(id),
-            kind: self.known.barriers.get(key).unwrap(),
-            position: serde_json::from_str(&position)?,
-            space: SpaceId(space),
+            id: BarrierId(row.get("id")?),
+            kind: self.known.barriers.get_by(row, "kind", BarrierKey)?,
+            position: row.get_json("position")?,
+            space: SpaceId(row.get("space")?),
+            active: row.get("active")?,
         };
         Ok(data)
     }
@@ -449,16 +424,12 @@ impl Game {
     }
 
     pub(crate) fn load_sensor(&mut self, row: &rusqlite::Row) -> Result<Sensor, DataError> {
-        let key = SensorKey(row.get("kind")?);
-        let space = row.get("space")?;
-        let position: String = row.get("position")?;
-        let signals: String = row.get("signals")?;
         let data = Sensor {
             id: SensorId(row.get("id")?),
-            kind: self.known.sensors.get(key).unwrap(),
-            position: serde_json::from_str(&position)?,
-            space: SpaceId(space),
-            signals: serde_json::from_str(&signals)?,
+            kind: self.known.sensors.get_by(row, "kind", SensorKey)?,
+            position: row.get_json("position")?,
+            space: SpaceId(row.get("space")?),
+            signals: row.get_json("signals")?,
         };
         Ok(data)
     }
@@ -466,9 +437,8 @@ impl Game {
     // building
 
     pub(crate) fn load_grid_kind(&mut self, row: &rusqlite::Row) -> Result<GridKind, DataError> {
-        let id = row.get("id")?;
         let data = GridKind {
-            id: GridKey(id),
+            id: GridKey(row.get("id")?),
             name: row.get("name")?,
         };
         Ok(data)
@@ -486,15 +456,11 @@ impl Game {
     }
 
     pub(crate) fn load_grid(&mut self, row: &rusqlite::Row) -> Result<Grid, DataError> {
-        let id = row.get("id")?;
-        let kind = row.get("kind")?;
-        let map: Vec<u8> = row.get("map")?;
-        let config = bincode::config::standard();
-        let (cells, _) = bincode::decode_from_slice(&map, config).unwrap();
+        let cells = row.decode("map")?;
         let rooms = Grid::calculate_rooms(&cells);
         let data = Grid {
-            id: GridId(id),
-            kind: self.known.grids.get(GridKey(kind)).unwrap(),
+            id: GridId(row.get("id")?),
+            kind: self.known.grids.get_by(row, "kind", GridKey)?,
             cells,
             rooms,
         };
@@ -502,14 +468,11 @@ impl Game {
     }
 
     pub(crate) fn load_surveyor(&mut self, row: &rusqlite::Row) -> Result<Surveyor, DataError> {
-        let id = row.get("id")?;
-        let kind = row.get("kind")?;
-        let grid = row.get("grid")?;
         let data = Surveyor {
-            id: SurveyorId(id),
-            grid: GridId(grid),
+            id: SurveyorId(row.get("id")?),
+            grid: GridId(row.get("grid")?),
             surveying: vec![],
-            kind: self.known.surveyors.get(SurveyorKey(kind)).unwrap(),
+            kind: self.known.surveyors.get_by(row, "kind", SurveyorKey)?,
         };
         Ok(data)
     }
@@ -529,10 +492,9 @@ impl Game {
     }
 
     pub(crate) fn load_container(&mut self, row: &rusqlite::Row) -> Result<Container, DataError> {
-        let key = row.get("kind")?;
         let data = Container {
             id: ContainerId(row.get("id")?),
-            kind: self.known.containers.get(ContainerKey(key)).unwrap(),
+            kind: self.known.containers.get_by(row, "kind", ContainerKey)?,
             items: vec![],
         };
         Ok(data)
@@ -544,18 +506,16 @@ impl Game {
             name: row.get("name")?,
             stackable: row.get("stackable")?,
             max_quantity: row.get("max_quantity")?,
+            functions: row.get_json("functions")?,
         };
         Ok(data)
     }
 
     pub(crate) fn load_item(&mut self, row: &rusqlite::Row) -> Result<Item, DataError> {
-        let functions: String = row.get("functions")?;
-        let key = row.get("kind")?;
         let data = Item {
             id: ItemId(row.get("id")?),
-            kind: self.known.items.get(ItemKey(key)).unwrap(),
+            kind: self.known.items.get_by(row, "kind", ItemKey)?,
             container: ContainerId(row.get("container")?),
-            functions: serde_json::from_str(&functions)?,
             quantity: row.get("quantity")?,
         };
         Ok(data)
@@ -564,24 +524,18 @@ impl Game {
     // planting
 
     pub(crate) fn load_land_kind(&mut self, row: &rusqlite::Row) -> Result<SoilKind, DataError> {
-        let id = row.get("id")?;
         let data = SoilKind {
-            id: SoilKey(id),
+            id: SoilKey(row.get("id")?),
             name: row.get("name")?,
         };
         Ok(data)
     }
 
     pub(crate) fn load_land(&mut self, row: &rusqlite::Row) -> Result<Soil, DataError> {
-        let id = row.get("id")?;
-        let kind = row.get("kind")?;
-        let map: Vec<u8> = row.get("map")?;
-        let config = bincode::config::standard();
-        let (map, _) = bincode::decode_from_slice(&map, config).unwrap();
         let data = Soil {
-            id: SoilId(id),
-            kind: self.known.soils.get(SoilKey(kind)).unwrap(),
-            map,
+            id: SoilId(row.get("id")?),
+            kind: self.known.soils.get_by(row, "kind", SoilKey)?,
+            map: row.decode("map")?,
         };
         Ok(data)
     }
@@ -598,10 +552,9 @@ impl Game {
     }
 
     pub(crate) fn load_plant(&mut self, row: &rusqlite::Row) -> Result<Plant, DataError> {
-        let kind = row.get("kind")?;
         let data = Plant {
             id: PlantId(row.get("id")?),
-            kind: self.known.plants.get(PlantKey(kind)).unwrap(),
+            kind: self.known.plants.get_by(row, "kind", PlantKey)?,
             soil: SoilId(row.get("soil")?),
             impact: row.get("impact")?,
             thirst: row.get("thirst")?,
@@ -625,10 +578,9 @@ impl Game {
     }
 
     pub(crate) fn load_animal(&mut self, row: &rusqlite::Row) -> Result<Animal, DataError> {
-        let kind = row.get("kind")?;
         let data = Animal {
             id: AnimalId(row.get("id")?),
-            kind: self.known.animals.get(AnimalKey(kind)).unwrap(),
+            kind: self.known.animals.get_by(row, "kind", AnimalKey)?,
             age: row.get("age")?,
             thirst: row.get("thirst")?,
             hunger: row.get("hunger")?,
@@ -643,7 +595,20 @@ impl Game {
 pub enum DataError {
     Json(serde_json::Error),
     Sql(rusqlite::Error),
-    Consistency,
+    Bincode(bincode::error::DecodeError),
+    Inconsistency(DictionaryError),
+}
+
+impl From<bincode::error::DecodeError> for DataError {
+    fn from(error: bincode::error::DecodeError) -> Self {
+        Self::Bincode(error)
+    }
+}
+
+impl From<DictionaryError> for DataError {
+    fn from(error: DictionaryError) -> Self {
+        Self::Inconsistency(error)
+    }
 }
 
 impl From<serde_json::Error> for DataError {
@@ -655,5 +620,40 @@ impl From<serde_json::Error> for DataError {
 impl From<rusqlite::Error> for DataError {
     fn from(error: rusqlite::Error) -> Self {
         Self::Sql(error)
+    }
+}
+
+pub trait JsonDeserializer {
+    fn get_json<'a, T>(&self, index: &str) -> Result<T, DataError>
+    where
+        T: de::DeserializeOwned;
+}
+
+impl<'stmt> JsonDeserializer for rusqlite::Row<'stmt> {
+    fn get_json<'a, T>(&self, index: &str) -> Result<T, DataError>
+    where
+        T: de::DeserializeOwned,
+    {
+        let value: String = self.get(index)?;
+        let value = serde_json::from_str(&value)?;
+        Ok(value)
+    }
+}
+
+pub trait BincodeDeserializer {
+    fn decode<T>(&self, index: &str) -> Result<T, DataError>
+    where
+        T: bincode::Decode;
+}
+
+impl<'stmt> BincodeDeserializer for rusqlite::Row<'stmt> {
+    fn decode<T>(&self, index: &str) -> Result<T, DataError>
+    where
+        T: bincode::Decode,
+    {
+        let data: Vec<u8> = self.get(index)?;
+        let config = bincode::config::standard();
+        let (value, _) = bincode::decode_from_slice(&data, config)?;
+        Ok(value)
     }
 }

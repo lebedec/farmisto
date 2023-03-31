@@ -10,8 +10,8 @@ impl PhysicsDomain {
     pub fn create_barrier_sensor<'operation>(
         &'operation mut self,
         space: SpaceId,
-        barrier: Shared<BarrierKind>,
-        sensor: Shared<SensorKind>,
+        barrier: &Shared<BarrierKind>,
+        sensor: &Shared<SensorKind>,
         position: [f32; 2],
         overlapping: bool,
     ) -> Result<
@@ -32,14 +32,15 @@ impl PhysicsDomain {
         let barrier_id = BarrierId(self.barriers_sequence + 1);
         let barrier = Barrier {
             id: barrier_id,
-            kind: barrier,
+            kind: barrier.clone(),
             position,
             space,
+            active: true,
         };
         let sensor_id = SensorId(self.sensors_sequence + 1);
         let sensor = Sensor {
             id: sensor_id,
-            kind: sensor,
+            kind: sensor.clone(),
             position,
             space,
             signals: vec![],

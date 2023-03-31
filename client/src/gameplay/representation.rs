@@ -1,3 +1,4 @@
+use game::assembling::Rotation;
 use log::error;
 use rusty_spine::Skin;
 use std::collections::HashMap;
@@ -6,17 +7,17 @@ use game::building::{Building, Cell, Room};
 use game::collections::Shared;
 use game::math::{Collider, VectorMath};
 use game::model::{
-    Activity, Construction, Creature, CreatureKind, Crop, Equipment, Farmer, FarmerKind, Farmland,
-    FarmlandKind, Stack, Tree, TreeKind,
+    Activity, Assembly, AssemblyKind, Construction, Creature, CreatureKind, Crop, Door, Equipment,
+    Farmer, FarmerKind, Farmland, FarmlandKind, Stack, Tree, TreeKind,
 };
 use game::physics::{BarrierId, BodyKind};
 use game::raising::AnimalKind;
 
-use crate::assets::CropAsset;
 use crate::assets::FarmerAsset;
 use crate::assets::FarmlandAsset;
 use crate::assets::TreeAsset;
 use crate::assets::{BuildingMaterialAsset, CreatureAsset};
+use crate::assets::{CropAsset, DoorAsset};
 use crate::engine::rendering::{SpineRenderController, TilemapController};
 
 pub struct FarmerRep {
@@ -136,6 +137,25 @@ pub struct EquipmentRep {
     pub position: [f32; 2],
 }
 
+pub enum AssemblyTargetAsset {
+    Door { door: DoorAsset },
+}
+
+pub struct AssemblyRep {
+    pub entity: Assembly,
+    pub asset: AssemblyTargetAsset,
+    pub rotation: Rotation,
+    pub pivot: [usize; 2],
+}
+
+pub struct DoorRep {
+    pub entity: Door,
+    pub asset: DoorAsset,
+    pub open: bool,
+    pub rotation: Rotation,
+    pub position: [f32; 2],
+}
+
 pub struct CropRep {
     pub entity: Crop,
     pub asset: CropAsset,
@@ -200,8 +220,6 @@ pub struct CreatureRep {
     pub entity: Creature,
     pub asset: CreatureAsset,
     pub kind: Shared<CreatureKind>,
-    pub body: Shared<BodyKind>,
-    pub animal: Shared<AnimalKind>,
     pub health: f32,
     pub estimated_position: [f32; 2],
     pub rendering_position: [f32; 2],
@@ -252,7 +270,7 @@ impl CreatureRep {
         let direction = self
             .estimated_position
             .direction_to(self.last_sync_position);
-        let translation = self.body.speed * time;
+        let translation = self.kind.body.speed * time;
         let estimated_position = if distance < translation {
             self.last_sync_position
         } else {

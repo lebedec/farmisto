@@ -4,14 +4,20 @@ extern crate core;
 use datamap::Storage;
 pub use domains::*;
 
-use crate::api::ActionError::{ConstructionContainsUnexpectedItem, PlayerFarmerNotFound};
+use crate::api::ActionError::PlayerFarmerNotFound;
 use crate::api::{Action, ActionError, ActionResponse, Event, FarmerBound};
+use crate::assembling::{AssemblingDomain, PlacementId, Rotation};
 
-use crate::building::{BuildingDomain, GridId, Marker, Material, Stake, Structure, SurveyorId};
-use crate::inventory::{ContainerId, Function, InventoryDomain, InventoryError, Item, ItemId};
-use crate::math::{Collider, VectorMath};
+use crate::building::{BuildingDomain, Marker, Material, Stake, Structure, SurveyorId};
+use crate::inventory::{
+    ContainerId, FunctionsQuery, InventoryDomain, InventoryError, Item, ItemId,
+};
+use crate::math::VectorMath;
 use crate::model::Activity::Idle;
-use crate::model::{Activity, Creature, CreatureKey, Crop, CropKey, Stack};
+use crate::model::{
+    Activity, Assembly, AssemblyKey, AssemblyTarget, Creature, CreatureKey, Crop, CropKey, Door,
+    DoorKey, Stack,
+};
 use crate::model::{Construction, Farmer, Universe};
 use crate::model::{Equipment, ItemRep};
 use crate::model::{EquipmentKey, PurposeDescription, UniverseDomain};
@@ -45,6 +51,7 @@ pub struct Game {
     pub building: BuildingDomain,
     pub inventory: InventoryDomain,
     pub raising: RaisingDomain,
+    pub assembling: AssemblingDomain,
     storage: Storage,
     pub players: Vec<Player>,
 }
@@ -59,6 +66,7 @@ impl Game {
             building: BuildingDomain::default(),
             inventory: InventoryDomain::default(),
             raising: RaisingDomain::default(),
+            assembling: Default::default(),
             storage,
             players: vec![],
         }
@@ -160,6 +168,9 @@ impl Game {
                     FarmerBound::PlantCrop { tile } => self.plant_crop(*farmer, farmland, tile)?,
                     FarmerBound::WaterCrop { crop } => self.water_crop(*farmer, crop)?,
                     FarmerBound::HarvestCrop { crop } => self.harvest_crop(*farmer, crop)?,
+                    FarmerBound::StartAssembly { tile, rotation } => {
+                        self.start_assembly(*farmer, farmland, tile, rotation)?
+                    }
                 }
             }
         };
@@ -200,12 +211,13 @@ impl Game {
     }
 
     fn harvest_crop(&mut self, farmer: Farmer, crop: Crop) -> Result<Vec<Event>, ActionError> {
-        let item_kind = self.known.items.find("<harvest>").unwrap();
+        let crop_kind = self.known.crops.get(crop.key).unwrap();
+        let item_kind = &crop_kind.fruits;
         let (new_harvest, capacity) = match self.inventory.get_container_item(farmer.hands) {
             Ok(item) => {
-                let kind = item.as_product()?;
+                let kind = item.kind.functions.as_product()?;
                 if crop.key != CropKey(kind) {
-                    return Err(InventoryError::ItemFunctionNotFound { id: item.id }.into());
+                    return Err(InventoryError::ItemFunctionNotFound.into());
                 }
                 (false, item.kind.max_quantity - item.quantity)
             }
@@ -213,12 +225,9 @@ impl Game {
         };
         let (fruits, harvest) = self.planting.harvest_plant(crop.plant, capacity)?;
         let events = if new_harvest {
-            let (_, create_item) = self.inventory.create_item(
-                item_kind,
-                vec![Function::Product { kind: crop.key.0 }],
-                farmer.hands,
-                fruits,
-            )?;
+            let (_, create_item) = self
+                .inventory
+                .create_item(item_kind, farmer.hands, fruits)?;
             let change_activity = self.universe.change_activity(farmer, Activity::Usage);
             occur![harvest(), create_item(), change_activity,]
         } else {
@@ -237,17 +246,20 @@ impl Game {
     ) -> Result<Vec<Event>, ActionError> {
         self.universe.ensure_activity(farmer, Activity::Usage)?;
         let item = self.inventory.get_container_item(farmer.hands)?;
-        let kind = item.as_seeds()?;
-        let kind = self.known.crops.get(CropKey(kind)).unwrap();
-        let barrier = self.known.barriers.get(kind.barrier).unwrap();
-        let sensor = self.known.sensors.get(kind.sensor).unwrap();
-        let plant = self.known.plants.get(kind.plant).unwrap();
+        let key = item.kind.functions.as_seeds(CropKey)?;
+        let kind = self.known.crops.get(key)?;
         let position = position_of(tile);
         let decrease_item = self.inventory.decrease_item(farmer.hands)?;
-        let (barrier, sensor, create_barrier_sensor) =
-            self.physics
-                .create_barrier_sensor(farmland.space, barrier, sensor, position, false)?;
-        let (plant, create_plant) = self.planting.create_plant(farmland.soil, plant, 0.0)?;
+        let (barrier, sensor, create_barrier_sensor) = self.physics.create_barrier_sensor(
+            farmland.space,
+            &kind.barrier,
+            &kind.sensor,
+            position,
+            false,
+        )?;
+        let (plant, create_plant) = self
+            .planting
+            .create_plant(farmland.soil, &kind.plant, 0.0)?;
         let events = occur![
             decrease_item(),
             create_barrier_sensor(),
@@ -314,13 +326,10 @@ impl Game {
 
                 let destroy_surveyor = self.building.destroy_surveyor(surveyor)?;
                 let destroy_barrier = self.physics.destroy_barrier(equipment.barrier)?;
-                let functions = vec![Function::Installation {
-                    kind: equipment.kind.0,
-                }];
-                let kind = self.known.items.find("<equipment>").unwrap();
+                let equipment_kind = self.known.equipments.get(equipment.key).unwrap();
                 let (item, create_item) =
                     self.inventory
-                        .create_item(kind, functions, farmer.hands, 1)?;
+                        .create_item(&equipment_kind.item, farmer.hands, 1)?;
                 let vanish_equipment = self.universe.vanish_equipment(equipment);
                 let change_activity = self.universe.change_activity(farmer, Activity::Usage);
 
@@ -389,7 +398,7 @@ impl Game {
                 expected: Activity::Surveying {
                     equipment: Equipment {
                         id: 0,
-                        kind: EquipmentKey(0),
+                        key: EquipmentKey(0),
                         purpose: Purpose::Surveying {
                             surveyor: SurveyorId(0),
                         },
@@ -410,13 +419,9 @@ impl Game {
     ) -> Result<Vec<Event>, ActionError> {
         self.universe.ensure_activity(farmer, Activity::Usage)?;
         let item = self.inventory.get_container_item(farmer.hands)?;
-        let key = item.as_installation()?;
+        let key = item.kind.functions.as_installation()?;
         let key = EquipmentKey(key);
-        let equipment_kind = self
-            .known
-            .equipments
-            .get(key)
-            .ok_or(ActionError::EquipmentKindNotFound { key })?;
+        let equipment_kind = self.known.equipments.get(key)?;
         match equipment_kind.purpose {
             PurposeDescription::Surveying { surveyor } => {
                 let position = position_of(tile);
@@ -427,7 +432,7 @@ impl Game {
                 let kind = self.known.barriers.find("<equipment>").unwrap();
                 let (barrier, create_barrier) =
                     self.physics
-                        .create_barrier(farmland.space, kind, position, false)?;
+                        .create_barrier(farmland.space, kind, position, true, false)?;
                 let purpose = Purpose::Surveying { surveyor };
                 let change_activity = self.universe.change_activity(farmer, Activity::Idle);
                 let events = occur![
@@ -441,6 +446,98 @@ impl Game {
             }
             PurposeDescription::Moisture { .. } => Ok(vec![]),
         }
+    }
+
+    fn start_assembly(
+        &mut self,
+        farmer: Farmer,
+        farmland: Farmland,
+        pivot: [usize; 2],
+        rotation: Rotation,
+    ) -> Result<Vec<Event>, ActionError> {
+        self.universe.ensure_activity(farmer, Activity::Usage)?;
+        let item = self.inventory.get_container_item(farmer.hands)?;
+        let assembly_key = item.kind.functions.as_assembly()?;
+        let key = AssemblyKey(assembly_key);
+        // let assembly_kind = self
+        //     .known
+        //     .assembly
+        //     .get(key)
+        //     .ok_or(ActionError::AssemblyKindNotFound { key })?;
+        let (placement, start_placement) = self.assembling.start_placement(rotation, pivot)?;
+        // let appear_assembly = self.appear_assembly(key, placement);
+        let assembly = *self.universe.assembly.iter().last().unwrap();
+        let activity = Activity::Assembling { assembly };
+        let events = occur![
+            start_placement(),
+            // appear_assembly,
+            self.universe.change_activity(farmer, activity),
+        ];
+        Ok(events)
+    }
+
+    fn move_assembly(
+        &mut self,
+        _farmer: Farmer,
+        _farmland: Farmland,
+        assembly: Assembly,
+        pivot: [usize; 2],
+        rotation: Rotation,
+    ) -> Result<Vec<Event>, ActionError> {
+        let update_placement =
+            self.assembling
+                .update_placement(assembly.placement, rotation, pivot)?;
+        let events = occur![update_placement(),];
+        Ok(events)
+    }
+
+    fn finish_assembly(
+        &mut self,
+        farmer: Farmer,
+        farmland: Farmland,
+    ) -> Result<Vec<Event>, ActionError> {
+        let activity = self.universe.get_farmer_activity(farmer)?;
+        let assembly = activity.as_assembling()?;
+        let key = assembly.key;
+        let assembly_kind = self.known.assembly.get(key)?;
+        let (placement, finish_placement) = self.assembling.finish_placement(assembly.placement)?;
+        let events = match &assembly_kind.target {
+            AssemblyTarget::Door { door } => {
+                let position = position_of(placement.pivot);
+                let (barrier, create_barrier) = self.physics.create_barrier(
+                    farmland.space,
+                    door.barrier.clone(),
+                    position,
+                    true,
+                    false,
+                )?;
+                occur![
+                    finish_placement(),
+                    create_barrier(),
+                    self.appear_door(door.key, barrier, placement.id),
+                ]
+            }
+        };
+        Ok(events)
+    }
+
+    pub fn disassemble_door(
+        &mut self,
+        farmer: Farmer,
+        door: Door,
+    ) -> Result<Vec<Event>, ActionError> {
+        // self.universe.ensure_activity(farmer, Activity::Idle)?;
+        // let door_kind = self.known.doors.get(door.key).unwrap();
+        //
+        // self.inventory
+        //     .create_item(door_kind.item.clone(), vec![], farmer.hands, 1)?;
+        // let placement = self.assembling.get_placement(door.placement)?;
+        //
+        // let appear_assembly = self.appear_assembly(placement.assembly_key, placement.id);
+        // let assembly = *self.universe.assembly.iter().last().unwrap();
+        // let activity = Activity::Assembling { assembly };
+
+        Ok(vec![])
     }
 
     fn toggle_backpack(&mut self, farmer: Farmer) -> Result<Vec<Event>, ActionError> {
@@ -517,7 +614,7 @@ impl Game {
         let position = position_of(tile);
         let (barrier, create_barrier) =
             self.physics
-                .create_barrier(space, barrier_kind, position, false)?;
+                .create_barrier(space, barrier_kind, position, true, false)?;
         let container_kind = self.known.containers.find("<drop>").unwrap();
         let (container, extract_item) =
             self.inventory
@@ -614,7 +711,7 @@ impl Game {
         match construction.marker {
             Marker::Construction(_) => {
                 let item = self.inventory.get_container_item(construction.container)?;
-                let material_index = item.as_material()?;
+                let material_index = item.kind.functions.as_material()?;
                 let material = Material(material_index);
                 let tile = construction.cell;
 
@@ -764,6 +861,54 @@ impl Game {
         }
     }
 
+    pub fn appear_assembly(&mut self, key: AssemblyKey, placement: PlacementId) -> Universe {
+        self.universe.assembly_id += 1;
+        let entity = Assembly {
+            id: self.universe.creatures_id,
+            key,
+            placement,
+        };
+        self.universe.assembly.push(entity);
+        self.look_at_assembly(entity)
+    }
+
+    pub fn look_at_assembly(&self, entity: Assembly) -> Universe {
+        let placement = self.assembling.get_placement(entity.placement).unwrap();
+        Universe::AssemblyAppeared {
+            entity,
+            rotation: placement.rotation,
+            pivot: placement.pivot,
+        }
+    }
+
+    pub fn appear_door(
+        &mut self,
+        key: DoorKey,
+        barrier: BarrierId,
+        placement: PlacementId,
+    ) -> Universe {
+        self.universe.doors_id += 1;
+        let entity = Door {
+            id: self.universe.doors_id,
+            key,
+            barrier,
+            placement,
+        };
+        self.universe.doors.push(entity);
+        self.look_at_door(entity)
+    }
+
+    pub fn look_at_door(&self, entity: Door) -> Universe {
+        let barrier = self.physics.get_barrier(entity.barrier).unwrap();
+        let placement = self.assembling.get_placement(entity.placement).unwrap();
+        Universe::DoorAppeared {
+            entity,
+            open: !barrier.active,
+            rotation: placement.rotation,
+            position: barrier.position,
+        }
+    }
+
     pub fn appear_stack(&mut self, container: ContainerId, barrier: BarrierId) -> Universe {
         self.universe.stacks_id += 1;
         let stack = Stack {
@@ -792,7 +937,7 @@ impl Game {
         self.universe.equipments_id += 1;
         let equipment = Equipment {
             id: self.universe.equipments_id,
-            kind,
+            key: kind,
             purpose,
             barrier,
         };
@@ -911,7 +1056,6 @@ impl Game {
                     kind: item.kind.id,
                     container: item.container,
                     quantity: item.quantity,
-                    functions: item.functions.clone(),
                 })
             }
         }

@@ -10,7 +10,6 @@ use datamap::Storage;
 use game::api::{Action, FarmerBound, GameResponse, PlayerRequest};
 use game::inventory::{ContainerId, ItemId};
 use game::math::{test_collisions, VectorMath};
-use game::model::Activity;
 use game::model::Construction;
 use game::model::Creature;
 use game::model::Crop;
@@ -21,6 +20,7 @@ use game::model::ItemRep;
 use game::model::Knowledge;
 use game::model::Stack;
 use game::model::Tree;
+use game::model::{Activity, Assembly, Door};
 use game::physics::generate_holes;
 use game::Game;
 use network::TcpClient;
@@ -30,8 +30,8 @@ use crate::assets::{SamplerAsset, SpriteAsset, TextureAsset};
 use crate::engine::Input;
 use crate::gameplay::camera::Camera;
 use crate::gameplay::representation::{
-    BarrierHint, ConstructionRep, CreatureRep, CropRep, EquipmentRep, FarmerRep, FarmlandRep,
-    StackRep, TreeRep,
+    AssemblyRep, BarrierHint, ConstructionRep, CreatureRep, CropRep, DoorRep, EquipmentRep,
+    FarmerRep, FarmlandRep, StackRep, TreeRep,
 };
 use crate::{Frame, Mode};
 
@@ -115,6 +115,8 @@ pub struct Gameplay {
     pub farmers: HashMap<Farmer, FarmerRep>,
     pub stacks: HashMap<Stack, StackRep>,
     pub equipments: HashMap<Equipment, EquipmentRep>,
+    pub assembly: HashMap<Assembly, AssemblyRep>,
+    pub doors: HashMap<Door, DoorRep>,
     pub constructions: HashMap<Construction, ConstructionRep>,
     pub crops: HashMap<Crop, CropRep>,
     pub creatures: HashMap<Creature, CreatureRep>,
@@ -163,6 +165,8 @@ impl Gameplay {
             farmers: Default::default(),
             stacks: Default::default(),
             equipments: Default::default(),
+            assembly: Default::default(),
+            doors: Default::default(),
             constructions: Default::default(),
             crops: Default::default(),
             creatures: Default::default(),
@@ -343,7 +347,10 @@ impl Gameplay {
                 .and_then(|hands| hands.values().nth(0));
             let functions = match item {
                 None => vec![],
-                Some(item) => item.functions.clone(),
+                Some(item) => {
+                    let kind = self.known.items.get(item.kind).unwrap();
+                    kind.functions.clone()
+                }
             };
             self.interact_with(farmer, functions, target, intention);
         }

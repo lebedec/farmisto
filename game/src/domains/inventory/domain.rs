@@ -4,7 +4,7 @@ use crate::inventory::InventoryError::{
 };
 use std::collections::HashMap;
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ContainerKey(pub usize);
 
 pub struct ContainerKind {
@@ -22,17 +22,16 @@ pub struct Container {
     pub items: Vec<Item>,
 }
 
-#[derive(
-    Debug, Copy, Clone, PartialEq, Eq, Hash, serde::Deserialize, bincode::Encode, bincode::Decode,
-)]
+#[derive(Debug, Clone, PartialEq, serde::Deserialize)]
 pub enum Function {
     Material(u8),
-    Installation { kind: usize },
-    Seeding { kind: usize },
+    Installation(usize),
+    Seeding(usize),
     Carry,
     Instrumenting,
     Shovel,
-    Product { kind: usize },
+    Product(usize),
+    Assembly { kind: usize },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
@@ -42,6 +41,7 @@ pub struct ItemKind {
     pub id: ItemKey,
     pub name: String,
     pub stackable: Option<u8>,
+    pub functions: Vec<Function>,
     pub max_quantity: u8,
 }
 
@@ -52,7 +52,6 @@ pub struct Item {
     pub id: ItemId,
     pub kind: Shared<ItemKind>,
     pub container: ContainerId,
-    pub functions: Vec<Function>,
     pub quantity: u8,
 }
 
@@ -67,7 +66,6 @@ pub enum Inventory {
     ItemAdded {
         id: ItemId,
         kind: ItemKey,
-        functions: Vec<Function>,
         container: ContainerId,
         quantity: u8,
     },
@@ -102,9 +100,7 @@ pub enum InventoryError {
         container: ContainerId,
         index: isize,
     },
-    ItemFunctionNotFound {
-        id: ItemId,
-    },
+    ItemFunctionNotFound,
     ItemQuantityOverflow {
         id: ItemId,
     },
@@ -161,59 +157,80 @@ impl InventoryDomain {
     }
 }
 
-impl Item {
-    pub fn as_seeds(&self) -> Result<usize, InventoryError> {
-        for function in &self.functions {
-            if let Function::Seeding { kind } = function {
-                return Ok(*kind);
+pub type Constructor<T> = fn(usize) -> T;
+
+pub trait FunctionsQuery {
+    fn as_seeds<T>(&self, constructor: Constructor<T>) -> Result<T, InventoryError>;
+    fn as_hammer(&self) -> Result<(), InventoryError>;
+    fn as_shovel(&self) -> Result<(), InventoryError>;
+    fn as_material(&self) -> Result<u8, InventoryError>;
+    fn as_product(&self) -> Result<usize, InventoryError>;
+    fn as_installation(&self) -> Result<usize, InventoryError>;
+    fn as_assembly(&self) -> Result<usize, InventoryError>;
+}
+
+impl FunctionsQuery for Vec<Function> {
+    fn as_seeds<T>(&self, constructor: fn(usize) -> T) -> Result<T, InventoryError> {
+        for function in self {
+            if let Function::Seeding(kind) = function {
+                return Ok(constructor(*kind));
             }
         }
-        Err(InventoryError::ItemFunctionNotFound { id: self.id })
+        Err(InventoryError::ItemFunctionNotFound)
     }
 
-    pub fn as_hammer(&self) -> Result<(), InventoryError> {
-        for function in &self.functions {
+    fn as_hammer(&self) -> Result<(), InventoryError> {
+        for function in self {
             if let Function::Instrumenting = function {
                 return Ok(());
             }
         }
-        Err(InventoryError::ItemFunctionNotFound { id: self.id })
+        Err(InventoryError::ItemFunctionNotFound)
     }
 
-    pub fn as_shovel(&self) -> Result<(), InventoryError> {
-        for function in &self.functions {
+    fn as_shovel(&self) -> Result<(), InventoryError> {
+        for function in self {
             if let Function::Shovel = function {
                 return Ok(());
             }
         }
-        Err(InventoryError::ItemFunctionNotFound { id: self.id })
+        Err(InventoryError::ItemFunctionNotFound)
     }
 
-    pub fn as_material(&self) -> Result<u8, InventoryError> {
-        for function in &self.functions {
+    fn as_material(&self) -> Result<u8, InventoryError> {
+        for function in self {
             if let Function::Material(material) = function {
                 return Ok(*material);
             }
         }
-        Err(InventoryError::ItemFunctionNotFound { id: self.id })
+        Err(InventoryError::ItemFunctionNotFound)
     }
 
-    pub fn as_product(&self) -> Result<usize, InventoryError> {
-        for function in &self.functions {
-            if let Function::Product { kind } = function {
+    fn as_product(&self) -> Result<usize, InventoryError> {
+        for function in self {
+            if let Function::Product(kind) = function {
                 return Ok(*kind);
             }
         }
-        Err(InventoryError::ItemFunctionNotFound { id: self.id })
+        Err(InventoryError::ItemFunctionNotFound)
     }
 
-    pub fn as_installation(&self) -> Result<usize, InventoryError> {
-        for function in &self.functions {
-            if let Function::Installation { kind } = function {
+    fn as_installation(&self) -> Result<usize, InventoryError> {
+        for function in self {
+            if let Function::Installation(kind) = function {
                 return Ok(*kind);
             }
         }
-        Err(InventoryError::ItemFunctionNotFound { id: self.id })
+        Err(InventoryError::ItemFunctionNotFound)
+    }
+
+    fn as_assembly(&self) -> Result<usize, InventoryError> {
+        for function in self {
+            if let Function::Assembly { kind } = function {
+                return Ok(*kind);
+            }
+        }
+        Err(InventoryError::ItemFunctionNotFound)
     }
 }
 

@@ -1,3 +1,4 @@
+use crate::data::DataError;
 use std::cell::{RefCell, RefMut};
 use std::collections::HashMap;
 use std::fmt::{Debug, Formatter};
@@ -58,9 +59,15 @@ impl<K, T> Default for Dictionary<K, T> {
     }
 }
 
+#[derive(Debug, bincode::Encode, bincode::Decode)]
+pub enum DictionaryError {
+    KeyNotFound { key: String },
+    NameNotFound { name: String },
+}
+
 impl<K, T> Dictionary<K, T>
 where
-    K: Hash + Eq,
+    K: Debug + Hash + Eq,
 {
     pub fn len(&self) -> usize {
         self.keys.len()
@@ -72,11 +79,80 @@ where
         self.strings.insert(name.to_string(), kind);
     }
 
-    pub fn get(&self, key: K) -> Option<Shared<T>> {
-        self.keys.get(&key).cloned()
+    pub fn get(&self, key: K) -> Result<Shared<T>, DictionaryError>
+    where
+        K: Debug,
+    {
+        self.keys
+            .get(&key)
+            .cloned()
+            .ok_or(DictionaryError::KeyNotFound {
+                key: format!("{:?}", key),
+            })
     }
 
-    pub fn find(&self, name: &str) -> Option<Shared<T>> {
-        self.strings.get(name).cloned()
+    pub fn find(&self, name: &str) -> Result<Shared<T>, DictionaryError> {
+        self.strings
+            .get(name)
+            .cloned()
+            .ok_or(DictionaryError::NameNotFound {
+                name: name.to_string(),
+            })
+    }
+
+    pub fn find_by(&self, row: &rusqlite::Row, index: &str) -> Result<Shared<T>, DataError> {
+        let name: String = row.get(index)?;
+        let kind = self.find(&name)?;
+        Ok(kind)
+    }
+
+    pub fn get_by<C>(
+        &self,
+        row: &rusqlite::Row,
+        index: &str,
+        constructor: C,
+    ) -> Result<Shared<T>, DataError>
+    where
+        C: Fn(usize) -> K,
+    {
+        let key: usize = row.get(index)?;
+        let key = constructor(key);
+        let kind = self.get(key)?;
+        Ok(kind)
     }
 }
+
+//
+// pub trait DictionaryQuery<K, T, C> {
+//     fn find_by(&self, row: &rusqlite::Row, index: &str) -> Result<Shared<T>, DataError>;
+//     fn get_by(
+//         &self,
+//         row: &rusqlite::Row,
+//         index: &str,
+//         constructor: C,
+//     ) -> Result<Shared<T>, DataError>;
+// }
+//
+// impl<K, C, T> DictionaryQuery<K, T, C> for Dictionary<K, T>
+//     where
+//         K: Debug + Hash + Eq,
+//         C: Fn(usize) -> K,
+// {
+//     fn find_by(&self, row: &rusqlite::Row, index: &str) -> Result<Shared<T>, DataError> {
+//         let name: String = row.get(index)?;
+//         let kind = self.find(&name)?;
+//         Ok(kind)
+//     }
+//
+//     fn get_by(
+//         &self,
+//         row: &rusqlite::Row,
+//         index: &str,
+//         constructor: C,
+//     ) -> Result<Shared<T>, DataError> {
+//         let key: usize = row.get(index)?;
+//         let key = constructor(key);
+//         let kind = self.get(key)?;
+//         Ok(kind)
+//     }
+// }

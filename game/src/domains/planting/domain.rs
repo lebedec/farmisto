@@ -20,7 +20,7 @@ impl Default for PlantingDomain {
     }
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct SoilKey(pub(crate) usize);
 
 pub struct SoilKind {
@@ -37,7 +37,7 @@ pub struct Soil {
     pub map: Vec<Vec<[f32; 2]>>,
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct PlantKey(pub(crate) usize);
 
 pub struct PlantKind {

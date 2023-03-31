@@ -257,6 +257,11 @@ impl Nature {
                             }
                             Universe::CreatureEats { .. } => {}
                             Universe::CreatureVanished(_) => {}
+                            Universe::AssemblyAppeared { .. } => {}
+                            Universe::AssemblyUpdated { .. } => {}
+                            Universe::AssemblyVanished(_) => {}
+                            Universe::DoorAppeared { .. } => {}
+                            Universe::DoorVanished(_) => {}
                         }
                     }
                 }
@@ -302,6 +307,7 @@ impl Nature {
                 Event::Inventory(_) => {}
                 Event::Planting(_) => {}
                 Event::Raising(_) => {}
+                Event::Assembling(_) => {}
             }
         }
     }

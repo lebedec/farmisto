@@ -1,13 +1,14 @@
 use crate::engine::Frame;
 use crate::gameplay::representation::{
-    BarrierHint, BuildingRep, ConstructionRep, CreatureRep, CropRep, EquipmentRep, FarmerRep,
-    FarmlandRep, StackRep, TreeRep,
+    AssemblyRep, AssemblyTargetAsset, BarrierHint, BuildingRep, ConstructionRep, CreatureRep,
+    CropRep, DoorRep, EquipmentRep, FarmerRep, FarmlandRep, StackRep, TreeRep,
 };
 use crate::gameplay::Gameplay;
 use game::api::Event;
+use game::assembling::Assembling;
 use game::building::{Building, Material};
 use game::inventory::{Function, Inventory};
-use game::model::{Activity, ItemRep, Universe};
+use game::model::{Activity, AssemblyTarget, ItemRep, Universe};
 use game::physics::Physics;
 use game::planting::Planting;
 use game::raising::Raising;
@@ -48,6 +49,11 @@ impl Gameplay {
                     self.handle_raising_event(frame, event);
                 }
             }
+            Event::Assembling(events) => {
+                for event in events {
+                    self.handle_assembling_event(frame, event);
+                }
+            }
         }
     }
 
@@ -78,7 +84,6 @@ impl Gameplay {
                 id,
                 kind,
                 container,
-                functions,
                 quantity,
             } => {
                 info!("item added {:?} to {:?}", id, container);
@@ -90,7 +95,6 @@ impl Gameplay {
                         kind,
                         container,
                         quantity,
-                        functions,
                     },
                 );
             }
@@ -177,15 +181,15 @@ impl Gameplay {
                 space,
             } => {
                 for farmer in self.farmers.values_mut() {
-                    if farmer.entity.body != id {
-                        continue;
+                    if farmer.entity.body == id {
+                        farmer.synchronize_position(position);
+                        return;
                     }
-                    farmer.synchronize_position(position);
                 }
                 for creature in self.creatures.values_mut() {
                     if creature.entity.body == id {
                         creature.synchronize_position(position);
-                        break;
+                        return;
                     }
                 }
             }
@@ -210,7 +214,26 @@ impl Gameplay {
                 for farmland in self.farmlands.values_mut() {
                     if farmland.entity.space == id {
                         farmland.holes = holes;
-                        break;
+                        return;
+                    }
+                }
+            }
+        }
+    }
+
+    pub fn handle_assembling_event(&mut self, frame: &mut Frame, event: Assembling) {
+        let assets = &mut frame.assets;
+        match event {
+            Assembling::PlacementUpdated {
+                placement,
+                rotation,
+                pivot,
+            } => {
+                for assembly in self.assembly.values_mut() {
+                    if assembly.entity.placement == placement {
+                        assembly.rotation = rotation;
+                        assembly.pivot = pivot;
+                        return;
                     }
                 }
             }
@@ -436,8 +459,6 @@ impl Gameplay {
                     "Appear {} {:?} at {:?} f{:?}",
                     &kind.name, entity, position, features
                 );
-                let body = self.known.bodies.get(kind.body).unwrap();
-                let animal = self.known.animals.get(kind.animal).unwrap();
                 let asset = assets.creature(&kind.name);
                 let palette = [
                     [1.0, 1.0, 1.0, 1.0],
@@ -481,8 +502,6 @@ impl Gameplay {
                         entity,
                         asset,
                         kind,
-                        body,
-                        animal,
                         health,
                         estimated_position: position,
                         rendering_position: position,
@@ -594,6 +613,54 @@ impl Gameplay {
             }
             Universe::CropVanished(crop) => {
                 self.crops.remove(&crop);
+            }
+            Universe::AssemblyAppeared {
+                entity,
+                pivot,
+                rotation,
+            } => {
+                let kind = self.known.assembly.get(entity.key).unwrap();
+                let asset = match &kind.target {
+                    AssemblyTarget::Door { door } => {
+                        let door = assets.door(&door.name);
+                        AssemblyTargetAsset::Door { door }
+                    }
+                };
+                let mut representation = AssemblyRep {
+                    entity,
+                    asset,
+                    rotation,
+                    pivot,
+                };
+                self.assembly.insert(entity, representation);
+            }
+            Universe::AssemblyUpdated {
+                entity,
+                pivot,
+                rotation,
+            } => {}
+            Universe::AssemblyVanished(entity) => {
+                self.assembly.remove(&entity);
+            }
+            Universe::DoorAppeared {
+                entity,
+                position,
+                open,
+                rotation,
+            } => {
+                let kind = self.known.doors.get(entity.key).unwrap();
+                let asset = assets.door(&kind.name);
+                let representation = DoorRep {
+                    entity,
+                    asset,
+                    open,
+                    rotation,
+                    position,
+                };
+                self.doors.insert(entity, representation);
+            }
+            Universe::DoorVanished(door) => {
+                self.doors.remove(&door);
             }
         }
     }

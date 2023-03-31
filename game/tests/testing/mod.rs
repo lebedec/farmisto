@@ -720,7 +720,10 @@ impl PhysicsTestScenario {
     ) -> Self {
         let space = self.space(space);
         let kind = self.known_barriers.find(kind).unwrap();
-        match self.domain.create_barrier(space, kind, position, false) {
+        match self
+            .domain
+            .create_barrier(space, kind, position, true, false)
+        {
             Ok((barrier, operation)) => {
                 let events = operation();
                 self.current_error = None;

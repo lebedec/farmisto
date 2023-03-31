@@ -5,13 +5,13 @@ impl PlantingDomain {
     pub fn create_plant<'operation>(
         &'operation mut self,
         soil: SoilId,
-        kind: Shared<PlantKind>,
+        kind: &Shared<PlantKind>,
         impact: f32,
     ) -> Result<(PlantId, impl FnOnce() -> Vec<Planting> + 'operation), PlantingError> {
         let id = PlantId(self.plants_sequence + 1);
         let plant = Plant {
             id,
-            kind,
+            kind: kind.clone(),
             soil,
             impact,
             thirst: 0.0,

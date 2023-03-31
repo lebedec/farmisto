@@ -1,13 +1,11 @@
+use crate::assembling::{PlacementId, Rotation};
 use std::collections::{HashMap, HashSet};
-use std::ptr::eq;
 
 use crate::building::{
     Cell, GridId, GridKey, GridKind, Marker, Room, SurveyorId, SurveyorKey, SurveyorKind,
 };
 use crate::collections::{Dictionary, Shared};
-use crate::inventory::{
-    ContainerId, ContainerKey, ContainerKind, Function, ItemId, ItemKey, ItemKind,
-};
+use crate::inventory::{ContainerId, ContainerKey, ContainerKind, ItemId, ItemKey, ItemKind};
 use crate::physics::{
     BarrierId, BarrierKey, BarrierKind, BodyId, BodyKey, BodyKind, SensorId, SensorKey, SensorKind,
     SpaceId, SpaceKey, SpaceKind,
@@ -21,8 +19,10 @@ pub struct Knowledge {
     pub farmlands: Dictionary<FarmlandKey, FarmlandKind>,
     pub farmers: Dictionary<FarmerKey, FarmerKind>,
     pub equipments: Dictionary<EquipmentKey, EquipmentKind>,
+    pub assembly: Dictionary<AssemblyKey, AssemblyKind>,
     pub crops: Dictionary<CropKey, CropKind>,
     pub creatures: Dictionary<CreatureKey, CreatureKind>,
+    pub doors: Dictionary<DoorKey, DoorKind>,
     // physics
     pub spaces: Dictionary<SpaceKey, SpaceKind>,
     pub bodies: Dictionary<BodyKey, BodyKind>,
@@ -47,7 +47,7 @@ pub struct UniverseDomain {
     pub farmlands: Vec<Farmland>,
     pub farmlands_id: usize,
     pub trees: Vec<Tree>,
-    trees_id: usize,
+    pub trees_id: usize,
     pub farmers: Vec<Farmer>,
     pub farmers_id: usize,
     pub farmers_activity: HashMap<Farmer, Activity>,
@@ -61,6 +61,10 @@ pub struct UniverseDomain {
     pub crops_id: usize,
     pub creatures: Vec<Creature>,
     pub creatures_id: usize,
+    pub assembly: Vec<Assembly>,
+    pub assembly_id: usize,
+    pub doors: Vec<Door>,
+    pub doors_id: usize,
 }
 
 #[derive(Debug, bincode::Encode, bincode::Decode)]
@@ -131,6 +135,24 @@ pub enum Universe {
     ItemsAppeared {
         items: Vec<ItemRep>,
     },
+    AssemblyAppeared {
+        entity: Assembly,
+        rotation: Rotation,
+        pivot: [usize; 2],
+    },
+    AssemblyUpdated {
+        entity: Assembly,
+        rotation: Rotation,
+        pivot: [usize; 2],
+    },
+    AssemblyVanished(Assembly),
+    DoorAppeared {
+        entity: Door,
+        open: bool,
+        rotation: Rotation,
+        position: [f32; 2],
+    },
+    DoorVanished(Door),
 }
 
 #[derive(Debug, bincode::Encode, bincode::Decode)]
@@ -142,6 +164,7 @@ pub enum UniverseError {
         expected: Activity,
         actual: Activity,
     },
+    ActivityMismatch,
 }
 
 impl UniverseDomain {
@@ -322,6 +345,18 @@ pub enum Activity {
         equipment: Equipment,
         selection: usize,
     },
+    Assembling {
+        assembly: Assembly,
+    },
+}
+
+impl Activity {
+    pub fn as_assembling(&self) -> Result<Assembly, UniverseError> {
+        match self {
+            Activity::Assembling { assembly } => Ok(*assembly),
+            _ => Err(UniverseError::ActivityMismatch),
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
@@ -340,8 +375,8 @@ pub struct TreeKey(pub usize);
 pub struct TreeKind {
     pub id: TreeKey,
     pub name: String,
-    pub barrier: BarrierKey,
-    pub plant: PlantKey,
+    pub barrier: Shared<BarrierKind>,
+    pub plant: Shared<PlantKind>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
@@ -401,7 +436,8 @@ pub struct EquipmentKind {
     pub id: EquipmentKey,
     pub name: String,
     pub purpose: PurposeDescription,
-    pub barrier: BarrierKey,
+    pub barrier: Shared<BarrierKind>,
+    pub item: Shared<ItemKind>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
@@ -413,7 +449,7 @@ pub enum Purpose {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
 pub struct Equipment {
     pub id: usize,
-    pub kind: EquipmentKey,
+    pub key: EquipmentKey,
     pub purpose: Purpose,
     pub barrier: BarrierId,
 }
@@ -432,7 +468,6 @@ pub struct ItemRep {
     pub kind: ItemKey,
     pub container: ContainerId,
     pub quantity: u8,
-    pub functions: Vec<Function>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
@@ -441,9 +476,10 @@ pub struct CropKey(pub usize);
 pub struct CropKind {
     pub id: CropKey,
     pub name: String,
-    pub plant: PlantKey,
-    pub barrier: BarrierKey,
-    pub sensor: SensorKey,
+    pub plant: Shared<PlantKind>,
+    pub barrier: Shared<BarrierKind>,
+    pub sensor: Shared<SensorKind>,
+    pub fruits: Shared<ItemKind>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
@@ -461,8 +497,8 @@ pub struct CreatureKey(pub usize);
 pub struct CreatureKind {
     pub id: CreatureKey,
     pub name: String,
-    pub body: BodyKey,
-    pub animal: AnimalKey,
+    pub body: Shared<BodyKind>,
+    pub animal: Shared<AnimalKind>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
@@ -474,24 +510,47 @@ pub struct Creature {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
+pub struct AssemblyKey(pub usize);
+
+pub enum AssemblyTarget {
+    Door { door: Shared<DoorKind> },
+}
+
+pub struct AssemblyKind {
+    pub key: AssemblyKey,
+    pub name: String,
+    pub target: AssemblyTarget,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
+pub struct Assembly {
+    pub id: usize,
+    pub key: AssemblyKey,
+    pub placement: PlacementId,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
 pub struct DoorKey(pub usize);
 
 pub struct DoorKind {
-    pub id: DoorKey,
+    pub key: DoorKey,
     pub name: String,
-    pub barrier: BarrierKey,
+    pub barrier: Shared<BarrierKind>,
+    pub item: Shared<ItemKind>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
 pub struct Door {
     pub id: usize,
+    pub key: DoorKey,
     pub barrier: BarrierId,
+    pub placement: PlacementId,
 }
 
 // Models:
 //
 // Entity - aggregate of domain objects (hold identifiers)
-// EntityKind - aggregate of domain object kinds (defines object properties)
+// EntityPrefab - aggregate of domain object kinds (defines object properties)
 // Entity[Generated] - entity without EntityKind (defined dynamically in game run time)
 // Value     - not domain object, used for action and events definition
 // Event

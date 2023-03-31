@@ -18,7 +18,7 @@ pub struct Herd {
     pub herdsman: HerdsmanId,
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct AnimalKey(pub(crate) usize);
 
 pub struct AnimalKind {

@@ -3,9 +3,12 @@ use crate::gameplay::Intention::{Move, Put, QuickSwap, Swap, Use};
 use crate::gameplay::Target::{Construction, Crop, Equipment, Ground, Stack, Wall};
 use crate::gameplay::{Gameplay, Intention, Target};
 use game::api::FarmerBound;
+use game::assembling::Rotation;
 use game::building::{Marker, Structure};
 use game::inventory::Function;
-use game::inventory::Function::{Installation, Instrumenting, Material, Product, Seeding};
+use game::inventory::Function::{
+    Assembly, Installation, Instrumenting, Material, Product, Seeding,
+};
 use game::model::{Activity, CropKey, Purpose};
 use log::error;
 
@@ -76,10 +79,16 @@ impl Gameplay {
                                 self.send_action(FarmerBound::TakeMaterial { construction });
                                 break;
                             }
-                            (Product { kind }, Crop(crop)) => {
+                            (Product(kind), Crop(crop)) => {
                                 if CropKey(kind) == crop.key {
                                     self.send_action(FarmerBound::HarvestCrop { crop });
                                 }
+                            }
+                            (Assembly { kind }, Ground { tile }) => {
+                                self.send_action(FarmerBound::StartAssembly {
+                                    tile,
+                                    rotation: Rotation::A000,
+                                });
                             }
                             _ => {}
                         }
@@ -200,6 +209,7 @@ impl Gameplay {
                 }
                 _ => {}
             },
+            Activity::Assembling { assembly } => {}
         }
     }
 }

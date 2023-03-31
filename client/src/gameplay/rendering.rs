@@ -1,10 +1,10 @@
 use crate::engine::rendering::TilemapUniform;
 use crate::engine::Frame;
-use crate::gameplay::representation::{CreatureRep, CropRep};
+use crate::gameplay::representation::{AssemblyTargetAsset, CreatureRep, CropRep};
 use crate::gameplay::{position_of, rendering_position_of, Gameplay, TILE_SIZE};
 use game::building::{Cell, Grid, Marker, Material, Room, Structure};
 use game::math::VectorMath;
-use game::model::{Activity, Construction, Purpose};
+use game::model::{Activity, AssemblyTarget, Construction, Purpose};
 use lazy_static::lazy_static;
 use log::info;
 use rand::prelude::*;
@@ -119,9 +119,9 @@ impl Gameplay {
 
     pub fn render(&mut self, frame: &mut Frame) {
         let assets = &mut frame.assets;
-        let renderer = &mut frame.sprites;
-        renderer.clear();
-        renderer.look_at(self.camera.eye);
+        let scene = &mut frame.sprites;
+        scene.clear();
+        scene.look_at(self.camera.eye);
 
         let cursor = frame
             .input
@@ -153,7 +153,7 @@ impl Gameplay {
                 }
             }
 
-            renderer.render_ground(
+            scene.render_ground(
                 farmland.asset.texture.clone(),
                 farmland.asset.sampler.share(),
                 &farmland.soil_map,
@@ -211,7 +211,7 @@ impl Gameplay {
                     }
                 }
             }
-            renderer.render_tilemap(
+            scene.render_tilemap(
                 &farmland.construction.floor, // TODO: detect floor,
                 [
                     render_offset_x as f32 * TILE_SIZE,
@@ -220,7 +220,7 @@ impl Gameplay {
                 0,
                 TilemapUniform { map: floor_map },
             );
-            renderer.render_tilemap(
+            scene.render_tilemap(
                 &farmland.construction.roof, // TODO: detect roof
                 [
                     render_offset_x as f32 * TILE_SIZE,
@@ -288,7 +288,7 @@ impl Gameplay {
                         }
 
                         let tile = &tileset[tile_index];
-                        renderer.render_sprite(
+                        scene.render_sprite(
                             tile,
                             position,
                             (position[1] / TILE_SIZE) as usize,
@@ -304,7 +304,7 @@ impl Gameplay {
                         let neighbors = Neighbors::of(x, y, &rendering_cells);
                         let tile_index = neighbors.to_tile_index();
                         let tile = &tileset[tile_index];
-                        renderer.render_sprite(
+                        scene.render_sprite(
                             tile,
                             position,
                             (position[1] / TILE_SIZE) as usize,
@@ -319,7 +319,7 @@ impl Gameplay {
                         let sprite_line = construction.tile[1];
                         let position = position_of(construction.tile);
                         let position = rendering_position_of(position);
-                        renderer.render_sprite(&self.stack_sprite, position, sprite_line, 1.0);
+                        scene.render_sprite(&self.stack_sprite, position, sprite_line, 1.0);
                         for (i, item) in self
                             .items
                             .entry(construction.entity.container)
@@ -333,7 +333,7 @@ impl Gameplay {
                                 0.0,
                                 -24.0 + (48.0 * (i % 2) as f32) - (48.0 * (i / 2) as f32),
                             ];
-                            renderer.render_sprite(
+                            scene.render_sprite(
                                 &asset.sprite,
                                 position.add(offset),
                                 (position[1] / TILE_SIZE) as usize + 1,
@@ -347,12 +347,44 @@ impl Gameplay {
         let cursor_x = cursor_x as f32 * TILE_SIZE + 64.0;
         let cursor_y = cursor_y as f32 * TILE_SIZE + 64.0;
         let cursor_position = [cursor_x, cursor_y];
-        renderer.render_sprite(
+        scene.render_sprite(
             &self.cursor,
             cursor_position,
             (cursor_position[1] / TILE_SIZE) as usize,
             1.0,
         );
+
+        for assembly in self.assembly.values() {
+            let position = position_of(assembly.pivot);
+            let rendering_position = rendering_position_of(position);
+            match &assembly.asset {
+                AssemblyTargetAsset::Door { door } => {
+                    let index = assembly.rotation.index();
+                    let sprite = &door.sprites.tiles[index];
+                    scene.render_sprite(
+                        sprite,
+                        rendering_position,
+                        (rendering_position[1] / TILE_SIZE) as usize,
+                        1.0,
+                    )
+                }
+            }
+        }
+
+        for door in self.doors.values() {
+            let rendering_position = rendering_position_of(door.position);
+            let mut index = door.rotation.index();
+            if door.open {
+                index += 4;
+            }
+            let sprite = &door.asset.sprites.tiles[index];
+            scene.render_sprite(
+                sprite,
+                rendering_position,
+                (rendering_position[1] / TILE_SIZE) as usize,
+                1.0,
+            )
+        }
 
         for farmer in self.farmers.values() {
             let sprite_line = farmer.rendering_position[1] as usize;
@@ -368,7 +400,7 @@ impl Gameplay {
                 let kind = self.known.items.get(item.kind).unwrap();
                 let asset = assets.item(&kind.name);
                 let offset = [0.0, -128.0 - (32.0 * i as f32)];
-                renderer.render_sprite(
+                scene.render_sprite(
                     &asset.sprite,
                     rendering_position.add(offset),
                     sprite_line,
@@ -376,7 +408,7 @@ impl Gameplay {
                 );
             }
 
-            renderer.render_sprite(
+            scene.render_sprite(
                 &self.players[farmer.entity.id - 1],
                 rendering_position,
                 sprite_line,
@@ -393,7 +425,7 @@ impl Gameplay {
                 let kind = self.known.items.get(item.kind).unwrap();
                 let asset = assets.item(&kind.name);
                 let offset = [0.0, -128.0 - (32.0 * i as f32)];
-                renderer.render_sprite(
+                scene.render_sprite(
                     &asset.sprite,
                     rendering_position.add(offset),
                     sprite_line,
@@ -402,7 +434,7 @@ impl Gameplay {
             }
 
             let last_sync_position = rendering_position_of(farmer.last_sync_position);
-            renderer.render_sprite(
+            scene.render_sprite(
                 &self.cursor,
                 last_sync_position,
                 (last_sync_position[1] / TILE_SIZE) as usize,
@@ -413,7 +445,7 @@ impl Gameplay {
         for stack in self.stacks.values() {
             let sprite_line = stack.position[1] as usize;
             let position = rendering_position_of(stack.position);
-            renderer.render_sprite(&self.stack_sprite, position, sprite_line, 1.0);
+            scene.render_sprite(&self.stack_sprite, position, sprite_line, 1.0);
             for (i, item) in self
                 .items
                 .get(&stack.entity.container)
@@ -427,7 +459,7 @@ impl Gameplay {
                     0.0,
                     -24.0 + (48.0 * (i % 2) as f32) - (48.0 * (i / 2) as f32),
                 ];
-                renderer.render_sprite(&asset.sprite, position.add(offset), sprite_line, 1.0);
+                scene.render_sprite(&asset.sprite, position.add(offset), sprite_line, 1.0);
             }
         }
 
@@ -436,7 +468,7 @@ impl Gameplay {
                 Purpose::Surveying { .. } => {
                     let sprite_line = equipment.position[1] as usize;
                     let position = rendering_position_of(equipment.position);
-                    renderer.render_sprite(&self.theodolite_sprite, position, sprite_line, 1.0);
+                    scene.render_sprite(&self.theodolite_sprite, position, sprite_line, 1.0);
                 }
                 Purpose::Moisture { .. } => {}
             }
@@ -451,13 +483,13 @@ impl Gameplay {
                 let equipment = self.equipments.get(&equipment).unwrap();
                 let sprite_line = equipment.position[1] as usize;
                 let position = rendering_position_of(equipment.position);
-                renderer.render_sprite(
+                scene.render_sprite(
                     &self.theodolite_gui_sprite,
                     position.add([0.0, -32.0]),
                     sprite_line,
                     1.0,
                 );
-                renderer.render_sprite(
+                scene.render_sprite(
                     &self.theodolite_gui_select_sprite,
                     position.add([-196.0 + 128.0 * (selection as f32), -224.0]),
                     sprite_line,
@@ -467,7 +499,7 @@ impl Gameplay {
         }
 
         for creature in self.creatures.values() {
-            renderer.render_animal(
+            scene.render_animal(
                 &creature.spine,
                 &creature.asset.coloration,
                 rendering_position_of(creature.rendering_position),
@@ -479,7 +511,7 @@ impl Gameplay {
             let offset_x: f32 = random.gen_range(-0.05..0.05);
             let offset_y: f32 = random.gen_range(-0.05..0.05);
             let offset = [offset_x, offset_y];
-            renderer.render_plant(
+            scene.render_plant(
                 &crop.spines[crop.spine],
                 crop.asset.damage_mask.share(),
                 rendering_position_of(crop.position.add(offset)),
@@ -509,16 +541,16 @@ impl Gameplay {
             //     );
             // }
         });
-        renderer.set_point_light(
+        scene.set_point_light(
             [1.0, 0.0, 0.0, 1.0],
             512.0,
             rendering_position_of(cursor.position),
         );
-        renderer.set_point_light([1.0, 0.0, 0.0, 1.0], 512.0, [1024.0, 256.0]);
-        renderer.set_point_light([0.0, 1.0, 0.0, 1.0], 512.0, [256.0, 1024.0]);
-        renderer.set_point_light([0.0, 0.0, 1.0, 1.0], 512.0, [1024.0, 1024.0]);
+        scene.set_point_light([1.0, 0.0, 0.0, 1.0], 512.0, [1024.0, 256.0]);
+        scene.set_point_light([0.0, 1.0, 0.0, 1.0], 512.0, [256.0, 1024.0]);
+        scene.set_point_light([0.0, 0.0, 1.0, 1.0], 512.0, [1024.0, 1024.0]);
 
-        renderer.render_sprite(&self.gui_controls, [-512.0, 512.0], 127, 1.0);
+        scene.render_sprite(&self.gui_controls, [-512.0, 512.0], 127, 1.0);
     }
 }
 

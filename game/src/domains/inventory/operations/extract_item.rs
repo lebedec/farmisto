@@ -32,7 +32,6 @@ impl InventoryDomain {
                 ItemAdded {
                     id: item.id,
                     kind: item.kind.id,
-                    functions: item.functions.clone(),
                     container: item.container,
                     quantity: item.quantity,
                 },

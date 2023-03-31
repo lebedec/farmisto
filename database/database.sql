@@ -58,7 +58,8 @@ create table Barrier
     id       integer primary key,
     kind     integer not null references BarrierKind,
     space    integer not null references Space,
-    position json    not null
+    position json    not null,
+    active   boolean not null
 );
 
 create table SensorKind
@@ -137,8 +138,8 @@ create table Animal
 
 create table GridKind
 (
-    id        integer primary key,
-    name      text not null unique
+    id   integer primary key,
+    name text not null unique
 );
 
 create table Grid
@@ -180,6 +181,7 @@ create table ItemKind
 (
     id           integer primary key,
     name         text not null unique,
+    functions    json not null,
     stackable    integer,
     max_quantity integer
 );
@@ -189,7 +191,6 @@ create table Item
     id        integer primary key,
     kind      integer not null references ItemKind,
     container integer not null references Container,
-    functions json    not null,
     quantity  integer not null
 );
 
@@ -273,6 +274,7 @@ create table EquipmentKind
 (
     id         integer primary key,
     name       text not null unique,
+    item       text not null references ItemKind (name),
     barrier    text not null references BarrierKind (name),
     p_surveyor text null references SurveyorKind (name)
 );
@@ -291,7 +293,8 @@ create table CropKind
     name    text not null unique,
     plant   text not null references PlantKind (name),
     barrier text not null references BarrierKind (name),
-    sensor  text not null references SensorKind (name)
+    sensor  text not null references SensorKind (name),
+    fruits  text not null references ItemKind (name)
 );
 
 create table Crop
