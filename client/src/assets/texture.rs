@@ -1,9 +1,11 @@
+use std::fs::File;
 use std::sync::Arc;
 use std::{fs, ptr};
 
 use ash::vk::Handle;
 use ash::{vk, Device};
 use lazy_static::lazy_static;
+use log::{debug, info};
 
 use crate::assets::Asset;
 use crate::engine::base::{create_buffer, index_memory_type, Queue};
@@ -116,12 +118,26 @@ impl TextureAssetData {
         let data = fs::read(&path).unwrap();
         // timer.record2(path, "io", &METRIC_LOADING_SECONDS);
 
+        // let png_decoder = png::Decoder::new(File::open(path).unwrap());
+        // let mut png_reader = png_decoder.read_info().unwrap();
+        // let mut buf = vec![0; png_reader.output_buffer_size()];
+        // let info = png_reader.next_frame(&mut buf).unwrap();
+        // let image_data_len = info.buffer_size();
+        // let image_width = info.width;
+        // let image_height = info.height;
+        // let c = info.color_type;
+        // let image_data = &buf[..info.buffer_size()];
+        // info!("{path} L{image_data_len} {image_width}x{image_height} {c:?} PNG");
+
         let image_object = image::load_from_memory(&data).unwrap();
         let image_object = image_object.flipv();
+        let c = image_object.color();
         let (image_width, image_height) = (image_object.width(), image_object.height());
         let image_data = image_object.to_rgba8();
         let image_data_len = image_data.len();
         let image_data = image_data.as_ptr();
+        debug!("{path} L{image_data_len} {image_width}x{image_height} {c:?}");
+
         // timer.record2(path, "decode", &METRIC_LOADING_SECONDS);
 
         let image_size =

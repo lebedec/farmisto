@@ -12,7 +12,7 @@ use game::model::{Activity, AssemblyTarget, ItemRep, Universe};
 use game::physics::Physics;
 use game::planting::Planting;
 use game::raising::Raising;
-use log::{error, info};
+use log::{debug, error, info};
 use rusty_spine::Skin;
 use std::collections::HashMap;
 
@@ -414,7 +414,7 @@ impl Gameplay {
                 stack: entity,
                 position,
             } => {
-                info!("Appear {:?} at {:?}", entity, position,);
+                debug!("Appear {:?} at {:?}", entity, position,);
                 self.stacks.insert(entity, StackRep { entity, position });
             }
             Universe::StackVanished(entity) => {

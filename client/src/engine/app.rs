@@ -115,7 +115,7 @@ pub fn startup<A: App>(title: String) {
 
         let mut assets = Assets::new(base.device.clone(), base.pool, base.queue.clone());
 
-        let mut sprites_renderer = Scene::create(
+        let mut scene = Scene::create(
             &base.device,
             &base.queue.device_memory,
             base.screen.clone(),
@@ -158,7 +158,7 @@ pub fn startup<A: App>(title: String) {
             studio.update().unwrap();
 
             input.reset();
-            input.zoom = sprites_renderer.zoom;
+            input.zoom = scene.zoom;
             input.window = base.screen.size().map(|value| value as f32);
             input.time = time.elapsed().as_secs_f32();
             time = Instant::now();
@@ -185,16 +185,16 @@ pub fn startup<A: App>(title: String) {
             }
 
             if input.pressed(Keycode::Z) {
-                sprites_renderer.zoom += 0.1;
-                info!("ZOOM: {}", sprites_renderer.zoom);
+                scene.zoom += 0.1;
+                info!("ZOOM: {}", scene.zoom);
             }
             if input.pressed(Keycode::X) {
-                sprites_renderer.zoom -= 0.1;
-                info!("ZOOM: {}", sprites_renderer.zoom);
+                scene.zoom -= 0.1;
+                info!("ZOOM: {}", scene.zoom);
             }
 
             //scene_renderer.update();
-            sprites_renderer.update();
+            scene.update();
 
             let present_index = match base.swapchain_loader.acquire_next_image(
                 base.swapchain,
@@ -205,7 +205,7 @@ pub fn startup<A: App>(title: String) {
                 Ok((present_index, _)) => present_index,
                 Err(vk::Result::ERROR_OUT_OF_DATE_KHR) => {
                     base.recreate_swapchain(renderpass);
-                    sprites_renderer = Scene::create(
+                    scene = Scene::create(
                         &base.device,
                         &base.queue.device_memory,
                         base.screen.clone(),
@@ -221,12 +221,12 @@ pub fn startup<A: App>(title: String) {
                 }
             };
 
-            sprites_renderer.present_index = present_index as usize;
+            scene.present_index = present_index as usize;
 
             app.update(&mut Frame {
                 config: &config,
                 input: input.clone(),
-                sprites: &mut sprites_renderer,
+                sprites: &mut scene,
                 assets: &mut assets,
                 studio: &studio,
             });
@@ -253,7 +253,7 @@ pub fn startup<A: App>(title: String) {
                     .render_area(base.screen.resolution().into())
                     .clear_values(&clear_values);
                 base.begin_commands(frame_command_buffer).unwrap();
-                sprites_renderer.render2(&base.device, frame_command_buffer, &render_begin);
+                scene.render2(&base.device, frame_command_buffer, &render_begin);
                 base.end_commands(frame_command_buffer, *present_queue)
                     .unwrap();
 
