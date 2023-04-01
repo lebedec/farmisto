@@ -1,6 +1,6 @@
 use crate::engine::base::Base;
 use crate::engine::rendering::Scene;
-use crate::engine::Input;
+use crate::engine::{AppConfig, Input};
 use ash::vk;
 use std::io::Write;
 use std::net::TcpListener;
@@ -23,6 +23,7 @@ lazy_static! {
 }
 
 pub struct Frame<'c> {
+    pub config: &'c AppConfig,
     pub input: Input,
     pub sprites: &'c mut Scene,
     pub assets: &'c mut Assets,
@@ -35,6 +36,7 @@ pub trait App {
 }
 
 pub fn startup<A: App>(title: String) {
+    let config = AppConfig::load();
     let system = sdl2::init().unwrap();
     let video = system.video().unwrap();
 
@@ -71,10 +73,10 @@ pub fn startup<A: App>(title: String) {
     }
     let mut windowed = true;
     let mut window = video
-        .window(&title, 1920, 1080)
+        .window(&title, config.resolution[0], config.resolution[1])
         .allow_highdpi()
         // .fullscreen()
-        //.position(1920, 0)
+        .position(config.position[0], config.position[1])
         //.borderless()
         .vulkan()
         .build()
@@ -170,12 +172,13 @@ pub fn startup<A: App>(title: String) {
             }
 
             if input.pressed(Keycode::Return) {
+                let [w, h] = config.resolution.clone();
                 if windowed {
-                    window.set_size(1920 * 2, 1080 * 2).unwrap();
+                    window.set_size(w * 2, h * 2).unwrap();
                     window.set_fullscreen(FullscreenType::Desktop).unwrap();
                     windowed = false;
                 } else {
-                    window.set_size(1920, 1080).unwrap();
+                    window.set_size(w, h).unwrap();
                     window.set_fullscreen(FullscreenType::Off).unwrap();
                     windowed = true;
                 }
@@ -221,6 +224,7 @@ pub fn startup<A: App>(title: String) {
             sprites_renderer.present_index = present_index as usize;
 
             app.update(&mut Frame {
+                config: &config,
                 input: input.clone(),
                 sprites: &mut sprites_renderer,
                 assets: &mut assets,

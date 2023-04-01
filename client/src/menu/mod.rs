@@ -54,7 +54,7 @@ impl Mode for Menu {
         if let Some(player) = self.host.as_ref() {
             let config = Configuration {
                 host: player.clone(),
-                port: 8080,
+                port: frame.config.port,
                 password: None,
             };
             let server = LocalServerThread::spawn(config);
@@ -69,7 +69,7 @@ impl Mode for Menu {
             return Some(Box::new(gameplay));
         }
         if let Some(player) = self.join.as_ref() {
-            let client = TcpClient::connect("127.0.0.1:8080", player.to_string(), None).unwrap();
+            let client = TcpClient::connect(&frame.config.host, player.to_string(), None).unwrap();
             let gameplay = Gameplay::new(None, client, frame);
             return Some(Box::new(gameplay));
         }

@@ -53,6 +53,7 @@ def build(rebuild=True):
         ['assets/assets.sqlite', 'assets/assets.sqlite'],
         ['assets/database.sqlite', 'assets/database.sqlite'],
         ['tools/setup/debug/debug.bat', 'debug.bat'],
+        ['tools/setup/debug/farmisto.json', 'farmisto.json'],
     ]
     for src, dst in files:
         src = os.path.join(project_directory, src)
