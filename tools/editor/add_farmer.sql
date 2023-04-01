@@ -12,10 +12,12 @@ values (null,
         :space,
         :position,
         :position);
+insert into Player
+values (null, :player);
 insert into Farmer
 values (null,
         (select id from FarmerKind where name = :kind_name),
-        :player,
+        (select max(id) from Player),
         (select max(id) from Body),
         (select max(id) - 1 from Container),
         (select max(id) - 0 from Container));

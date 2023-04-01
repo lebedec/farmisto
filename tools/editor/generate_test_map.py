@@ -1,11 +1,102 @@
 import json
+import os
 import sqlite3
 import struct
 from io import BytesIO
-from typing import List
+from sqlite3 import Connection
+from typing import List, Dict, Tuple, Callable
 
 
-def generate_soil(soil_id: int, user_define: List[str]):
+class Editor:
+
+    def __init__(self, connection: Connection):
+        self.connection = connection
+
+    def add_farmer(self, kind_name: str, player: str, space: str, tile: Tuple[int, int]):
+        execute_script(
+            self.connection,
+            './add_farmer.sql',
+            kind_name=f"'{kind_name}'",
+            space=space,
+            position=as_sql_position(tile),
+            player=f"'{player}'"
+        )
+
+    def create_farmland(self, kind: str, holes: bytes, soil: bytes, grid: bytes) -> str:
+        connection = self.connection
+        print('Create farmland', kind, 'holes:', len(holes), 'soil:', len(soil), 'grid:', len(grid))
+
+        kind = connection.execute('select id, space, soil, grid from FarmlandKind where name = ?', [kind]).fetchone()
+        kind, space_kind, soil_kind, grid_kind = kind
+        connection.execute('insert into Space values (null, ?, ?)', [space_kind, holes])
+        space_id = '(select max(id) from Space)'
+        connection.execute('insert into Soil values (null, ?, ?)', [soil_kind, soil])
+        soil_id = '(select max(id) from Soil)'
+        connection.execute('insert into Grid values (null, ?, ?)', [grid_kind, grid])
+        grid_id = '(select max(id) from Grid)'
+        connection.execute(f'insert into Farmland values (null, ?, {space_id}, {soil_id}, {grid_id})', [kind])
+        connection.commit()
+
+class Material:
+    UNKNOWN = 0
+    METAL = 10
+    MESH = 15
+    CONCRETE = 20
+    WOOD = 30
+    PLANKS = 35
+    GLASS = 40
+    TARPAULIN = 50
+
+def generate_farmland(
+        editor: Editor,
+        farmland_kind: str,
+        soil_define_map: List[str],
+        objects: Dict[str, Callable[[Tuple[int, int], str], None]],
+        buildings: Dict[str, Tuple[int, int, int, int]],
+        user_define_map: str
+):
+    user_define = []
+    for line in user_define_map.splitlines(keepends=False):
+        line = line.strip().replace(' ', '')
+        if line:
+            user_define.append(line)
+    grid_data = BytesIO()
+    holes_data = BytesIO()
+    size_y = 128
+    size_x = 128
+    grid_data.write(struct.pack('B', size_y))
+    holes_data.write(struct.pack('B', size_y))
+    edits = []
+    for y in range(size_y):
+        grid_data.write(struct.pack('B', size_x))
+        holes_data.write(struct.pack('B', size_x))
+        for x in range(size_x):
+            if y < len(user_define) and x < len(user_define[y]):
+                code = user_define[y][x]
+                if code in objects:
+                    tile = (x, y)
+                    edits.append((tile, objects[code]))
+                    wall, door, window, material = 0, 0, 0, 0
+                    is_hole = 0
+                else:
+                    wall, door, window, material = buildings[code]
+                    is_hole = 1 if wall and not door else 0
+            else:
+                wall, door, window, material = 0, 0, 0, 0
+                is_hole = 0
+            grid_data.write(struct.pack('BBBB', *[wall, door, window, material]))
+            holes_data.write(struct.pack('B', is_hole))
+
+    grid_data = grid_data.getvalue()
+    holes_data = holes_data.getvalue()
+    soil_data = generate_soil(soil_define_map)
+    editor.create_farmland(farmland_kind, holes_data, soil_data, grid_data)
+    farmland_id = '1' # TODO: select real id
+    for tile, edit in edits:
+        edit(tile, farmland_id)
+
+
+def generate_soil(user_define: List[str]) -> bytes:
     data = BytesIO()
     size_y = 128
     size_x = 128
@@ -20,148 +111,102 @@ def generate_soil(soil_id: int, user_define: List[str]):
                 capacity = float(code) / 10.0
                 moisture = float(code) / 10.0
             data.write(struct.pack('=Bff', *[2, capacity, moisture]))
-    data = data.getvalue()
-    print('data length', len(data))
-    connection = sqlite3.connect('../../assets/database.sqlite')
-    connection.execute('update Soil set map = ? where id = ?', [data, soil_id])
-    connection.commit()
+    return data.getvalue()
 
 
-def generate_grid(grid_id: int, space_id: int, surveyor: int, user_define_map: str):
-    user_define = []
-    for line in user_define_map.splitlines(keepends=False):
-        line = line.strip().replace(' ', '')
-        if line:
-            user_define.append(line)
-    data = BytesIO()
-    holes_data = BytesIO()
-    size_y = 128
-    size_x = 128
-    data.write(struct.pack('B', size_y))
-    holes_data.write(struct.pack('B', size_y))
-    constructions = []
-    for y in range(size_y):
-        data.write(struct.pack('B', size_x))
-        holes_data.write(struct.pack('B', size_x))
-        for x in range(size_x):
-            wall = 0
-            door = 0
-            window = 0
-            material = 0
-            # space
-            is_hole = 0
-            if y < len(user_define) and x < len(user_define[y]):
-                code = user_define[y][x]
-                if code == '=':
-                    wall = 1
-                    # space
-                    is_hole = 1
-                    material = 20
-                if code == '#':
-                    wall = 1
-                    # space
-                    is_hole = 1
-                    material = 20
-                if code == 'O':
-                    wall = 1
-                    door = 1
-                    material = 20
-                if code == 'o':
-                    wall = 1
-                    window = 1
-                    # space
-                    is_hole = 1
-                    material = 20
+def execute_script(connection: Connection, script_path: str, **params):
+    script = open(script_path, 'r').read()
+    for key, value in params.items():
+        script = script.replace(f':{key}', value)
+    connection.executescript(script)
 
-                if code == '+':
-                    wall = 1
-                    is_hole = 1
-                    material = 40
-                if code == 'A':
-                    wall = 1
-                    door = 1
-                    material = 40
-                if code == 'a':
-                    wall = 1
-                    window = 1
-                    # space
-                    is_hole = 1
-                    material = 40
-            data.write(struct.pack('BBBB', *[wall, door, window, material]))
-            holes_data.write(struct.pack('B', is_hole))
 
-    data = data.getvalue()
-    print('data length', len(data))
-    connection = sqlite3.connect('../../assets/database.sqlite')
-    connection.execute('update Grid set map = ? where id = ?', [data, grid_id])
-    # generate Space holes
-    holes_data = holes_data.getvalue()
-    print('holes data length', len(holes_data))
-    connection.execute('update Space set holes = ? where id = ?', [holes_data, space_id])
-    # generate Construction entities
-    # connection.execute('delete from Container where id in (select container from Construction where grid = ?)', [grid_id])
-    # connection.execute('delete from Construction where grid = ?', [grid_id])
-    # for cell in constructions:
-    #     cursor = connection.cursor()
-    #     cursor.execute('insert into Container (kind) values (1)')  # 1 - <construction> kind
-    #     container_id = cursor.lastrowid
-    #     cursor.execute(
-    #         'insert into Construction (container, grid, surveyor, cell) values (?, ?, ?, ?)',
-    #         [container_id, grid_id, surveyor, json.dumps(cell)]
-    #     )
-    connection.commit()
+def create_new_database(dst_path: str, tmp_path: str):
+    if os.path.exists(tmp_path):
+        os.remove(tmp_path)
+
+    os.rename(dst_path, tmp_path)
+
+    src = sqlite3.connect(tmp_path)
+    dst = sqlite3.connect(dst_path)
+
+    def move_table(table: str):
+        rows = src.execute(f'select * from {table}')
+        statement = None
+        for row in rows:
+            if statement is None:
+                params = ', '.join(['?'] * len(row))
+                statement = f'insert into {table} values ({params})'
+                print('MOVE', statement)
+            dst.execute(statement, row)
+        dst.commit()
+
+    migrations = open('../../database/database.sql').read()
+    dst.executescript(migrations)
+
+    rows = src.execute("select tbl_name from main.sqlite_master where type = 'table'")
+    tables = [name for columns in rows for name in columns if name.endswith('Kind')]
+    root_tables = []
+    for table in tables:
+        try:
+            move_table(table)
+        except sqlite3.IntegrityError:
+            # HACK: move aggregates after domain kinds
+            # TODO: determine aggregates and handle properly
+            print('FAILED try again later')
+            root_tables.append(table)
+
+    for table in root_tables:
+        move_table(table)
+
+
+
+def as_sql_position(tile: Tuple[int, int]) -> str:
+    x, y = tile
+    return f"'[{x}.5, {y}.5]'"
 
 
 if __name__ == '__main__':
-    generate_soil(1, [
-        '7777777777777777777777777',
-        '0123456777777777777777012',
-        '9999999977777777777777012',
-        '1111111177777777777777012',
-        '9876543277777777777777012'
-    ])
-
-    # value = bytes([2, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 1, 0, 0, 0, 1, 0, 1, 0, 0, 2, 2, 0, 0, 0, 0, 0, 0, 0, 0, 0, 1, 0, 3, 0, 0, 0, 1, 4])
-    value = bytes([2, 2, 2, 205, 204, 204, 61, 205, 204, 76, 62, 2, 154, 153, 153, 62, 205, 204, 204, 62, 2, 2, 205, 204, 204, 61, 205, 204, 76, 62, 2, 154, 153, 153, 62, 205, 204, 204, 62])
-
-    data = BytesIO()
-    data.write(struct.pack('B', 2))
-    # data.write(struct.pack('B', 2))
-    # data.write(struct.pack('BBBBB', *[True, False, False, False, 1]))
-    # data.write(struct.pack('BBBBB', *[False, True, False, False, 2]))
-    # data.write(struct.pack('B', 2))
-    # data.write(struct.pack('BBBBB', *[False, False, True, False, 3]))
-    # data.write(struct.pack('BBBBB', *[False, False, False, True, 4]))
-    data.write(struct.pack('B', 2))
-    data.write(struct.pack('=Bff', *[2, 0.1, 0.2]))
-    data.write(struct.pack('=Bff', *[2, 0.3, 0.4]))
-    data.write(struct.pack('B', 2))
-    data.write(struct.pack('B', 2))
-    data.write(struct.pack('ff', *[0.1, 0.2]))
-    data.write(struct.pack('B', 2))
-    data.write(struct.pack('ff', *[0.3, 0.4]))
-    result = data.getvalue()
-
-    print(len(value), value)
-    print(len(result), result)
-    generate_grid(
-        1,
-        1,
-        1,
-        """
+    create_new_database('../../assets/database.sqlite', '../../assets/database_tmp.sqlite')
+    editor = Editor(sqlite3.connect('../../assets/database.sqlite'))
+    generate_farmland(
+        editor,
+        farmland_kind='test',
+        soil_define_map=[
+            '7777777777777777777777777',
+            '0123456777777777777777012',
+            '9999999977777777777777012',
+            '1111111177777777777777012',
+            '9876543277777777777777012'
+        ],
+        objects={
+            'A': lambda tile, space: editor.add_farmer('farmer', 'Alice', space, tile),
+            'B': lambda tile, space: editor.add_farmer('farmer', 'Boris', space, tile),
+            'C': lambda tile, space: editor.add_farmer('farmer', 'Carol', space, tile),
+            'D': lambda tile, space: editor.add_farmer('farmer', 'David', space, tile),
+        },
+        buildings={
+            # (wall, door, window, material)
+            '.': (0, 0, 0, Material.UNKNOWN),
+            '#': (1, 0, 0, Material.CONCRETE),
+            '|': (1, 1, 0, Material.CONCRETE),
+            '-': (1, 0, 1, Material.CONCRETE),
+            '+': (1, 0, 0, Material.PLANKS)
+        },
+        user_define_map="""
         . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-        . . . . . . . . # # # # O # o o o # # . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-        . . . . . . . . # . # . . . . . . . o . . . . . . . . . . . . . . # # O O O # # . . . . . . # # # # # # . . . . . . . . . . .
+        . . A . . . . . # # # # | # - - - # # . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+        . . . B C D . . # . # . . . . . . . - . . . . . . . . . . . . . . # # | | | # # . . . . . . # # # # # # . . . . . . . . . . .
         . . . . . . . . # . # . . # # # # . # . . . . . . . . . . . . . . # . . . . . # . . . . . . # . . . . # # # # # . . . . . . .
-        . . . . . . . . O . . . . # . . # # # . . . . . . . . . . . . . . O . # # # . O . # # # . . # # # . . # # . . # . . . . . . .
-        . . . . . . . . # . . . . # . . . . . . # # # . . . . . . . . . . O . # . # . O . . . # . . . . # . . # # . . # . . . . . . .
-        . . . . . . . . # o # O # # . . . # O # # . # # . . . . . . . . . # . # . # . O . . . # . . . . # . . # # # # # . . . . . . .
+        . . . . . . . . - . . . . # . . # # # . . . . . . . . . . . . . . | . # # # . | . # # # . . # # # . . # # . . # . . . . . . .
+        . . . . . . . . # . . . . # . . . . . . # # # . . . . . . . . . . | . # . # . | . . . # . . . . # . . # # . . # . . . . . . .
+        . . . . . . . . # - # | # # . . . # | # # . # # . . . . . . . . . # . # . # . | . . . # . . . . # . . # # # # # . . . . . . .
         . . . . . . . . . . . . . . . . . # . . . . . # . . . . . . . . . # . . . . . # . # . # . . . . # . . # # . . . . . . . . . .
-        . . . . . . . + + a + A + . . . . # . # # # . # # . . . . . . . . # O O # o o # . # # # . . . . # . . # # . . . . . . . . . .
-        . . . . . . . A . . . . a . . # o # . # . # . . # . . . . . . . . . . . . . . . . . . . . . . . # . . # # # # # # # . . . . .
-        . . . . . . . + . . . . a . . # . . . # # # . # # . . . . . . . # o # . # # O # o # . . . . . . # . . # . . # . . # . . . . .
-        . . . . . . . + A + + a + . . # o # . . . . . # . . . . . . . . # . # . # . . . . # . . . . . . # . . # . . # . . # . . . . .
-        . . . . . . . . . . . . . . . . . # . # O # # # . . . . . . . . o . # O # . . # # # . . . . . . # . . # # # # # # # . . . . .
+        . . . . . . . + + + + + + . . . . # . # # # . # # . . . . . . . . # | | # - - # . # # # . . . . # . . # # . . . . . . . . . .
+        . . . . . . . + . . . . + . . # - # . # . # . . # . . . . . . . . . . . . . . . . . . . . . . . # . . # # # # # # # . . . . .
+        . . . . . . . + . . . . + . . # . . . # # # . # # . . . . . . . # - # . # # | # - # . . . . . . # . . # . . # . . # . . . . .
+        . . . . . . . + + + + + + . . # - # . . . . . # . . . . . . . . # . # . # . . . . # . . . . . . # . . # . . # . . # . . . . .
+        . . . . . . . . . . . . . . . . . # . # | # # # . . . . . . . . - . # | # . . # # # . . . . . . # . . # # # # # # # . . . . .
         . . . . . . . . . . . . . . . . . # # # . . . . . . . . . . . . # . . . . . . # . . . . . . . . # . . # . . . . . # . . . . .
         . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . # # . # # # . # . # # # # # # . # . . # . . . . . # . . . . .
         . . . . . . . . . . . . . . . . . . . . # . . . . . . . . . . . . # . # . # . # . . . . . . # . # . . # # # # # # # . . . . .

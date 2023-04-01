@@ -25,8 +25,9 @@ create table SpaceKind
 
 create table Space
 (
-    id   integer primary key,
-    kind integer not null references SpaceKind
+    id    integer primary key,
+    kind  integer             not null references SpaceKind (id),
+    holes blob collate binary not null
 );
 
 create table BodyKind
@@ -39,11 +40,11 @@ create table BodyKind
 
 create table Body
 (
-    id        integer primary key,
-    kind      integer not null references BodyKind,
-    space     integer not null references Space,
-    position  json    not null,
-    direction json    not null
+    id          integer primary key,
+    kind        integer not null references BodyKind (id),
+    space       integer not null references Space (id),
+    position    json    not null,
+    destination json    not null
 );
 
 create table BarrierKind
@@ -56,8 +57,8 @@ create table BarrierKind
 create table Barrier
 (
     id       integer primary key,
-    kind     integer not null references BarrierKind,
-    space    integer not null references Space,
+    kind     integer not null references BarrierKind (id),
+    space    integer not null references Space (id),
     position json    not null,
     active   boolean not null
 );
@@ -72,8 +73,8 @@ create table SensorKind
 create table Sensor
 (
     id       integer primary key,
-    kind     integer not null references SensorKind,
-    space    integer not null references Space,
+    kind     integer not null references SensorKind (id),
+    space    integer not null references Space (id),
     position json    not null,
     signals  json    not null
 );
@@ -89,7 +90,7 @@ create table SoilKind
 create table Soil
 (
     id   integer primary key,
-    kind integer             not null references SoilKind,
+    kind integer             not null references SoilKind (id),
     map  blob collate binary not null
 );
 
@@ -105,8 +106,8 @@ create table PlantKind
 create table Plant
 (
     id     integer primary key,
-    kind   integer not null references PlantKind,
-    soil   integer not null references Soil,
+    kind   integer not null references PlantKind (id),
+    soil   integer not null references Soil (id),
     impact real    not null,
     thirst real    not null,
     hunger real    not null,
@@ -126,7 +127,7 @@ create table AnimalKind
 create table Animal
 (
     id     integer primary key,
-    kind   integer not null references AnimalKind,
+    kind   integer not null references AnimalKind (id),
     age    real    not null,
     thirst real    not null,
     hunger real    not null,
@@ -145,7 +146,7 @@ create table GridKind
 create table Grid
 (
     id   integer primary key,
-    kind integer             not null references GridKind,
+    kind integer             not null references GridKind (id),
     map  blob collate binary not null
 );
 
@@ -158,8 +159,8 @@ create table SurveyorKind
 create table Surveyor
 (
     id   integer primary key,
-    kind integer not null references SurveyorKind,
-    grid integer not null references Grid
+    kind integer not null references SurveyorKind (id),
+    grid integer not null references Grid (id)
 );
 
 -- Inventory
@@ -174,23 +175,23 @@ create table ContainerKind
 create table Container
 (
     id   integer primary key,
-    kind integer not null references ContainerKind
+    kind integer not null references ContainerKind (id)
 );
 
 create table ItemKind
 (
     id           integer primary key,
     name         text not null unique,
-    functions    json not null,
     stackable    integer,
-    max_quantity integer
+    max_quantity integer,
+    functions    json not null
 );
 
 create table Item
 (
     id        integer primary key,
-    kind      integer not null references ItemKind,
-    container integer not null references Container,
+    kind      integer not null references ItemKind (id),
+    container integer not null references Container (id),
     quantity  integer not null
 );
 
@@ -209,74 +210,68 @@ create table TreeKind
 (
     id      integer primary key,
     name    text    not null unique,
-    barrier integer not null references BarrierKind,
-    plant   integer not null references PlantKind
+    barrier integer not null references BarrierKind (id),
+    plant   integer not null references PlantKind (id)
 );
 
 create table Tree
 (
     id      integer primary key,
-    kind    integer not null references TreeKind,
-    barrier integer not null references Barrier,
-    plant   integer not null references Plant
+    kind    integer not null references TreeKind (id),
+    barrier integer not null references Barrier (id),
+    plant   integer not null references Plant (id)
 );
 
 create table FarmlandKind
 (
     id    integer primary key,
     name  text    not null unique,
-    space integer not null references SpaceKind,
-    soil  integer not null references SoilKind,
-    grid  integer not null references GridKind
+    space integer not null references SpaceKind (id),
+    soil  integer not null references SoilKind (id),
+    grid  integer not null references GridKind (id)
 );
 
 create table Farmland
 (
     id    integer primary key,
-    kind  integer not null references FarmlandKind,
-    space integer not null references Space,
-    soil  integer not null references Soil,
-    grid  integer not null references Grid
+    kind  integer not null references FarmlandKind (id),
+    space integer not null references Space (id),
+    soil  integer not null references Soil (id),
+    grid  integer not null references Grid (id)
 );
 
 create table FarmerKind
 (
     id   integer primary key,
     name text    not null unique,
-    body integer not null references BodyKind
+    body integer not null references BodyKind (id)
 );
 
 create table Farmer
 (
     id       integer primary key,
-    kind     integer not null references FarmerKind,
-    player   integer not null references Player,
-    body     integer not null references Body,
-    hands    integer not null references Container,
-    backpack integer not null references Container
+    kind     integer not null references FarmerKind (id),
+    player   integer not null references Player (id),
+    body     integer not null references Body (id),
+    hands    integer not null references Container (id),
+    backpack integer not null references Container (id)
 );
 
 create table Stack
 (
     id        integer primary key,
-    container integer not null references Container,
-    barrier   integer not null references Barrier
+    container integer not null references Container (id),
+    barrier   integer not null references Barrier (id)
 );
 
 create table Construction
 (
     id        integer primary key,
-    container integer not null references Container,
-    grid      integer not null references Grid,
-    surveyor  integer not null references Surveyor,
+    container integer not null references Container (id),
+    grid      integer not null references Grid (id),
+    surveyor  integer not null references Surveyor (id),
     marker    json    not null,
     cell      json    not null
-);
-
-create table Theodolite
-(
-    id   integer primary key,
-    cell json not null
 );
 
 create table EquipmentKind
@@ -291,9 +286,9 @@ create table EquipmentKind
 create table Equipment
 (
     id         integer primary key,
-    barrier    integer not null references Barrier,
-    kind       integer not null references EquipmentKind,
-    p_surveyor integer null references Surveyor
+    barrier    integer not null references Barrier (id),
+    kind       integer not null references EquipmentKind (id),
+    p_surveyor integer null references Surveyor (id)
 );
 
 create table CropKind
@@ -309,10 +304,10 @@ create table CropKind
 create table Crop
 (
     id      integer primary key,
-    kind    integer not null references CropKind,
-    plant   integer not null references Plant,
-    barrier integer not null references Barrier,
-    sensor  integer not null references Sensor
+    kind    integer not null references CropKind (id),
+    plant   integer not null references Plant (id),
+    barrier integer not null references Barrier (id),
+    sensor  integer not null references Sensor (id)
 );
 
 create table CreatureKind
@@ -326,9 +321,9 @@ create table CreatureKind
 create table Creature
 (
     id     integer primary key,
-    kind   integer not null references CreatureKind,
-    animal integer not null references Animal,
-    body   integer not null references Body
+    kind   integer not null references CreatureKind (id),
+    animal integer not null references Animal (id),
+    body   integer not null references Body (id)
 );
 
 create table DoorKind
