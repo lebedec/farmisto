@@ -3,6 +3,7 @@ use crate::engine::rendering::{VISIBLE_MAP_X, VISIBLE_MAP_Y};
 #[derive(Clone, Copy)]
 pub struct GroundUniform {
     pub map: [[[f32; 4]; VISIBLE_MAP_X]; VISIBLE_MAP_Y],
+    pub offset: [u32; 4],
 }
 
 #[derive(Clone, Copy)]

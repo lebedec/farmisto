@@ -7,7 +7,8 @@ insert into Barrier
 values (null,
         (select id from BarrierKind where name = (select barrier from EquipmentKind where name = :kind_name)),
         (select space from Farmland where id = :farmland),
-        :position);
+        :position,
+        true);
 insert into Equipment
 values (null,
         (select max(id) from Barrier),

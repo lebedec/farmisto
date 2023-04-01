@@ -31,6 +31,7 @@ impl Scene {
         let input_size = [input[0].len(), input.len()];
         let [input_size_x, input_size_y] = input_size;
         let offset_step = self.camera_position.div(CELL_SIZE).floor();
+        let offset_tile = offset_step.to_tile();
         let offset_step = offset_step.clamp(
             [0.0, 0.0],
             [
@@ -55,7 +56,10 @@ impl Scene {
                 map[y][x] = [capacity, moisture, 1.0, 0.0];
             }
         }
-        let uniform = GroundUniform { map };
+        let uniform = GroundUniform {
+            map,
+            offset: [offset_tile[0] as u32, offset_tile[1] as u32, 0, 0],
+        };
         self.ground_buffer.update(self.present_index, uniform);
         self.grounds.push(GroundRenderObject {
             texture,
