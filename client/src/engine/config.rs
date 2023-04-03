@@ -15,6 +15,9 @@ pub struct AppConfig {
 
     #[serde(default = "default_position")]
     pub position: [i32; 2],
+
+    #[serde(default = "default_windowed")]
+    pub windowed: bool 
 }
 
 impl Default for AppConfig {
@@ -24,6 +27,7 @@ impl Default for AppConfig {
             host: default_host(),
             resolution: default_resolution(),
             position: default_position(),
+            windowed: default_windowed(),
         }
     }
 }
@@ -65,4 +69,8 @@ fn default_resolution() -> [u32; 2] {
 
 fn default_position() -> [i32; 2] {
     [0, 0]
+}
+
+fn default_windowed() -> bool {
+    true
 }

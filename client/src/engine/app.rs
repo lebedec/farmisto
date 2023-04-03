@@ -40,54 +40,22 @@ pub fn startup<A: App>(title: String) {
     let system = sdl2::init().unwrap();
     let video = system.video().unwrap();
 
-    // 1920 1080
-    // 2560 1440
-    // 3840 2160
-
-    // MODE: fullscreen (lower resolution resolution)
-    // let mut windowed = true;
-    // let mut window = video
-    //     .window(&title, 1920, 1080)
-    //     .fullscreen()
-    //     .vulkan()
-    //     .build()
-    //     .unwrap();
-
-    // MODE: fullscreen (same device resolution)
-    // #[cfg(windows)]
-    // unsafe {
-    //     winapi::um::shellscalingapi::SetProcessDpiAwareness(1);
-    // }
-    // let mut windowed = true;
-    // let mut window = video
-    //     .window(&title, 3840, 2160)
-    //     .fullscreen()
-    //     .vulkan()
-    //     .build()
-    //     .unwrap();
-
-    // MODE: windowed borderless (any resolution)
-    #[cfg(windows)]
-    unsafe {
-        winapi::um::shellscalingapi::SetProcessDpiAwareness(1);
-    }
     let mut windowed = true;
-    let mut window = video
-        .window(&title, config.resolution[0], config.resolution[1])
-        .allow_highdpi()
-        // .fullscreen()
-        .position(config.position[0], config.position[1])
-        //.borderless()
-        .vulkan()
-        .build()
-        .unwrap();
+    let mut window = video.window(&title, config.resolution[0], config.resolution[1]);
+    let window = if config.windowed {
+        window
+            .borderless()
+            .position(config.position[0], config.position[1])
+    } else {
+        window.fullscreen()
+    };
+    let mut window = window.vulkan().build().unwrap();
     info!(
         "SDL display: {:?}, dpi {:?}",
         video.display_bounds(0).unwrap(),
         video.display_dpi(0).unwrap(),
     );
     info!("SDL Vulkan drawable: {:?}", window.vulkan_drawable_size());
-    // let mut window = Arc::new(window);
     let mut event_pump = system.event_pump().unwrap();
     let instance_extensions: Vec<&'static str> = window.vulkan_instance_extensions().unwrap();
     info!("SDL Vulkan extensions: {:?}", instance_extensions);
