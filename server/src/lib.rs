@@ -1,14 +1,16 @@
-use datamap::Storage;
-use game::api::{ActionError, Event, GameResponse, PlayerRequest};
-use game::model::UniverseSnapshot;
-use game::Game;
-use log::info;
-use network::{Configuration, TcpServer};
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::channel;
 use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, Instant};
+
+use log::info;
+
+use datamap::Storage;
+use game::api::{GameResponse, PlayerRequest};
+use game::model::UniverseSnapshot;
+use game::Game;
+use network::{Configuration, TcpServer};
 
 pub struct LocalServerThread {
     pub running: Arc<AtomicBool>,

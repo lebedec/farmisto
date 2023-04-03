@@ -36,7 +36,6 @@ impl PlantingDomain {
                     plant_updated = true;
                 }
 
-                plant_updated = true;
                 plant.growth = 3.5;
 
                 if plant_updated {

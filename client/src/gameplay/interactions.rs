@@ -1,7 +1,5 @@
-use crate::gameplay::representation::FarmerRep;
-use crate::gameplay::Intention::{Move, Put, QuickSwap, Swap, Use};
-use crate::gameplay::Target::{Construction, Crop, Equipment, Ground, Stack, Wall};
-use crate::gameplay::{Gameplay, Intention, Target};
+use log::error;
+
 use game::api::FarmerBound;
 use game::assembling::Rotation;
 use game::building::{Marker, Structure};
@@ -10,7 +8,11 @@ use game::inventory::Function::{
     Assembly, Installation, Instrumenting, Material, Product, Seeding,
 };
 use game::model::{Activity, CropKey, Purpose};
-use log::error;
+
+use crate::gameplay::representation::FarmerRep;
+use crate::gameplay::Intention::{Move, Put, QuickSwap, Swap, Use};
+use crate::gameplay::Target::{Construction, Crop, Equipment, Ground, Stack, Wall};
+use crate::gameplay::{Gameplay, Intention, Target};
 
 impl Gameplay {
     pub fn interact_with(
@@ -84,7 +86,7 @@ impl Gameplay {
                                     self.send_action(FarmerBound::HarvestCrop { crop });
                                 }
                             }
-                            (Assembly(kind), Ground { tile }) => {
+                            (Assembly(_kind), Ground { tile }) => {
                                 self.send_action(FarmerBound::StartAssembly {
                                     pivot: tile,
                                     rotation: Rotation::A000,
@@ -207,9 +209,8 @@ impl Gameplay {
                     self.send_action(FarmerBound::CancelActivity);
                     farmer.activity = Activity::Idle;
                 }
-                _ => {}
             },
-            Activity::Assembling { assembly } => match intention {
+            Activity::Assembling { .. } => match intention {
                 Use => match target {
                     Ground { tile } => {
                         self.send_action(FarmerBound::MoveAssembly {

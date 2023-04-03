@@ -92,18 +92,18 @@ pub struct CropView {
 pub struct FarmerView {}
 
 pub struct CreatureView {
-    entity: Creature,
+    _entity: Creature,
 }
 
 pub struct InvaserView {
-    threat: f32,
+    _threat: f32,
 }
 
 pub struct CreatureAgent {
     creature: Creature,
     space: SpaceId,
     hunger: f32,
-    mindset: Vec<String>,
+    _mindset: Vec<String>,
     history: HashMap<DecisionRef, Instant>,
     thinking: Thinking,
     position: [f32; 2],
@@ -243,12 +243,12 @@ impl Nature {
                                 space,
                                 ..
                             } => {
-                                self.creatures.push(CreatureView { entity });
+                                self.creatures.push(CreatureView { _entity: entity });
                                 self.creature_agents.push(CreatureAgent {
                                     creature: entity,
                                     space,
                                     hunger,
-                                    mindset: vec![],
+                                    _mindset: vec![],
                                     history: Default::default(),
                                     thinking: Thinking::default(),
                                     position,
@@ -445,7 +445,7 @@ impl Nature {
                     actions.push(action);
                 }
                 Choice::Tuning(tuning) => match tuning {
-                    Tuning::Delay { behaviour } => {}
+                    Tuning::Delay { .. } => {}
                 },
             }
         }

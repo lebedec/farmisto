@@ -1,11 +1,11 @@
 use crate::inventory::domain::InventoryDomain;
-use crate::inventory::{ContainerId, Inventory, InventoryError, Item};
+use crate::inventory::{ContainerId, Inventory, InventoryError};
 
 impl InventoryDomain {
-    pub fn use_items_from<'operation>(
-        &'operation mut self,
+    pub fn use_items_from(
+        &mut self,
         container: ContainerId,
-    ) -> Result<impl FnOnce() -> Vec<Inventory> + 'operation, InventoryError> {
+    ) -> Result<impl FnOnce() -> Vec<Inventory> + '_, InventoryError> {
         let container = self.get_mut_container(container)?;
         let operation = move || {
             let mut events = vec![];

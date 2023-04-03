@@ -1,4 +1,4 @@
-use crate::{Assets, Frame};
+use crate::Frame;
 
 pub trait Mode {
     fn name(&self) -> &str {

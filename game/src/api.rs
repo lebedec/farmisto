@@ -1,12 +1,11 @@
 use std::fmt::Debug;
 
 use crate::assembling::{Assembling, AssemblingError, Rotation};
-use crate::building::{Building, BuildingError, Marker, Structure, SurveyorId};
+use crate::building::{Building, BuildingError, Marker, SurveyorId};
 use crate::collections::DictionaryError;
 use crate::inventory::{Inventory, InventoryError};
 use crate::model::{
-    Activity, Construction, Creature, Crop, Equipment, EquipmentKey, Farmer, Stack, Universe,
-    UniverseError,
+    Activity, Construction, Creature, Crop, Equipment, Farmer, Stack, Universe, UniverseError,
 };
 use crate::physics::{Physics, PhysicsError};
 use crate::planting::{Planting, PlantingError};

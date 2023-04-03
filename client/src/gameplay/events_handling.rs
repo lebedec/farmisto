@@ -7,12 +7,12 @@ use crate::gameplay::Gameplay;
 use game::api::Event;
 use game::assembling::Assembling;
 use game::building::{Building, Material};
-use game::inventory::{Function, Inventory};
+use game::inventory::Inventory;
 use game::model::{Activity, AssemblyTarget, ItemRep, Universe};
 use game::physics::Physics;
 use game::planting::Planting;
 use game::raising::Raising;
-use log::{debug, error, info};
+use log::{debug, info};
 use rusty_spine::Skin;
 use std::collections::HashMap;
 
@@ -57,8 +57,7 @@ impl Gameplay {
         }
     }
 
-    pub fn handle_building_event(&mut self, frame: &mut Frame, event: Building) {
-        let assets = &mut frame.assets;
+    pub fn handle_building_event(&mut self, _frame: &mut Frame, event: Building) {
         match event {
             Building::GridChanged { grid, cells, rooms } => {
                 for (farmland, behaviour) in self.farmlands.iter_mut() {
@@ -74,9 +73,9 @@ impl Gameplay {
         }
     }
 
-    pub fn handle_inventory_event(&mut self, frame: &mut Frame, event: Inventory) {
+    pub fn handle_inventory_event(&mut self, _frame: &mut Frame, event: Inventory) {
         match event {
-            Inventory::ContainerCreated { id } => {}
+            Inventory::ContainerCreated { .. } => {}
             Inventory::ContainerDestroyed { id } => {
                 self.items.remove(&id);
             }
@@ -116,8 +115,7 @@ impl Gameplay {
         }
     }
 
-    pub fn handle_planting_event(&mut self, frame: &mut Frame, event: Planting) {
-        let assets = &mut frame.assets;
+    pub fn handle_planting_event(&mut self, _frame: &mut Frame, event: Planting) {
         match event {
             Planting::SoilChanged { soil, map } => {
                 for (farmland, behaviour) in self.farmlands.iter_mut() {
@@ -163,8 +161,7 @@ impl Gameplay {
         }
     }
 
-    pub fn handle_raising_event(&mut self, frame: &mut Frame, event: Raising) {
-        let assets = &mut frame.assets;
+    pub fn handle_raising_event(&mut self, _frame: &mut Frame, event: Raising) {
         match event {
             Raising::AnimalChanged { .. } => {}
             Raising::LeadershipChanged { .. } => {}
@@ -172,14 +169,9 @@ impl Gameplay {
         }
     }
 
-    pub fn handle_physics_event(&mut self, frame: &mut Frame, event: Physics) {
-        let assets = &mut frame.assets;
+    pub fn handle_physics_event(&mut self, _frame: &mut Frame, event: Physics) {
         match event {
-            Physics::BodyPositionChanged {
-                id,
-                position,
-                space,
-            } => {
+            Physics::BodyPositionChanged { id, position, .. } => {
                 for farmer in self.farmers.values_mut() {
                     if farmer.entity.body == id {
                         farmer.synchronize_position(position);
@@ -195,9 +187,9 @@ impl Gameplay {
             }
             Physics::BarrierCreated {
                 id,
-                space,
                 position,
                 bounds,
+                ..
             } => {
                 self.barriers.push(BarrierHint {
                     id,
@@ -221,8 +213,7 @@ impl Gameplay {
         }
     }
 
-    pub fn handle_assembling_event(&mut self, frame: &mut Frame, event: Assembling) {
-        let assets = &mut frame.assets;
+    pub fn handle_assembling_event(&mut self, _frame: &mut Frame, event: Assembling) {
         match event {
             Assembling::PlacementUpdated {
                 placement,
@@ -375,17 +366,6 @@ impl Gameplay {
             } => {
                 let kind = self.known.farmers.get(farmer.kind).unwrap();
                 info!("Appear {:?} at {:?}", farmer, position);
-                // let asset = assets.spine(&kind.name);
-                let max_y = 7 * 2;
-                let max_x = 14 * 2;
-                let colors = [
-                    [1.00, 1.00, 1.00, 1.0],
-                    [0.64, 0.49, 0.40, 1.0],
-                    [0.45, 0.40, 0.36, 1.0],
-                    [0.80, 0.52, 0.29, 1.0],
-                ];
-                let pool = 256;
-                let mut variant = 0;
                 let asset = assets.farmer(&kind.name);
                 let body = self.known.bodies.get(kind.body).unwrap();
                 let is_controlled = player == self.client.player;
@@ -447,10 +427,9 @@ impl Gameplay {
             }
             Universe::CreatureAppeared {
                 entity,
-                space,
                 health,
-                hunger,
                 position,
+                ..
             } => {
                 let kind = self.known.creatures.get(entity.key).unwrap();
                 let features = entity.animal.variant([4, 3, 3, 3, 3]);
@@ -626,7 +605,7 @@ impl Gameplay {
                         AssemblyTargetAsset::Door { door }
                     }
                 };
-                let mut representation = AssemblyRep {
+                let representation = AssemblyRep {
                     entity,
                     asset,
                     rotation,
@@ -634,11 +613,7 @@ impl Gameplay {
                 };
                 self.assembly.insert(entity, representation);
             }
-            Universe::AssemblyUpdated {
-                entity,
-                pivot,
-                rotation,
-            } => {}
+            Universe::AssemblyUpdated { .. } => {}
             Universe::AssemblyVanished(entity) => {
                 self.assembly.remove(&entity);
             }

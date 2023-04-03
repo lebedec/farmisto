@@ -35,7 +35,7 @@ impl AppConfig {
         match fs::read(APP_CONFIG_PATH) {
             Ok(data) => match serde_json::from_slice(&data) {
                 Ok(config) => {
-                    info!("Uses {APP_CONFIG_PATH} {config:?}");
+                    info!("Uses {APP_CONFIG_PATH}");
                     config
                 }
                 Err(error) => {

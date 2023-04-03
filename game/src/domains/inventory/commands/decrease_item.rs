@@ -1,12 +1,12 @@
 use crate::inventory::domain::InventoryDomain;
 use crate::inventory::Inventory::{ItemQuantityChanged, ItemRemoved};
-use crate::inventory::{ContainerId, Inventory, InventoryError, Item};
+use crate::inventory::{ContainerId, Inventory, InventoryError};
 
 impl InventoryDomain {
-    pub fn decrease_item<'operation>(
-        &'operation mut self,
+    pub fn decrease_item(
+        &mut self,
         container: ContainerId,
-    ) -> Result<impl FnOnce() -> Vec<Inventory> + 'operation, InventoryError> {
+    ) -> Result<impl FnOnce() -> Vec<Inventory> + '_, InventoryError> {
         let container = self.get_mut_container(container)?;
         let index = container.ensure_item_at(-1)?;
         let operation = move || {

@@ -4,9 +4,9 @@ use crate::gameplay::representation::{AssemblyTargetAsset, CreatureRep, CropRep}
 use crate::gameplay::{position_of, rendering_position_of, Gameplay, TILE_SIZE};
 use game::building::{Cell, Grid, Marker, Material, Room, Structure};
 use game::math::VectorMath;
-use game::model::{Activity, AssemblyTarget, Construction, Purpose};
+use game::model::{Activity, Purpose};
 use lazy_static::lazy_static;
-use log::info;
+
 use rand::prelude::*;
 use std::collections::HashMap;
 
@@ -140,13 +140,9 @@ impl Gameplay {
             self.cursor_room = 0;
             self.farmer_room = 0;
 
-            let mut cursor_room = None;
-            for (i, room) in farmland.rooms.iter().enumerate() {
+            for (_i, room) in farmland.rooms.iter().enumerate() {
                 if room.contains(cursor.tile) {
                     self.cursor_room = room.id;
-                    if room.id != Room::EXTERIOR_ID {
-                        cursor_room = Some(i);
-                    }
                 }
                 if room.contains(farmer) {
                     self.farmer_room = room.id;
@@ -253,7 +249,7 @@ impl Gameplay {
             }
 
             for (y, line) in rendering_cells.iter().enumerate() {
-                for (x, cell) in line.iter().enumerate() {
+                for (x, _cell) in line.iter().enumerate() {
                     let highlight = if y == cursor_y as usize && x == cursor_x as usize {
                         1.5
                     } else {
@@ -667,7 +663,7 @@ impl Neighbors {
     }
 
     pub fn to_tile_index(&self) -> usize {
-        let mut tile = match self {
+        match self {
             Neighbors::LeftRight => 4 + 1 * 16,
             Neighbors::TopDown => 4,
             Neighbors::Full => 0 + 4 * 16,
@@ -697,7 +693,6 @@ impl Neighbors {
             Neighbors::DoorTop => 13,
             Neighbors::DoorVertical => 14,
             Neighbors::DoorDown => 15,
-        };
-        tile
+        }
     }
 }

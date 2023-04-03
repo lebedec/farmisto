@@ -146,7 +146,7 @@ impl Scene {
             animals.push(vec![]);
         }
 
-        let mut renderer = Self {
+        Self {
             device: device.clone(),
             device_memory: device_memory.clone(),
             sprites,
@@ -179,9 +179,7 @@ impl Scene {
             global_light_buffer,
             global_lights: vec![],
             animals,
-        };
-
-        renderer
+        }
     }
 
     pub fn look_at(&mut self, target: Vec3) {

@@ -43,15 +43,15 @@ fn collide_aabb_to_circle(
     }
 
     d = d.sqrt();
-    if (inside) {
+    if inside {
         Some(Collision {
-            point: [0.0, 0.0],
+            _point: [0.0, 0.0],
             normal: n.neg(),
             penetration: r - d,
         })
     } else {
         Some(Collision {
-            point: [0.0, 0.0],
+            _point: [0.0, 0.0],
             normal: n,
             penetration: r - d,
         })
@@ -60,7 +60,7 @@ fn collide_aabb_to_circle(
 
 #[derive(Debug)]
 pub struct Collision {
-    point: [f32; 2],
+    _point: [f32; 2],
     normal: [f32; 2],
     penetration: f32,
 }
@@ -78,7 +78,7 @@ pub fn collide_circle_to_circle(p1: [f32; 2], r1: f32, p2: [f32; 2], r2: f32) ->
         let normal = [1.0, 0.0];
         let penetration = dist - mindist;
         Some(Collision {
-            point,
+            _point: point,
             normal,
             penetration,
         })
@@ -88,7 +88,7 @@ pub fn collide_circle_to_circle(p1: [f32; 2], r1: f32, p2: [f32; 2], r2: f32) ->
         let normal = delta.mul(1.0 / dist);
         let penetration = dist - mindist;
         Some(Collision {
-            point,
+            _point: point,
             normal,
             penetration,
         })

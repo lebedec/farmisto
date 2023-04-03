@@ -1,15 +1,15 @@
-use crate::building::BuildingError::{CellHasWall, ConstructStakeMarkedForDeconstruction};
 use crate::building::{
-    Building, BuildingDomain, BuildingError, Grid, GridId, Marker, Material, Stake, Structure,
+    Building, BuildingDomain, BuildingError, Grid, GridId, Marker, Material, Structure,
 };
+use crate::building::BuildingError::ConstructStakeMarkedForDeconstruction;
 
 impl BuildingDomain {
-    pub fn create_wall<'operation>(
-        &'operation mut self,
+    pub fn create_wall(
+        & mut self,
         grid_id: GridId,
         cell: [usize; 2],
         material: Material,
-    ) -> Result<(Structure, impl FnOnce() -> Vec<Building> + 'operation), BuildingError> {
+    ) -> Result<(Structure, impl FnOnce() -> Vec<Building> + '_), BuildingError> {
         // TODO: rework find_surveyor_mut
         let grid = self.index_grid(grid_id)?;
         let surveyor = self.find_surveyor_mut(grid_id, cell)?; // 1

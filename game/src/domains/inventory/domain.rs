@@ -1,8 +1,7 @@
-use crate::collections::Shared;
-use crate::inventory::InventoryError::{
-    ContainerNotFound, ContainersNotFound, ItemNotFound, ItemNotFoundByIndex,
-};
 use std::collections::HashMap;
+
+use crate::collections::Shared;
+use crate::inventory::InventoryError::{ContainerNotFound, ItemNotFound, ItemNotFoundByIndex};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct ContainerKey(pub usize);
@@ -156,7 +155,6 @@ impl InventoryDomain {
         Ok(container)
     }
 }
-
 
 impl Container {
     pub fn get_item(&self, id: ItemId) -> Result<&Item, InventoryError> {

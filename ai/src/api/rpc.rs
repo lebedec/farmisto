@@ -1,6 +1,6 @@
-use crate::decision_making::DecisionRef;
-use crate::{Behaviours, Thinking};
 use std::collections::HashMap;
+
+use crate::{Behaviours, Thinking};
 
 #[derive(serde::Deserialize)]
 pub enum Procedure {

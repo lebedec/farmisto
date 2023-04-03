@@ -1,12 +1,12 @@
-use crate::building::BuildingError::{CellHasNoWall, CellHasWall};
 use crate::building::{Building, BuildingDomain, BuildingError, Grid, GridId};
+use crate::building::BuildingError::CellHasNoWall;
 
 impl BuildingDomain {
-    pub fn destroy_walls<'operation>(
-        &'operation mut self,
+    pub fn destroy_walls(
+        & mut self,
         grid_id: GridId,
         cells: Vec<[usize; 2]>,
-    ) -> Result<impl FnOnce() -> Vec<Building> + 'operation, BuildingError> {
+    ) -> Result<impl FnOnce() -> Vec<Building> + '_, BuildingError> {
         let grid = self.get_mut_grid(grid_id)?;
         for cell in &cells {
             if !grid.get_cell_mut(*cell).wall {

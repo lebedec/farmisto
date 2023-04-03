@@ -1,16 +1,16 @@
 use crate::collections::Shared;
 use crate::inventory::Inventory::{ContainerCreated, ItemAdded, ItemRemoved};
 use crate::inventory::{
-    Container, ContainerId, ContainerKind, Inventory, InventoryDomain, InventoryError, ItemId,
+    Container, ContainerId, ContainerKind, Inventory, InventoryDomain, InventoryError,
 };
 
 impl InventoryDomain {
-    pub fn extract_item<'operation>(
-        &'operation mut self,
+    pub fn extract_item(
+        &mut self,
         source: ContainerId,
         offset: isize,
         kind: Shared<ContainerKind>,
-    ) -> Result<(ContainerId, impl FnOnce() -> Vec<Inventory> + 'operation), InventoryError> {
+    ) -> Result<(ContainerId, impl FnOnce() -> Vec<Inventory> + '_), InventoryError> {
         let source_container = self.get_mut_container(source)?;
         let index = source_container.ensure_item_at(offset)?;
         let id = ContainerId(self.containers_sequence + 1);

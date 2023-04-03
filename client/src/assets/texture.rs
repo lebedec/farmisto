@@ -1,11 +1,10 @@
-use std::fs::File;
 use std::sync::Arc;
 use std::{fs, ptr};
 
 use ash::vk::Handle;
 use ash::{vk, Device};
 use lazy_static::lazy_static;
-use log::{debug, info};
+use log::debug;
 
 use crate::assets::Asset;
 use crate::engine::base::{create_buffer, index_memory_type, Queue};
@@ -23,7 +22,7 @@ lazy_static! {
 }
 
 #[repr(i64)]
-enum LoadingStage {
+enum _LoadingStage {
     FileRead = 1,
     Decode = 2,
     Buffering = 3,
@@ -114,7 +113,7 @@ impl TextureAssetData {
         queue: Arc<Queue>,
         path: &str,
     ) -> Self {
-        let mut timer = Timer::now();
+        let _timer = Timer::now();
         let data = fs::read(&path).unwrap();
         // timer.record2(path, "io", &METRIC_LOADING_SECONDS);
 

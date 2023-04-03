@@ -1,5 +1,3 @@
-use log::info;
-use prometheus::core::MetricVecBuilder;
 use prometheus::HistogramVec;
 use std::time::Instant;
 

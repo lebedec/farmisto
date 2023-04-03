@@ -351,13 +351,10 @@ impl Base {
     }
 
     pub unsafe fn create_depth_image(
-        instance: &Instance,
+        _instance: &Instance,
         screen: &Screen,
         device: &Device,
     ) -> vk::Image {
-        let device_memory_properties =
-            instance.get_physical_device_memory_properties(screen.physical_device());
-
         let depth_image_create_info = vk::ImageCreateInfo::builder()
             .image_type(vk::ImageType::TYPE_2D)
             .format(vk::Format::D16_UNORM)

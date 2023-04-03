@@ -1,6 +1,6 @@
-use crate::collections::Shared;
-use std::collections::{HashMap, HashSet};
 use std::fmt::{Debug, Formatter};
+
+use crate::collections::Shared;
 
 #[derive(Clone, Copy, PartialEq, Eq, Hash, Default, Debug, bincode::Encode, bincode::Decode)]
 pub struct Material(pub u8);

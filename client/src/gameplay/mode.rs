@@ -1,11 +1,10 @@
 use std::collections::HashMap;
 
-use ai::AiThread;
 use glam::vec3;
-use libfmod::TagDataType::Int;
 use log::{error, info};
 use sdl2::keyboard::Keycode;
 
+use ai::AiThread;
 use datamap::Storage;
 use game::api::{Action, FarmerBound, GameResponse, PlayerRequest};
 use game::inventory::{ContainerId, ItemId};
@@ -26,7 +25,7 @@ use game::Game;
 use network::TcpClient;
 use server::LocalServerThread;
 
-use crate::assets::{SamplerAsset, SpriteAsset, TextureAsset};
+use crate::assets::{SpriteAsset, TextureAsset};
 use crate::engine::Input;
 use crate::gameplay::camera::Camera;
 use crate::gameplay::representation::{
@@ -142,7 +141,7 @@ impl Gameplay {
         camera.eye = vec3(0.0, 0.0, -1.0);
 
         let mut knowledge = Game::new(Storage::open("./assets/database.sqlite").unwrap());
-        knowledge.load_game_knowledge();
+        knowledge.load_game_knowledge().unwrap();
         let knowledge = knowledge.known;
 
         let cursor = assets.sprite("cursor");
@@ -281,7 +280,7 @@ impl Gameplay {
     }
 
     pub fn get_my_farmer_mut(&mut self) -> Option<*mut FarmerRep> {
-        let farmer = match self
+        let _farmer = match self
             .farmers
             .values_mut()
             .find(|farmer| farmer.player == self.client.player)
@@ -291,10 +290,7 @@ impl Gameplay {
             }
             Some(farmer) => {
                 let ptr = farmer as *mut FarmerRep;
-                unsafe {
-                    // TODO: safe farmer behaviour mutation
-                    return Some(ptr);
-                }
+                return Some(ptr);
             }
         };
     }
@@ -425,8 +421,8 @@ impl Gameplay {
         let height = frame.sprites.screen.height() as f32 * frame.sprites.zoom;
         let farmer_rendering_position = rendering_position_of(farmer.rendering_position);
         self.camera.eye = vec3(
-            (farmer_rendering_position[0] - width / 2.0),
-            (farmer_rendering_position[1] - height / 2.0),
+            farmer_rendering_position[0] - width / 2.0,
+            farmer_rendering_position[1] - height / 2.0,
             0.0,
         );
     }

@@ -307,7 +307,7 @@ impl Assets {
         let texture_path = spine_asset_folder.join(first_page.name());
         let texture = self.texture(texture_path);
 
-        let mut skeleton_json = SkeletonJson::new(Arc::new(atlas));
+        let skeleton_json = SkeletonJson::new(Arc::new(atlas));
         let s = skeleton_json.read_skeleton_data_file(path);
         let skeleton = Arc::new(s.unwrap());
         let animation = Arc::new(AnimationStateData::new(skeleton.clone()));

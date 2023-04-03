@@ -1,18 +1,18 @@
 use crate::collections::Shared;
-use crate::math::{test_collisions, VectorMath};
+use crate::math::VectorMath;
 use crate::physics::{
     Barrier, BarrierId, BarrierKind, Physics, PhysicsDomain, PhysicsError, SpaceId,
 };
 
 impl PhysicsDomain {
-    pub fn create_barrier<'operation>(
-        &'operation mut self,
+    pub fn create_barrier(
+        &mut self,
         space: SpaceId,
         kind: Shared<BarrierKind>,
         position: [f32; 2],
         active: bool,
         overlapping: bool,
-    ) -> Result<(BarrierId, impl FnOnce() -> Vec<Physics> + 'operation), PhysicsError> {
+    ) -> Result<(BarrierId, impl FnOnce() -> Vec<Physics> + '_), PhysicsError> {
         let id = BarrierId(self.barriers_sequence + 1);
         let barrier = Barrier {
             id,

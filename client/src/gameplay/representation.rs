@@ -3,15 +3,14 @@ use log::error;
 use rusty_spine::Skin;
 use std::collections::HashMap;
 
-use game::building::{Building, Cell, Room};
+use game::building::{Cell, Room};
 use game::collections::Shared;
 use game::math::{Collider, VectorMath};
 use game::model::{
-    Activity, Assembly, AssemblyKind, Construction, Creature, CreatureKind, Crop, Door, Equipment,
-    Farmer, FarmerKind, Farmland, FarmlandKind, Stack, Tree, TreeKind,
+    Activity, Assembly, Construction, Creature, CreatureKind, Crop, Door, Equipment, Farmer,
+    FarmerKind, Farmland, FarmlandKind, Stack, Tree, TreeKind,
 };
 use game::physics::{BarrierId, BodyKind};
-use game::raising::AnimalKind;
 
 use crate::assets::FarmerAsset;
 use crate::assets::FarmlandAsset;
@@ -193,7 +192,7 @@ impl CropRep {
         self.hunger = hunger;
     }
 
-    pub fn animate_growth(&mut self, time: f32) {
+    pub fn animate_growth(&mut self, _time: f32) {
         self.spine = self.growth.floor() as usize;
     }
 

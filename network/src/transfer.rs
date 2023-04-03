@@ -1,9 +1,9 @@
-use bincode::error::{DecodeError, EncodeError};
-use bincode::{Decode, Encode};
-use log::{error, info};
 use std::io::{Read, Write};
 use std::net::TcpStream;
-use std::thread;
+
+use bincode::error::{DecodeError, EncodeError};
+use bincode::{Decode, Encode};
+use log::error;
 
 pub struct SyncReceiver {
     pub reader: TcpStream,

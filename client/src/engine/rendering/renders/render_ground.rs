@@ -47,12 +47,6 @@ impl Scene {
                 let iy = y + step_y as usize;
                 let ix = x + step_x as usize;
                 let [capacity, moisture] = input[iy][ix];
-                let pos = 1 << (Grid::COLUMNS - ix - 1);
-                let visible = if global_interior_map[iy] & pos == pos {
-                    1.0
-                } else {
-                    0.0
-                };
                 map[y][x] = [capacity, moisture, 1.0, 0.0];
             }
         }

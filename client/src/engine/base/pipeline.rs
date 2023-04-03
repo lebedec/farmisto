@@ -315,12 +315,11 @@ impl<const M: usize, C: NoUninit, const D: usize> MyPipelineBuilder<M, C, D> {
     }
 
     pub fn build(self, device: &Device, screen: &Screen) -> MyPipeline<M, C, D> {
-        let swapchain = 0;
         let camera =
             ShaderDataSet::create(device.clone(), 3, vk::ShaderStageFlags::VERTEX, self.camera);
         let material = ShaderDataSet::create(
             device.clone(),
-            1 * 100,
+            100,
             vk::ShaderStageFlags::FRAGMENT,
             self.material.unwrap(),
         );

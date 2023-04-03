@@ -9,9 +9,7 @@ use crate::api::{Action, ActionError, ActionResponse, Event, FarmerBound};
 use crate::assembling::{AssemblingDomain, PlacementId, Rotation};
 
 use crate::building::{BuildingDomain, Marker, Material, Stake, Structure, SurveyorId};
-use crate::inventory::{
-    ContainerId, FunctionsQuery, InventoryDomain, InventoryError, Item, ItemId,
-};
+use crate::inventory::{ContainerId, FunctionsQuery, InventoryDomain, InventoryError};
 use crate::math::VectorMath;
 use crate::model::Activity::Idle;
 use crate::model::{
@@ -203,12 +201,12 @@ impl Game {
         Ok(vec![])
     }
 
-    fn take_nap(&mut self, creature: Creature) -> Result<Vec<Event>, ActionError> {
+    fn take_nap(&mut self, _creature: Creature) -> Result<Vec<Event>, ActionError> {
         let events = vec![];
         Ok(events)
     }
 
-    fn water_crop(&mut self, farmer: Farmer, crop: Crop) -> Result<Vec<Event>, ActionError> {
+    fn water_crop(&mut self, _farmer: Farmer, crop: Crop) -> Result<Vec<Event>, ActionError> {
         let water_plant = self.planting.water_plant(crop.plant, 0.5)?;
         let events = occur![water_plant(),];
         Ok(events)
@@ -284,8 +282,8 @@ impl Game {
 
     fn teardown_constructions(
         &mut self,
-        farmer: Farmer,
-        farmland: Farmland,
+        _farmer: Farmer,
+        _farmland: Farmland,
         surveyor: SurveyorId,
     ) -> Result<Vec<Event>, ActionError> {
         let constructions: Vec<Construction> = self
@@ -331,7 +329,7 @@ impl Game {
                 let destroy_surveyor = self.building.destroy_surveyor(surveyor)?;
                 let destroy_barrier = self.physics.destroy_barrier(equipment.barrier)?;
                 let equipment_kind = self.known.equipments.get(equipment.key).unwrap();
-                let (item, create_item) =
+                let (_item, create_item) =
                     self.inventory
                         .create_item(&equipment_kind.item, farmer.hands, 1)?;
                 let vanish_equipment = self.universe.vanish_equipment(equipment);
@@ -455,7 +453,7 @@ impl Game {
     fn start_assembly(
         &mut self,
         farmer: Farmer,
-        farmland: Farmland,
+        _farmland: Farmland,
         pivot: [usize; 2],
         rotation: Rotation,
     ) -> Result<Vec<Event>, ActionError> {
@@ -487,7 +485,7 @@ impl Game {
         Ok(events)
     }
 
-    fn finish_assembly(
+    fn _finish_assembly(
         &mut self,
         farmer: Farmer,
         farmland: Farmland,
@@ -519,8 +517,8 @@ impl Game {
 
     pub fn disassemble_door(
         &mut self,
-        farmer: Farmer,
-        door: Door,
+        _farmer: Farmer,
+        _door: Door,
     ) -> Result<Vec<Event>, ActionError> {
         // self.universe.ensure_activity(farmer, Activity::Idle)?;
         // let door_kind = self.known.doors.get(door.key).unwrap();
@@ -700,7 +698,7 @@ impl Game {
 
     fn build(
         &mut self,
-        farmer: Farmer,
+        _farmer: Farmer,
         farmland: Farmland,
         construction: Construction,
     ) -> Result<Vec<Event>, ActionError> {
@@ -733,7 +731,7 @@ impl Game {
                     Ok(events)
                 }
             }
-            Marker::Reconstruction(structure) => {
+            Marker::Reconstruction(_structure) => {
                 let tile = construction.cell;
                 let grid = self.building.get_grid(construction.grid)?;
                 let material = grid.cells[tile[1]][tile[0]].material;
@@ -989,7 +987,7 @@ impl Game {
 
         for tree in self.universe.trees.iter() {
             if snapshot.whole || snapshot.trees.contains(&tree.id) {
-                let barrier = self.physics.get_barrier(tree.barrier).unwrap();
+                let _barrier = self.physics.get_barrier(tree.barrier).unwrap();
                 // let plant_kind = self.planting.known_plants.get(&tree.kind.plant).unwrap();
                 // stream.push(Universe::BarrierHintAppeared {
                 //     id: barrier.id,
@@ -1085,7 +1083,7 @@ impl Game {
     }
 
     pub fn load_game_full(&mut self) {
-        self.load_game_knowledge();
+        self.load_game_knowledge().unwrap();
         self.load_game_state().unwrap();
     }
 }

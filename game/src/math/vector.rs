@@ -1,5 +1,3 @@
-use core::slice::SliceIndex;
-
 pub trait VectorMath {
     fn neg(self) -> Self;
     fn dot(self, other: Self) -> f32;

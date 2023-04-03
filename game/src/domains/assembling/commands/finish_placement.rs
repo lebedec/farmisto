@@ -1,12 +1,10 @@
-use crate::assembling::{
-    Assembling, AssemblingDomain, AssemblingError, Placement, PlacementId, Rotation,
-};
+use crate::assembling::{Assembling, AssemblingDomain, AssemblingError, Placement, PlacementId};
 
 impl AssemblingDomain {
-    pub fn finish_placement<'command>(
-        &'command mut self,
+    pub fn finish_placement(
+        &mut self,
         id: PlacementId,
-    ) -> Result<(Placement, impl FnOnce() -> Vec<Assembling> + 'command), AssemblingError> {
+    ) -> Result<(Placement, impl FnOnce() -> Vec<Assembling> + '_), AssemblingError> {
         let placement = self.get_placement(id)?;
         let placement = placement.clone();
         let command = move || {

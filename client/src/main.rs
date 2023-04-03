@@ -40,7 +40,7 @@ struct Application {
 
 impl App for Application {
     fn start(_assets: &mut Assets) -> Self {
-        let mut mode = Intro::new();
+        let mode = Intro::new();
         Self { mode }
     }
 

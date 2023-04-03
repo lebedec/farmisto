@@ -110,7 +110,7 @@ pub fn startup<A: App>(title: String) {
         .unwrap();
 
     unsafe {
-        let mut renderpass = Base::create_render_pass(&base.device, &base.screen);
+        let renderpass = Base::create_render_pass(&base.device, &base.screen);
         base.recreate_frame_buffers(renderpass);
 
         let mut assets = Assets::new(base.device.clone(), base.pool, base.queue.clone());
@@ -139,7 +139,6 @@ pub fn startup<A: App>(title: String) {
                     let mut stream = stream.unwrap();
                     let status_line = "HTTP/1.1 200 OK";
                     let mut contents = String::new();
-                    let t1 = Instant::now();
                     let metric_families = prometheus::gather();
                     encoder
                         .encode_utf8(&metric_families, &mut contents)
@@ -268,7 +267,7 @@ pub fn startup<A: App>(title: String) {
                     .queue_present(*present_queue, &present_info)
             };
             match present {
-                Ok(suboptimal) => {}
+                Ok(_suboptimal) => {}
                 Err(vk::Result::ERROR_OUT_OF_DATE_KHR) => {
                     // TODO: recreate swapchain
                 }

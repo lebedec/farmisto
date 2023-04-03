@@ -1,7 +1,7 @@
-use anyhow::Result;
-use log::info;
 use std::collections::HashMap;
-use std::time::{Duration, SystemTime, UNIX_EPOCH};
+use std::time::SystemTime;
+
+use anyhow::Result;
 
 use game::math::VectorMath;
 
