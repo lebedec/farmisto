@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use glam::vec3;
+use libfmod::TagDataType::Int;
 use log::{error, info};
 use sdl2::keyboard::Keycode;
 
@@ -20,17 +21,17 @@ use game::model::Knowledge;
 use game::model::Stack;
 use game::model::Tree;
 use game::model::{Activity, Assembly, Door};
-use game::physics::generate_holes;
+use game::physics::{generate_holes, Barrier};
 use game::Game;
 use network::TcpClient;
 use server::LocalServerThread;
 
 use crate::assets::{SpriteAsset, TextureAsset};
-use crate::engine::Input;
+use crate::engine::{Cursor, Input};
 use crate::gameplay::camera::Camera;
 use crate::gameplay::representation::{
-    AssemblyRep, BarrierHint, ConstructionRep, CreatureRep, CropRep, DoorRep, EquipmentRep,
-    FarmerRep, FarmlandRep, StackRep, TreeRep,
+    AssemblyRep, ConstructionRep, CreatureRep, CropRep, DoorRep, EquipmentRep, FarmerRep,
+    FarmlandRep, StackRep, TreeRep,
 };
 use crate::{Frame, Mode};
 
@@ -50,6 +51,7 @@ pub enum Intention {
     Use,
     Put,
     Swap,
+    Aim([usize; 2]),
     Move,
     QuickSwap(u8),
 }
@@ -58,19 +60,21 @@ pub enum Intention {
 pub enum Target {
     Ground { tile: [usize; 2] },
     Stack(Stack),
+    Assembly(Assembly),
     Construction(Construction),
     Equipment(Equipment),
     Wall([usize; 2]),
     Crop(Crop),
+    Door(Door),
     Creature(Creature),
 }
 
 pub trait InputMethod {
-    fn recognize_intention(&self) -> Option<Intention>;
+    fn recognize_intention(&self, cursor: Cursor) -> Option<Intention>;
 }
 
 impl InputMethod for Input {
-    fn recognize_intention(&self) -> Option<Intention> {
+    fn recognize_intention(&self, cursor: Cursor) -> Option<Intention> {
         if self.left_click() {
             Some(Intention::Use)
         } else if self.right_click() {
@@ -91,6 +95,8 @@ impl InputMethod for Input {
             || self.down(Keycode::W)
         {
             Some(Intention::Move)
+        } else if cursor.tile != cursor.previous_position.to_tile() {
+            Some(Intention::Aim(cursor.tile))
         } else {
             None
         }
@@ -107,7 +113,7 @@ pub struct Gameplay {
     pub client: TcpClient,
     pub action_id: usize,
     pub known: Knowledge,
-    pub barriers: Vec<BarrierHint>,
+    pub barriers_hint: Vec<Barrier>,
     pub farmlands: HashMap<Farmland, FarmlandRep>,
     pub current_farmland: Option<Farmland>,
     pub trees: HashMap<Tree, TreeRep>,
@@ -157,7 +163,7 @@ impl Gameplay {
             client,
             action_id: 0,
             known: knowledge,
-            barriers: Default::default(),
+            barriers_hint: Default::default(),
             farmlands: Default::default(),
             current_farmland: None,
             trees: HashMap::new(),
@@ -267,6 +273,12 @@ impl Gameplay {
             }
         }
 
+        for door in self.doors.values() {
+            if door.position.to_tile() == tile {
+                return Target::Door(door.entity);
+            }
+        }
+
         if let Some(farmland) = self.current_farmland {
             let farmland = self.farmlands.get(&farmland).unwrap();
 
@@ -336,7 +348,7 @@ impl Gameplay {
             }
         }
 
-        if let Some(intention) = input.recognize_intention() {
+        if let Some(intention) = input.recognize_intention(cursor) {
             let item = self
                 .items
                 .get(&farmer.entity.hands)
@@ -394,7 +406,7 @@ impl Gameplay {
             None => vec![],
         };
         if holes_offsets.len() < 2 {
-            let offsets = match test_collisions(farmer, estimated_position, &self.barriers) {
+            let offsets = match test_collisions(farmer, estimated_position, &self.barriers_hint) {
                 None => holes_offsets,
                 Some(mut barrier_offsets) => {
                     barrier_offsets.extend(holes_offsets);

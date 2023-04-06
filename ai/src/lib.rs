@@ -262,6 +262,7 @@ impl Nature {
                             Universe::AssemblyVanished(_) => {}
                             Universe::DoorAppeared { .. } => {}
                             Universe::DoorVanished(_) => {}
+                            Universe::DoorChanged { .. } => {}
                         }
                     }
                 }
@@ -284,6 +285,7 @@ impl Nature {
                                 // TODO: barrier bounds
                                 tiles[y][x].has_barrier = true;
                             }
+                            Physics::BarrierChanged { .. } => {}
                             Physics::BarrierDestroyed {
                                 position, space, ..
                             } => {

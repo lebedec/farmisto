@@ -5,7 +5,7 @@ use crate::building::{Building, BuildingError, Marker, SurveyorId};
 use crate::collections::DictionaryError;
 use crate::inventory::{Inventory, InventoryError};
 use crate::model::{
-    Activity, Construction, Creature, Crop, Equipment, Farmer, Stack, Universe, UniverseError,
+    Activity, Construction, Creature, Crop, Door, Equipment, Farmer, Stack, Universe, UniverseError,
 };
 use crate::physics::{Physics, PhysicsError};
 use crate::planting::{Planting, PlantingError};
@@ -128,6 +128,17 @@ pub enum FarmerBound {
     MoveAssembly {
         pivot: [usize; 2],
         rotation: Rotation,
+    },
+    FinishAssembly {
+        pivot: [usize; 2],
+        rotation: Rotation,
+    },
+    CancelAssembly,
+    ToggleDoor {
+        door: Door,
+    },
+    DisassembleDoor {
+        door: Door,
     },
 }
 

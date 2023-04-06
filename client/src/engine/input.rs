@@ -7,6 +7,7 @@ use std::collections::HashSet;
 #[derive(Clone)]
 pub struct Input {
     pub time: f32,
+    previous_mouse_position: [f32; 2],
     mouse_position: [f32; 2],
     mouse_viewport: [f32; 2],
     mouse_left_button_click: bool,
@@ -20,6 +21,7 @@ pub struct Input {
 
 #[derive(Clone, Copy, Default)]
 pub struct Cursor {
+    pub previous_position: [f32; 2],
     pub position: [f32; 2],
     pub viewport: [f32; 2],
     pub tile: [usize; 2],
@@ -38,6 +40,7 @@ impl Input {
             terminating: false,
             window: window.map(|value| value as f32),
             zoom: 1.0,
+            previous_mouse_position: [0.0, 0.0],
         }
     }
 
@@ -74,6 +77,7 @@ impl Input {
                     (2.0 * x) / self.window[0] - 1.0,
                     1.0 - (2.0 * y) / self.window[1],
                 ];
+                self.previous_mouse_position = self.mouse_position;
                 self.mouse_position = [x, y];
             }
             Event::MouseButtonDown { .. } => {}
@@ -130,6 +134,7 @@ impl Input {
         let tile = position.to_tile();
         let viewport = self.mouse_viewport;
         Cursor {
+            previous_position: self.previous_mouse_position.add(camera_offset).div(tile_size),
             position,
             viewport,
             tile,

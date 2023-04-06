@@ -105,22 +105,6 @@ pub struct TreeRep {
     pub direction: [f32; 2],
 }
 
-pub struct BarrierHint {
-    pub id: BarrierId,
-    pub position: [f32; 2],
-    pub bounds: [f32; 2],
-}
-
-impl Collider for BarrierHint {
-    fn position(&self) -> [f32; 2] {
-        self.position
-    }
-
-    fn bounds(&self) -> [f32; 2] {
-        self.bounds
-    }
-}
-
 pub struct StackRep {
     pub entity: Stack,
     pub position: [f32; 2],

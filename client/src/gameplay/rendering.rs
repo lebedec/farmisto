@@ -352,7 +352,8 @@ impl Gameplay {
 
         for assembly in self.assembly.values() {
             let position = position_of(assembly.pivot);
-            let rendering_position = rendering_position_of(position);
+            let mut rendering_position = rendering_position_of(position);
+            rendering_position[1] += TILE_SIZE / 2.0;
             match &assembly.asset {
                 AssemblyTargetAsset::Door { door } => {
                     let index = assembly.rotation.index();
@@ -368,7 +369,8 @@ impl Gameplay {
         }
 
         for door in self.doors.values() {
-            let rendering_position = rendering_position_of(door.position);
+            let mut rendering_position = rendering_position_of(door.position);
+            rendering_position[1] += TILE_SIZE / 2.0;
             let mut index = door.rotation.index();
             if door.open {
                 index += 4;

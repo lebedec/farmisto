@@ -122,6 +122,9 @@ pub fn test_collisions(
     let mut blocked = false;
     let mut offsets = vec![];
     for barrier in barriers.iter() {
+        if barrier.bounds().is_zero() {
+            continue;
+        }
         if let Some(contact) = collide_aabb_to_circle(
             barrier.position(),
             barrier.bounds(),

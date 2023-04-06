@@ -39,6 +39,25 @@ impl Rotation {
             Rotation::A270 => 3,
         }
     }
+    
+    pub fn from_index(index: u8) -> Rotation {
+        match index {
+            0 => Rotation::A000,
+            1 => Rotation::A090,
+            2 => Rotation::A180,
+            3 => Rotation::A270,
+            _ => Rotation::A000
+        }
+    }
+    
+    pub fn next(&self) -> Rotation {
+        match self {
+            Rotation::A000 => Rotation::A090,
+            Rotation::A090 => Rotation::A180,
+            Rotation::A180 => Rotation::A270,
+            Rotation::A270 => Rotation::A000,
+        }
+    }
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]

@@ -10,8 +10,8 @@ use game::inventory::Function::{
 use game::model::{Activity, CropKey, Purpose};
 
 use crate::gameplay::representation::FarmerRep;
-use crate::gameplay::Intention::{Move, Put, QuickSwap, Swap, Use};
-use crate::gameplay::Target::{Construction, Crop, Equipment, Ground, Stack, Wall};
+use crate::gameplay::Intention::{Aim, Move, Put, QuickSwap, Swap, Use};
+use crate::gameplay::Target::{Construction, Crop, Door, Equipment, Ground, Stack, Wall};
 use crate::gameplay::{Gameplay, Intention, Target};
 
 impl Gameplay {
@@ -37,11 +37,17 @@ impl Gameplay {
                     Crop(crop) => {
                         self.send_action(FarmerBound::HarvestCrop { crop });
                     }
+                    Door(door) => {
+                        self.send_action(FarmerBound::ToggleDoor { door });
+                    }
                     _ => {}
                 },
                 Put => match target {
                     Equipment(equipment) => {
                         self.send_action(FarmerBound::Uninstall { equipment });
+                    }
+                    Door(door) => {
+                        self.send_action(FarmerBound::DisassembleDoor { door });
                     }
                     _ => {}
                 },
@@ -50,6 +56,7 @@ impl Gameplay {
                 }
                 Move => {}
                 QuickSwap(_) => {}
+                Aim(_) => {}
             },
             Activity::Usage => match intention {
                 Use => {
@@ -92,6 +99,12 @@ impl Gameplay {
                                     rotation: Rotation::A000,
                                 });
                             }
+                            (Assembly(_kind), Wall(cell)) => {
+                                self.send_action(FarmerBound::StartAssembly {
+                                    pivot: cell,
+                                    rotation: Rotation::A000,
+                                });
+                            }
                             _ => {}
                         }
                     }
@@ -113,6 +126,7 @@ impl Gameplay {
                 }
                 Move => {}
                 QuickSwap(_) => {}
+                Aim(_) => {}
             },
             Activity::Surveying {
                 equipment,
@@ -209,22 +223,50 @@ impl Gameplay {
                     self.send_action(FarmerBound::CancelActivity);
                     farmer.activity = Activity::Idle;
                 }
+                Aim(_) => {}
             },
-            Activity::Assembling { .. } => match intention {
-                Use => match target {
-                    Ground { tile } => {
+            Activity::Assembling { assembly } => {
+                let assembly = self.assembly.get(&assembly).unwrap();
+                match intention {
+                    Use => match target {
+                        Ground { tile } => {
+                            self.send_action(FarmerBound::FinishAssembly {
+                                pivot: tile,
+                                rotation: assembly.rotation,
+                            });
+                        }
+                        Wall(cell) => {
+                            self.send_action(FarmerBound::FinishAssembly {
+                                pivot: cell,
+                                rotation: assembly.rotation,
+                            });
+                        }
+                        _ => {}
+                    },
+                    Aim(tile) => {
                         self.send_action(FarmerBound::MoveAssembly {
                             pivot: tile,
-                            rotation: Rotation::A000,
+                            rotation: assembly.rotation,
                         });
                     }
-                    _ => {}
-                },
-                Put => {}
-                Swap => {}
-                Move => {}
-                QuickSwap(_) => {}
-            },
+                    Put => {
+                        self.send_action(FarmerBound::CancelAssembly);
+                    }
+                    Swap => {
+                        self.send_action(FarmerBound::MoveAssembly {
+                            pivot: assembly.pivot,
+                            rotation: assembly.rotation.next(),
+                        });
+                    }
+                    Move => {}
+                    QuickSwap(index) => {
+                        self.send_action(FarmerBound::MoveAssembly {
+                            pivot: assembly.pivot,
+                            rotation: Rotation::from_index(index),
+                        });
+                    }
+                }
+            }
         }
     }
 }

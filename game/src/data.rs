@@ -395,7 +395,7 @@ impl Game {
             key: DoorKey(row.get("id")?),
             name: row.get("name")?,
             barrier: self.known.barriers.find_by(row, "barrier")?,
-            item: self.known.items.find_by(row, "item")?,
+            kit: self.known.items.find_by(row, "item")?,
         };
         Ok(data)
     }

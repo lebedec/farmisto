@@ -31,9 +31,10 @@ impl PhysicsDomain {
         let operation = move || {
             let events = vec![Physics::BarrierCreated {
                 id: barrier.id,
+                key: barrier.kind.id,
                 space: barrier.space,
                 position: barrier.position,
-                bounds: barrier.kind.bounds,
+                active: barrier.active,
             }];
             self.barriers_sequence += 1;
             self.barriers[space.0].push(barrier);

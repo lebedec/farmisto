@@ -1,7 +1,7 @@
 use crate::engine::Frame;
 use crate::gameplay::representation::{
-    AssemblyRep, AssemblyTargetAsset, BarrierHint, BuildingRep, ConstructionRep, CreatureRep,
-    CropRep, DoorRep, EquipmentRep, FarmerRep, FarmlandRep, StackRep, TreeRep,
+    AssemblyRep, AssemblyTargetAsset, BuildingRep, ConstructionRep, CreatureRep, CropRep, DoorRep,
+    EquipmentRep, FarmerRep, FarmlandRep, StackRep, TreeRep,
 };
 use crate::gameplay::Gameplay;
 use game::api::Event;
@@ -9,7 +9,7 @@ use game::assembling::Assembling;
 use game::building::{Building, Material};
 use game::inventory::Inventory;
 use game::model::{Activity, AssemblyTarget, ItemRep, Universe};
-use game::physics::Physics;
+use game::physics::{Barrier, Physics};
 use game::planting::Planting;
 use game::raising::Raising;
 use log::{debug, info};
@@ -188,18 +188,34 @@ impl Gameplay {
             Physics::BarrierCreated {
                 id,
                 position,
-                bounds,
-                ..
+                space,
+                active,
+                key,
             } => {
-                self.barriers.push(BarrierHint {
+                let kind = self.known.barriers.get(key).unwrap();
+                self.barriers_hint.push(Barrier {
                     id,
+                    kind,
                     position,
-                    bounds,
+                    space,
+                    active,
                 });
             }
+            Physics::BarrierChanged { id, active, .. } => {
+                for barrier in self.barriers_hint.iter_mut() {
+                    if barrier.id == id {
+                        barrier.active = active;
+                        break;
+                    }
+                }
+            }
             Physics::BarrierDestroyed { id, .. } => {
-                if let Some(index) = self.barriers.iter().position(|barrier| barrier.id == id) {
-                    self.barriers.remove(index);
+                if let Some(index) = self
+                    .barriers_hint
+                    .iter()
+                    .position(|barrier| barrier.id == id)
+                {
+                    self.barriers_hint.remove(index);
                 }
             }
             Physics::SpaceUpdated { id, holes } => {
@@ -623,6 +639,7 @@ impl Gameplay {
                 open,
                 rotation,
             } => {
+                info!("Appear {entity:?} {open}");
                 let kind = self.known.doors.get(entity.key).unwrap();
                 let asset = assets.door(&kind.name);
                 let representation = DoorRep {
@@ -633,6 +650,10 @@ impl Gameplay {
                     position,
                 };
                 self.doors.insert(entity, representation);
+            }
+            Universe::DoorChanged { entity, open } => {
+                info!("DoorChanged {entity:?} {open}");
+                self.doors.get_mut(&entity).unwrap().open = open;
             }
             Universe::DoorVanished(door) => {
                 self.doors.remove(&door);

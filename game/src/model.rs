@@ -152,6 +152,10 @@ pub enum Universe {
         rotation: Rotation,
         position: [f32; 2],
     },
+    DoorChanged {
+        entity: Door,
+        open: bool,
+    },
     DoorVanished(Door),
 }
 
@@ -257,6 +261,24 @@ impl UniverseDomain {
         {
             self.constructions.remove(index);
             vec![Universe::ConstructionVanished { id }]
+        } else {
+            vec![]
+        }
+    }
+
+    pub(crate) fn vanish_assembly(&mut self, id: Assembly) -> Vec<Universe> {
+        if let Some(index) = self.assembly.iter().position(|assembly| assembly == &id) {
+            self.assembly.remove(index);
+            vec![Universe::AssemblyVanished(id)]
+        } else {
+            vec![]
+        }
+    }
+
+    pub(crate) fn vanish_door(&mut self, id: Door) -> Vec<Universe> {
+        if let Some(index) = self.doors.iter().position(|door| door == &id) {
+            self.doors.remove(index);
+            vec![Universe::DoorVanished(id)]
         } else {
             vec![]
         }
@@ -546,7 +568,7 @@ pub struct DoorKind {
     pub key: DoorKey,
     pub name: String,
     pub barrier: Shared<BarrierKind>,
-    pub item: Shared<ItemKind>,
+    pub kit: Shared<ItemKind>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]

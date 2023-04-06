@@ -122,9 +122,15 @@ pub enum Physics {
     },
     BarrierCreated {
         id: BarrierId,
+        key: BarrierKey,
         space: SpaceId,
         position: [f32; 2],
-        bounds: [f32; 2],
+        active: bool,
+    },
+    BarrierChanged {
+        id: BarrierId,
+        space: SpaceId,
+        active: bool,
     },
     BarrierDestroyed {
         id: BarrierId,
@@ -185,64 +191,6 @@ impl PhysicsDomain {
         for sensor in sensors {
             self.sensors[sensor.space.0].push(sensor);
         }
-    }
-
-    pub fn get_body_mut(&mut self, id: BodyId) -> Result<&mut Body, PhysicsError> {
-        for bodies in self.bodies.iter_mut() {
-            for body in bodies {
-                if body.id == id {
-                    return Ok(body);
-                }
-            }
-        }
-        return Err(PhysicsError::BodyNotFound { id });
-    }
-
-    pub fn get_space(&self, id: SpaceId) -> Result<&Space, PhysicsError> {
-        self.spaces
-            .iter()
-            .find(|space| space.id == id)
-            .ok_or(PhysicsError::SpaceNotFound { space: id })
-    }
-
-    pub fn get_space_mut(&mut self, id: SpaceId) -> Result<&mut Space, PhysicsError> {
-        self.spaces
-            .iter_mut()
-            .find(|space| space.id == id)
-            .ok_or(PhysicsError::SpaceNotFound { space: id })
-    }
-
-    pub fn get_body(&self, id: BodyId) -> Result<&Body, PhysicsError> {
-        for bodies in self.bodies.iter() {
-            for body in bodies {
-                if body.id == id {
-                    return Ok(body);
-                }
-            }
-        }
-        return Err(PhysicsError::BodyNotFound { id });
-    }
-
-    pub fn get_barrier(&self, id: BarrierId) -> Result<&Barrier, PhysicsError> {
-        for barriers in self.barriers.iter() {
-            for barrier in barriers {
-                if barrier.id == id {
-                    return Ok(barrier);
-                }
-            }
-        }
-        return Err(PhysicsError::BarrierNotFound { id });
-    }
-
-    pub fn get_sensor(&self, id: SensorId) -> Result<&Sensor, PhysicsError> {
-        for sensors in self.sensors.iter() {
-            for sensor in sensors {
-                if sensor.id == id {
-                    return Ok(sensor);
-                }
-            }
-        }
-        return Err(PhysicsError::SensorNotFound { id });
     }
 }
 
