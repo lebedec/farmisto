@@ -17,8 +17,8 @@ use crate::assets::fs::{FileEvent, FileSystem};
 use crate::assets::prefabs::{TreeAsset, TreeAssetData};
 use crate::assets::tileset::{TilesetAsset, TilesetAssetData, TilesetItem};
 use crate::assets::{
-    AssetMap, BehavioursAsset, BuildingMaterialAsset, BuildingMaterialAssetData, DoorAsset,
-    DoorAssetData,
+    AssetMap, BehavioursAsset, BuildingMaterialAsset, BuildingMaterialAssetData, CementerAsset,
+    CementerAssetData, DoorAsset, DoorAssetData,
 };
 use crate::assets::{
     CreatureAsset, CreatureAssetData, CropAsset, CropAssetData, FarmerAsset, FarmerAssetData,
@@ -70,6 +70,7 @@ pub struct Assets {
     creatures: HashMap<String, CreatureAsset>,
     buildings: HashMap<String, BuildingMaterialAsset>,
     doors: HashMap<String, DoorAsset>,
+    cementers: HashMap<String, CementerAsset>,
 
     queue: Arc<Queue>,
 }
@@ -238,6 +239,7 @@ impl Assets {
             behaviours: Default::default(),
             buildings: Default::default(),
             doors: Default::default(),
+            cementers: Default::default(),
         }
     }
 
@@ -409,6 +411,17 @@ impl Assets {
         }
     }
 
+    pub fn cementer(&mut self, name: &str) -> CementerAsset {
+        METRIC_REQUESTS_TOTAL.with_label_values(&["cementer"]).inc();
+        match self.cementers.get(name) {
+            Some(asset) => asset.share(),
+            None => {
+                let data = self.load_cementer_data(name).unwrap();
+                self.cementers.publish(name, data)
+            }
+        }
+    }
+
     pub fn creature(&mut self, name: &str) -> CreatureAsset {
         METRIC_REQUESTS_TOTAL.with_label_values(&["creature"]).inc();
         match self.creatures.get(name) {
@@ -499,6 +512,14 @@ impl Assets {
     pub fn load_door_data(&mut self, id: &str) -> Result<DoorAssetData, serde_json::Error> {
         let entry = self.storage.fetch_one::<DoorAssetData>(id);
         let data = DoorAssetData {
+            sprites: self.tileset(entry.get("sprites")?),
+        };
+        Ok(data)
+    }
+
+    pub fn load_cementer_data(&mut self, id: &str) -> Result<CementerAssetData, serde_json::Error> {
+        let entry = self.storage.fetch_one::<CementerAssetData>(id);
+        let data = CementerAssetData {
             sprites: self.tileset(entry.get("sprites")?),
         };
         Ok(data)

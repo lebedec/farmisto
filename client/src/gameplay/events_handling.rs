@@ -1,7 +1,7 @@
 use crate::engine::Frame;
 use crate::gameplay::representation::{
-    AssemblyRep, AssemblyTargetAsset, BuildingRep, ConstructionRep, CreatureRep, CropRep, DoorRep,
-    EquipmentRep, FarmerRep, FarmlandRep, StackRep, TreeRep,
+    AssemblyRep, AssemblyTargetAsset, BuildingRep, CementerRep, ConstructionRep, CreatureRep,
+    CropRep, DoorRep, EquipmentRep, FarmerRep, FarmlandRep, StackRep, TreeRep,
 };
 use crate::gameplay::Gameplay;
 use game::api::Event;
@@ -19,41 +19,42 @@ use std::collections::HashMap;
 impl Gameplay {
     pub fn handle_event(&mut self, frame: &mut Frame, event: Event) {
         match event {
-            Event::Universe(events) => {
+            Event::UniverseStream(events) => {
                 for event in events {
                     self.handle_universe_event(frame, event);
                 }
             }
-            Event::Physics(events) => {
+            Event::PhysicsStream(events) => {
                 for event in events {
                     self.handle_physics_event(frame, event);
                 }
             }
-            Event::Building(events) => {
+            Event::BuildingStream(events) => {
                 for event in events {
                     self.handle_building_event(frame, event);
                 }
             }
-            Event::Inventory(events) => {
+            Event::InventoryStream(events) => {
                 for event in events {
                     self.handle_inventory_event(frame, event);
                 }
             }
-            Event::Planting(events) => {
+            Event::PlantingStream(events) => {
                 for event in events {
                     self.handle_planting_event(frame, event);
                 }
             }
-            Event::Raising(events) => {
+            Event::RaisingStream(events) => {
                 for event in events {
                     self.handle_raising_event(frame, event);
                 }
             }
-            Event::Assembling(events) => {
+            Event::AssemblingStream(events) => {
                 for event in events {
                     self.handle_assembling_event(frame, event);
                 }
             }
+            Event::WorkingStream(_) => {}
         }
     }
 
@@ -620,6 +621,10 @@ impl Gameplay {
                         let door = assets.door(&door.name);
                         AssemblyTargetAsset::Door { door }
                     }
+                    AssemblyTarget::Cementer { cementer } => {
+                        let cementer = assets.cementer(&cementer.name);
+                        AssemblyTargetAsset::Cementer { cementer }
+                    }
                 };
                 let representation = AssemblyRep {
                     entity,
@@ -657,6 +662,25 @@ impl Gameplay {
             }
             Universe::DoorVanished(door) => {
                 self.doors.remove(&door);
+            }
+            Universe::CementerAppeared {
+                entity,
+                rotation,
+                position,
+            } => {
+                info!("Appear {entity:?}");
+                let kind = self.known.cementers.get(entity.key).unwrap();
+                let asset = assets.cementer(&kind.name);
+                let representation = CementerRep {
+                    entity,
+                    asset,
+                    rotation,
+                    position,
+                };
+                self.cementers.insert(entity, representation);
+            }
+            Universe::CementerVanished(entity) => {
+                self.cementers.remove(&entity);
             }
         }
     }

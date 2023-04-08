@@ -12,6 +12,7 @@ use crate::physics::{
 };
 use crate::planting::{PlantId, PlantKey, PlantKind, SoilId, SoilKey, SoilKind};
 use crate::raising::{AnimalId, AnimalKey, AnimalKind};
+use crate::working::{DeviceId, DeviceKey, DeviceKind};
 
 #[derive(Default)]
 pub struct Knowledge {
@@ -23,6 +24,7 @@ pub struct Knowledge {
     pub crops: Dictionary<CropKey, CropKind>,
     pub creatures: Dictionary<CreatureKey, CreatureKind>,
     pub doors: Dictionary<DoorKey, DoorKind>,
+    pub cementers: Dictionary<CementerKey, CementerKind>,
     // physics
     pub spaces: Dictionary<SpaceKey, SpaceKind>,
     pub bodies: Dictionary<BodyKey, BodyKind>,
@@ -39,6 +41,8 @@ pub struct Knowledge {
     pub plants: Dictionary<PlantKey, PlantKind>,
     // raising
     pub animals: Dictionary<AnimalKey, AnimalKind>,
+    // working
+    pub devices: Dictionary<DeviceKey, DeviceKind>,
 }
 
 #[derive(Default)]
@@ -65,6 +69,8 @@ pub struct UniverseDomain {
     pub assembly_id: usize,
     pub doors: Vec<Door>,
     pub doors_id: usize,
+    pub cementers: Vec<Cementer>,
+    pub cementers_id: usize,
 }
 
 #[derive(Debug, bincode::Encode, bincode::Decode)]
@@ -157,6 +163,12 @@ pub enum Universe {
         open: bool,
     },
     DoorVanished(Door),
+    CementerAppeared {
+        entity: Cementer,
+        rotation: Rotation,
+        position: [f32; 2],
+    },
+    CementerVanished(Cementer),
 }
 
 #[derive(Debug, bincode::Encode, bincode::Decode)]
@@ -169,6 +181,9 @@ pub enum UniverseError {
         actual: Activity,
     },
     ActivityMismatch,
+    ModeInvalidEnumeration {
+        value: u8,
+    },
 }
 
 impl UniverseDomain {
@@ -227,6 +242,11 @@ impl UniverseDomain {
     pub fn load_doors(&mut self, doors: Vec<Door>, doors_id: usize) {
         self.doors_id = doors_id;
         self.doors.extend(doors);
+    }
+
+    pub fn load_cementers(&mut self, cementers: Vec<Cementer>, cementers_id: usize) {
+        self.cementers_id = cementers_id;
+        self.cementers.extend(cementers);
     }
 
     pub(crate) fn appear_construction(
@@ -546,6 +566,7 @@ pub struct AssemblyKey(pub usize);
 
 pub enum AssemblyTarget {
     Door { door: Shared<DoorKind> },
+    Cementer { cementer: Shared<CementerKind> },
 }
 
 pub struct AssemblyKind {
@@ -575,6 +596,33 @@ pub struct DoorKind {
 pub struct Door {
     pub id: usize,
     pub key: DoorKey,
+    pub barrier: BarrierId,
+    pub placement: PlacementId,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
+pub struct CementerKey(pub usize);
+
+pub struct CementerKind {
+    pub key: CementerKey,
+    pub name: String,
+    pub kit: Shared<ItemKind>,
+    pub barrier: Shared<BarrierKind>,
+    pub device: Shared<DeviceKind>,
+    pub input_offset: [i8; 2],
+    pub input: Shared<ContainerKind>,
+    pub output_offset: [i8; 2],
+    pub output: Shared<ContainerKind>,
+    pub cement: Shared<ItemKind>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
+pub struct Cementer {
+    pub id: usize,
+    pub key: CementerKey,
+    pub input: ContainerId,
+    pub device: DeviceId,
+    pub output: ContainerId,
     pub barrier: BarrierId,
     pub placement: PlacementId,
 }

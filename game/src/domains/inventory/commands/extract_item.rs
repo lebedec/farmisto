@@ -9,11 +9,11 @@ impl InventoryDomain {
         &mut self,
         source: ContainerId,
         offset: isize,
+        id: ContainerId,
         kind: Shared<ContainerKind>,
-    ) -> Result<(ContainerId, impl FnOnce() -> Vec<Inventory> + '_), InventoryError> {
+    ) -> Result<impl FnOnce() -> Vec<Inventory> + '_, InventoryError> {
         let source_container = self.get_mut_container(source)?;
         let index = source_container.ensure_item_at(offset)?;
-        let id = ContainerId(self.containers_sequence + 1);
         let mut container = Container {
             id,
             kind,
@@ -37,10 +37,10 @@ impl InventoryDomain {
                 },
             ];
             container.items.push(item);
-            self.containers_sequence += 1;
+            self.containers_id.register(id.0);
             self.containers.insert(container.id, container);
             events
         };
-        Ok((id, commit))
+        Ok(commit)
     }
 }

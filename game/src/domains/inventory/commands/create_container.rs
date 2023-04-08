@@ -1,25 +1,26 @@
-use crate::collections::Shared;
+use crate::collections::{Shared, TemporaryRef};
 use crate::inventory::Inventory::ContainerCreated;
 use crate::inventory::{
     Container, ContainerId, ContainerKind, Inventory, InventoryDomain, InventoryError,
 };
 
 impl InventoryDomain {
-    pub fn create_container<'operation>(
-        &'operation mut self,
-        kind: Shared<ContainerKind>,
-    ) -> Result<(ContainerId, impl FnOnce() -> Vec<Inventory> + 'operation), InventoryError> {
-        let id = ContainerId(self.containers_sequence + 1);
+    pub fn add_container(
+        &mut self,
+        id: ContainerId,
+        kind: &Shared<ContainerKind>,
+    ) -> Result<impl FnOnce() -> Vec<Inventory>, InventoryError> {
         let container = Container {
             id,
-            kind,
+            kind: kind.clone(),
             items: vec![],
         };
-        let operation = move || {
-            self.containers_sequence += 1;
-            self.containers.insert(id, container);
+        let mut domain = TemporaryRef::from(self);
+        let command = move || {
+            domain.containers_id.register(id.0);
+            domain.containers.insert(id, container);
             vec![ContainerCreated { id }]
         };
-        Ok((id, operation))
+        Ok(command)
     }
 }

@@ -7,15 +7,15 @@ use game::building::{Cell, Room};
 use game::collections::Shared;
 use game::math::{Collider, VectorMath};
 use game::model::{
-    Activity, Assembly, Construction, Creature, CreatureKind, Crop, Door, Equipment, Farmer,
-    FarmerKind, Farmland, FarmlandKind, Stack, Tree, TreeKind,
+    Activity, Assembly, Cementer, Construction, Creature, CreatureKind, Crop, Door, Equipment,
+    Farmer, FarmerKind, Farmland, FarmlandKind, Stack, Tree, TreeKind,
 };
 use game::physics::{BarrierId, BodyKind};
 
-use crate::assets::FarmerAsset;
 use crate::assets::FarmlandAsset;
 use crate::assets::TreeAsset;
 use crate::assets::{BuildingMaterialAsset, CreatureAsset};
+use crate::assets::{CementerAsset, FarmerAsset};
 use crate::assets::{CropAsset, DoorAsset};
 use crate::engine::rendering::{SpineRenderController, TilemapController};
 
@@ -122,6 +122,7 @@ pub struct EquipmentRep {
 
 pub enum AssemblyTargetAsset {
     Door { door: DoorAsset },
+    Cementer { cementer: CementerAsset },
 }
 
 pub struct AssemblyRep {
@@ -135,6 +136,13 @@ pub struct DoorRep {
     pub entity: Door,
     pub asset: DoorAsset,
     pub open: bool,
+    pub rotation: Rotation,
+    pub position: [f32; 2],
+}
+
+pub struct CementerRep {
+    pub entity: Cementer,
+    pub asset: CementerAsset,
     pub rotation: Rotation,
     pub position: [f32; 2],
 }

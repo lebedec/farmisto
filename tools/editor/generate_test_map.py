@@ -224,6 +224,7 @@ if __name__ == '__main__':
             'p': lambda tile, farmland: editor.add_stack(farmland, tile, ['planks-material'] * 5, 1),
             'g': lambda tile, farmland: editor.add_stack(farmland, tile, ['glass-material'] * 5, 1),
             'd': lambda tile, farmland: editor.add_stack(farmland, tile, ['door-x1'] * 5, 1),
+            'k': lambda tile, farmland: editor.add_stack(farmland, tile, ['cementer-kit'] * 5, 1),
             'h': lambda tile, farmland: editor.add_stack(farmland, tile, ['hammer'], 1),
             'n': lambda tile, farmland: editor.add_equipment(farmland, tile, 'theodolite'),
         },
@@ -243,7 +244,7 @@ if __name__ == '__main__':
         . . . . . . . . . . . . . . c c . . . . . c c . . . . . . c . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
         . . B C D . . . . . . . . . c c . . . . c c c . . . . c c c . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
         . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-        . . . A . d . . . . . . . . n h . . . . . n h . . . . . n h . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+        . . . A . d k . . . . . . . n h . . . . . n h . . . . . n h . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
         . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
         . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
         . . # # | # | | | # . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .

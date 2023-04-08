@@ -204,6 +204,27 @@ create table Placement
     pivot    json not null
 );
 
+-- Working
+
+create table DeviceKind
+(
+    id         integer primary key,
+    name       text not null unique,
+    process    json not null,
+    duration   real not null,
+    durability real not null
+);
+
+create table Device
+(
+    id          integer primary key,
+    kind        integer not null references DeviceKind (id),
+    mode        json    not null,
+    resource    integer not null,
+    progress    real    not null,
+    deprecation real    not null
+);
+
 -- Universe
 
 create table TreeKind
@@ -344,14 +365,40 @@ create table Door
 
 create table AssemblyKind
 (
-    id     integer primary key,
-    name   text not null unique,
-    t_door text references DoorKind (name)
+    id         integer primary key,
+    name       text not null unique,
+    t_door     text references DoorKind (name),
+    t_cementer text references CementerKind (name)
 );
 
 create table Assembly
 (
     id        integer primary key,
     key       integer not null references AssemblyKind (id),
+    placement integer not null references Placement (id)
+);
+
+create table CementerKind
+(
+    id            integer primary key,
+    name          text not null unique,
+    kit           text references ItemKind (name),
+    barrier       text references BarrierKind (name),
+    device        text references DeviceKind (name),
+    input_offset  json not null,
+    input         text references ContainerKind (name),
+    output_offset json not null,
+    output        text references ContainerKind (name),
+    cement        text references ItemKind (name)
+);
+
+create table Cementer
+(
+    id        integer primary key,
+    kind      integer not null references CementerKind (id),
+    input     integer not null references Container (id),
+    device    integer not null references Device (id),
+    output    integer not null references Container (id),
+    barrier   integer not null references Barrier (id),
     placement integer not null references Placement (id)
 );

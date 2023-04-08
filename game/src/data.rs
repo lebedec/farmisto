@@ -1,9 +1,9 @@
 use core::fmt::Debug;
 
-use crate::assembling::PlacementId;
 use log::info;
 use serde::de;
 
+use crate::assembling::PlacementId;
 use crate::building::{
     Grid, GridId, GridKey, GridKind, Surveyor, SurveyorId, SurveyorKey, SurveyorKind,
 };
@@ -12,10 +12,11 @@ use crate::inventory::{
     Container, ContainerId, ContainerKey, ContainerKind, Item, ItemId, ItemKey, ItemKind,
 };
 use crate::model::{
-    Assembly, AssemblyKey, AssemblyKind, AssemblyTarget, Construction, Creature, CreatureKey,
-    CreatureKind, Crop, CropKey, CropKind, Door, DoorKey, DoorKind, Equipment, EquipmentKey,
-    EquipmentKind, Farmer, FarmerKey, FarmerKind, Farmland, FarmlandKey, FarmlandKind, Player,
-    PlayerId, Purpose, PurposeDescription, Stack, Tree, TreeKey, TreeKind,
+    Assembly, AssemblyKey, AssemblyKind, AssemblyTarget, Cementer, CementerKey, CementerKind,
+    Construction, Creature, CreatureKey, CreatureKind, Crop, CropKey, CropKind, Door, DoorKey,
+    DoorKind, Equipment, EquipmentKey, EquipmentKind, Farmer, FarmerKey, FarmerKind, Farmland,
+    FarmlandKey, FarmlandKind, Player, PlayerId, Purpose, PurposeDescription, Stack, Tree, TreeKey,
+    TreeKind,
 };
 use crate::physics::{
     Barrier, BarrierId, BarrierKey, BarrierKind, Body, BodyId, BodyKey, BodyKind, Sensor, SensorId,
@@ -23,6 +24,7 @@ use crate::physics::{
 };
 use crate::planting::{Plant, PlantId, PlantKey, PlantKind, Soil, SoilId, SoilKey, SoilKind};
 use crate::raising::{Animal, AnimalId, AnimalKey, AnimalKind};
+use crate::working::{Device, DeviceId, DeviceKey, DeviceKind};
 use crate::Game;
 
 impl Game {
@@ -71,10 +73,11 @@ impl Game {
         for kind in storage.find_all(|row| self.load_item_kind(row))? {
             self.known.items.insert(kind.id, kind.name.clone(), kind);
         }
-        // universe
-        for kind in storage.find_all(|row| self.load_door_kind(row))? {
-            self.known.doors.insert(kind.key, kind.name.clone(), kind);
+        // working
+        for kind in storage.find_all(|row| self.load_device_kind(row))? {
+            self.known.devices.insert(kind.id, kind.name.clone(), kind);
         }
+        // universe
         for kind in storage.find_all(|row| self.load_tree_kind(row))? {
             self.known.trees.insert(kind.id, kind.name.clone(), kind);
         }
@@ -98,6 +101,15 @@ impl Game {
             self.known
                 .creatures
                 .insert(kind.id, kind.name.clone(), kind);
+        }
+        // assembly references:
+        for kind in storage.find_all(|row| self.load_cementer_kind(row))? {
+            self.known
+                .cementers
+                .insert(kind.key, kind.name.clone(), kind);
+        }
+        for kind in storage.find_all(|row| self.load_door_kind(row))? {
+            self.known.doors.insert(kind.key, kind.name.clone(), kind);
         }
         for kind in storage.find_all(|row| self.load_assembly_kind(row))? {
             self.known
@@ -146,6 +158,10 @@ impl Game {
         let (items, sequence) = storage.get_sequence(|row| self.load_item(row))?;
         self.inventory.load_items(items, sequence);
 
+        // working
+        let (devices, sequence) = storage.get_sequence(|row| self.load_device(row))?;
+        self.working.load_devices(devices, sequence);
+
         // models
         let (trees, trees_id) = storage.get_sequence(|row| self.load_tree(row))?;
         self.universe.load_trees(trees, trees_id);
@@ -163,10 +179,14 @@ impl Game {
         self.universe.load_crops(crops, id);
         let (creatures, id) = storage.get_sequence(|row| self.load_creature(row))?;
         self.universe.load_creatures(creatures, id);
-        let (assembly, id) = storage.get_sequence(|row| self.load_assembly(row))?;
-        self.universe.load_assembly(assembly, id);
+        // assembly references:
         let (doors, id) = storage.get_sequence(|row| self.load_door(row))?;
         self.universe.load_doors(doors, id);
+        let (cementers, id) = storage.get_sequence(|row| self.load_cementer(row))?;
+        self.universe.load_cementers(cementers, id);
+        let (assembly, id) = storage.get_sequence(|row| self.load_assembly(row))?;
+        self.universe.load_assembly(assembly, id);
+
         info!("End game state loading");
 
         Ok(())
@@ -370,6 +390,9 @@ impl Game {
         let target = if let Ok(Some(name)) = row.get("t_door") {
             let door = self.known.doors.find2(&name)?;
             AssemblyTarget::Door { door }
+        } else if let Ok(Some(name)) = row.get("t_cementer") {
+            let cementer = self.known.cementers.find2(&name)?;
+            AssemblyTarget::Cementer { cementer }
         } else {
             return Err(DataError::NotSpecifiedVariant);
         };
@@ -404,6 +427,38 @@ impl Game {
         let data = Door {
             id: row.get("id")?,
             key: DoorKey(row.get("key")?),
+            barrier: BarrierId(row.get("barrier")?),
+            placement: PlacementId(row.get("placement")?),
+        };
+        Ok(data)
+    }
+
+    pub(crate) fn load_cementer_kind(
+        &mut self,
+        row: &rusqlite::Row,
+    ) -> Result<CementerKind, DataError> {
+        let data = CementerKind {
+            key: CementerKey(row.get("id")?),
+            name: row.get("name")?,
+            barrier: self.known.barriers.find_by(row, "barrier")?,
+            device: self.known.devices.find_by(row, "device")?,
+            input_offset: row.get_json("input_offset")?,
+            input: self.known.containers.find_by(row, "input")?,
+            output_offset: row.get_json("output_offset")?,
+            output: self.known.containers.find_by(row, "output")?,
+            kit: self.known.items.find_by(row, "kit")?,
+            cement: self.known.items.find_by(row, "cement")?,
+        };
+        Ok(data)
+    }
+
+    pub(crate) fn load_cementer(&mut self, row: &rusqlite::Row) -> Result<Cementer, DataError> {
+        let data = Cementer {
+            id: row.get("id")?,
+            key: CementerKey(row.get("kind")?),
+            input: ContainerId(row.get("input")?),
+            device: DeviceId(row.get("device")?),
+            output: ContainerId(row.get("output")?),
             barrier: BarrierId(row.get("barrier")?),
             placement: PlacementId(row.get("placement")?),
         };
@@ -580,6 +635,34 @@ impl Game {
             kind: self.known.items.get_by(row, "kind", ItemKey)?,
             container: ContainerId(row.get("container")?),
             quantity: row.get("quantity")?,
+        };
+        Ok(data)
+    }
+
+    // working
+
+    pub(crate) fn load_device_kind(
+        &mut self,
+        row: &rusqlite::Row,
+    ) -> Result<DeviceKind, DataError> {
+        let data = DeviceKind {
+            id: DeviceKey(row.get("id")?),
+            name: row.get("name")?,
+            process: row.get_json("process")?,
+            duration: row.get("duration")?,
+            durability: row.get("durability")?,
+        };
+        Ok(data)
+    }
+
+    pub(crate) fn load_device(&mut self, row: &rusqlite::Row) -> Result<Device, DataError> {
+        let data = Device {
+            id: DeviceId(row.get("id")?),
+            kind: self.known.devices.get_by(row, "kind", DeviceKey)?,
+            mode: row.get_json("process")?,
+            resource: row.get("resource")?,
+            progress: row.get("progress")?,
+            deprecation: row.get("deprecation")?,
         };
         Ok(data)
     }

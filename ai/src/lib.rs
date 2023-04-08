@@ -198,7 +198,7 @@ impl Nature {
     pub fn perceive(&mut self, events: Vec<Event>) {
         for event in events {
             match event {
-                Event::Universe(events) => {
+                Event::UniverseStream(events) => {
                     for event in events {
                         match event {
                             Universe::ActivityChanged { .. } => {}
@@ -263,10 +263,12 @@ impl Nature {
                             Universe::DoorAppeared { .. } => {}
                             Universe::DoorVanished(_) => {}
                             Universe::DoorChanged { .. } => {}
+                            Universe::CementerAppeared { .. } => {}
+                            Universe::CementerVanished(_) => {}
                         }
                     }
                 }
-                Event::Physics(events) => {
+                Event::PhysicsStream(events) => {
                     for event in events {
                         match event {
                             Physics::BodyPositionChanged { id, position, .. } => {
@@ -305,11 +307,12 @@ impl Nature {
                         }
                     }
                 }
-                Event::Building(_) => {}
-                Event::Inventory(_) => {}
-                Event::Planting(_) => {}
-                Event::Raising(_) => {}
-                Event::Assembling(_) => {}
+                Event::BuildingStream(_) => {}
+                Event::InventoryStream(_) => {}
+                Event::PlantingStream(_) => {}
+                Event::RaisingStream(_) => {}
+                Event::AssemblingStream(_) => {}
+                Event::WorkingStream(_) => {}
             }
         }
     }

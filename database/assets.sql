@@ -136,3 +136,9 @@ create table DoorAssetData
     id      text primary key unique,
     sprites text not null references TilesetAssetData
 );
+
+create table CementerAssetData
+(
+    id      text primary key unique,
+    sprites text not null references TilesetAssetData
+);

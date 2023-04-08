@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use crate::collections::Shared;
+use crate::collections::{Sequence, Shared};
 use crate::inventory::InventoryError::{ContainerNotFound, ItemNotFound, ItemNotFoundByIndex};
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -109,12 +109,12 @@ pub enum InventoryError {
 pub struct InventoryDomain {
     pub items_sequence: usize,
     pub containers: HashMap<ContainerId, Container>,
-    pub containers_sequence: usize,
+    pub containers_id: Sequence,
 }
 
 impl InventoryDomain {
     pub fn load_containers(&mut self, containers: Vec<Container>, sequence: usize) {
-        self.containers_sequence = sequence;
+        self.containers_id.set(sequence);
         for container in containers {
             self.containers.insert(container.id, container);
         }

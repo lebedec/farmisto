@@ -10,6 +10,7 @@ use crate::model::{
 use crate::physics::{Physics, PhysicsError};
 use crate::planting::{Planting, PlantingError};
 use crate::raising::{Raising, RaisingError};
+use crate::working::{Working, WorkingError};
 
 pub const API_VERSION: &str = "0.1";
 
@@ -158,6 +159,7 @@ pub enum ActionError {
     Planting(PlantingError),
     Raising(RaisingError),
     Assembling(AssemblingError),
+    Working(WorkingError),
 
     Inconsistency(DictionaryError),
 
@@ -218,97 +220,116 @@ impl From<AssemblingError> for ActionError {
     }
 }
 
+impl From<WorkingError> for ActionError {
+    fn from(error: WorkingError) -> Self {
+        Self::Working(error)
+    }
+}
+
 #[derive(Debug, bincode::Encode, bincode::Decode)]
 pub enum Event {
-    Universe(Vec<Universe>),
-    Physics(Vec<Physics>),
-    Building(Vec<Building>),
-    Inventory(Vec<Inventory>),
-    Planting(Vec<Planting>),
-    Raising(Vec<Raising>),
-    Assembling(Vec<Assembling>),
+    UniverseStream(Vec<Universe>),
+    PhysicsStream(Vec<Physics>),
+    BuildingStream(Vec<Building>),
+    InventoryStream(Vec<Inventory>),
+    PlantingStream(Vec<Planting>),
+    RaisingStream(Vec<Raising>),
+    AssemblingStream(Vec<Assembling>),
+    WorkingStream(Vec<Working>),
 }
 
 impl Into<Event> for Vec<Universe> {
     fn into(self) -> Event {
-        Event::Universe(self)
+        Event::UniverseStream(self)
     }
 }
 
 impl Into<Event> for Vec<Physics> {
     fn into(self) -> Event {
-        Event::Physics(self)
+        Event::PhysicsStream(self)
     }
 }
 
 impl Into<Event> for Vec<Building> {
     fn into(self) -> Event {
-        Event::Building(self)
+        Event::BuildingStream(self)
     }
 }
 
 impl Into<Event> for Vec<Inventory> {
     fn into(self) -> Event {
-        Event::Inventory(self)
+        Event::InventoryStream(self)
     }
 }
 
 impl Into<Event> for Vec<Planting> {
     fn into(self) -> Event {
-        Event::Planting(self)
+        Event::PlantingStream(self)
     }
 }
 
 impl Into<Event> for Vec<Raising> {
     fn into(self) -> Event {
-        Event::Raising(self)
+        Event::RaisingStream(self)
     }
 }
 
 impl Into<Event> for Vec<Assembling> {
     fn into(self) -> Event {
-        Event::Assembling(self)
+        Event::AssemblingStream(self)
+    }
+}
+
+impl Into<Event> for Vec<Working> {
+    fn into(self) -> Event {
+        Event::WorkingStream(self)
     }
 }
 
 impl Into<Event> for Planting {
     fn into(self) -> Event {
-        Event::Planting(vec![self])
+        Event::PlantingStream(vec![self])
     }
 }
 
 impl Into<Event> for Universe {
     fn into(self) -> Event {
-        Event::Universe(vec![self])
+        Event::UniverseStream(vec![self])
     }
 }
 
 impl Into<Event> for Physics {
     fn into(self) -> Event {
-        Event::Physics(vec![self])
+        Event::PhysicsStream(vec![self])
     }
 }
 
 impl Into<Event> for Building {
     fn into(self) -> Event {
-        Event::Building(vec![self])
+        Event::BuildingStream(vec![self])
     }
 }
 
 impl Into<Event> for Inventory {
     fn into(self) -> Event {
-        Event::Inventory(vec![self])
+        Event::InventoryStream(vec![self])
     }
 }
 
 impl Into<Event> for Raising {
     fn into(self) -> Event {
-        Event::Raising(vec![self])
+        Event::RaisingStream(vec![self])
     }
 }
 
 impl Into<Event> for Assembling {
     fn into(self) -> Event {
-        Event::Assembling(vec![self])
+        Event::AssemblingStream(vec![self])
+    }
+}
+
+impl Into<Event> for Working {
+    fn into(self) -> Event {
+        Event::WorkingStream(vec![self])
     }
 }

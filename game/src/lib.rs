@@ -1,8 +1,12 @@
 extern crate alloc;
 extern crate core;
 
+use rand::thread_rng;
+
+use actions::*;
 use datamap::Storage;
 pub use domains::*;
+pub use update::*;
 
 use crate::api::ActionError::PlayerFarmerNotFound;
 use crate::api::{Action, ActionError, ActionResponse, Event, FarmerBound};
@@ -11,27 +15,29 @@ use crate::building::{BuildingDomain, Marker, Material, Stake, Structure, Survey
 use crate::inventory::{ContainerId, FunctionsQuery, InventoryDomain, InventoryError};
 use crate::math::VectorMath;
 use crate::model::Activity::Idle;
-use crate::model::Universe::DoorChanged;
+use crate::model::Equipment;
+use crate::model::UniverseError;
 use crate::model::{
-    Activity, Assembly, AssemblyKey, AssemblyTarget, Creature, CreatureKey, Crop, CropKey, Door,
-    DoorKey, Stack,
+    Activity, Assembly, AssemblyKey, AssemblyTarget, Cementer, CementerKey, Creature, CreatureKey,
+    Crop, CropKey, Door, DoorKey, Stack,
 };
 use crate::model::{Construction, Farmer, Universe};
-use crate::model::{Equipment, ItemRep};
 use crate::model::{EquipmentKey, PurposeDescription, UniverseDomain};
 use crate::model::{Farmland, Knowledge};
 use crate::model::{Player, Purpose};
-use crate::model::{UniverseError, UniverseSnapshot};
-use crate::physics::{BarrierId, BodyId, Physics, PhysicsDomain, SensorId};
+use crate::physics::{BarrierId, BodyId, PhysicsDomain, SensorId};
 use crate::planting::{PlantId, PlantingDomain};
 use crate::raising::{AnimalId, RaisingDomain};
+use crate::working::{DeviceId, Process, Working, WorkingDomain};
 
+mod actions;
 pub mod api;
 pub mod collections;
 mod data;
 mod domains;
 pub mod math;
 pub mod model;
+mod update;
 mod view;
 
 #[macro_export]
@@ -51,6 +57,7 @@ pub struct Game {
     pub inventory: InventoryDomain,
     pub raising: RaisingDomain,
     pub assembling: AssemblingDomain,
+    pub working: WorkingDomain,
     storage: Storage,
     pub players: Vec<Player>,
 }
@@ -65,7 +72,8 @@ impl Game {
             building: BuildingDomain::default(),
             inventory: InventoryDomain::default(),
             raising: RaisingDomain::default(),
-            assembling: Default::default(),
+            assembling: AssemblingDomain::default(),
+            working: WorkingDomain::default(),
             storage,
             players: vec![],
         }
@@ -532,42 +540,6 @@ impl Game {
         Ok(events)
     }
 
-    fn finish_assembly(
-        &mut self,
-        farmer: Farmer,
-        farmland: Farmland,
-    ) -> Result<Vec<Event>, ActionError> {
-        let activity = self.universe.get_farmer_activity(farmer)?;
-        let assembly = activity.as_assembling()?;
-        let key = assembly.key;
-        let assembly_kind = self.known.assembly.get(key)?;
-        let (placement, finish_placement) = self.assembling.finish_placement(assembly.placement)?;
-        let use_assembly_kit = self.inventory.use_items_from(farmer.hands)?;
-        let events = match &assembly_kind.target {
-            AssemblyTarget::Door { door } => {
-                let position = position_of(placement.pivot);
-                let closed = true;
-                let (barrier, create_barrier) = self.physics.create_barrier(
-                    farmland.space,
-                    door.barrier.clone(),
-                    position,
-                    closed,
-                    false,
-                )?;
-
-                occur![
-                    use_assembly_kit(),
-                    finish_placement(),
-                    create_barrier(),
-                    self.appear_door(door.key, barrier, placement.id),
-                    self.universe.vanish_assembly(assembly),
-                    self.universe.change_activity(farmer, Activity::Idle),
-                ]
-            }
-        };
-        Ok(events)
-    }
-
     pub fn toggle_door(&mut self, _farmer: Farmer, door: Door) -> Result<Vec<Event>, ActionError> {
         let barrier = self.physics.get_barrier(door.barrier)?;
         let door_open = Universe::DoorChanged {
@@ -655,9 +627,10 @@ impl Game {
             self.physics
                 .create_barrier(space, barrier_kind, position, true, false)?;
         let container_kind = self.known.containers.find("<drop>").unwrap();
-        let (container, extract_item) =
+        let container = self.inventory.containers_id.introduce().one(ContainerId);
+        let extract_item =
             self.inventory
-                .extract_item(farmer.hands, -1, container_kind)?;
+                .extract_item(farmer.hands, -1, container, container_kind)?;
         let activity = if is_last_item {
             self.universe.change_activity(farmer, Activity::Idle)
         } else {
@@ -711,9 +684,9 @@ impl Game {
     ) -> Result<Vec<Event>, ActionError> {
         let stake = Stake { marker, cell };
         let survey = self.building.survey(surveyor, stake)?;
-        let container_kind = self.known.containers.find("<construction>").unwrap();
-        let (container, create_container) =
-            self.inventory.create_container(container_kind.clone())?;
+        let container_kind = self.known.containers.find("<construction>")?;
+        let container = self.inventory.containers_id.introduce().one(ContainerId);
+        let create_container = self.inventory.add_container(container, &container_kind)?;
         let appearance =
             self.universe
                 .appear_construction(container, farmland.grid, surveyor, marker, cell);
@@ -818,25 +791,6 @@ impl Game {
         }
     }
 
-    pub fn update(&mut self, time: f32) -> Vec<Event> {
-        let physics_events = self.physics.update(time);
-
-        for crop in &mut self.universe.crops {
-            let sensor = self.physics.get_sensor(crop.sensor).unwrap();
-            let mut impact = [0.0, 0.0];
-            for signal in &sensor.signals {
-                impact = impact.add(*signal);
-            }
-            impact = impact.normalize().neg();
-
-            self.planting
-                .integrate_impact(crop.plant, impact[0])
-                .unwrap();
-        }
-
-        occur![physics_events, self.planting.update(time),]
-    }
-
     pub fn appear_crop(
         &mut self,
         key: CropKey,
@@ -909,6 +863,29 @@ impl Game {
         };
         self.universe.doors.push(entity);
         self.look_at_door(entity)
+    }
+
+    pub fn appear_cementer(
+        &mut self,
+        key: CementerKey,
+        barrier: BarrierId,
+        placement: PlacementId,
+        input: ContainerId,
+        device: DeviceId,
+        output: ContainerId,
+    ) -> Universe {
+        self.universe.cementers_id += 1;
+        let entity = Cementer {
+            id: self.universe.cementers_id,
+            key,
+            input,
+            device,
+            output,
+            barrier,
+            placement,
+        };
+        self.universe.cementers.push(entity);
+        self.look_at_cementer(entity)
     }
 
     pub fn appear_stack(&mut self, container: ContainerId, barrier: BarrierId) -> Universe {

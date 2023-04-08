@@ -353,11 +353,22 @@ impl Gameplay {
         for assembly in self.assembly.values() {
             let position = position_of(assembly.pivot);
             let mut rendering_position = rendering_position_of(position);
-            rendering_position[1] += TILE_SIZE / 2.0;
             match &assembly.asset {
                 AssemblyTargetAsset::Door { door } => {
+                    // fix door offset
+                    rendering_position[1] += TILE_SIZE / 2.0;
                     let index = assembly.rotation.index();
                     let sprite = &door.sprites.tiles[index];
+                    scene.render_sprite(
+                        sprite,
+                        rendering_position,
+                        (rendering_position[1] / TILE_SIZE) as usize,
+                        1.0,
+                    )
+                }
+                AssemblyTargetAsset::Cementer { cementer } => {
+                    let index = assembly.rotation.index();
+                    let sprite = &cementer.sprites.tiles[index];
                     scene.render_sprite(
                         sprite,
                         rendering_position,
@@ -376,6 +387,18 @@ impl Gameplay {
                 index += 4;
             }
             let sprite = &door.asset.sprites.tiles[index];
+            scene.render_sprite(
+                sprite,
+                rendering_position,
+                (rendering_position[1] / TILE_SIZE) as usize,
+                1.0,
+            )
+        }
+
+        for cementer in self.cementers.values() {
+            let rendering_position = rendering_position_of(cementer.position);
+            let index = cementer.rotation.index();
+            let sprite = &cementer.asset.sprites.tiles[index];
             scene.render_sprite(
                 sprite,
                 rendering_position,
