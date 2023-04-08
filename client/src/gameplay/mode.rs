@@ -223,42 +223,44 @@ impl Gameplay {
             self.players_index = (self.players_index + 1) % self.players.len();
         }
 
-        let target = self.get_target_at(tile);
+        let targets = self.get_targets_at(tile);
 
-        if input.pressed(Keycode::E) {
-            if let Target::Crop(crop) = target {
-                let creature = self.creatures.values_mut().nth(0).unwrap();
-                let entity = creature.entity;
-                self.send_action_as_ai(Action::EatCrop {
-                    crop,
-                    creature: entity,
-                });
-            }
-        }
-
-        if input.pressed(Keycode::R) {
-            if let Target::Ground { .. } = target {
-                let creature = self.creatures.values().nth(0).unwrap().entity;
-                self.send_action_as_ai(Action::MoveCreature {
-                    destination: cursor.position,
-                    creature,
-                });
-            }
-        }
+        // if input.pressed(Keycode::E) {
+        //     if let Target::Crop(crop) = target {
+        //         let creature = self.creatures.values_mut().nth(0).unwrap();
+        //         let entity = creature.entity;
+        //         self.send_action_as_ai(Action::EatCrop {
+        //             crop,
+        //             creature: entity,
+        //         });
+        //     }
+        // }
+        //
+        // if input.pressed(Keycode::R) {
+        //     if let Target::Ground { .. } = target {
+        //         let creature = self.creatures.values().nth(0).unwrap().entity;
+        //         self.send_action_as_ai(Action::MoveCreature {
+        //             destination: cursor.position,
+        //             creature,
+        //         });
+        //     }
+        // }
 
         if let Some(intention) = input.recognize_intention(cursor) {
-            let item = self
-                .items
-                .get(&farmer.entity.hands)
-                .and_then(|hands| hands.values().nth(0));
-            let functions = match item {
-                None => vec![],
-                Some(item) => {
-                    let kind = self.known.items.get(item.kind).unwrap();
-                    kind.functions.clone()
-                }
-            };
-            self.interact_with(farmer, functions, target, intention);
+            for target in targets {
+                let item = self
+                    .items
+                    .get(&farmer.entity.hands)
+                    .and_then(|hands| hands.values().nth(0));
+                let functions = match item {
+                    None => vec![],
+                    Some(item) => {
+                        let kind = self.known.items.get(item.kind).unwrap();
+                        kind.functions.clone()
+                    }
+                };
+                self.interact_with(farmer, functions, target, intention);
+            }
         }
 
         match farmer.activity {

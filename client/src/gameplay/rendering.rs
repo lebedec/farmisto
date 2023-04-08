@@ -404,7 +404,43 @@ impl Gameplay {
                 rendering_position,
                 (rendering_position[1] / TILE_SIZE) as usize,
                 1.0,
-            )
+            );
+
+            for (i, item) in self
+                .items
+                .entry(cementer.entity.input)
+                .or_insert(HashMap::new())
+                .values()
+                .enumerate()
+            {
+                let kind = self.known.items.get(item.kind).unwrap();
+                let asset = assets.item(&kind.name);
+                let offset = [-TILE_SIZE, -(32.0 * i as f32)];
+                scene.render_sprite(
+                    &asset.sprite,
+                    rendering_position.add(offset),
+                    (rendering_position[1] / TILE_SIZE) as usize,
+                    1.0,
+                );
+            }
+
+            for (i, item) in self
+                .items
+                .entry(cementer.entity.output)
+                .or_insert(HashMap::new())
+                .values()
+                .enumerate()
+            {
+                let kind = self.known.items.get(item.kind).unwrap();
+                let asset = assets.item(&kind.name);
+                let offset = [TILE_SIZE, -(32.0 * i as f32)];
+                scene.render_sprite(
+                    &asset.sprite,
+                    rendering_position.add(offset),
+                    (rendering_position[1] / TILE_SIZE) as usize,
+                    1.0,
+                );
+            }
         }
 
         for farmer in self.farmers.values() {

@@ -4,14 +4,12 @@ use game::api::FarmerBound;
 use game::assembling::Rotation;
 use game::building::{Marker, Structure};
 use game::inventory::Function;
-use game::inventory::Function::{
-    Assembly, Installation, Instrumenting, Material, Product, Seeding,
-};
+use game::inventory::Function::{Assembly, Installation, Instrumenting, Product, Seeding};
 use game::model::{Activity, CropKey, Purpose};
 
 use crate::gameplay::representation::FarmerRep;
 use crate::gameplay::Intention::{Aim, Move, Put, QuickSwap, Swap, Use};
-use crate::gameplay::Target::{Construction, Crop, Door, Equipment, Ground, Stack, Wall};
+use crate::gameplay::Target::{Construction, Container, Crop, Door, Equipment, Ground, Wall};
 use crate::gameplay::{Gameplay, Intention, Target};
 
 impl Gameplay {
@@ -25,11 +23,8 @@ impl Gameplay {
         match farmer.activity {
             Activity::Idle => match intention {
                 Use => match target {
-                    Stack(stack) => {
-                        self.send_action(FarmerBound::TakeItem { stack });
-                    }
-                    Construction(construction) => {
-                        self.send_action(FarmerBound::TakeMaterial { construction });
+                    Container(container) => {
+                        self.send_action(FarmerBound::TakeItem { container });
                     }
                     Equipment(equipment) => {
                         self.send_action(FarmerBound::UseEquipment { equipment });
@@ -78,16 +73,6 @@ impl Gameplay {
                                 self.send_action(FarmerBound::WaterCrop { crop });
                                 break;
                             }
-                            (Material { .. }, Stack(stack)) => {
-                                // TODO: generic, not material only
-                                self.send_action(FarmerBound::TakeItem { stack });
-                                break;
-                            }
-                            (Material { .. }, Construction(construction)) => {
-                                // TODO: generic, not material only, generic container?
-                                self.send_action(FarmerBound::TakeMaterial { construction });
-                                break;
-                            }
                             (Product(kind), Crop(crop)) => {
                                 if CropKey(kind) == crop.key {
                                     self.send_action(FarmerBound::HarvestCrop { crop });
@@ -105,6 +90,10 @@ impl Gameplay {
                                     rotation: Rotation::A000,
                                 });
                             }
+                            (_, Container(container)) => {
+                                self.send_action(FarmerBound::TakeItem { container });
+                                break;
+                            }
                             _ => {}
                         }
                     }
@@ -113,11 +102,8 @@ impl Gameplay {
                     Ground { tile } => {
                         self.send_action(FarmerBound::DropItem { tile });
                     }
-                    Stack(stack) => {
-                        self.send_action(FarmerBound::PutItem { stack });
-                    }
-                    Construction(construction) => {
-                        self.send_action(FarmerBound::PutMaterial { construction });
+                    Container(container) => {
+                        self.send_action(FarmerBound::PutItem { container });
                     }
                     _ => {}
                 },

@@ -673,6 +673,7 @@ impl Gameplay {
                 let asset = assets.cementer(&kind.name);
                 let representation = CementerRep {
                     entity,
+                    kind,
                     asset,
                     rotation,
                     position,

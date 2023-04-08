@@ -1,11 +1,13 @@
+use game::inventory::ContainerId;
 use sdl2::keyboard::Keycode;
 
 use game::math::VectorMath;
-use game::model::{Assembly, Construction, Creature, Crop, Door, Equipment, Stack};
+use game::model::{Assembly, Cementer, Construction, Creature, Crop, Door, Equipment, Stack};
 
 use crate::engine::{Cursor, Input};
 use crate::gameplay::Gameplay;
 
+#[derive(Debug, Copy, Clone)]
 pub enum Intention {
     Use,
     Put,
@@ -18,13 +20,14 @@ pub enum Intention {
 #[derive(Clone)]
 pub enum Target {
     Ground { tile: [usize; 2] },
-    Stack(Stack),
+    Container(ContainerId),
     Assembly(Assembly),
     Construction(Construction),
     Equipment(Equipment),
     Wall([usize; 2]),
     Crop(Crop),
     Door(Door),
+    Cementer(Cementer),
     Creature(Creature),
 }
 
@@ -63,40 +66,62 @@ impl InputMethod for Input {
 }
 
 impl Gameplay {
-    pub fn get_target_at(&self, tile: [usize; 2]) -> Target {
+    pub fn get_targets_at(&self, tile: [usize; 2]) -> Vec<Target> {
         for stack in self.stacks.values() {
             if stack.position.to_tile() == tile {
-                return Target::Stack(stack.entity);
+                return vec![Target::Container(stack.entity.container)];
             }
         }
 
         for construction in self.constructions.values() {
             if construction.tile == tile {
-                return Target::Construction(construction.entity);
+                return vec![
+                    Target::Construction(construction.entity),
+                    Target::Container(construction.entity.container),
+                ];
             }
         }
 
         for equipment in self.equipments.values() {
             if equipment.position.to_tile() == tile {
-                return Target::Equipment(equipment.entity);
+                return vec![Target::Equipment(equipment.entity)];
             }
         }
 
         for creature in self.creatures.values() {
             if creature.estimated_position.to_tile() == tile {
-                return Target::Creature(creature.entity);
+                return vec![Target::Creature(creature.entity)];
             }
         }
 
         for crop in self.crops.values() {
             if crop.position.to_tile() == tile {
-                return Target::Crop(crop.entity);
+                return vec![Target::Crop(crop.entity)];
             }
         }
 
         for door in self.doors.values() {
             if door.position.to_tile() == tile {
-                return Target::Door(door.entity);
+                return vec![Target::Door(door.entity)];
+            }
+        }
+
+        for cementer in self.cementers.values() {
+            let pivot = cementer.position.to_tile();
+            if tile == add_offset(pivot, cementer.kind.input_offset) {
+                return vec![
+                    Target::Container(cementer.entity.input),
+                    Target::Cementer(cementer.entity),
+                ];
+            }
+            if tile == add_offset(pivot, cementer.kind.output_offset) {
+                return vec![
+                    Target::Container(cementer.entity.output),
+                    Target::Cementer(cementer.entity),
+                ];
+            }
+            if tile == pivot {
+                return vec![Target::Cementer(cementer.entity)];
             }
         }
 
@@ -105,10 +130,15 @@ impl Gameplay {
 
             let cell = farmland.cells[tile[1]][tile[0]];
             if cell.wall {
-                return Target::Wall(tile);
+                return vec![Target::Wall(tile)];
             }
         }
 
-        Target::Ground { tile }
+        vec![Target::Ground { tile }]
     }
+}
+
+fn add_offset(tile: [usize; 2], offset: [i8; 2]) -> [usize; 2] {
+    let result = [tile[0] as i8 + offset[0], tile[1] as i8 + offset[1]];
+    [result[0] as usize, result[1] as usize]
 }

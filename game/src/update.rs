@@ -1,13 +1,30 @@
 use rand::thread_rng;
 
-use crate::{Game, occur};
 use crate::api::Event;
 use crate::math::VectorMath;
 use crate::working::{Process, Working};
+use crate::{occur, Game};
 
 impl Game {
     pub fn update(&mut self, time: f32) -> Vec<Event> {
         let physics_events = self.physics.update(time);
+
+        let mut destroy_empty_stacks = vec![];
+        for stack in self.universe.stacks.clone() {
+            let container = self.inventory.get_container(stack.container).unwrap();
+            if container.items.is_empty() {
+                let destroy_container = self
+                    .inventory
+                    .destroy_containers(vec![stack.container], false)
+                    .unwrap();
+                let destroy_barrier = self.physics.destroy_barrier(stack.barrier).unwrap();
+                destroy_empty_stacks.extend([
+                    destroy_container().into(),
+                    destroy_barrier().into(),
+                    self.universe.vanish_stack(stack).into(),
+                ])
+            }
+        }
 
         for crop in &self.universe.crops {
             let sensor = self.physics.get_sensor(crop.sensor).unwrap();
@@ -60,9 +77,10 @@ impl Game {
                 }
             }
         }
-        
+
         let mut events = occur![physics_events, self.planting.update(time), working_events,];
         events.extend(cementer_events);
+        events.extend(destroy_empty_stacks);
         events
     }
 }

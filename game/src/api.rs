@@ -3,9 +3,9 @@ use std::fmt::Debug;
 use crate::assembling::{Assembling, AssemblingError, Rotation};
 use crate::building::{Building, BuildingError, Marker, SurveyorId};
 use crate::collections::DictionaryError;
-use crate::inventory::{Inventory, InventoryError};
+use crate::inventory::{ContainerId, Inventory, InventoryError};
 use crate::model::{
-    Activity, Construction, Creature, Crop, Door, Equipment, Farmer, Stack, Universe, UniverseError,
+    Activity, Construction, Creature, Crop, Door, Equipment, Farmer, Universe, UniverseError,
 };
 use crate::physics::{Physics, PhysicsError};
 use crate::planting::{Planting, PlantingError};
@@ -87,13 +87,7 @@ pub enum FarmerBound {
     ToggleSurveyingOption {
         option: u8,
     },
-    TakeMaterial {
-        construction: Construction,
-    },
     Build {
-        construction: Construction,
-    },
-    PutMaterial {
         construction: Construction,
     },
     Survey {
@@ -105,13 +99,13 @@ pub enum FarmerBound {
         construction: Construction,
     },
     TakeItem {
-        stack: Stack,
+        container: ContainerId,
+    },
+    PutItem {
+        container: ContainerId,
     },
     DropItem {
         tile: [usize; 2],
-    },
-    PutItem {
-        stack: Stack,
     },
     PlantCrop {
         tile: [usize; 2],

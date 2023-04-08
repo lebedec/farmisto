@@ -7,8 +7,8 @@ use game::building::{Cell, Room};
 use game::collections::Shared;
 use game::math::{Collider, VectorMath};
 use game::model::{
-    Activity, Assembly, Cementer, Construction, Creature, CreatureKind, Crop, Door, Equipment,
-    Farmer, FarmerKind, Farmland, FarmlandKind, Stack, Tree, TreeKind,
+    Activity, Assembly, Cementer, CementerKind, Construction, Creature, CreatureKind, Crop, Door,
+    Equipment, Farmer, FarmerKind, Farmland, FarmlandKind, Stack, Tree, TreeKind,
 };
 use game::physics::{BarrierId, BodyKind};
 
@@ -142,6 +142,7 @@ pub struct DoorRep {
 
 pub struct CementerRep {
     pub entity: Cementer,
+    pub kind: Shared<CementerKind>,
     pub asset: CementerAsset,
     pub rotation: Rotation,
     pub position: [f32; 2],
