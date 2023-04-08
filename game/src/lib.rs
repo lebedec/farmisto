@@ -247,37 +247,6 @@ impl Game {
         Ok(events)
     }
 
-    fn plant_crop(
-        &mut self,
-        farmer: Farmer,
-        farmland: Farmland,
-        tile: [usize; 2],
-    ) -> Result<Vec<Event>, ActionError> {
-        self.universe.ensure_activity(farmer, Activity::Usage)?;
-        let item = self.inventory.get_container_item(farmer.hands)?;
-        let key = item.kind.functions.as_seeds(CropKey)?;
-        let kind = self.known.crops.get(key)?;
-        let position = position_of(tile);
-        let decrease_item = self.inventory.decrease_item(farmer.hands)?;
-        let (barrier, sensor, create_barrier_sensor) = self.physics.create_barrier_sensor(
-            farmland.space,
-            &kind.barrier,
-            &kind.sensor,
-            position,
-            false,
-        )?;
-        let (plant, create_plant) = self
-            .planting
-            .create_plant(farmland.soil, &kind.plant, 0.0)?;
-        let events = occur![
-            decrease_item(),
-            create_barrier_sensor(),
-            create_plant(),
-            self.appear_crop(kind.id, barrier, sensor, plant),
-        ];
-        Ok(events)
-    }
-
     fn move_farmer(
         &mut self,
         farmer: Farmer,
@@ -318,63 +287,6 @@ impl Game {
         ];
 
         Ok(events)
-    }
-
-    fn uninstall_equipment(
-        &mut self,
-        farmer: Farmer,
-        farmland: Farmland,
-        equipment: Equipment,
-    ) -> Result<Vec<Event>, ActionError> {
-        self.universe.ensure_activity(farmer, Activity::Idle)?;
-        match equipment.purpose {
-            Purpose::Surveying { surveyor } => {
-                // TODO: transactional
-                let teardown_constructions =
-                    self.teardown_constructions(farmer, farmland, surveyor)?;
-
-                let destroy_surveyor = self.building.destroy_surveyor(surveyor)?;
-                let destroy_barrier = self.physics.destroy_barrier(equipment.barrier)?;
-                let equipment_kind = self.known.equipments.get(equipment.key).unwrap();
-                let (_item, create_item) =
-                    self.inventory
-                        .create_item(&equipment_kind.item, farmer.hands, 1)?;
-                let vanish_equipment = self.universe.vanish_equipment(equipment);
-                let change_activity = self.universe.change_activity(farmer, Activity::Usage);
-
-                let mut events = teardown_constructions;
-                events.extend(occur![
-                    destroy_surveyor(),
-                    destroy_barrier(),
-                    create_item(),
-                    vanish_equipment,
-                    change_activity,
-                ]);
-                Ok(events)
-            }
-            Purpose::Moisture { .. } => Ok(vec![]),
-        }
-    }
-
-    fn use_equipment(
-        &mut self,
-        farmer: Farmer,
-        equipment: Equipment,
-    ) -> Result<Vec<Event>, ActionError> {
-        self.universe.ensure_activity(farmer, Idle)?;
-        let events = match equipment.purpose {
-            Purpose::Surveying { .. } => {
-                let activity = Activity::Surveying {
-                    equipment,
-                    selection: 0,
-                };
-                self.universe.change_activity(farmer, activity)
-            }
-            Purpose::Moisture { .. } => {
-                vec![]
-            }
-        };
-        Ok(occur![events,])
     }
 
     fn cancel_activity(&mut self, farmer: Farmer) -> Result<Vec<Event>, ActionError> {
@@ -420,42 +332,7 @@ impl Game {
         }
     }
 
-    fn install_equipment(
-        &mut self,
-        farmer: Farmer,
-        farmland: Farmland,
-        tile: [usize; 2],
-    ) -> Result<Vec<Event>, ActionError> {
-        self.universe.ensure_activity(farmer, Activity::Usage)?;
-        let item = self.inventory.get_container_item(farmer.hands)?;
-        let key = item.kind.functions.as_installation()?;
-        let key = EquipmentKey(key);
-        let equipment_kind = self.known.equipments.get(key)?;
-        match equipment_kind.purpose {
-            PurposeDescription::Surveying { surveyor } => {
-                let position = position_of(tile);
-                let use_item = self.inventory.use_items_from(farmer.hands)?;
-                let kind = self.known.surveyors.get(surveyor).unwrap();
-                let (surveyor, create_surveyor) =
-                    self.building.create_surveyor(farmland.grid, kind)?;
-                let kind = self.known.barriers.find("<equipment>").unwrap();
-                let (barrier, create_barrier) =
-                    self.physics
-                        .create_barrier(farmland.space, kind, position, true, false)?;
-                let purpose = Purpose::Surveying { surveyor };
-                let change_activity = self.universe.change_activity(farmer, Activity::Idle);
-                let events = occur![
-                    use_item(),
-                    create_surveyor(),
-                    create_barrier(),
-                    self.appear_equipment(equipment_kind.id, purpose, barrier),
-                    change_activity,
-                ];
-                Ok(events)
-            }
-            PurposeDescription::Moisture { .. } => Ok(vec![]),
-        }
-    }
+    
 
     fn start_assembly(
         &mut self,
