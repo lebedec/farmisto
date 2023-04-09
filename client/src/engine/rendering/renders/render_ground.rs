@@ -14,7 +14,7 @@ impl Scene {
         &mut self,
         texture: TextureAsset,
         sampler: SamplerAsset,
-        input: &Vec<Vec<[f32; 2]>>,
+        input: &Vec<Vec<(u8, u8)>>,
         shapes: &Vec<Room>,
     ) {
         let mut global_interior_map = [0u128; Grid::ROWS];
@@ -46,7 +46,9 @@ impl Scene {
                 let [step_x, step_y] = offset_step;
                 let iy = y + step_y as usize;
                 let ix = x + step_x as usize;
-                let [capacity, moisture] = input[iy][ix];
+                let (capacity, moisture) = input[iy][ix];
+                let capacity = capacity as f32 / 255.0;
+                let moisture = moisture as f32 / 255.0;
                 map[y][x] = [capacity, moisture, 1.0, 0.0];
             }
         }

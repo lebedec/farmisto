@@ -19,7 +19,7 @@ use sdl2::video::FullscreenType;
 
 lazy_static! {
     static ref METRIC_FRAME: prometheus::IntCounter =
-        prometheus::register_int_counter!("app_frame", "frame").unwrap();
+        prometheus::register_int_counter!("app_frame", "app_frame").unwrap();
 }
 
 pub struct Frame<'c> {

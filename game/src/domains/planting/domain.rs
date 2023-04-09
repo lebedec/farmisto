@@ -3,6 +3,8 @@ use crate::collections::Shared;
 pub const MAX_SOILS: usize = 128;
 
 pub struct PlantingDomain {
+    pub soils_update_interval: f32,
+    pub soils_update: f32,
     pub soils: Vec<Soil>,
     pub soils_sequence: usize,
     pub plants: Vec<Vec<Plant>>,
@@ -12,6 +14,8 @@ pub struct PlantingDomain {
 impl Default for PlantingDomain {
     fn default() -> Self {
         Self {
+            soils_update_interval: 0.5,
+            soils_update: 0.0,
             soils: vec![],
             soils_sequence: 0,
             plants: vec![vec![]; MAX_SOILS],
@@ -34,7 +38,7 @@ pub struct SoilId(pub usize);
 pub struct Soil {
     pub id: SoilId,
     pub kind: Shared<SoilKind>,
-    pub map: Vec<Vec<[f32; 2]>>,
+    pub map: Vec<Vec<(u8, u8)>>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -68,7 +72,7 @@ pub struct Plant {
 pub enum Planting {
     SoilChanged {
         soil: SoilId,
-        map: Vec<Vec<[f32; 2]>>,
+        map: Vec<Vec<(u8, u8)>>,
     },
     PlantUpdated {
         id: PlantId,

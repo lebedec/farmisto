@@ -129,7 +129,8 @@ def generate_soil(user_define: List[str]) -> bytes:
                 code = user_define[y][x]
                 capacity = float(code) / 10.0
                 moisture = float(code) / 10.0
-            data.write(struct.pack('=Bff', *[2, capacity, moisture]))
+            # data.write(struct.pack('=Bff', *[2, capacity, moisture]))
+            data.write(struct.pack('=BB', *[int(capacity * 255), int(moisture * 255)]))
     return data.getvalue()
 
 def generate_soil_from_image(path: str) -> bytes:
@@ -143,7 +144,8 @@ def generate_soil_from_image(path: str) -> bytes:
         for x in range(size_x):
             capacity = 0.7 - (image.getpixel((x, y)) / 255) * 0.7
             moisture = 0.0
-            data.write(struct.pack('=Bff', *[2, capacity, moisture]))
+            # data.write(struct.pack('=Bff', *[2, capacity, moisture]))
+            data.write(struct.pack('=BB', *[int(capacity * 255), int(moisture * 255)]))
     return data.getvalue()
 
 def execute_script(connection: Connection, script_path: str, **params):
@@ -178,26 +180,25 @@ def create_new_database(dst_path: str, tmp_path: str):
 
     rows = src.execute("select tbl_name from main.sqlite_master where type = 'table'")
     tables = [name for columns in rows for name in columns if name.endswith('Kind')]
-    root_tables = []
-    for table in tables:
-        try:
-            move_table(table)
-        except sqlite3.IntegrityError:
-            # HACK: move aggregates after domain kinds
-            # TODO: determine aggregates and handle properly
-            print('FAILED try again later')
-            root_tables.append(table)
-
-    for table in root_tables:
-        move_table(table)
-
+    tables_level = 0
+    while tables:
+        print('Begin tables', tables_level)
+        root_tables = []
+        for table in tables:
+            try:
+                move_table(table)
+            except sqlite3.IntegrityError:
+                # HACK: move aggregates after domain kinds
+                # TODO: determine aggregates and handle properly
+                print('FAILED try again later')
+                root_tables.append(table)
+        tables = root_tables
+        tables_level += 1
 
 
 def as_sql_position(tile: Tuple[int, int]) -> str:
     x, y = tile
     return f"'[{x}.5, {y}.5]'"
-
-
 
 
 if __name__ == '__main__':
@@ -244,14 +245,14 @@ if __name__ == '__main__':
         . . . . . . . . . . . . . . c c . . . . . c c . . . . . . c . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
         . . B C D . . . . . . . . . c c . . . . c c c . . . . c c c . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
         . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-        . . . A . d k . . . . . . . n h . . . . . n h . . . . . n h . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+        . . . A . . . . . . . . . . n h . . . . . n h . . . . . n h . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
         . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
         . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-        . . # # | # | | | # . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-        . . | . . . . . . # . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-        . . | . . . . . . | . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-        . . | . . . . . . | . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-        . . # | | # # # # # . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+        . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+        . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+        . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+        . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+        . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
         . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
         . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
         . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .

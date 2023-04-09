@@ -87,7 +87,7 @@ pub enum Universe {
     TreeVanished(Tree),
     FarmlandAppeared {
         farmland: Farmland,
-        map: Vec<Vec<[f32; 2]>>,
+        map: Vec<Vec<(u8, u8)>>,
         cells: Vec<Vec<Cell>>,
         rooms: Vec<Room>,
         holes: Vec<Vec<u8>>,

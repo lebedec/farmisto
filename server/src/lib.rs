@@ -10,7 +10,13 @@ use datamap::Storage;
 use game::api::{GameResponse, PlayerRequest};
 use game::model::UniverseSnapshot;
 use game::Game;
+use lazy_static::lazy_static;
 use network::{Configuration, TcpServer};
+
+lazy_static! {
+    static ref HOST_FRAMES_TOTAL: prometheus::IntCounter =
+        prometheus::register_int_counter!("host_frames_total", "host_frames_total").unwrap();
+}
 
 pub struct LocalServerThread {
     pub running: Arc<AtomicBool>,
@@ -35,7 +41,13 @@ impl LocalServerThread {
                 game.load_game_full();
                 let mut tick = Instant::now();
                 notify_started.send(true).unwrap();
+
+                let m_fps_time = 0.0;
+                let m_fps = 0;
+
                 while running_thread.load(Ordering::Relaxed) {
+                    HOST_FRAMES_TOTAL.inc();
+
                     // game.hot_reload();
                     for player in server.accept_players() {
                         info!("Add player '{}' to game", player);

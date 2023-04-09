@@ -1,5 +1,5 @@
 use crate::transfer::{encode, SyncReceiver, SyncSender};
-use game::api::{GameResponse, LoginResult, PlayerRequest, API_VERSION};
+use game::api::{Event, GameResponse, LoginResult, PlayerRequest, API_VERSION};
 use lazy_static::lazy_static;
 use log::{error, info, warn};
 use std::collections::HashMap;
@@ -12,11 +12,43 @@ use std::thread;
 use std::time::Duration;
 
 lazy_static! {
-    static ref METRIC_SERVER_SENT_BYTES: prometheus::IntCounter =
-        prometheus::register_int_counter!("server_sent_bytes", "server_sent_bytes").unwrap();
-    static ref METRIC_SERVER_RECEIVED_BYTES: prometheus::IntCounter =
+    static ref SERVER_SENT_BYTES: prometheus::IntCounterVec =
+        prometheus::register_int_counter_vec!(
+            "server_sent_bytes",
+            "server_sent_bytes",
+            &["player"]
+        )
+        .unwrap();
+    static ref SERVER_SENT_RESPONSES_TOTAL: prometheus::IntCounterVec =
+        prometheus::register_int_counter_vec!(
+            "server_sent_responses_total",
+            "server_sent_responses_total",
+            &["player"]
+        )
+        .unwrap();
+    static ref SERVER_SENT_EVENTS_TOTAL: prometheus::IntCounterVec =
+        prometheus::register_int_counter_vec!(
+            "server_sent_events_total",
+            "server_sent_events_total",
+            &["domain"]
+        )
+        .unwrap();
+    static ref SERVER_SENT_EVENT_STREAMS_TOTAL: prometheus::IntCounterVec =
+        prometheus::register_int_counter_vec!(
+            "server_sent_event_streams_total",
+            "server_sent_event_streams_total",
+            &["domain"]
+        )
+        .unwrap();
+    static ref SERVER_RECEIVED_BYTES: prometheus::IntCounter =
         prometheus::register_int_counter!("server_received_bytes", "server_received_bytes")
             .unwrap();
+    static ref SERVER_RECEIVED_REQUESTS_TOTAL: prometheus::IntCounter =
+        prometheus::register_int_counter!(
+            "server_received_requests_total",
+            "server_received_requests_total"
+        )
+        .unwrap();
 }
 
 pub struct Player {
@@ -114,9 +146,10 @@ impl TcpServer {
         // first of all encode response only once
         // todo: move encoding to separated thread
         // todo: zero copy senders
-        let response = encode(&response).unwrap();
+        let response_data = encode(&response).unwrap();
         for player in self.players.values() {
-            if player.responses.send(response.clone()).is_err() {
+            self.measure_response(&response);
+            if player.responses.send(response_data.clone()).is_err() {
                 error!(
                     "Unable to send response, player '{}' connection lost",
                     player.name
@@ -127,6 +160,7 @@ impl TcpServer {
     }
 
     pub fn send(&mut self, player: String, response: GameResponse) {
+        self.measure_response(&response);
         let response = encode(&response).unwrap();
         match self.players.get_mut(&player) {
             Some(player) => {
@@ -140,6 +174,84 @@ impl TcpServer {
             None => {
                 error!("Unable to send response, player '{}' not found", player);
             }
+        }
+    }
+
+    fn measure_response(&self, response: &GameResponse) {
+        match response {
+            GameResponse::Heartbeat => {}
+            GameResponse::Events { events } => {
+                for event in events {
+                    match event {
+                        Event::UniverseStream(events) => {
+                            SERVER_SENT_EVENTS_TOTAL
+                                .with_label_values(&["universe"])
+                                .inc_by(events.len() as u64);
+                            SERVER_SENT_EVENT_STREAMS_TOTAL
+                                .with_label_values(&["universe"])
+                                .inc();
+                        }
+                        Event::PhysicsStream(events) => {
+                            SERVER_SENT_EVENTS_TOTAL
+                                .with_label_values(&["physics"])
+                                .inc_by(events.len() as u64);
+                            SERVER_SENT_EVENT_STREAMS_TOTAL
+                                .with_label_values(&["physics"])
+                                .inc();
+                        }
+                        Event::BuildingStream(events) => {
+                            SERVER_SENT_EVENTS_TOTAL
+                                .with_label_values(&["building"])
+                                .inc_by(events.len() as u64);
+                            SERVER_SENT_EVENT_STREAMS_TOTAL
+                                .with_label_values(&["building"])
+                                .inc();
+                        }
+                        Event::InventoryStream(events) => {
+                            SERVER_SENT_EVENTS_TOTAL
+                                .with_label_values(&["inventory"])
+                                .inc_by(events.len() as u64);
+                            SERVER_SENT_EVENT_STREAMS_TOTAL
+                                .with_label_values(&["inventory"])
+                                .inc();
+                        }
+                        Event::PlantingStream(events) => {
+                            SERVER_SENT_EVENTS_TOTAL
+                                .with_label_values(&["planting"])
+                                .inc_by(events.len() as u64);
+                            SERVER_SENT_EVENT_STREAMS_TOTAL
+                                .with_label_values(&["planting"])
+                                .inc();
+                        }
+                        Event::RaisingStream(events) => {
+                            SERVER_SENT_EVENTS_TOTAL
+                                .with_label_values(&["raising"])
+                                .inc_by(events.len() as u64);
+                            SERVER_SENT_EVENT_STREAMS_TOTAL
+                                .with_label_values(&["raising"])
+                                .inc();
+                        }
+                        Event::AssemblingStream(events) => {
+                            SERVER_SENT_EVENTS_TOTAL
+                                .with_label_values(&["assembling"])
+                                .inc_by(events.len() as u64);
+                            SERVER_SENT_EVENT_STREAMS_TOTAL
+                                .with_label_values(&["assembling"])
+                                .inc();
+                        }
+                        Event::WorkingStream(events) => {
+                            SERVER_SENT_EVENTS_TOTAL
+                                .with_label_values(&["working"])
+                                .inc_by(events.len() as u64);
+                            SERVER_SENT_EVENT_STREAMS_TOTAL
+                                .with_label_values(&["working"])
+                                .inc();
+                        }
+                    }
+                }
+            }
+            GameResponse::ActionError { .. } => {}
+            GameResponse::Login { .. } => {}
         }
     }
 
@@ -187,25 +299,27 @@ fn spawn_listener(
                 stream.set_read_timeout(Some(default_timeout)).unwrap();
                 stream.set_write_timeout(Some(default_timeout)).unwrap();
 
-                let mut receiver = SyncReceiver {
+                let mut player_requests = SyncReceiver {
                     reader: stream.try_clone().unwrap(),
                 };
-                let mut sender = SyncSender {
+                let mut player_responses = SyncSender {
                     writer: stream.try_clone().unwrap(),
                 };
 
                 // authorization blocks new player connections,
                 // (should be super fast)
-                let request: Option<(_, PlayerRequest)> = receiver.receive();
+                let request: Option<(usize, PlayerRequest)> = player_requests.receive();
                 let player = match request {
                     Some((
-                        _,
+                        bytes,
                         PlayerRequest::Login {
                             version,
                             player,
                             password,
                         },
                     )) => {
+                        SERVER_RECEIVED_BYTES.inc_by(bytes as u64);
+
                         if version != API_VERSION {
                             warn!(
                                 "Unable to authorize '{}' {}, version mismatch {} != {}",
@@ -213,7 +327,7 @@ fn spawn_listener(
                             );
                             let result = LoginResult::VersionMismatch;
                             let response = GameResponse::Login { result };
-                            sender.send(&response).unwrap();
+                            player_responses.send(&response).unwrap();
                             continue;
                         }
 
@@ -224,7 +338,7 @@ fn spawn_listener(
                             );
                             let result = LoginResult::InvalidPassword;
                             let response = GameResponse::Login { result };
-                            sender.send(&response).unwrap();
+                            player_responses.send(&response).unwrap();
                             continue;
                         }
 
@@ -251,8 +365,9 @@ fn spawn_listener(
                 let player_disconnection = disconnection.clone();
                 let player_requests = move || {
                     info!("Start player '{}' requests thread", player_id);
-                    while let Some((bytes, request)) = receiver.receive() {
-                        METRIC_SERVER_RECEIVED_BYTES.inc_by(bytes as u64);
+                    while let Some((bytes, request)) = player_requests.receive() {
+                        SERVER_RECEIVED_BYTES.inc_by(bytes as u64);
+                        SERVER_RECEIVED_REQUESTS_TOTAL.inc();
                         if requests_sender.send(request).is_err() {
                             error!("Unable to receive request, server not working");
                             break;
@@ -273,9 +388,10 @@ fn spawn_listener(
                 let player_responses = move || {
                     info!("Start player '{}' responses thread", player_id);
 
-                    let result = LoginResult::Success;
-                    let response = GameResponse::Login { result };
-                    sender.send(&response).unwrap();
+                    let response = GameResponse::Login {
+                        result: LoginResult::Success,
+                    };
+                    player_responses.send(&response).unwrap();
 
                     loop {
                         let response = match responses_receiver.recv_timeout(heartbeat) {
@@ -288,9 +404,14 @@ fn spawn_listener(
                                 break;
                             }
                         };
-                        match sender.send_body(response) {
+                        match player_responses.send_body(response) {
                             Some(bytes) => {
-                                METRIC_SERVER_SENT_BYTES.inc_by(bytes as u64);
+                                SERVER_SENT_BYTES
+                                    .with_label_values(&[&player_id])
+                                    .inc_by(bytes as u64);
+                                SERVER_SENT_RESPONSES_TOTAL
+                                    .with_label_values(&[&player_id])
+                                    .inc();
                             }
                             None => {
                                 error!("Unable to send response, network error");

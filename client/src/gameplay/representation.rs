@@ -81,7 +81,7 @@ pub struct FarmlandRep {
     pub entity: Farmland,
     pub kind: Shared<FarmlandKind>,
     pub asset: FarmlandAsset,
-    pub soil_map: Vec<Vec<[f32; 2]>>,
+    pub soil_map: Vec<Vec<(u8, u8)>>,
     pub cells: Vec<Vec<Cell>>,
     pub rooms: Vec<Room>,
     pub holes: Vec<Vec<u8>>,

@@ -8,3 +8,5 @@ game = { path = "../game" }
 network = { path = "../network" }
 datamap = { path = "../datamap" }
 log = "0.4"
+prometheus = { version = "0.13.3" }
+lazy_static = "1.4.0"

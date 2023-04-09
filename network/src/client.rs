@@ -1,18 +1,30 @@
-use crate::transfer::{SyncReceiver, SyncSender};
-use game::api::{GameResponse, LoginResult, PlayerRequest, API_VERSION};
-use lazy_static::lazy_static;
-use log::{error, info};
 use std::net::{SocketAddr, TcpStream};
 use std::sync::mpsc::{channel, Receiver, RecvTimeoutError, Sender, TryIter};
 use std::thread;
 use std::time::{Duration, Instant};
 
+use lazy_static::lazy_static;
+use log::{error, info};
+
+use game::api::{GameResponse, LoginResult, PlayerRequest, API_VERSION};
+
+use crate::transfer::{SyncReceiver, SyncSender};
+
 lazy_static! {
-    static ref METRIC_SENT_BYTES: prometheus::IntCounter =
-        prometheus::register_int_counter!("client_sent_bytes", "client_sent_bytes").unwrap();
-    static ref METRIC_RECEIVED_BYTES: prometheus::IntCounter =
-        prometheus::register_int_counter!("client_received_bytes", "client_received_bytes")
-            .unwrap();
+    static ref METRIC_SENT_BYTES: prometheus::IntCounterVec =
+        prometheus::register_int_counter_vec!(
+            "client_sent_bytes",
+            "client_sent_bytes",
+            &["player"]
+        )
+        .unwrap();
+    static ref METRIC_RECEIVED_BYTES: prometheus::IntCounterVec =
+        prometheus::register_int_counter_vec!(
+            "client_received_bytes",
+            "client_received_bytes",
+            &["player"]
+        )
+        .unwrap();
 }
 
 pub struct TcpClient {
@@ -45,7 +57,7 @@ impl TcpClient {
             };
             let authorization = PlayerRequest::Login {
                 version: API_VERSION.to_string(),
-                player: thread_player,
+                player: thread_player.clone(),
                 password,
             };
             sender.send(&authorization).unwrap();
@@ -59,15 +71,18 @@ impl TcpClient {
                     return;
                 }
             }
+            let player_id = thread_player.clone();
             let client_responses = move || {
-                info!("Start client responses thread");
+                info!("Start client {player_id} responses thread");
                 'running: loop {
                     let mut responses = vec![];
                     let time = Instant::now();
                     loop {
                         match receiver.receive() {
                             Some((bytes, response)) => {
-                                METRIC_RECEIVED_BYTES.inc_by(bytes as u64);
+                                METRIC_RECEIVED_BYTES
+                                    .with_label_values(&[&player_id])
+                                    .inc_by(bytes as u64);
                                 responses.push(response);
                             }
                             None => {
@@ -95,8 +110,9 @@ impl TcpClient {
                 .spawn(client_responses)
                 .unwrap();
 
+            let player_id = thread_player.clone();
             let client_requests = move || {
-                info!("Start client requests thread");
+                info!("Start client {player_id} requests thread");
                 'thread: loop {
                     let mut requests = vec![];
                     let time = Instant::now();
@@ -120,7 +136,9 @@ impl TcpClient {
                     for request in requests {
                         match sender.send(&request) {
                             Some(bytes) => {
-                                METRIC_SENT_BYTES.inc_by(bytes as u64);
+                                METRIC_SENT_BYTES
+                                    .with_label_values(&[&player_id])
+                                    .inc_by(bytes as u64);
                             }
                             None => {
                                 error!("Unable to send request, network error");
