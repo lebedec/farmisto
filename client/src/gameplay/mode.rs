@@ -91,7 +91,7 @@ impl Gameplay {
         let mut camera = Camera::new();
         camera.eye = vec3(0.0, 0.0, -1.0);
 
-        let mut knowledge = Game::new(Storage::open("./assets/database.sqlite").unwrap());
+        let mut knowledge = Game::new(Storage::open(&frame.config.save_file).unwrap());
         knowledge.load_game_knowledge().unwrap();
         let knowledge = knowledge.known;
 

@@ -74,6 +74,7 @@ pub struct Configuration {
     pub host: String,
     pub port: u32,
     pub password: Option<String>,
+    pub save_file: String,
 }
 
 impl TcpServer {

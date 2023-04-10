@@ -9,6 +9,7 @@ use std::path::Path;
 use std::rc::Rc;
 
 pub struct Storage {
+    pub path: String,
     connection: Connection,
     last_change_timestamp: usize,
 }
@@ -35,8 +36,9 @@ impl Entry {
 }
 
 impl Storage {
-    pub fn open<P: AsRef<Path>>(path: P) -> rusqlite::Result<Self> {
-        Connection::open(path.as_ref()).map(|connection| Storage {
+    pub fn open(path: &str) -> rusqlite::Result<Self> {
+        Connection::open(path).map(|connection| Storage {
+            path: path.to_string(),
             connection,
             last_change_timestamp: 0,
         })
@@ -45,6 +47,7 @@ impl Storage {
     pub fn open_into(&self) -> Self {
         Connection::open(self.connection.path().unwrap())
             .map(|connection| Storage {
+                path: self.path.clone(),
                 connection,
                 last_change_timestamp: 0,
             })

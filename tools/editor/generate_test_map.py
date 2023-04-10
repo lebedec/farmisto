@@ -5,6 +5,7 @@ import struct
 from io import BytesIO
 from sqlite3 import Connection
 from typing import List, Dict, Tuple, Callable
+
 from PIL import Image
 
 
@@ -56,7 +57,8 @@ class Editor:
         grid_id = '(select max(id) from Grid)'
         connection.execute(f'insert into Farmland values (null, ?, {space_id}, {soil_id}, {grid_id})', [kind])
         connection.commit()
-        return '1' # TODO: select real id
+        return '1'  # TODO: select real id
+
 
 class Material:
     UNKNOWN = 0
@@ -67,6 +69,7 @@ class Material:
     PLANKS = 35
     GLASS = 40
     TARPAULIN = 50
+
 
 def generate_farmland(
         editor: Editor,
@@ -133,6 +136,7 @@ def generate_soil(user_define: List[str]) -> bytes:
             data.write(struct.pack('=BB', *[int(capacity * 255), int(moisture * 255)]))
     return data.getvalue()
 
+
 def generate_soil_from_image(path: str) -> bytes:
     image = Image.open(path).convert('L')
     data = BytesIO()
@@ -147,6 +151,7 @@ def generate_soil_from_image(path: str) -> bytes:
             # data.write(struct.pack('=Bff', *[2, capacity, moisture]))
             data.write(struct.pack('=BB', *[int(capacity * 255), int(moisture * 255)]))
     return data.getvalue()
+
 
 def execute_script(connection: Connection, script_path: str, **params):
     script = open(script_path, 'r').read()
@@ -180,20 +185,13 @@ def create_new_database(dst_path: str, tmp_path: str):
 
     rows = src.execute("select tbl_name from main.sqlite_master where type = 'table'")
     tables = [name for columns in rows for name in columns if name.endswith('Kind')]
-    tables_level = 0
-    while tables:
-        print('Begin tables', tables_level)
-        root_tables = []
-        for table in tables:
-            try:
-                move_table(table)
-            except sqlite3.IntegrityError:
-                # HACK: move aggregates after domain kinds
-                # TODO: determine aggregates and handle properly
-                print('FAILED try again later')
-                root_tables.append(table)
-        tables = root_tables
-        tables_level += 1
+    order = {
+        'AssemblyKind': 1
+    }
+    tables = sorted(tables, key=lambda name: order.get(name, 0))
+
+    for table in tables:
+        move_table(table)
 
 
 def as_sql_position(tile: Tuple[int, int]) -> str:
@@ -244,7 +242,7 @@ if __name__ == '__main__':
         . . . . . . . . . . . . . . c . . . . . . . . . . . . . c . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
         . . . . . . . . . . . . . . c c . . . . . c c . . . . . . c . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
         . . B C D . . . . . . . . . c c . . . . c c c . . . . c c c . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-        . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+        . . . . . . k . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
         . . . A . . . . . . . . . . n h . . . . . n h . . . . . n h . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
         . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
         . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .

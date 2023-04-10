@@ -29,13 +29,14 @@ impl LocalServerThread {
         let (notify_started, started) = channel();
         let running_thread = running.clone();
         let port = config.port;
+        let save_file = config.save_file.clone();
         let mut server = TcpServer::startup(config);
         let address = format!("{}:{}", server.address(), port);
         thread::Builder::new()
             .name("game".into())
             .spawn(move || {
                 info!("Start game server thread");
-                let storage = Storage::open("./assets/database.sqlite").unwrap();
+                let storage = Storage::open(&save_file).unwrap();
                 storage.setup_tracking().unwrap();
                 let mut game = Game::new(storage);
                 game.load_game_full();

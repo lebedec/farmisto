@@ -29,7 +29,7 @@ use crate::Game;
 
 impl Game {
     pub fn load_game_knowledge(&mut self) -> Result<(), DataError> {
-        info!("Begin game knowledge loading from ...");
+        info!("Starts game knowledge loading from {}", self.storage.path);
         let storage = self.storage.open_into();
         // physics
         for kind in storage.find_all(|row| self.load_space_kind(row))? {
@@ -116,13 +116,13 @@ impl Game {
                 .assembly
                 .insert(kind.key, kind.name.clone(), kind);
         }
-        info!("End game knowledge loading");
+        info!("Ends game knowledge loading");
 
         Ok(())
     }
 
     pub fn load_game_state(&mut self) -> Result<(), DataError> {
-        info!("Begin game state loading from ...");
+        info!("Starts game state loading from {}", self.storage.path);
         let storage = self.storage.open_into();
         self.players = storage.find_all(|row| self.load_player(row))?;
 
@@ -187,7 +187,7 @@ impl Game {
         let (assembly, id) = storage.get_sequence(|row| self.load_assembly(row))?;
         self.universe.load_assembly(assembly, id);
 
-        info!("End game state loading");
+        info!("Ends game state loading");
 
         Ok(())
     }

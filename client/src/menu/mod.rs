@@ -56,6 +56,7 @@ impl Mode for Menu {
                 host: player.clone(),
                 port: frame.config.port,
                 password: None,
+                save_file: frame.config.save_file.clone(),
             };
             let server = LocalServerThread::spawn(config);
             let client = TcpClient::connect(&server.address, player.clone(), None).unwrap();
