@@ -15,7 +15,6 @@ use game::model::Crop;
 use game::model::Equipment;
 use game::model::Farmer;
 use game::model::Farmland;
-use game::model::ItemRep;
 use game::model::Knowledge;
 use game::model::Stack;
 use game::model::Tree;
@@ -31,7 +30,7 @@ use crate::engine::Input;
 use crate::gameplay::camera::Camera;
 use crate::gameplay::representation::{
     AssemblyRep, CementerRep, ConstructionRep, CreatureRep, CropRep, DoorRep, EquipmentRep,
-    FarmerRep, FarmlandRep, StackRep, TreeRep,
+    FarmerRep, FarmlandRep, ItemRep, StackRep, TreeRep,
 };
 use crate::gameplay::{InputMethod, Target};
 use crate::{Frame, Mode};
@@ -254,10 +253,7 @@ impl Gameplay {
                     .and_then(|hands| hands.values().nth(0));
                 let functions = match item {
                     None => vec![],
-                    Some(item) => {
-                        let kind = self.known.items.get(item.kind).unwrap();
-                        kind.functions.clone()
-                    }
+                    Some(item) => item.kind.functions.clone(),
                 };
                 self.interact_with(farmer, functions, target, intention);
             }

@@ -5,6 +5,7 @@ use std::collections::HashMap;
 
 use game::building::{Cell, Room};
 use game::collections::Shared;
+use game::inventory::{ContainerId, ItemId, ItemKind};
 use game::math::{Collider, VectorMath};
 use game::model::{
     Activity, Assembly, Cementer, CementerKind, Construction, Creature, CreatureKind, Crop, Door,
@@ -12,11 +13,11 @@ use game::model::{
 };
 use game::physics::{BarrierId, BodyKind};
 
-use crate::assets::FarmlandAsset;
 use crate::assets::TreeAsset;
 use crate::assets::{BuildingMaterialAsset, CreatureAsset};
 use crate::assets::{CementerAsset, FarmerAsset};
 use crate::assets::{CropAsset, DoorAsset};
+use crate::assets::{FarmlandAsset, ItemAsset};
 use crate::engine::rendering::{SpineRenderController, TilemapController};
 
 pub struct FarmerRep {
@@ -146,6 +147,14 @@ pub struct CementerRep {
     pub asset: CementerAsset,
     pub rotation: Rotation,
     pub position: [f32; 2],
+}
+
+pub struct ItemRep {
+    pub id: ItemId,
+    pub kind: Shared<ItemKind>,
+    pub asset: ItemAsset,
+    pub container: ContainerId,
+    pub quantity: u8,
 }
 
 pub struct CropRep {

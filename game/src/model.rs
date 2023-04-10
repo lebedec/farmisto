@@ -139,7 +139,7 @@ pub enum Universe {
     },
     EquipmentVanished(Equipment),
     ItemsAppeared {
-        items: Vec<ItemRep>,
+        items: Vec<ItemData>,
     },
     AssemblyAppeared {
         entity: Assembly,
@@ -411,6 +411,14 @@ impl Activity {
     }
 }
 
+#[derive(Debug, bincode::Encode, bincode::Decode)]
+pub struct ItemData {
+    pub id: ItemId,
+    pub kind: ItemKey,
+    pub container: ContainerId,
+    pub quantity: u8,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
 pub struct Farmer {
     pub id: usize,
@@ -511,15 +519,6 @@ pub struct Stack {
     pub id: usize,
     pub container: ContainerId,
     pub barrier: BarrierId,
-}
-
-// TODO: move to client (fix item appearance events)
-#[derive(Debug, bincode::Encode, bincode::Decode)]
-pub struct ItemRep {
-    pub id: ItemId,
-    pub kind: ItemKey,
-    pub container: ContainerId,
-    pub quantity: u8,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]

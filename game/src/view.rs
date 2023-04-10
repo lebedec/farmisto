@@ -1,6 +1,7 @@
 use crate::api::Event;
 use crate::model::{
-    Assembly, Cementer, Creature, Crop, Door, Equipment, ItemRep, Stack, Universe, UniverseSnapshot,
+    Assembly, Cementer, Creature, Crop, Door, Equipment, ItemData, Stack, Universe,
+    UniverseSnapshot,
 };
 use crate::physics::Physics;
 use crate::Game;
@@ -147,7 +148,7 @@ impl Game {
         let mut items_appearance = vec![];
         for container in self.inventory.containers.values() {
             for item in &container.items {
-                items_appearance.push(ItemRep {
+                items_appearance.push(ItemData {
                     id: item.id,
                     kind: item.kind.id,
                     container: item.container,

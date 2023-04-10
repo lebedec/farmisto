@@ -1,14 +1,14 @@
 use crate::engine::Frame;
 use crate::gameplay::representation::{
     AssemblyRep, AssemblyTargetAsset, BuildingRep, CementerRep, ConstructionRep, CreatureRep,
-    CropRep, DoorRep, EquipmentRep, FarmerRep, FarmlandRep, StackRep, TreeRep,
+    CropRep, DoorRep, EquipmentRep, FarmerRep, FarmlandRep, ItemRep, StackRep, TreeRep,
 };
 use crate::gameplay::Gameplay;
 use game::api::Event;
 use game::assembling::Assembling;
 use game::building::{Building, Material};
 use game::inventory::Inventory;
-use game::model::{Activity, AssemblyTarget, ItemRep, Universe};
+use game::model::{Activity, AssemblyTarget, Universe};
 use game::physics::{Barrier, Physics};
 use game::planting::Planting;
 use game::raising::Raising;
@@ -74,7 +74,7 @@ impl Gameplay {
         }
     }
 
-    pub fn handle_inventory_event(&mut self, _frame: &mut Frame, event: Inventory) {
+    pub fn handle_inventory_event(&mut self, frame: &mut Frame, event: Inventory) {
         match event {
             Inventory::ContainerCreated { .. } => {}
             Inventory::ContainerDestroyed { id } => {
@@ -88,11 +88,14 @@ impl Gameplay {
             } => {
                 info!("item added {:?} to {:?}", id, container);
                 let items = self.items.entry(container).or_insert(HashMap::new());
+                let kind = self.known.items.get(kind).unwrap();
+                let asset = frame.assets.item(&kind.name);
                 items.insert(
                     id,
                     ItemRep {
                         id,
                         kind,
+                        asset,
                         container,
                         quantity,
                     },
@@ -428,7 +431,18 @@ impl Gameplay {
             Universe::ItemsAppeared { items } => {
                 for item in items {
                     let container = self.items.entry(item.container).or_insert(HashMap::new());
-                    container.insert(item.id, item);
+                    let kind = self.known.items.get(item.kind).unwrap();
+                    let asset = frame.assets.item(&kind.name);
+                    container.insert(
+                        item.id,
+                        ItemRep {
+                            id: item.id,
+                            kind,
+                            asset,
+                            container: item.container,
+                            quantity: item.quantity,
+                        },
+                    );
                 }
             }
             Universe::EquipmentAppeared { entity, position } => {

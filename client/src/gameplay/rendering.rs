@@ -323,14 +323,12 @@ impl Gameplay {
                             .values()
                             .enumerate()
                         {
-                            let kind = self.known.items.get(item.kind).unwrap();
-                            let asset = assets.item(&kind.name);
                             let offset = [
                                 0.0,
                                 -24.0 + (48.0 * (i % 2) as f32) - (48.0 * (i / 2) as f32),
                             ];
                             scene.render_sprite(
-                                &asset.sprite,
+                                &item.asset.sprite,
                                 position.add(offset),
                                 (position[1] / TILE_SIZE) as usize + 1,
                                 1.0,
@@ -413,11 +411,9 @@ impl Gameplay {
                 .values()
                 .enumerate()
             {
-                let kind = self.known.items.get(item.kind).unwrap();
-                let asset = assets.item(&kind.name);
                 let offset = [-TILE_SIZE, -(32.0 * i as f32)];
                 scene.render_sprite(
-                    &asset.sprite,
+                    &item.asset.sprite,
                     rendering_position.add(offset),
                     (rendering_position[1] / TILE_SIZE) as usize,
                     1.0,
@@ -431,11 +427,9 @@ impl Gameplay {
                 .values()
                 .enumerate()
             {
-                let kind = self.known.items.get(item.kind).unwrap();
-                let asset = assets.item(&kind.name);
                 let offset = [TILE_SIZE, -(32.0 * i as f32)];
                 scene.render_sprite(
-                    &asset.sprite,
+                    &item.asset.sprite,
                     rendering_position.add(offset),
                     (rendering_position[1] / TILE_SIZE) as usize,
                     1.0,
@@ -454,11 +448,9 @@ impl Gameplay {
                 .values()
                 .enumerate()
             {
-                let kind = self.known.items.get(item.kind).unwrap();
-                let asset = assets.item(&kind.name);
                 let offset = [0.0, -128.0 - (32.0 * i as f32)];
                 scene.render_sprite(
-                    &asset.sprite,
+                    &item.asset.sprite,
                     rendering_position.add(offset),
                     sprite_line,
                     1.0,
@@ -479,11 +471,9 @@ impl Gameplay {
                 .values()
                 .enumerate()
             {
-                let kind = self.known.items.get(item.kind).unwrap();
-                let asset = assets.item(&kind.name);
                 let offset = [0.0, -128.0 - (32.0 * i as f32)];
                 scene.render_sprite(
-                    &asset.sprite,
+                    &item.asset.sprite,
                     rendering_position.add(offset),
                     sprite_line,
                     1.0,
@@ -510,13 +500,11 @@ impl Gameplay {
                 .values()
                 .enumerate()
             {
-                let kind = self.known.items.get(item.kind).unwrap();
-                let asset = assets.item(&kind.name);
                 let offset = [
                     0.0,
                     -24.0 + (48.0 * (i % 2) as f32) - (48.0 * (i / 2) as f32),
                 ];
-                scene.render_sprite(&asset.sprite, position.add(offset), sprite_line, 1.0);
+                scene.render_sprite(&item.asset.sprite, position.add(offset), sprite_line, 1.0);
             }
         }
 

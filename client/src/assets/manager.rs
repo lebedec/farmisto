@@ -30,7 +30,7 @@ use crate::assets::{
 use crate::engine::base::{Base, Queue};
 
 lazy_static! {
-    static ref METRIC_REQUESTS_TOTAL: prometheus::IntCounterVec =
+    static ref ASSET_REQUESTS_TOTAL: prometheus::IntCounterVec =
         prometheus::register_int_counter_vec!(
             "asset_requests_total",
             "asset_requests_total",
@@ -244,7 +244,7 @@ impl Assets {
     }
 
     pub fn behaviours<P: AsRef<Path>>(&mut self, path: P) -> BehavioursAsset {
-        METRIC_REQUESTS_TOTAL
+        ASSET_REQUESTS_TOTAL
             .with_label_values(&["behaviours"])
             .inc();
         let path = fs::canonicalize(path).unwrap();
@@ -260,7 +260,7 @@ impl Assets {
     }
 
     pub fn shader<P: AsRef<Path>>(&mut self, path: P) -> ShaderAsset {
-        METRIC_REQUESTS_TOTAL.with_label_values(&["shader"]).inc();
+        ASSET_REQUESTS_TOTAL.with_label_values(&["shader"]).inc();
         let path = fs::canonicalize(path).unwrap();
         if let Some(shader) = self.shaders.get(&path) {
             return shader.share();
@@ -272,7 +272,7 @@ impl Assets {
     }
 
     pub fn texture<P: AsRef<Path>>(&mut self, path: P) -> TextureAsset {
-        METRIC_REQUESTS_TOTAL.with_label_values(&["texture"]).inc();
+        ASSET_REQUESTS_TOTAL.with_label_values(&["texture"]).inc();
         let path = fs::canonicalize(path).unwrap();
         if let Some(texture) = self.textures.get(&path) {
             return texture.clone();
@@ -288,7 +288,7 @@ impl Assets {
     }
 
     pub fn spine(&mut self, path: &str) -> SpineAsset {
-        METRIC_REQUESTS_TOTAL.with_label_values(&["spine"]).inc();
+        ASSET_REQUESTS_TOTAL.with_label_values(&["spine"]).inc();
         if let Some(asset) = self.spines.get(path) {
             return asset.share();
         }
@@ -324,7 +324,7 @@ impl Assets {
     }
 
     pub fn sprite(&mut self, name: &str) -> SpriteAsset {
-        METRIC_REQUESTS_TOTAL.with_label_values(&["sprite"]).inc();
+        ASSET_REQUESTS_TOTAL.with_label_values(&["sprite"]).inc();
         match self.sprites.get(name) {
             Some(asset) => asset.share(),
             None => {
@@ -335,7 +335,7 @@ impl Assets {
     }
 
     pub fn tileset(&mut self, name: &str) -> TilesetAsset {
-        METRIC_REQUESTS_TOTAL.with_label_values(&["tileset"]).inc();
+        ASSET_REQUESTS_TOTAL.with_label_values(&["tileset"]).inc();
         match self.tilesets.get(name) {
             Some(asset) => asset.share(),
             None => {
@@ -346,7 +346,7 @@ impl Assets {
     }
 
     pub fn sampler(&mut self, name: &str) -> SamplerAsset {
-        METRIC_REQUESTS_TOTAL.with_label_values(&["sampler"]).inc();
+        ASSET_REQUESTS_TOTAL.with_label_values(&["sampler"]).inc();
         match self.samplers.get(name) {
             Some(asset) => asset.share(),
             None => {
@@ -357,7 +357,7 @@ impl Assets {
     }
 
     pub fn pipeline(&mut self, name: &str) -> PipelineAsset {
-        METRIC_REQUESTS_TOTAL.with_label_values(&["pipeline"]).inc();
+        ASSET_REQUESTS_TOTAL.with_label_values(&["pipeline"]).inc();
         match self.pipelines.get(name) {
             Some(asset) => asset.share(),
             None => {
@@ -368,7 +368,7 @@ impl Assets {
     }
 
     pub fn tree(&mut self, name: &str) -> TreeAsset {
-        METRIC_REQUESTS_TOTAL.with_label_values(&["tree"]).inc();
+        ASSET_REQUESTS_TOTAL.with_label_values(&["tree"]).inc();
         match self.trees.get(name) {
             Some(asset) => asset.share(),
             None => {
@@ -379,7 +379,7 @@ impl Assets {
     }
 
     pub fn item(&mut self, name: &str) -> ItemAsset {
-        METRIC_REQUESTS_TOTAL.with_label_values(&["item"]).inc();
+        ASSET_REQUESTS_TOTAL.with_label_values(&["item"]).inc();
         match self.items.get(name) {
             Some(asset) => asset.share(),
             None => {
@@ -390,7 +390,7 @@ impl Assets {
     }
 
     pub fn crop(&mut self, name: &str) -> CropAsset {
-        METRIC_REQUESTS_TOTAL.with_label_values(&["crop"]).inc();
+        ASSET_REQUESTS_TOTAL.with_label_values(&["crop"]).inc();
         match self.crops.get(name) {
             Some(asset) => asset.share(),
             None => {
@@ -401,7 +401,7 @@ impl Assets {
     }
 
     pub fn door(&mut self, name: &str) -> DoorAsset {
-        METRIC_REQUESTS_TOTAL.with_label_values(&["door"]).inc();
+        ASSET_REQUESTS_TOTAL.with_label_values(&["door"]).inc();
         match self.doors.get(name) {
             Some(asset) => asset.share(),
             None => {
@@ -412,7 +412,7 @@ impl Assets {
     }
 
     pub fn cementer(&mut self, name: &str) -> CementerAsset {
-        METRIC_REQUESTS_TOTAL.with_label_values(&["cementer"]).inc();
+        ASSET_REQUESTS_TOTAL.with_label_values(&["cementer"]).inc();
         match self.cementers.get(name) {
             Some(asset) => asset.share(),
             None => {
@@ -423,7 +423,7 @@ impl Assets {
     }
 
     pub fn creature(&mut self, name: &str) -> CreatureAsset {
-        METRIC_REQUESTS_TOTAL.with_label_values(&["creature"]).inc();
+        ASSET_REQUESTS_TOTAL.with_label_values(&["creature"]).inc();
         match self.creatures.get(name) {
             Some(asset) => asset.share(),
             None => {
@@ -434,7 +434,7 @@ impl Assets {
     }
 
     pub fn building(&mut self, name: &str) -> BuildingMaterialAsset {
-        METRIC_REQUESTS_TOTAL.with_label_values(&["building"]).inc();
+        ASSET_REQUESTS_TOTAL.with_label_values(&["building"]).inc();
         match self.buildings.get(name) {
             Some(asset) => asset.share(),
             None => {
@@ -445,7 +445,7 @@ impl Assets {
     }
 
     pub fn farmland(&mut self, name: &str) -> FarmlandAsset {
-        METRIC_REQUESTS_TOTAL.with_label_values(&["farmland"]).inc();
+        ASSET_REQUESTS_TOTAL.with_label_values(&["farmland"]).inc();
         match self.farmlands.get(name) {
             Some(asset) => asset.share(),
             None => {
@@ -456,7 +456,7 @@ impl Assets {
     }
 
     pub fn farmer(&mut self, name: &str) -> FarmerAsset {
-        METRIC_REQUESTS_TOTAL.with_label_values(&["farmer"]).inc();
+        ASSET_REQUESTS_TOTAL.with_label_values(&["farmer"]).inc();
         match self.farmers.get(name) {
             Some(asset) => asset.share(),
             None => {
@@ -467,7 +467,7 @@ impl Assets {
     }
 
     pub fn props(&mut self, name: &str) -> PropsAsset {
-        METRIC_REQUESTS_TOTAL.with_label_values(&["props"]).inc();
+        ASSET_REQUESTS_TOTAL.with_label_values(&["props"]).inc();
         match self.props.get(name) {
             Some(asset) => asset.share(),
             None => {
