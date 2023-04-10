@@ -180,6 +180,15 @@ impl Game {
                     FarmerBound::CancelAssembly => self.cancel_assembly(farmer, farmland)?,
                     FarmerBound::ToggleDoor { door } => self.toggle_door(farmer, door)?,
                     FarmerBound::DisassembleDoor { door } => self.disassemble_door(farmer, door)?,
+                    FarmerBound::DisassembleCementer { cementer } => {
+                        self.disassemble_cementer(farmer, cementer)?
+                    }
+                    FarmerBound::RepairDevice { device } => {
+                        self.repair_generic_device(farmer, device)?
+                    }
+                    FarmerBound::ToggleDevice { device } => {
+                        self.toggle_generic_device(farmer, device)?
+                    }
                 }
             }
         };
@@ -332,8 +341,6 @@ impl Game {
         }
     }
 
-    
-
     fn start_assembly(
         &mut self,
         farmer: Farmer,
@@ -350,31 +357,6 @@ impl Game {
             start_placement(),
             self.appear_assembling_activity(farmer, key, placement),
         ];
-        Ok(events)
-    }
-
-    pub fn disassemble_door(
-        &mut self,
-        farmer: Farmer,
-        door: Door,
-    ) -> Result<Vec<Event>, ActionError> {
-        self.universe.ensure_activity(farmer, Activity::Idle)?;
-        let door_kind = self.known.doors.get(door.key)?;
-        let key = door_kind.kit.functions.as_assembly(AssemblyKey)?;
-        let placement = door.placement;
-
-        let destroy_barrier = self.physics.destroy_barrier(door.barrier)?;
-        let (_item, create_kit) = self
-            .inventory
-            .create_item(&door_kind.kit, farmer.hands, 1)?;
-
-        let events = occur![
-            destroy_barrier(),
-            create_kit(),
-            self.universe.vanish_door(door),
-            self.appear_assembling_activity(farmer, key, placement),
-        ];
-
         Ok(events)
     }
 

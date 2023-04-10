@@ -12,6 +12,7 @@ use game::model::{Activity, AssemblyTarget, Universe};
 use game::physics::{Barrier, Physics};
 use game::planting::Planting;
 use game::raising::Raising;
+use game::working::Working;
 use log::{debug, info};
 use rusty_spine::Skin;
 use std::collections::HashMap;
@@ -54,7 +55,11 @@ impl Gameplay {
                     self.handle_assembling_event(frame, event);
                 }
             }
-            Event::WorkingStream(_) => {}
+            Event::WorkingStream(events) => {
+                for event in events {
+                    self.handle_working_event(frame, event);
+                }
+            }
         }
     }
 
@@ -170,6 +175,28 @@ impl Gameplay {
             Raising::AnimalChanged { .. } => {}
             Raising::LeadershipChanged { .. } => {}
             Raising::HerdsmanChanged { .. } => {}
+        }
+    }
+
+    pub fn handle_working_event(&mut self, _frame: &mut Frame, event: Working) {
+        match event {
+            Working::ProcessCompleted { device, process } => {
+                info!("Process {process:?} completed of {device:?}");
+            }
+            Working::DeviceUpdated {
+                device,
+                progress,
+                mode,
+                ..
+            } => {
+                for cementer in self.cementers.values_mut() {
+                    if cementer.entity.device == device {
+                        cementer.progress = progress;
+                        cementer.mode = mode;
+                        return;
+                    }
+                }
+            }
         }
     }
 
@@ -636,8 +663,11 @@ impl Gameplay {
                         AssemblyTargetAsset::Door { door }
                     }
                     AssemblyTarget::Cementer { cementer } => {
-                        let cementer = assets.cementer(&cementer.name);
-                        AssemblyTargetAsset::Cementer { cementer }
+                        let asset = assets.cementer(&cementer.name);
+                        AssemblyTargetAsset::Cementer {
+                            cementer: asset,
+                            kind: cementer.clone(),
+                        }
                     }
                 };
                 let representation = AssemblyRep {
@@ -681,8 +711,10 @@ impl Gameplay {
                 entity,
                 rotation,
                 position,
+                mode,
+                progress,
             } => {
-                info!("Appear {entity:?}");
+                info!("Appear {entity:?} {mode:?} p{progress}");
                 let kind = self.known.cementers.get(entity.key).unwrap();
                 let asset = assets.cementer(&kind.name);
                 let representation = CementerRep {
@@ -691,6 +723,8 @@ impl Gameplay {
                     asset,
                     rotation,
                     position,
+                    mode,
+                    progress,
                 };
                 self.cementers.insert(entity, representation);
             }

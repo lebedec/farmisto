@@ -57,10 +57,14 @@ impl Game {
     pub fn look_at_cementer(&self, entity: Cementer) -> Universe {
         let barrier = self.physics.get_barrier(entity.barrier).unwrap();
         let placement = self.assembling.get_placement(entity.placement).unwrap();
+        let device = self.working.get_device(entity.device).unwrap();
         Universe::CementerAppeared {
             entity,
             rotation: placement.rotation,
             position: barrier.position,
+            mode: device.mode,
+            progress: device.progress,
+            
         }
     }
 

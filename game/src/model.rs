@@ -12,7 +12,7 @@ use crate::physics::{
 };
 use crate::planting::{PlantId, PlantKey, PlantKind, SoilId, SoilKey, SoilKind};
 use crate::raising::{AnimalId, AnimalKey, AnimalKind};
-use crate::working::{DeviceId, DeviceKey, DeviceKind};
+use crate::working::{DeviceId, DeviceKey, DeviceKind, DeviceMode};
 
 #[derive(Default)]
 pub struct Knowledge {
@@ -167,6 +167,8 @@ pub enum Universe {
         entity: Cementer,
         rotation: Rotation,
         position: [f32; 2],
+        mode: DeviceMode,
+        progress: f32,
     },
     CementerVanished(Cementer),
 }
@@ -299,6 +301,15 @@ impl UniverseDomain {
         if let Some(index) = self.doors.iter().position(|door| door == &id) {
             self.doors.remove(index);
             vec![Universe::DoorVanished(id)]
+        } else {
+            vec![]
+        }
+    }
+
+    pub(crate) fn vanish_cementer(&mut self, id: Cementer) -> Vec<Universe> {
+        if let Some(index) = self.cementers.iter().position(|cementer| cementer == &id) {
+            self.cementers.remove(index);
+            vec![Universe::CementerVanished(id)]
         } else {
             vec![]
         }

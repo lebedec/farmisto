@@ -39,6 +39,7 @@ impl Game {
                 .unwrap();
         }
 
+        let mut cementer_events = vec![];
         for cementer in &self.universe.cementers {
             let input = self.inventory.get_container(cementer.input).unwrap();
             if !input.items.is_empty() {
@@ -47,15 +48,15 @@ impl Game {
                     .update_device_resource(cementer.device, 1)
                     .unwrap();
                 if updated {
-                    // TODO: transactional + events
-                    self.inventory.use_items_from(cementer.input).unwrap();
+                    // TODO: transactional with working
+                    let use_items = self.inventory.pop_use_item(cementer.input).unwrap();
+                    cementer_events.push(use_items().into());
                 }
             }
         }
         let mut random = thread_rng();
 
         let working_events = self.working.update(time, random);
-        let mut cementer_events = vec![];
         for event in &working_events {
             if let Working::ProcessCompleted { device, process } = event {
                 match process {

@@ -1,17 +1,25 @@
+pub use disassemble_cementer::*;
+pub use disassemble_door::*;
 pub use drop_item::*;
 pub use finish_assembly::*;
 pub use install_equipment::*;
 pub use plant_crop::*;
 pub use put_item::*;
+pub use repair_generic_device::*;
 pub use take_item::*;
+pub use toggle_generic_device::*;
 pub use uninstall_equipment::*;
 pub use use_equipment::*;
 
+mod disassemble_cementer;
+mod disassemble_door;
 mod drop_item;
 mod finish_assembly;
 mod install_equipment;
 mod plant_crop;
 mod put_item;
+mod repair_generic_device;
 mod take_item;
+mod toggle_generic_device;
 mod uninstall_equipment;
 mod use_equipment;

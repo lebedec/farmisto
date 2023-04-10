@@ -52,6 +52,7 @@ def build(rebuild=True):
         ['assets/texture', 'assets/texture'],
         ['assets/assets.sqlite', 'assets/assets.sqlite'],
         ['assets/database.sqlite', 'assets/database.sqlite'],
+        ['assets/saves', 'assets/saves'],
         ['tools/setup/debug/debug.bat', 'debug.bat'],
         ['tools/setup/debug/farmisto.json', 'farmisto.json'],
     ]

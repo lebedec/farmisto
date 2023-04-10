@@ -4,13 +4,11 @@ use crate::assembling::{Assembling, AssemblingError, Rotation};
 use crate::building::{Building, BuildingError, Marker, SurveyorId};
 use crate::collections::DictionaryError;
 use crate::inventory::{ContainerId, Inventory, InventoryError};
-use crate::model::{
-    Activity, Construction, Creature, Crop, Door, Equipment, Farmer, Universe, UniverseError,
-};
+use crate::model::{Activity, Cementer, Construction, Creature, Crop, Door, Equipment, Farmer, Universe, UniverseError};
 use crate::physics::{Physics, PhysicsError};
 use crate::planting::{Planting, PlantingError};
 use crate::raising::{Raising, RaisingError};
-use crate::working::{Working, WorkingError};
+use crate::working::{DeviceId, Working, WorkingError};
 
 pub const API_VERSION: &str = "0.1";
 
@@ -135,6 +133,15 @@ pub enum FarmerBound {
     DisassembleDoor {
         door: Door,
     },
+    DisassembleCementer {
+        cementer: Cementer,
+    },
+    RepairDevice {
+        device: DeviceId,
+    },
+    ToggleDevice {
+        device: DeviceId
+    }
 }
 
 #[derive(Debug, bincode::Encode, bincode::Decode)]

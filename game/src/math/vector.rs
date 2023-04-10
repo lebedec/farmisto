@@ -1,3 +1,30 @@
+pub type Tile = [usize; 2];
+
+pub trait TileMath {
+    fn add_offset(self, offset: [i8; 2]) -> Self;
+    fn to_position(self) -> Position;
+}
+
+impl TileMath for [usize; 2] {
+    fn add_offset(self, offset: [i8; 2]) -> Self {
+        let [x, y] = self;
+        let x = x as isize;
+        let y = y as isize;
+        let [ox, oy] = offset;
+        let ox = ox as isize;
+        let oy = oy as isize;
+        let x = x + ox;
+        let y = y + oy;
+        [x as usize, y as usize]
+    }
+
+    fn to_position(self) -> Position {
+        [self[0] as f32 + 0.5, self[1] as f32 + 0.5]
+    }
+}
+
+pub type Position = [f32; 2];
+
 pub trait VectorMath {
     fn neg(self) -> Self;
     fn dot(self, other: Self) -> f32;

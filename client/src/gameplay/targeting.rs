@@ -1,8 +1,9 @@
 use game::inventory::ContainerId;
 use sdl2::keyboard::Keycode;
 
-use game::math::VectorMath;
+use game::math::{TileMath, VectorMath};
 use game::model::{Assembly, Cementer, Construction, Creature, Crop, Door, Equipment, Stack};
+use game::working::DeviceId;
 
 use crate::engine::{Cursor, Input};
 use crate::gameplay::Gameplay;
@@ -29,6 +30,7 @@ pub enum Target {
     Door(Door),
     Cementer(Cementer),
     Creature(Creature),
+    Device(DeviceId),
 }
 
 pub trait InputMethod {
@@ -108,20 +110,25 @@ impl Gameplay {
 
         for cementer in self.cementers.values() {
             let pivot = cementer.position.to_tile();
-            if tile == add_offset(pivot, cementer.kind.input_offset) {
+            if tile == pivot.add_offset(cementer.rotation.apply_i8(cementer.kind.input_offset)) {
                 return vec![
                     Target::Container(cementer.entity.input),
                     Target::Cementer(cementer.entity),
+                    Target::Device(cementer.entity.device),
                 ];
             }
-            if tile == add_offset(pivot, cementer.kind.output_offset) {
+            if tile == pivot.add_offset(cementer.rotation.apply_i8(cementer.kind.output_offset)) {
                 return vec![
                     Target::Container(cementer.entity.output),
                     Target::Cementer(cementer.entity),
+                    Target::Device(cementer.entity.device),
                 ];
             }
             if tile == pivot {
-                return vec![Target::Cementer(cementer.entity)];
+                return vec![
+                    Target::Cementer(cementer.entity),
+                    Target::Device(cementer.entity.device),
+                ];
             }
         }
 
@@ -136,9 +143,4 @@ impl Gameplay {
 
         vec![Target::Ground { tile }]
     }
-}
-
-fn add_offset(tile: [usize; 2], offset: [i8; 2]) -> [usize; 2] {
-    let result = [tile[0] as i8 + offset[0], tile[1] as i8 + offset[1]];
-    [result[0] as usize, result[1] as usize]
 }

@@ -12,6 +12,7 @@ use game::model::{
     Equipment, Farmer, FarmerKind, Farmland, FarmlandKind, Stack, Tree, TreeKind,
 };
 use game::physics::{BarrierId, BodyKind};
+use game::working::DeviceMode;
 
 use crate::assets::TreeAsset;
 use crate::assets::{BuildingMaterialAsset, CreatureAsset};
@@ -122,8 +123,13 @@ pub struct EquipmentRep {
 }
 
 pub enum AssemblyTargetAsset {
-    Door { door: DoorAsset },
-    Cementer { cementer: CementerAsset },
+    Door {
+        door: DoorAsset,
+    },
+    Cementer {
+        cementer: CementerAsset,
+        kind: Shared<CementerKind>,
+    },
 }
 
 pub struct AssemblyRep {
@@ -147,6 +153,8 @@ pub struct CementerRep {
     pub asset: CementerAsset,
     pub rotation: Rotation,
     pub position: [f32; 2],
+    pub mode: DeviceMode,
+    pub progress: f32,
 }
 
 pub struct ItemRep {

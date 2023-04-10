@@ -1,12 +1,16 @@
-use crate::engine::rendering::TilemapUniform;
+use crate::engine::rendering::{Scene, TilemapUniform};
 use crate::engine::Frame;
 use crate::gameplay::representation::{AssemblyTargetAsset, CreatureRep, CropRep};
 use crate::gameplay::{position_of, rendering_position_of, Gameplay, TILE_SIZE};
 use game::building::{Cell, Grid, Marker, Material, Room, Structure};
-use game::math::VectorMath;
-use game::model::{Activity, Purpose};
+use game::math::{Tile, TileMath, VectorMath};
+use game::model::{Activity, CementerKind, Purpose};
 use lazy_static::lazy_static;
 
+use crate::assets::CementerAsset;
+use game::assembling::Rotation;
+use game::collections::Shared;
+use game::working::DeviceMode;
 use rand::prelude::*;
 use std::collections::HashMap;
 
@@ -364,15 +368,15 @@ impl Gameplay {
                         1.0,
                     )
                 }
-                AssemblyTargetAsset::Cementer { cementer } => {
-                    let index = assembly.rotation.index();
-                    let sprite = &cementer.sprites.tiles[index];
-                    scene.render_sprite(
-                        sprite,
-                        rendering_position,
-                        (rendering_position[1] / TILE_SIZE) as usize,
-                        1.0,
-                    )
+                AssemblyTargetAsset::Cementer { cementer, kind } => {
+                    render_cementer(
+                        assembly.pivot,
+                        assembly.rotation,
+                        cementer,
+                        &kind,
+                        DeviceMode::Stopped,
+                        scene,
+                    );
                 }
             }
         }
@@ -394,16 +398,28 @@ impl Gameplay {
         }
 
         for cementer in self.cementers.values() {
+            // sprite input rotate offset
+            // sprite output rotate offset
+            // sprite console rotate
+            // console GUI based on progress and mode
             let rendering_position = rendering_position_of(cementer.position);
-            let index = cementer.rotation.index();
-            let sprite = &cementer.asset.sprites.tiles[index];
-            scene.render_sprite(
-                sprite,
-                rendering_position,
-                (rendering_position[1] / TILE_SIZE) as usize,
-                1.0,
+
+            render_cementer(
+                cementer.position.to_tile(),
+                cementer.rotation,
+                &cementer.asset,
+                &cementer.kind,
+                cementer.mode,
+                scene,
             );
 
+            let pivot = cementer.position.to_tile();
+            let input_position =
+                pivot.add_offset(cementer.rotation.apply_i8(cementer.kind.input_offset));
+            let input_position = rendering_position_of(input_position.to_position());
+            let output_position =
+                pivot.add_offset(cementer.rotation.apply_i8(cementer.kind.output_offset));
+            let output_position = rendering_position_of(output_position.to_position());
             for (i, item) in self
                 .items
                 .entry(cementer.entity.input)
@@ -411,11 +427,11 @@ impl Gameplay {
                 .values()
                 .enumerate()
             {
-                let offset = [-TILE_SIZE, -(32.0 * i as f32)];
+                let offset = [0.0, -(32.0 * i as f32)];
                 scene.render_sprite(
                     &item.asset.sprite,
-                    rendering_position.add(offset),
-                    (rendering_position[1] / TILE_SIZE) as usize,
+                    input_position.add(offset),
+                    (input_position[1] / TILE_SIZE) as usize,
                     1.0,
                 );
             }
@@ -427,11 +443,11 @@ impl Gameplay {
                 .values()
                 .enumerate()
             {
-                let offset = [TILE_SIZE, -(32.0 * i as f32)];
+                let offset = [0.0, -(32.0 * i as f32)];
                 scene.render_sprite(
                     &item.asset.sprite,
-                    rendering_position.add(offset),
-                    (rendering_position[1] / TILE_SIZE) as usize,
+                    output_position.add(offset),
+                    (output_position[1] / TILE_SIZE) as usize,
                     1.0,
                 );
             }
@@ -744,4 +760,44 @@ impl Neighbors {
             Neighbors::DoorDown => 15,
         }
     }
+}
+
+fn render_cementer(
+    pivot: Tile,
+    rotation: Rotation,
+    cementer: &CementerAsset,
+    kind: &CementerKind,
+    mode: DeviceMode,
+    scene: &mut Scene,
+) {
+    let position = position_of(pivot);
+    let mut rendering_position = rendering_position_of(position);
+
+    let index = match mode {
+        DeviceMode::Running => 0,
+        DeviceMode::Pending => 1,
+        DeviceMode::Stopped => 2,
+        DeviceMode::Broken => 3,
+    };
+    let sprite = &cementer.sprites.tiles[index];
+    let rot = rotation.index();
+
+    scene.render_sprite(
+        sprite,
+        rendering_position,
+        (rendering_position[1] / TILE_SIZE) as usize,
+        1.0,
+    );
+
+    let input_offset = rotation.apply_i8(kind.input_offset);
+    let input_sprite = &cementer.sprites.tiles[4 + rot];
+    let input_tile = pivot.add_offset(input_offset);
+    let input_pos = rendering_position_of(input_tile.to_position());
+    scene.render_sprite(input_sprite, input_pos, input_tile[1], 1.0);
+
+    let output_offset = rotation.apply_i8(kind.output_offset);
+    let output_sprite = &cementer.sprites.tiles[8 + rot];
+    let output_tile = pivot.add_offset(output_offset);
+    let output_pos = rendering_position_of(output_tile.to_position());
+    scene.render_sprite(output_sprite, output_pos, output_tile[1], 1.0);
 }

@@ -39,23 +39,33 @@ impl Rotation {
             Rotation::A270 => 3,
         }
     }
-    
+
     pub fn from_index(index: u8) -> Rotation {
         match index {
             0 => Rotation::A000,
             1 => Rotation::A090,
             2 => Rotation::A180,
             3 => Rotation::A270,
-            _ => Rotation::A000
+            _ => Rotation::A000,
         }
     }
-    
+
     pub fn next(&self) -> Rotation {
         match self {
             Rotation::A000 => Rotation::A090,
             Rotation::A090 => Rotation::A180,
             Rotation::A180 => Rotation::A270,
             Rotation::A270 => Rotation::A000,
+        }
+    }
+
+    pub fn apply_i8(&self, value: [i8; 2]) -> [i8; 2] {
+        let [x, y] = value;
+        match self {
+            Rotation::A000 => [x, y],
+            Rotation::A090 => [y, -x],
+            Rotation::A180 => [-x, -y],
+            Rotation::A270 => [-y, x],
         }
     }
 }
