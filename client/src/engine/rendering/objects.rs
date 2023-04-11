@@ -33,6 +33,7 @@ pub struct TilemapRenderObject {
     pub sampler: vk::Sampler,
     pub constants: TilemapPushConstants,
     pub data: vk::DescriptorBufferInfo,
+    pub layer: usize,
 }
 
 #[derive(Debug, Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
@@ -41,6 +42,13 @@ pub struct PlantPushConstants {
     pub colors: [[f32; 4]; 4],
     pub attributes: [f32; 4],
     pub position: [f32; 2],
+}
+
+#[derive(Default)]
+pub struct RenderingLine {
+    pub plants: Vec<PlantRenderObject>,
+    pub animals: Vec<AnimalRenderObject>,
+    pub sprites: Vec<SpriteRenderObject>,
 }
 
 pub struct PlantRenderObject {
@@ -81,8 +89,8 @@ pub struct SpritePushConstants {
     pub position: [f32; 2],
     pub size: [f32; 2],
     pub coords: [f32; 4],
+    pub color: [f32; 4],
     pub pivot: [f32; 2],
-    pub highlight: f32,
 }
 
 pub struct SpriteRenderObject {

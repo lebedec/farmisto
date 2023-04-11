@@ -1,13 +1,16 @@
 use ash::{vk, Device};
 use glam::{vec3, Mat4, Vec3};
 use lazy_static::lazy_static;
+use log::info;
+use std::collections::BTreeMap;
+use std::mem;
+use std::mem::take;
 
 use crate::assets::SamplerAsset;
 use crate::engine::base::MyPipeline;
 use crate::engine::base::Screen;
 use crate::engine::base::ShaderData;
 use crate::engine::buffers::{CameraUniform, LightUniform, UniformBuffer};
-use crate::engine::rendering::PlantPushConstants;
 use crate::engine::rendering::PlantRenderObject;
 use crate::engine::rendering::SpritePushConstants;
 use crate::engine::rendering::SpriteRenderObject;
@@ -17,6 +20,7 @@ use crate::engine::rendering::GROUND_VERTICES;
 use crate::engine::rendering::SPRITE_VERTICES;
 use crate::engine::rendering::{AnimalPushConstants, AnimalRenderObject, GroundRenderObject};
 use crate::engine::rendering::{GroundPushConstants, GroundUniform, Light};
+use crate::engine::rendering::{PlantPushConstants, RenderingLine};
 use crate::engine::VertexBuffer;
 use crate::monitoring::Timer;
 use crate::Assets;
@@ -44,23 +48,24 @@ pub struct Scene {
     pub global_lights: Vec<Light>,
 
     pub spine_pipeline: MyPipeline<2, PlantPushConstants, 1>,
-    pub spines: Vec<Vec<PlantRenderObject>>,
+    // pub spines: Vec<Vec<PlantRenderObject>>,
     pub spine_coloration_sampler: SamplerAsset,
 
     pub animals_pipeline: MyPipeline<2, AnimalPushConstants, 1>,
-    pub animals: Vec<Vec<AnimalRenderObject>>,
-
+    // pub animals: Vec<Vec<AnimalRenderObject>>,
     pub ground_pipeline: MyPipeline<1, GroundPushConstants, 2>,
     pub grounds: Vec<GroundRenderObject>,
     pub ground_vertex_buffer: VertexBuffer,
     pub ground_buffer: UniformBuffer<GroundUniform>,
 
     pub sprite_pipeline: MyPipeline<1, SpritePushConstants, 1>,
-    pub sprites: Vec<Vec<SpriteRenderObject>>,
+    // pub sprites: Vec<Vec<SpriteRenderObject>>,
     pub sprite_vertex_buffer: VertexBuffer,
 
+    pub sorted_render_objects: BTreeMap<isize, RenderingLine>,
+
     pub tilemap_pipeline: MyPipeline<1, TilemapPushConstants, 1>,
-    pub tilemaps: Vec<Vec<TilemapRenderObject>>,
+    pub tilemaps: Vec<TilemapRenderObject>,
     pub tilemap_vertex_buffer: VertexBuffer,
 
     // light_map_pipeline: MyPipeline<1, SpritePushConstants, 1>,
@@ -135,29 +140,19 @@ impl Scene {
         //         .material([vk::DescriptorType::COMBINED_IMAGE_SAMPLER])
         //         .build(device, &screen);
 
-        let mut sprites = vec![];
-        let mut spines = vec![];
-        let mut tilemaps = vec![];
-        let mut animals = vec![];
-        for _ in 0..128 {
-            sprites.push(vec![]);
-            spines.push(vec![]);
-            tilemaps.push(vec![]);
-            animals.push(vec![]);
-        }
-
         Self {
             device: device.clone(),
             device_memory: device_memory.clone(),
-            sprites,
-            spines,
+            // sprites,
+            // spines,
             spine_pipeline,
             ground_pipeline,
             camera_buffer,
             ground_buffer,
             sprite_vertex_buffer,
+            sorted_render_objects: Default::default(),
             tilemap_pipeline,
-            tilemaps,
+            tilemaps: vec![],
             tilemap_vertex_buffer: ground_vertex_buffer,
             present_index: 0,
             //light_map_pipeline,
@@ -178,7 +173,7 @@ impl Scene {
             swapchain,
             global_light_buffer,
             global_lights: vec![],
-            animals,
+            // animals,
         }
     }
 
@@ -186,7 +181,7 @@ impl Scene {
         let width = self.screen.width() as f32;
         let height = self.screen.height() as f32;
         let uniform = CameraUniform {
-            model: Mat4::from_translation(vec3(-target.x, -target.y, 0.0)),
+            model: Mat4::from_translation(vec3(-target.x, -target.y, 10.0)),
             view: Mat4::look_at_rh(
                 vec3(0.0, 0.0, -1.0), // Vulkan Z: inside screen
                 vec3(0.0, 0.0, 0.0),
@@ -206,20 +201,17 @@ impl Scene {
     }
 
     pub fn clear(&mut self) {
-        for sprites in self.sprites.iter_mut() {
-            sprites.clear();
-        }
-        for spines in self.spines.iter_mut() {
-            spines.clear();
-        }
-        for animals in self.animals.iter_mut() {
-            animals.clear();
-        }
-        for tilemaps in self.tilemaps.iter_mut() {
-            tilemaps.clear();
-        }
-        // self.sprites.clear();
-        // self.spines.clear();
+        // for sprites in self.sprites.iter_mut() {
+        //     sprites.clear();
+        // }
+        // for spines in self.spines.iter_mut() {
+        //     spines.clear();
+        // }
+        // for animals in self.animals.iter_mut() {
+        //     animals.clear();
+        // }
+        self.sorted_render_objects.clear();
+        self.tilemaps.clear();
         self.grounds.clear();
     }
 
@@ -296,23 +288,24 @@ impl Scene {
         }
         timer.record("ground", &METRIC_RENDER_SECONDS);
 
-        for line in 0..128 {
-            let mut pipeline = self.tilemap_pipeline.perform(device, buffer);
-            pipeline.bind_camera(camera_descriptor);
-            for tilemap in &self.tilemaps[line] {
-                pipeline.bind_vertex_buffer(&self.tilemap_vertex_buffer);
-                pipeline.bind_material([(tilemap.sampler, tilemap.texture)]);
-                pipeline.bind_data([tilemap.data]);
-                pipeline.push_constants(tilemap.constants);
-                pipeline.draw_vertices(self.tilemap_vertex_buffer.vertices);
-            }
+        let mut pipeline = self.tilemap_pipeline.perform(device, buffer);
+        pipeline.bind_camera(camera_descriptor);
+        for tilemap in self.tilemaps.iter().filter(|tilemap| tilemap.layer <= 0) {
+            pipeline.bind_vertex_buffer(&self.tilemap_vertex_buffer);
+            pipeline.bind_material([(tilemap.sampler, tilemap.texture)]);
+            pipeline.bind_data([tilemap.data]);
+            pipeline.push_constants(tilemap.constants);
+            pipeline.draw_vertices(self.tilemap_vertex_buffer.vertices);
+        }
+        timer.record("tilemap-0", &METRIC_RENDER_SECONDS);
 
+        for (line, objects) in take(&mut self.sorted_render_objects) {
             let mut pipeline = self.sprite_pipeline.perform(device, buffer);
             pipeline.bind_data_by_descriptor(lights_descriptor);
             pipeline.bind_camera(camera_descriptor);
             pipeline.bind_vertex_buffer(&self.sprite_vertex_buffer);
             let mut previous_texture = Default::default();
-            for sprite in &self.sprites[line] {
+            for sprite in objects.sprites {
                 if previous_texture != sprite.texture_descriptor {
                     previous_texture = sprite.texture_descriptor;
                     pipeline.bind_texture(sprite.texture_descriptor);
@@ -323,7 +316,7 @@ impl Scene {
 
             let mut pipeline = self.spine_pipeline.perform(device, buffer);
             pipeline.bind_camera(camera_descriptor);
-            for spine in &self.spines[line] {
+            for spine in objects.plants {
                 pipeline.bind_vertex_buffer(&spine.vertex_buffer);
                 pipeline.bind_index_buffer(&spine.index_buffer);
                 pipeline.bind_material([
@@ -338,7 +331,7 @@ impl Scene {
 
             let mut pipeline = self.animals_pipeline.perform(device, buffer);
             pipeline.bind_camera(camera_descriptor);
-            for animal in &self.animals[line] {
+            for animal in objects.animals {
                 pipeline.bind_vertex_buffer(&animal.vertex_buffer);
                 pipeline.bind_index_buffer(&animal.index_buffer);
                 pipeline.bind_material([
@@ -351,6 +344,18 @@ impl Scene {
                 pipeline.draw(indices);
             }
         }
-        timer.record("static+spine+tilemap", &METRIC_RENDER_SECONDS);
+
+        timer.record("sorted", &METRIC_RENDER_SECONDS);
+
+        let mut pipeline = self.tilemap_pipeline.perform(device, buffer);
+        pipeline.bind_camera(camera_descriptor);
+        for tilemap in self.tilemaps.iter().filter(|tilemap| tilemap.layer > 0) {
+            pipeline.bind_vertex_buffer(&self.tilemap_vertex_buffer);
+            pipeline.bind_material([(tilemap.sampler, tilemap.texture)]);
+            pipeline.bind_data([tilemap.data]);
+            pipeline.push_constants(tilemap.constants);
+            pipeline.draw_vertices(self.tilemap_vertex_buffer.vertices);
+        }
+        timer.record("tilemap-127", &METRIC_RENDER_SECONDS);
     }
 }

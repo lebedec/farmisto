@@ -1,18 +1,22 @@
-use crate::engine::rendering::{Scene, TilemapUniform};
-use crate::engine::Frame;
-use crate::gameplay::representation::{AssemblyTargetAsset, CreatureRep, CropRep};
-use crate::gameplay::{position_of, rendering_position_of, Gameplay, TILE_SIZE};
-use game::building::{Cell, Grid, Marker, Material, Room, Structure};
-use game::math::{Tile, TileMath, VectorMath};
-use game::model::{Activity, CementerKind, Purpose};
+use std::collections::HashMap;
+
 use lazy_static::lazy_static;
+use log::info;
+use rand::prelude::*;
+
+use game::assembling::Rotation;
+use game::building::{Cell, Grid, Marker, Material, Room, Structure};
+use game::collections::Shared;
+use game::inventory::{ContainerId, ItemId};
+use game::math::{Position, Tile, TileMath, VectorMath};
+use game::model::{Activity, CementerKind, Purpose};
+use game::working::DeviceMode;
 
 use crate::assets::CementerAsset;
-use game::assembling::Rotation;
-use game::collections::Shared;
-use game::working::DeviceMode;
-use rand::prelude::*;
-use std::collections::HashMap;
+use crate::engine::rendering::{xy, Scene, TilemapUniform};
+use crate::engine::Frame;
+use crate::gameplay::representation::{AssemblyTargetAsset, CreatureRep, CropRep, ItemRep};
+use crate::gameplay::{position_of, rendering_position_of, Gameplay, TILE_SIZE};
 
 lazy_static! {
     static ref METRIC_ANIMATION_SECONDS: prometheus::Histogram =
@@ -255,11 +259,12 @@ impl Gameplay {
             for (y, line) in rendering_cells.iter().enumerate() {
                 for (x, _cell) in line.iter().enumerate() {
                     let highlight = if y == cursor_y as usize && x == cursor_x as usize {
-                        1.5
+                        [1.5; 4]
                     } else {
-                        1.0
+                        [1.0; 4]
                     };
                     let position = [x as f32 * TILE_SIZE, TILE_SIZE + y as f32 * TILE_SIZE];
+                    let sorting = (position[1] - TILE_SIZE / 2.0) as isize;
                     if farmland.cells[y][x].wall {
                         // if origin wall
                         let neighbors = Neighbors::of(x, y, &farmland.cells);
@@ -286,14 +291,8 @@ impl Gameplay {
                                 }
                             }
                         }
-
                         let tile = &tileset[tile_index];
-                        scene.render_sprite(
-                            tile,
-                            position,
-                            (position[1] / TILE_SIZE) as usize,
-                            highlight,
-                        );
+                        scene.render_sprite_colored(tile, xy(position).sorting(sorting), highlight);
                     }
                     if let Some(marker) = surveying.get(&[x, y]) {
                         let tileset = match marker {
@@ -304,40 +303,21 @@ impl Gameplay {
                         let neighbors = Neighbors::of(x, y, &rendering_cells);
                         let tile_index = neighbors.to_tile_index();
                         let tile = &tileset[tile_index];
-                        scene.render_sprite(
-                            tile,
-                            position,
-                            (position[1] / TILE_SIZE) as usize,
-                            highlight,
-                        );
+                        scene.render_sprite_colored(tile, xy(position).sorting(sorting), highlight);
 
                         let construction = self
                             .constructions
                             .values()
                             .find(|construction| construction.tile == [x, y])
                             .unwrap();
-                        let sprite_line = construction.tile[1];
                         let position = position_of(construction.tile);
                         let position = rendering_position_of(position);
-                        scene.render_sprite(&self.stack_sprite, position, sprite_line, 1.0);
-                        for (i, item) in self
-                            .items
-                            .entry(construction.entity.container)
-                            .or_insert(HashMap::new())
-                            .values()
-                            .enumerate()
-                        {
-                            let offset = [
-                                0.0,
-                                -24.0 + (48.0 * (i % 2) as f32) - (48.0 * (i / 2) as f32),
-                            ];
-                            scene.render_sprite(
-                                &item.asset.sprite,
-                                position.add(offset),
-                                (position[1] / TILE_SIZE) as usize + 1,
-                                1.0,
-                            );
-                        }
+                        render_items_stack(
+                            &self.items,
+                            construction.entity.container,
+                            position,
+                            scene,
+                        );
                     }
                 }
             }
@@ -345,12 +325,7 @@ impl Gameplay {
         let cursor_x = cursor_x as f32 * TILE_SIZE + 64.0;
         let cursor_y = cursor_y as f32 * TILE_SIZE + 64.0;
         let cursor_position = [cursor_x, cursor_y];
-        scene.render_sprite(
-            &self.cursor,
-            cursor_position,
-            (cursor_position[1] / TILE_SIZE) as usize,
-            1.0,
-        );
+        scene.render_sprite(&self.cursor, xy(cursor_position));
 
         for assembly in self.assembly.values() {
             let position = position_of(assembly.pivot);
@@ -361,12 +336,7 @@ impl Gameplay {
                     rendering_position[1] += TILE_SIZE / 2.0;
                     let index = assembly.rotation.index();
                     let sprite = &door.sprites.tiles[index];
-                    scene.render_sprite(
-                        sprite,
-                        rendering_position,
-                        (rendering_position[1] / TILE_SIZE) as usize,
-                        1.0,
-                    )
+                    scene.render_sprite(sprite, xy(rendering_position))
                 }
                 AssemblyTargetAsset::Cementer { cementer, kind } => {
                     render_cementer(
@@ -389,21 +359,10 @@ impl Gameplay {
                 index += 4;
             }
             let sprite = &door.asset.sprites.tiles[index];
-            scene.render_sprite(
-                sprite,
-                rendering_position,
-                (rendering_position[1] / TILE_SIZE) as usize,
-                1.0,
-            )
+            scene.render_sprite(sprite, xy(rendering_position))
         }
 
         for cementer in self.cementers.values() {
-            // sprite input rotate offset
-            // sprite output rotate offset
-            // sprite console rotate
-            // console GUI based on progress and mode
-            let rendering_position = rendering_position_of(cementer.position);
-
             render_cementer(
                 cementer.position.to_tile(),
                 cementer.rotation,
@@ -420,42 +379,13 @@ impl Gameplay {
             let output_position =
                 pivot.add_offset(cementer.rotation.apply_i8(cementer.kind.output_offset));
             let output_position = rendering_position_of(output_position.to_position());
-            for (i, item) in self
-                .items
-                .entry(cementer.entity.input)
-                .or_insert(HashMap::new())
-                .values()
-                .enumerate()
-            {
-                let offset = [0.0, -(32.0 * i as f32)];
-                scene.render_sprite(
-                    &item.asset.sprite,
-                    input_position.add(offset),
-                    (input_position[1] / TILE_SIZE) as usize,
-                    1.0,
-                );
-            }
-
-            for (i, item) in self
-                .items
-                .entry(cementer.entity.output)
-                .or_insert(HashMap::new())
-                .values()
-                .enumerate()
-            {
-                let offset = [0.0, -(32.0 * i as f32)];
-                scene.render_sprite(
-                    &item.asset.sprite,
-                    output_position.add(offset),
-                    (output_position[1] / TILE_SIZE) as usize,
-                    1.0,
-                );
-            }
+            render_items_stack(&self.items, cementer.entity.input, input_position, scene);
+            render_items_stack(&self.items, cementer.entity.output, output_position, scene);
         }
 
         for farmer in self.farmers.values() {
-            let sprite_line = farmer.rendering_position[1] as usize;
             let rendering_position = rendering_position_of(farmer.rendering_position);
+            let item_sorting = rendering_position[1] as isize;
 
             for (i, item) in self
                 .items
@@ -464,21 +394,14 @@ impl Gameplay {
                 .values()
                 .enumerate()
             {
-                let offset = [0.0, -128.0 - (32.0 * i as f32)];
+                let offset = [32.0, -192.0 - (32.0 * i as f32)];
                 scene.render_sprite(
                     &item.asset.sprite,
-                    rendering_position.add(offset),
-                    sprite_line,
-                    1.0,
+                    xy(rendering_position.add(offset)).sorting(item_sorting - 1),
                 );
             }
 
-            scene.render_sprite(
-                &self.players[farmer.entity.id - 1],
-                rendering_position,
-                sprite_line,
-                1.0,
-            );
+            scene.render_sprite(&self.players[farmer.entity.id - 1], xy(rendering_position));
 
             for (i, item) in self
                 .items
@@ -490,46 +413,25 @@ impl Gameplay {
                 let offset = [0.0, -128.0 - (32.0 * i as f32)];
                 scene.render_sprite(
                     &item.asset.sprite,
-                    rendering_position.add(offset),
-                    sprite_line,
-                    1.0,
+                    xy(rendering_position.add(offset)).sorting(item_sorting + 1),
                 );
             }
 
             let last_sync_position = rendering_position_of(farmer.last_sync_position);
-            scene.render_sprite(
-                &self.cursor,
-                last_sync_position,
-                (last_sync_position[1] / TILE_SIZE) as usize,
-                0.5,
-            );
+            scene.render_sprite_colored(&self.cursor, xy(last_sync_position), [0.5; 4]);
         }
 
         for stack in self.stacks.values() {
-            let sprite_line = stack.position[1] as usize;
             let position = rendering_position_of(stack.position);
-            scene.render_sprite(&self.stack_sprite, position, sprite_line, 1.0);
-            for (i, item) in self
-                .items
-                .get(&stack.entity.container)
-                .unwrap()
-                .values()
-                .enumerate()
-            {
-                let offset = [
-                    0.0,
-                    -24.0 + (48.0 * (i % 2) as f32) - (48.0 * (i / 2) as f32),
-                ];
-                scene.render_sprite(&item.asset.sprite, position.add(offset), sprite_line, 1.0);
-            }
+            scene.render_sprite(&self.stack_sprite, xy(position));
+            render_items_stack(&self.items, stack.entity.container, position, scene);
         }
 
         for equipment in self.equipments.values() {
             match equipment.entity.purpose {
                 Purpose::Surveying { .. } => {
-                    let sprite_line = equipment.position[1] as usize;
                     let position = rendering_position_of(equipment.position);
-                    scene.render_sprite(&self.theodolite_sprite, position, sprite_line, 1.0);
+                    scene.render_sprite(&self.theodolite_sprite, xy(position));
                 }
                 Purpose::Moisture { .. } => {}
             }
@@ -542,19 +444,16 @@ impl Gameplay {
             } = farmer.activity
             {
                 let equipment = self.equipments.get(&equipment).unwrap();
-                let sprite_line = equipment.position[1] as usize;
                 let position = rendering_position_of(equipment.position);
+                let sorting = position[1] as isize;
                 scene.render_sprite(
                     &self.theodolite_gui_sprite,
-                    position.add([0.0, -32.0]),
-                    sprite_line,
-                    1.0,
+                    xy(position.add([0.0, -32.0])).sorting(sorting),
                 );
                 scene.render_sprite(
                     &self.theodolite_gui_select_sprite,
-                    position.add([-196.0 + 128.0 * (selection as f32), -224.0]),
-                    sprite_line,
-                    1.0,
+                    xy(position.add([-196.0 + 128.0 * (selection as f32), -224.0]))
+                        .sorting(sorting),
                 );
             }
         }
@@ -611,7 +510,7 @@ impl Gameplay {
         scene.set_point_light([0.0, 1.0, 0.0, 1.0], 512.0, [256.0, 1024.0]);
         scene.set_point_light([0.0, 0.0, 1.0, 1.0], 512.0, [1024.0, 1024.0]);
 
-        scene.render_sprite(&self.gui_controls, [-512.0, 512.0], 127, 1.0);
+        scene.render_sprite(&self.gui_controls, xy([-512.0, 512.0]));
     }
 }
 
@@ -762,6 +661,29 @@ impl Neighbors {
     }
 }
 
+fn render_items_stack(
+    items: &HashMap<ContainerId, HashMap<ItemId, ItemRep>>,
+    container: ContainerId,
+    center: Position,
+    scene: &mut Scene,
+) {
+    match items.get(&container) {
+        None => {}
+        Some(container) => {
+            for (i, item) in container.values().enumerate() {
+                let offset = [
+                    0.0,
+                    -24.0 + (48.0 * (i % 2) as f32) - (48.0 * (i / 2) as f32),
+                ];
+                scene.render_sprite(
+                    &item.asset.sprite,
+                    xy(center.add(offset)).sorting(center[1] as isize),
+                );
+            }
+        }
+    }
+}
+
 fn render_cementer(
     pivot: Tile,
     rotation: Rotation,
@@ -771,7 +693,7 @@ fn render_cementer(
     scene: &mut Scene,
 ) {
     let position = position_of(pivot);
-    let mut rendering_position = rendering_position_of(position);
+    let rendering_position = rendering_position_of(position);
 
     let index = match mode {
         DeviceMode::Running => 0,
@@ -782,22 +704,17 @@ fn render_cementer(
     let sprite = &cementer.sprites.tiles[index];
     let rot = rotation.index();
 
-    scene.render_sprite(
-        sprite,
-        rendering_position,
-        (rendering_position[1] / TILE_SIZE) as usize,
-        1.0,
-    );
+    scene.render_sprite(sprite, xy(rendering_position));
 
     let input_offset = rotation.apply_i8(kind.input_offset);
     let input_sprite = &cementer.sprites.tiles[4 + rot];
     let input_tile = pivot.add_offset(input_offset);
     let input_pos = rendering_position_of(input_tile.to_position());
-    scene.render_sprite(input_sprite, input_pos, input_tile[1], 1.0);
+    scene.render_sprite(input_sprite, xy(input_pos));
 
     let output_offset = rotation.apply_i8(kind.output_offset);
     let output_sprite = &cementer.sprites.tiles[8 + rot];
     let output_tile = pivot.add_offset(output_offset);
     let output_pos = rendering_position_of(output_tile.to_position());
-    scene.render_sprite(output_sprite, output_pos, output_tile[1], 1.0);
+    scene.render_sprite(output_sprite, xy(output_pos));
 }

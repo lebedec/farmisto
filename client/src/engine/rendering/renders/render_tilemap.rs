@@ -33,7 +33,7 @@ impl Scene {
         data: TilemapUniform,
     ) {
         tilemap.data.update(self.present_index, data);
-        self.tilemaps[layer].push(TilemapRenderObject {
+        self.tilemaps.push(TilemapRenderObject {
             texture: tilemap.texture.view,
             sampler: tilemap.sampler.handle,
             constants: TilemapPushConstants {
@@ -43,6 +43,7 @@ impl Scene {
                 layer: 0.0,
             },
             data: tilemap.data.info(self.present_index),
+            layer,
         })
     }
 }

@@ -4,8 +4,8 @@ use rusty_spine::controller::SkeletonController;
 use crate::assets::{SpineAsset, TextureAsset};
 use crate::engine::base::ShaderData;
 use crate::engine::rendering::{
-    AnimalPushConstants, AnimalRenderObject, Scene, SpineRenderController, SpineUniform,
-    SpriteVertex,
+    AnimalPushConstants, AnimalRenderObject, RenderingLine, Scene, SpineRenderController,
+    SpineUniform, SpriteVertex,
 };
 use crate::engine::{IndexBuffer, UniformBuffer, VertexBuffer};
 
@@ -117,8 +117,7 @@ impl Scene {
                     offset: 0,
                     range: std::mem::size_of::<SpineUniform>() as u64,
                 })]])[0];
-        let line = (position[1] / 128.0) as usize;
-        self.animals[line].push(AnimalRenderObject {
+        let object = AnimalRenderObject {
             vertex_buffer: spine.vertex_buffer.clone(),
             index_buffer: spine.index_buffer.clone(),
             texture: spine.atlas.clone(),
@@ -132,6 +131,11 @@ impl Scene {
                 size: [0.0, 0.0],
             },
             lights_descriptor,
-        })
+        };
+        let objects = self
+            .sorted_render_objects
+            .entry(position[1] as isize)
+            .or_default();
+        objects.animals.push(object)
     }
 }

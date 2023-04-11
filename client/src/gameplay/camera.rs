@@ -70,25 +70,4 @@ impl Camera {
     pub fn position(&self) -> [f32; 2] {
         [self.eye.x, self.eye.y]
     }
-
-    pub fn uniform(&self, width: f32, height: f32) -> CameraUniform {
-        // GLM was originally designed for OpenGL,
-        // where the Y coordinate of the clip coordinates is inverted
-        let inverted = Mat4::from_scale(vec3(1.0, -1.0, 1.0));
-
-        CameraUniform {
-            model: Mat4::IDENTITY,
-            view: Mat4::look_at_rh(
-                self.eye, // Vulkan Z: inside screen
-                vec3(0.0, 0.0, 0.0),
-                vec3(0.0, -1.0, 0.0), // Vulkan Y: bottom screen
-            ),
-            proj: Mat4::perspective_rh(
-                45.0_f32.to_radians(),
-                width / height,
-                self.z_near,
-                self.z_far,
-            ) * inverted,
-        }
-    }
 }
