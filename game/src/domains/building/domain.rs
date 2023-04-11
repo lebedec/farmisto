@@ -102,6 +102,15 @@ impl Grid {
     pub fn get_cell_mut(&mut self, cell: [usize; 2]) -> &mut Cell {
         &mut self.cells[cell[1]][cell[0]]
     }
+
+    #[inline]
+    pub fn get_cell(&self, cell: [usize; 2]) -> Result<&Cell, BuildingError> {
+        let [x, y] = cell;
+        if y >= self.cells.len() || x >= self.cells[0].len() {
+            return Err(BuildingError::CellOutOfBounds { cell })
+        }
+        Ok(&self.cells[cell[1]][cell[0]])
+    }
 }
 
 #[derive(
@@ -177,6 +186,7 @@ impl Debug for Building {
 #[derive(Debug, bincode::Encode, bincode::Decode)]
 pub enum BuildingError {
     GridNotFound { id: GridId },
+    CellOutOfBounds { cell: [usize; 2] },
     CellHasWall { cell: [usize; 2] },
     CellHasNoWall { cell: [usize; 2] },
     CellHasNoMarkers { cell: [usize; 2] },
@@ -191,102 +201,4 @@ pub struct BuildingDomain {
     pub grids_sequence: usize,
     pub surveyors: Vec<Surveyor>,
     pub surveyors_sequence: usize,
-}
-
-impl BuildingDomain {
-    pub fn load_grids(&mut self, grids: Vec<Grid>, sequence: usize) {
-        self.grids_sequence = sequence;
-        self.grids.extend(grids);
-    }
-
-    pub fn load_surveyors(&mut self, surveyors: Vec<Surveyor>, sequence: usize) {
-        self.surveyors_sequence = sequence;
-        self.surveyors.extend(surveyors);
-    }
-
-    #[inline]
-    pub fn get_grid(&self, id: GridId) -> Result<&Grid, BuildingError> {
-        self.grids
-            .iter()
-            .find(|grid| grid.id == id)
-            .ok_or(BuildingError::GridNotFound { id })
-    }
-
-    pub fn find_surveyor_mut(
-        &mut self,
-        grid: GridId,
-        cell: [usize; 2],
-    ) -> Result<&mut Surveyor, BuildingError> {
-        self.surveyors
-            .iter_mut()
-            .find(|surveyor| {
-                surveyor.grid == grid && surveyor.surveying.iter().any(|stake| stake.cell == cell)
-            })
-            .ok_or(BuildingError::SurveyorMarkerNotFound)
-    }
-
-    pub fn index_surveyor2(
-        &mut self,
-        grid: GridId,
-        cell: [usize; 2],
-    ) -> Result<usize, BuildingError> {
-        self.surveyors
-            .iter_mut()
-            .position(|surveyor| {
-                surveyor.grid == grid && surveyor.surveying.iter().any(|stake| stake.cell == cell)
-            })
-            .ok_or(BuildingError::SurveyorMarkerNotFound)
-    }
-
-    #[inline]
-    pub fn index_grid(&mut self, id: GridId) -> Result<usize, BuildingError> {
-        self.grids
-            .iter_mut()
-            .position(|grid| grid.id == id)
-            .ok_or(BuildingError::GridNotFound { id })
-    }
-
-    #[inline]
-    pub fn get_mut_grid(&mut self, id: GridId) -> Result<&mut Grid, BuildingError> {
-        self.grids
-            .iter_mut()
-            .find(|grid| grid.id == id)
-            .ok_or(BuildingError::GridNotFound { id })
-    }
-
-    pub fn create_grid(&mut self, kind: Shared<GridKind>) -> GridId {
-        self.grids_sequence += 1;
-        let id = GridId(self.grids_sequence);
-        self.grids.push(Grid {
-            id,
-            kind,
-            cells: vec![vec![Cell::default(); Grid::COLUMNS]; Grid::ROWS],
-            rooms: vec![],
-        });
-        id
-    }
-
-    #[inline]
-    pub fn get_surveyor(&self, id: SurveyorId) -> Result<&Surveyor, BuildingError> {
-        self.surveyors
-            .iter()
-            .find(|surveyor| surveyor.id == id)
-            .ok_or(BuildingError::SurveyorNotFound { id })
-    }
-
-    #[inline]
-    pub fn get_surveyor_mut(&mut self, id: SurveyorId) -> Result<&mut Surveyor, BuildingError> {
-        self.surveyors
-            .iter_mut()
-            .find(|surveyor| surveyor.id == id)
-            .ok_or(BuildingError::SurveyorNotFound { id })
-    }
-
-    #[inline]
-    pub fn index_surveyor(&self, id: SurveyorId) -> Result<usize, BuildingError> {
-        self.surveyors
-            .iter()
-            .position(|surveyor| surveyor.id == id)
-            .ok_or(BuildingError::SurveyorNotFound { id })
-    }
 }

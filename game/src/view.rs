@@ -40,6 +40,7 @@ impl Game {
             entity,
             rotation: placement.rotation,
             pivot: placement.pivot,
+            valid: placement.valid,
         }
     }
 
@@ -64,7 +65,6 @@ impl Game {
             position: barrier.position,
             mode: device.mode,
             progress: device.progress,
-            
         }
     }
 

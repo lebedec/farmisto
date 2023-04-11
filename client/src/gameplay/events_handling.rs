@@ -266,11 +266,13 @@ impl Gameplay {
                 placement,
                 rotation,
                 pivot,
+                valid,
             } => {
                 for assembly in self.assembly.values_mut() {
                     if assembly.entity.placement == placement {
                         assembly.rotation = rotation;
                         assembly.pivot = pivot;
+                        assembly.valid = valid;
                         return;
                     }
                 }
@@ -655,6 +657,7 @@ impl Gameplay {
                 entity,
                 pivot,
                 rotation,
+                valid
             } => {
                 let kind = self.known.assembly.get(entity.key).unwrap();
                 let asset = match &kind.target {
@@ -675,6 +678,7 @@ impl Gameplay {
                     asset,
                     rotation,
                     pivot,
+                    valid,
                 };
                 self.assembly.insert(entity, representation);
             }

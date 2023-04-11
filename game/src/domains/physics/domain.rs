@@ -160,6 +160,7 @@ pub enum PhysicsError {
     BodyNotFound { id: BodyId },
     BarrierCreationOverlaps { other: BarrierId },
     BarrierNotFound { id: BarrierId },
+    BarrierNotFoundAt { position: [f32; 2]},
     SensorNotFound { id: SensorId },
     HoleNotFound { hole: [usize; 2] },
     HoleAlreadyExists { hole: [usize; 2] },

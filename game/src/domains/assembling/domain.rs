@@ -12,12 +12,14 @@ pub enum Assembling {
         placement: PlacementId,
         rotation: Rotation,
         pivot: [usize; 2],
+        valid: bool,
     },
 }
 
 #[derive(Debug, bincode::Encode, bincode::Decode)]
 pub enum AssemblingError {
     PlacementNotFound { id: PlacementId },
+    PlacementInvalid { id: PlacementId },
 }
 
 #[derive(
@@ -78,4 +80,17 @@ pub struct Placement {
     pub id: PlacementId,
     pub rotation: Rotation,
     pub pivot: [usize; 2],
+    pub valid: bool,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub enum Binding {
+    Doorway,
+    Ground,
+}
+
+#[derive(Debug, Clone, Copy)]
+pub struct Part {
+    pub binding: Binding,
+    pub offset: [i8; 2],
 }

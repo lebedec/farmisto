@@ -6,6 +6,9 @@ impl AssemblingDomain {
         id: PlacementId,
     ) -> Result<(Placement, impl FnOnce() -> Vec<Assembling> + '_), AssemblingError> {
         let placement = self.get_placement(id)?;
+        if !placement.valid {
+            return Err(AssemblingError::PlacementInvalid { id });
+        }
         let placement = placement.clone();
         let command = move || {
             // self.placements.remove(&id);

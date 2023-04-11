@@ -330,13 +330,18 @@ impl Gameplay {
         for assembly in self.assembly.values() {
             let position = position_of(assembly.pivot);
             let mut rendering_position = rendering_position_of(position);
+            let highlight = if assembly.valid {
+                [1.0; 4]
+            } else {
+                [1.0, 0.5, 0.5, 1.0]
+            };
             match &assembly.asset {
                 AssemblyTargetAsset::Door { door } => {
                     // fix door offset
                     rendering_position[1] += TILE_SIZE / 2.0;
                     let index = assembly.rotation.index();
                     let sprite = &door.sprites.tiles[index];
-                    scene.render_sprite(sprite, xy(rendering_position))
+                    scene.render_sprite_colored(sprite, xy(rendering_position), highlight)
                 }
                 AssemblyTargetAsset::Cementer { cementer, kind } => {
                     render_cementer(
@@ -345,6 +350,7 @@ impl Gameplay {
                         cementer,
                         &kind,
                         DeviceMode::Stopped,
+                        highlight,
                         scene,
                     );
                 }
@@ -369,6 +375,7 @@ impl Gameplay {
                 &cementer.asset,
                 &cementer.kind,
                 cementer.mode,
+                [1.0; 4],
                 scene,
             );
 
@@ -690,6 +697,7 @@ fn render_cementer(
     cementer: &CementerAsset,
     kind: &CementerKind,
     mode: DeviceMode,
+    color: [f32; 4],
     scene: &mut Scene,
 ) {
     let position = position_of(pivot);
@@ -704,17 +712,17 @@ fn render_cementer(
     let sprite = &cementer.sprites.tiles[index];
     let rot = rotation.index();
 
-    scene.render_sprite(sprite, xy(rendering_position));
+    scene.render_sprite_colored(sprite, xy(rendering_position), color);
 
     let input_offset = rotation.apply_i8(kind.input_offset);
     let input_sprite = &cementer.sprites.tiles[4 + rot];
     let input_tile = pivot.add_offset(input_offset);
     let input_pos = rendering_position_of(input_tile.to_position());
-    scene.render_sprite(input_sprite, xy(input_pos));
+    scene.render_sprite_colored(input_sprite, xy(input_pos), color);
 
     let output_offset = rotation.apply_i8(kind.output_offset);
     let output_sprite = &cementer.sprites.tiles[8 + rot];
     let output_tile = pivot.add_offset(output_offset);
     let output_pos = rendering_position_of(output_tile.to_position());
-    scene.render_sprite(output_sprite, xy(output_pos));
+    scene.render_sprite_colored(output_sprite, xy(output_pos), color);
 }

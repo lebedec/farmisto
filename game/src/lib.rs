@@ -341,58 +341,6 @@ impl Game {
         }
     }
 
-    fn start_assembly(
-        &mut self,
-        farmer: Farmer,
-        _farmland: Farmland,
-        pivot: [usize; 2],
-        rotation: Rotation,
-    ) -> Result<Vec<Event>, ActionError> {
-        self.universe.ensure_activity(farmer, Activity::Usage)?;
-        let item = self.inventory.get_container_item(farmer.hands)?;
-        let key = item.kind.functions.as_assembly(AssemblyKey)?;
-        self.known.assembly.get(key)?;
-        let (placement, start_placement) = self.assembling.start_placement(rotation, pivot)?;
-        let events = occur![
-            start_placement(),
-            self.appear_assembling_activity(farmer, key, placement),
-        ];
-        Ok(events)
-    }
-
-    fn move_assembly(
-        &mut self,
-        farmer: Farmer,
-        _farmland: Farmland,
-        pivot: [usize; 2],
-        rotation: Rotation,
-    ) -> Result<Vec<Event>, ActionError> {
-        let activity = self.universe.get_farmer_activity(farmer)?;
-        let assembly = activity.as_assembling()?;
-        let update_placement =
-            self.assembling
-                .update_placement(assembly.placement, rotation, pivot)?;
-        let events = occur![update_placement(),];
-        Ok(events)
-    }
-
-    fn cancel_assembly(
-        &mut self,
-        farmer: Farmer,
-        farmland: Farmland,
-    ) -> Result<Vec<Event>, ActionError> {
-        let activity = self.universe.get_farmer_activity(farmer)?;
-        let assembly = activity.as_assembling()?;
-        let cancel_placement = self.assembling.cancel_placement(assembly.placement)?;
-        self.universe.change_activity(farmer, Activity::Usage);
-        let events = occur![
-            cancel_placement(),
-            self.universe.vanish_assembly(assembly),
-            self.universe.change_activity(farmer, Activity::Usage),
-        ];
-        Ok(events)
-    }
-
     pub fn toggle_door(&mut self, _farmer: Farmer, door: Door) -> Result<Vec<Event>, ActionError> {
         let barrier = self.physics.get_barrier(door.barrier)?;
         let door_open = Universe::DoorChanged {

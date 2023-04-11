@@ -145,6 +145,7 @@ pub enum Universe {
         entity: Assembly,
         rotation: Rotation,
         pivot: [usize; 2],
+        valid: bool,
     },
     AssemblyUpdated {
         entity: Assembly,

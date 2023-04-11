@@ -6,7 +6,7 @@ use std::collections::HashMap;
 use game::building::{Cell, Room};
 use game::collections::Shared;
 use game::inventory::{ContainerId, ItemId, ItemKind};
-use game::math::{Collider, VectorMath};
+use game::math::{Collider, Tile, VectorMath};
 use game::model::{
     Activity, Assembly, Cementer, CementerKind, Construction, Creature, CreatureKind, Crop, Door,
     Equipment, Farmer, FarmerKind, Farmland, FarmlandKind, Stack, Tree, TreeKind,
@@ -136,7 +136,8 @@ pub struct AssemblyRep {
     pub entity: Assembly,
     pub asset: AssemblyTargetAsset,
     pub rotation: Rotation,
-    pub pivot: [usize; 2],
+    pub pivot: Tile,
+    pub valid: bool
 }
 
 pub struct DoorRep {
