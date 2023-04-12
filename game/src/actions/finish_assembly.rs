@@ -1,5 +1,6 @@
 use crate::api::{ActionError, Event};
 use crate::inventory::ContainerId;
+use crate::math::TileMath;
 use crate::model::{Activity, AssemblyTarget, Farmer, Farmland};
 use crate::working::DeviceId;
 use crate::{occur, position_of, Game};
@@ -12,6 +13,12 @@ impl Game {
     ) -> Result<Vec<Event>, ActionError> {
         let activity = self.universe.get_farmer_activity(farmer)?;
         let assembly = activity.as_assembling()?;
+        let destination = self
+            .assembling
+            .get_placement(assembly.placement)?
+            .pivot
+            .to_position();
+        self.ensure_target_reachable(farmland.space, farmer, destination)?;
         let key = assembly.key;
         let assembly_kind = self.known.assembly.get(key)?;
         let (placement, finish_placement) = self.assembling.finish_placement(assembly.placement)?;

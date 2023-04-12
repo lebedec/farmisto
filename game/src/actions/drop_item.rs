@@ -1,10 +1,17 @@
-use crate::{Game, occur, position_of};
 use crate::api::{ActionError, Event};
 use crate::inventory::ContainerId;
-use crate::model::{Activity, Farmer};
+use crate::math::TileMath;
+use crate::model::{Activity, Farmer, Farmland};
+use crate::{occur, position_of, Game};
 
 impl Game {
-    pub(crate) fn drop_item(&mut self, farmer: Farmer, tile: [usize; 2]) -> Result<Vec<Event>, ActionError> {
+    pub(crate) fn drop_item(
+        &mut self,
+        farmland: Farmland,
+        farmer: Farmer,
+        tile: [usize; 2],
+    ) -> Result<Vec<Event>, ActionError> {
+        self.ensure_target_reachable(farmland.space, farmer, tile.to_position())?;
         let hands = self.inventory.get_container(farmer.hands)?;
         let is_last_item = hands.items.len() <= 1;
         let body = self.physics.get_body(farmer.body)?;

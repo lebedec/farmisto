@@ -169,7 +169,8 @@ create table ContainerKind
 (
     id       integer primary key,
     name     text    not null unique,
-    capacity integer not null
+    capacity integer not null,
+    filter   json    not null
 );
 
 create table Container

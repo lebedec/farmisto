@@ -1,34 +1,31 @@
 extern crate alloc;
 extern crate core;
 
-use rand::thread_rng;
-
-use actions::*;
 use datamap::Storage;
 pub use domains::*;
+pub use rules::*;
 pub use update::*;
 
 use crate::api::ActionError::PlayerFarmerNotFound;
 use crate::api::{Action, ActionError, ActionResponse, Event, FarmerBound};
-use crate::assembling::{AssemblingDomain, PlacementId, Rotation};
-use crate::building::{BuildingDomain, Marker, Material, Stake, Structure, SurveyorId};
+use crate::assembling::{AssemblingDomain, PlacementId};
+use crate::building::{BuildingDomain, Material, Stake, Structure, SurveyorId};
 use crate::inventory::{ContainerId, FunctionsQuery, InventoryDomain, InventoryError};
-use crate::math::VectorMath;
 use crate::model::Activity::Idle;
 use crate::model::Equipment;
+use crate::model::Knowledge;
 use crate::model::UniverseError;
 use crate::model::{
-    Activity, Assembly, AssemblyKey, AssemblyTarget, Cementer, CementerKey, Creature, CreatureKey,
-    Crop, CropKey, Door, DoorKey, Stack,
+    Activity, Assembly, AssemblyKey, Cementer, CementerKey, Creature, CreatureKey, Crop, CropKey,
+    Door, DoorKey, Stack,
 };
-use crate::model::{Construction, Farmer, Universe};
-use crate::model::{EquipmentKey, PurposeDescription, UniverseDomain};
-use crate::model::{Farmland, Knowledge};
+use crate::model::{EquipmentKey, UniverseDomain};
+use crate::model::{Farmer, Universe};
 use crate::model::{Player, Purpose};
 use crate::physics::{BarrierId, BodyId, PhysicsDomain, SensorId};
 use crate::planting::{PlantId, PlantingDomain};
 use crate::raising::{AnimalId, RaisingDomain};
-use crate::working::{DeviceId, Process, Working, WorkingDomain};
+use crate::working::{DeviceId, Working, WorkingDomain};
 
 mod actions;
 pub mod api;
@@ -37,6 +34,7 @@ mod data;
 mod domains;
 pub mod math;
 pub mod model;
+mod rules;
 mod update;
 mod view;
 
@@ -149,9 +147,27 @@ impl Game {
                     FarmerBound::RemoveConstruction { construction } => {
                         self.remove_construction(farmer, farmland, construction)?
                     }
-                    FarmerBound::TakeItem { container } => self.take_item(farmer, container)?,
-                    FarmerBound::PutItem { container } => self.put_item(farmer, container)?,
-                    FarmerBound::DropItem { tile } => self.drop_item(farmer, tile)?,
+                    FarmerBound::TakeItemFromStack { stack } => {
+                        self.take_item_from_stack(farmer, farmland, stack)?
+                    }
+                    FarmerBound::TakeItemFromConstruction { construction } => {
+                        self.take_item_from_construction(farmer, farmland, construction)?
+                    }
+                    FarmerBound::TakeItemFromCementer {
+                        cementer,
+                        container,
+                    } => self.take_item_from_cementer(farmer, farmland, cementer, container)?,
+                    FarmerBound::PutItemIntoStack { stack } => {
+                        self.put_item_into_stack(farmer, farmland, stack)?
+                    }
+                    FarmerBound::PutItemIntoConstruction { construction } => {
+                        self.put_item_into_construction(farmer, farmland, construction)?
+                    }
+                    FarmerBound::PutItemIntoCementer {
+                        cementer,
+                        container,
+                    } => self.put_item_into_cementer(farmer, farmland, cementer, container)?,
+                    FarmerBound::DropItem { tile } => self.drop_item(farmland, farmer, tile)?,
                     FarmerBound::ToggleBackpack => self.toggle_backpack(farmer)?,
                     FarmerBound::Uninstall { equipment } => {
                         self.uninstall_equipment(farmer, farmland, equipment)?
@@ -265,39 +281,6 @@ impl Game {
         Ok(vec![])
     }
 
-    fn teardown_constructions(
-        &mut self,
-        _farmer: Farmer,
-        _farmland: Farmland,
-        surveyor: SurveyorId,
-    ) -> Result<Vec<Event>, ActionError> {
-        let constructions: Vec<Construction> = self
-            .universe
-            .constructions
-            .iter()
-            .filter(|construction| construction.surveyor == surveyor)
-            .cloned()
-            .collect();
-
-        let containers = constructions
-            .iter()
-            .map(|construction| construction.container)
-            .collect();
-
-        let destroy_containers = self.inventory.destroy_containers(containers, false)?;
-
-        let events = occur![
-            destroy_containers(),
-            constructions
-                .into_iter()
-                .map(|id| self.universe.vanish_construction(id))
-                .flatten()
-                .collect::<Vec<Universe>>(),
-        ];
-
-        Ok(events)
-    }
-
     fn cancel_activity(&mut self, farmer: Farmer) -> Result<Vec<Event>, ActionError> {
         let events = self.universe.change_activity(farmer, Idle);
         Ok(occur![events,])
@@ -375,123 +358,6 @@ impl Game {
             ];
         }
         Ok(events)
-    }
-
-    fn survey(
-        &mut self,
-        _farmer: Farmer,
-        farmland: Farmland,
-        surveyor: SurveyorId,
-        cell: [usize; 2],
-        marker: Marker,
-    ) -> Result<Vec<Event>, ActionError> {
-        let stake = Stake { marker, cell };
-        let survey = self.building.survey(surveyor, stake)?;
-        let container_kind = self.known.containers.find("<construction>")?;
-        let container = self.inventory.containers_id.introduce().one(ContainerId);
-        let create_container = self.inventory.add_container(container, &container_kind)?;
-        let appearance =
-            self.universe
-                .appear_construction(container, farmland.grid, surveyor, marker, cell);
-        let events = occur![survey(), create_container(), appearance,];
-        Ok(events)
-    }
-
-    fn remove_construction(
-        &mut self,
-        _farmer: Farmer,
-        _farmland: Farmland,
-        construction: Construction,
-    ) -> Result<Vec<Event>, ActionError> {
-        let destroy_container = self
-            .inventory
-            .destroy_containers(vec![construction.container], false)?;
-        let destroy_marker = self
-            .building
-            .unmark(construction.surveyor, construction.cell)?;
-        let events = occur![
-            destroy_container(),
-            destroy_marker(),
-            self.universe.vanish_construction(construction),
-        ];
-        Ok(events)
-    }
-
-    fn build(
-        &mut self,
-        _farmer: Farmer,
-        farmland: Farmland,
-        construction: Construction,
-    ) -> Result<Vec<Event>, ActionError> {
-        match construction.marker {
-            Marker::Construction(_) => {
-                let item = self.inventory.get_container_item(construction.container)?;
-                let material_index = item.kind.functions.as_material()?;
-                let material = Material(material_index);
-                let tile = construction.cell;
-
-                let use_items = self.inventory.use_items_from(construction.container)?;
-                let (structure, create_wall) =
-                    self.building.create_wall(farmland.grid, tile, material)?;
-                let create_hole = self.physics.create_hole(farmland.space, tile)?;
-
-                if structure == Structure::Door {
-                    let events = occur![
-                        use_items(),
-                        create_wall(),
-                        self.universe.vanish_construction(construction),
-                    ];
-                    Ok(events)
-                } else {
-                    let events = occur![
-                        use_items(),
-                        create_wall(),
-                        create_hole(),
-                        self.universe.vanish_construction(construction),
-                    ];
-                    Ok(events)
-                }
-            }
-            Marker::Reconstruction(_structure) => {
-                let tile = construction.cell;
-                let grid = self.building.get_grid(construction.grid)?;
-                let material = grid.cells[tile[1]][tile[0]].material;
-                let (structure, create_wall) =
-                    self.building.create_wall(farmland.grid, tile, material)?;
-                let create_hole = self.physics.create_hole(farmland.space, tile)?;
-
-                if structure == Structure::Door {
-                    let events = occur![
-                        // use_items(),
-                        create_wall(),
-                        self.universe.vanish_construction(construction),
-                    ];
-                    Ok(events)
-                } else {
-                    let events = occur![
-                        // use_items(),
-                        create_wall(),
-                        create_hole(),
-                        self.universe.vanish_construction(construction),
-                    ];
-                    Ok(events)
-                }
-            }
-            Marker::Deconstruction => {
-                let tile = construction.cell;
-                let use_items = self.inventory.use_items_from(construction.container)?;
-                let destroy_wall = self.building.destroy_walls(farmland.grid, vec![tile])?;
-                let destroy_hole = self.physics.destroy_hole(farmland.space, tile)?;
-
-                let events = occur![
-                    use_items(),
-                    destroy_wall(),
-                    destroy_hole(),
-                    self.universe.vanish_construction(construction),
-                ];
-                Ok(events)
-            }
-        }
     }
 
     pub fn appear_crop(

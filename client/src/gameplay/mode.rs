@@ -73,8 +73,6 @@ pub struct Gameplay {
     pub items: HashMap<ContainerId, HashMap<ItemId, ItemRep>>,
     pub camera: Camera,
     pub cursor: SpriteAsset,
-    pub cursor_room: usize,
-    pub farmer_room: usize,
     pub players: Vec<SpriteAsset>,
     pub players_index: usize,
     pub roof_texture: TextureAsset,
@@ -124,8 +122,6 @@ impl Gameplay {
             items: Default::default(),
             camera,
             cursor,
-            cursor_room: 0,
-            farmer_room: 0,
             players,
             players_index: 0,
             roof_texture: assets.texture("./assets/texture/building-roof-template-2.png"),
@@ -260,7 +256,7 @@ impl Gameplay {
         }
 
         match farmer.activity {
-            Activity::Idle | Activity::Usage => {}
+            Activity::Idle | Activity::Usage | Activity::Assembling { .. } => {}
             _ => {
                 // not movement allowed
                 return;

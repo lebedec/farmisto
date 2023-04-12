@@ -10,6 +10,7 @@ pub struct ContainerKind {
     pub id: ContainerKey,
     pub name: String,
     pub capacity: usize,
+    pub filter: Vec<Function>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
@@ -31,6 +32,7 @@ pub enum Function {
     Shovel,
     Product(usize),
     Assembly(usize),
+    Stone,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
@@ -102,6 +104,10 @@ pub enum InventoryError {
     ItemFunctionNotFound,
     ItemQuantityOverflow {
         id: ItemId,
+    },
+    ContainerFilterError {
+        container: ContainerId,
+        item: ItemId,
     },
 }
 

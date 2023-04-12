@@ -605,6 +605,7 @@ impl Game {
             id: ContainerKey(row.get("id")?),
             name: row.get("name")?,
             capacity: row.get("capacity")?,
+            filter: row.get_json("filter")?,
         };
         Ok(data)
     }

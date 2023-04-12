@@ -4,7 +4,10 @@ use crate::assembling::{Assembling, AssemblingError, Rotation};
 use crate::building::{Building, BuildingError, Marker, SurveyorId};
 use crate::collections::DictionaryError;
 use crate::inventory::{ContainerId, Inventory, InventoryError};
-use crate::model::{Activity, Cementer, Construction, Creature, Crop, Door, Equipment, Farmer, Universe, UniverseError};
+use crate::model::{
+    Activity, Cementer, Construction, Creature, Crop, Door, Equipment, Farmer, Stack, Universe,
+    UniverseError,
+};
 use crate::physics::{Physics, PhysicsError};
 use crate::planting::{Planting, PlantingError};
 use crate::raising::{Raising, RaisingError};
@@ -96,10 +99,24 @@ pub enum FarmerBound {
     RemoveConstruction {
         construction: Construction,
     },
-    TakeItem {
+    TakeItemFromStack {
+        stack: Stack,
+    },
+    TakeItemFromConstruction {
+        construction: Construction,
+    },
+    TakeItemFromCementer {
+        cementer: Cementer,
         container: ContainerId,
     },
-    PutItem {
+    PutItemIntoStack {
+        stack: Stack,
+    },
+    PutItemIntoConstruction {
+        construction: Construction,
+    },
+    PutItemIntoCementer {
+        cementer: Cementer,
         container: ContainerId,
     },
     DropItem {
@@ -140,8 +157,8 @@ pub enum FarmerBound {
         device: DeviceId,
     },
     ToggleDevice {
-        device: DeviceId
-    }
+        device: DeviceId,
+    },
 }
 
 #[derive(Debug, bincode::Encode, bincode::Decode)]
@@ -169,6 +186,8 @@ pub enum ActionError {
     ConstructionContainerNotFound(Construction),
     ConstructionContainerNotInitialized(Construction),
     ConstructionContainsUnexpectedItem(Construction),
+
+    TargetUnreachable,
 
     Test,
 }

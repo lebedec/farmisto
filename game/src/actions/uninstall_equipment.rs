@@ -1,5 +1,7 @@
 use crate::api::{ActionError, Event};
-use crate::model::{Activity, Equipment, Farmer, Farmland, Purpose};
+use crate::building::SurveyorId;
+use crate::model::{Activity, Construction, Equipment, Farmer, Farmland, Purpose};
+use crate::Universe;
 use crate::{occur, Game};
 
 impl Game {
@@ -37,5 +39,38 @@ impl Game {
             }
             Purpose::Moisture { .. } => Ok(vec![]),
         }
+    }
+
+    fn teardown_constructions(
+        &mut self,
+        _farmer: Farmer,
+        _farmland: Farmland,
+        surveyor: SurveyorId,
+    ) -> Result<Vec<Event>, ActionError> {
+        let constructions: Vec<Construction> = self
+            .universe
+            .constructions
+            .iter()
+            .filter(|construction| construction.surveyor == surveyor)
+            .cloned()
+            .collect();
+
+        let containers = constructions
+            .iter()
+            .map(|construction| construction.container)
+            .collect();
+
+        let destroy_containers = self.inventory.destroy_containers(containers, false)?;
+
+        let events = occur![
+            destroy_containers(),
+            constructions
+                .into_iter()
+                .map(|id| self.universe.vanish_construction(id))
+                .flatten()
+                .collect::<Vec<Universe>>(),
+        ];
+
+        Ok(events)
     }
 }

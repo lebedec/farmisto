@@ -1,6 +1,6 @@
-use game::inventory::ContainerId;
 use sdl2::keyboard::Keycode;
 
+use game::inventory::ContainerId;
 use game::math::{TileMath, VectorMath};
 use game::model::{Assembly, Cementer, Construction, Creature, Crop, Door, Equipment, Stack};
 use game::working::DeviceId;
@@ -21,14 +21,15 @@ pub enum Intention {
 #[derive(Clone)]
 pub enum Target {
     Ground { tile: [usize; 2] },
-    Container(ContainerId),
     Assembly(Assembly),
     Construction(Construction),
     Equipment(Equipment),
     Wall([usize; 2]),
     Crop(Crop),
     Door(Door),
+    Stack(Stack),
     Cementer(Cementer),
+    CementerContainer(Cementer, ContainerId),
     Creature(Creature),
     Device(DeviceId),
 }
@@ -71,16 +72,13 @@ impl Gameplay {
     pub fn get_targets_at(&self, tile: [usize; 2]) -> Vec<Target> {
         for stack in self.stacks.values() {
             if stack.position.to_tile() == tile {
-                return vec![Target::Container(stack.entity.container)];
+                return vec![Target::Stack(stack.entity)];
             }
         }
 
         for construction in self.constructions.values() {
             if construction.tile == tile {
-                return vec![
-                    Target::Construction(construction.entity),
-                    Target::Container(construction.entity.container),
-                ];
+                return vec![Target::Construction(construction.entity)];
             }
         }
 
@@ -111,18 +109,16 @@ impl Gameplay {
         for cementer in self.cementers.values() {
             let pivot = cementer.position.to_tile();
             if tile == pivot.add_offset(cementer.rotation.apply_i8(cementer.kind.input_offset)) {
-                return vec![
-                    Target::Container(cementer.entity.input),
-                    Target::Cementer(cementer.entity),
-                    Target::Device(cementer.entity.device),
-                ];
+                return vec![Target::CementerContainer(
+                    cementer.entity,
+                    cementer.entity.input,
+                )];
             }
             if tile == pivot.add_offset(cementer.rotation.apply_i8(cementer.kind.output_offset)) {
-                return vec![
-                    Target::Container(cementer.entity.output),
-                    Target::Cementer(cementer.entity),
-                    Target::Device(cementer.entity.device),
-                ];
+                return vec![Target::CementerContainer(
+                    cementer.entity,
+                    cementer.entity.output,
+                )];
             }
             if tile == pivot {
                 return vec![

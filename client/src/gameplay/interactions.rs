@@ -10,7 +10,7 @@ use game::model::{Activity, CropKey, Purpose};
 use crate::gameplay::representation::FarmerRep;
 use crate::gameplay::Intention::{Aim, Move, Put, QuickSwap, Swap, Use};
 use crate::gameplay::Target::{
-    Cementer, Construction, Container, Crop, Door, Equipment, Ground, Wall,
+    Cementer, CementerContainer, Construction, Crop, Door, Equipment, Ground, Stack, Wall,
 };
 use crate::gameplay::{Gameplay, Intention, Target};
 
@@ -25,8 +25,17 @@ impl Gameplay {
         match farmer.activity {
             Activity::Idle => match intention {
                 Use => match target {
-                    Container(container) => {
-                        self.send_action(FarmerBound::TakeItem { container });
+                    Stack(stack) => {
+                        self.send_action(FarmerBound::TakeItemFromStack { stack });
+                    }
+                    Construction(construction) => {
+                        self.send_action(FarmerBound::TakeItemFromConstruction { construction });
+                    }
+                    CementerContainer(cementer, container) => {
+                        self.send_action(FarmerBound::TakeItemFromCementer {
+                            cementer,
+                            container,
+                        });
                     }
                     Equipment(equipment) => {
                         self.send_action(FarmerBound::UseEquipment { equipment });
@@ -106,10 +115,22 @@ impl Gameplay {
                                     rotation: Rotation::A000,
                                 });
                             }
-                            (_, Container(container)) => {
-                                self.send_action(FarmerBound::TakeItem { container });
-                                break;
+
+                            (_, Stack(stack)) => {
+                                self.send_action(FarmerBound::TakeItemFromStack { stack });
                             }
+                            (_, Construction(construction)) => {
+                                self.send_action(FarmerBound::TakeItemFromConstruction {
+                                    construction,
+                                });
+                            }
+                            (_, CementerContainer(cementer, container)) => {
+                                self.send_action(FarmerBound::TakeItemFromCementer {
+                                    cementer,
+                                    container,
+                                });
+                            }
+
                             _ => {}
                         }
                     }
@@ -118,8 +139,17 @@ impl Gameplay {
                     Ground { tile } => {
                         self.send_action(FarmerBound::DropItem { tile });
                     }
-                    Container(container) => {
-                        self.send_action(FarmerBound::PutItem { container });
+                    Stack(stack) => {
+                        self.send_action(FarmerBound::PutItemIntoStack { stack });
+                    }
+                    Construction(construction) => {
+                        self.send_action(FarmerBound::PutItemIntoConstruction { construction });
+                    }
+                    CementerContainer(cementer, container) => {
+                        self.send_action(FarmerBound::PutItemIntoCementer {
+                            cementer,
+                            container,
+                        });
                     }
                     _ => {}
                 },

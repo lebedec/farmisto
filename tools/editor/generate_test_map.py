@@ -217,6 +217,7 @@ def prototype_assembling():
             'g': lambda tile, farmland: editor.add_stack(farmland, tile, ['glass-material'] * 5, 1),
             'd': lambda tile, farmland: editor.add_stack(farmland, tile, ['door-x1'] * 5, 1),
             'k': lambda tile, farmland: editor.add_stack(farmland, tile, ['cementer-kit'] * 5, 1),
+            's': lambda tile, farmland: editor.add_stack(farmland, tile, ['stones'] * 5, 1),
             'h': lambda tile, farmland: editor.add_stack(farmland, tile, ['hammer'], 1),
             'n': lambda tile, farmland: editor.add_equipment(farmland, tile, 'theodolite'),
         },
@@ -236,7 +237,7 @@ def prototype_assembling():
         . . . . . . . . . . . . . . c c . . . . . c c . . . . . . c . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
         . . B C D . . . . . . . . . c c . . . . c c c . . . . c c c . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
         . . . . . . k . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-        . . . A . . d . . . . . . . n h . . . . . n h . . . . . n h . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+        . . . A . s d . . . . . . . n h . . . . . n h . . . . . n h . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
         . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
         . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
         . . # # # | # # # . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .

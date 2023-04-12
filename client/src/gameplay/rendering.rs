@@ -145,15 +145,23 @@ impl Gameplay {
         let [render_offset_x, render_offset_y] = render_offset;
 
         for farmland in self.farmlands.values() {
-            self.cursor_room = 0;
-            self.farmer_room = 0;
+            let mut cursor_room = 0;
+            let mut all_cursor_rooms = vec![];
+            let mut farmer_room = 0;
 
             for (_i, room) in farmland.rooms.iter().enumerate() {
                 if room.contains(cursor.tile) {
-                    self.cursor_room = room.id;
+                    cursor_room = room.id;
+                    all_cursor_rooms.push(room.id);
+                }
+                if room.contains([cursor.tile[0], cursor.tile[1] + 1]) {
+                    all_cursor_rooms.push(room.id);
+                }
+                if room.contains([cursor.tile[0], cursor.tile[1] + 2]) {
+                    all_cursor_rooms.push(room.id);
                 }
                 if room.contains(farmer) {
-                    self.farmer_room = room.id;
+                    farmer_room = room.id;
                 }
             }
 
@@ -192,8 +200,9 @@ impl Gameplay {
             let mut roof_map = [[[0; 4]; 31]; 18];
             for room in &farmland.rooms {
                 if room.id == Room::EXTERIOR_ID
-                    || room.id == self.cursor_room
-                    || room.id == self.farmer_room
+                    || room.id == cursor_room
+                    || room.id == farmer_room
+                    || all_cursor_rooms.contains(&room.id)
                 {
                     continue;
                 }
@@ -260,6 +269,12 @@ impl Gameplay {
                 for (x, _cell) in line.iter().enumerate() {
                     let highlight = if y == cursor_y as usize && x == cursor_x as usize {
                         [1.5; 4]
+                    } else if y > cursor_y
+                        && y <= cursor_y + 2
+                        && x as isize >= (cursor_x as isize) - 2
+                        && x <= cursor_x + 2
+                    {
+                        [1.0, 1.0, 1.0, 0.5]
                     } else {
                         [1.0; 4]
                     };
