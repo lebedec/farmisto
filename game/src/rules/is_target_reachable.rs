@@ -13,7 +13,7 @@ impl Game {
     ) -> Result<(), ActionError> {
         let body = self.physics.get_body(farmer.body)?;
         let actor = body.position;
-        if self.is_target_reachable(space, actor, target) {
+        if self.is_target_reachable(space, actor, target)? {
             Ok(())
         } else {
             Err(ActionError::TargetUnreachable)
@@ -25,11 +25,12 @@ impl Game {
         space: SpaceId,
         actor: Position,
         target: Position,
-    ) -> bool {
+    ) -> Result<bool, ActionError> {
         if actor.distance(target) > 2.0 {
-            false
+            Ok(false)
         } else {
-            self.physics.cast_ray(space, actor, target).is_empty()
+            let contacts = self.physics.cast_ray(space, actor, target)?;
+            Ok(contacts.is_empty())
         }
     }
 }
