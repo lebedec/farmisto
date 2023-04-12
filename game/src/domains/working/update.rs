@@ -12,7 +12,9 @@ impl WorkingDomain {
         let device = self.get_device_mut(id)?;
         if device.resource == 0 && device.mode == DeviceMode::Pending {
             device.resource += resource;
+            //
             device.mode = DeviceMode::Running;
+            device.resource -= 1;
             Ok(true)
         } else {
             Ok(false)

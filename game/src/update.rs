@@ -44,7 +44,7 @@ impl Game {
             let input = self.inventory.get_container(cementer.input).unwrap();
             if !input.items.is_empty() {
                 let updated = self
-                    .working
+                    .workingцв
                     .update_device_resource(cementer.device, 1)
                     .unwrap();
                 if updated {
