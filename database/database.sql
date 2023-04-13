@@ -211,7 +211,6 @@ create table DeviceKind
 (
     id         integer primary key,
     name       text not null unique,
-    process    json not null,
     duration   real not null,
     durability real not null
 );
@@ -221,9 +220,12 @@ create table Device
     id          integer primary key,
     kind        integer not null references DeviceKind (id),
     mode        json    not null,
-    resource    integer not null,
     progress    real    not null,
-    deprecation real    not null
+    deprecation real    not null,
+    enabled     bool    not null,
+    broken      bool    not null,
+    input       bool    not null,
+    output      bool    not null
 );
 
 -- Universe

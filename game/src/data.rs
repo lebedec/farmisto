@@ -649,7 +649,6 @@ impl Game {
         let data = DeviceKind {
             id: DeviceKey(row.get("id")?),
             name: row.get("name")?,
-            process: row.get_json("process")?,
             duration: row.get("duration")?,
             durability: row.get("durability")?,
         };
@@ -660,10 +659,12 @@ impl Game {
         let data = Device {
             id: DeviceId(row.get("id")?),
             kind: self.known.devices.get_by(row, "kind", DeviceKey)?,
-            mode: row.get_json("process")?,
-            resource: row.get("resource")?,
+            enabled: row.get("enabled")?,
             progress: row.get("progress")?,
+            input: row.get("input")?,
+            output: row.get("output")?,
             deprecation: row.get("deprecation")?,
+            broken: row.get("broken")?,
         };
         Ok(data)
     }

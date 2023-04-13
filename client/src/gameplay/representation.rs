@@ -11,8 +11,7 @@ use game::model::{
     Activity, Assembly, Cementer, CementerKind, Construction, Creature, CreatureKind, Crop, Door,
     Equipment, Farmer, FarmerKind, Farmland, FarmlandKind, Stack, Tree, TreeKind,
 };
-use game::physics::{BarrierId, BodyKind};
-use game::working::DeviceMode;
+use game::physics::BodyKind;
 
 use crate::assets::TreeAsset;
 use crate::assets::{BuildingMaterialAsset, CreatureAsset};
@@ -137,7 +136,7 @@ pub struct AssemblyRep {
     pub asset: AssemblyTargetAsset,
     pub rotation: Rotation,
     pub pivot: Tile,
-    pub valid: bool
+    pub valid: bool,
 }
 
 pub struct DoorRep {
@@ -154,7 +153,11 @@ pub struct CementerRep {
     pub asset: CementerAsset,
     pub rotation: Rotation,
     pub position: [f32; 2],
-    pub mode: DeviceMode,
+    pub enabled: bool,
+    pub broken: bool,
+    pub input: bool,
+    pub output: bool,
+    pub deprecation: f32,
     pub progress: f32,
 }
 

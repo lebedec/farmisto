@@ -2,7 +2,6 @@ use rand::thread_rng;
 
 use crate::api::Event;
 use crate::math::VectorMath;
-use crate::working::{Process, Working};
 use crate::{occur, Game};
 
 impl Game {
@@ -41,43 +40,38 @@ impl Game {
 
         let mut cementer_events = vec![];
         for cementer in &self.universe.cementers {
-            let input = self.inventory.get_container(cementer.input).unwrap();
-            if !input.items.is_empty() {
-                let updated = self
-                    .workingцв
-                    .update_device_resource(cementer.device, 1)
-                    .unwrap();
-                if updated {
-                    // TODO: transactional with working
+            // TODO: transactional with working
+            // TODO: errors, unwraps
+            let has_input = !self
+                .inventory
+                .get_container(cementer.input)
+                .unwrap()
+                .items
+                .is_empty();
+            if has_input {
+                let consumed = self.working.consume_input(cementer.device).unwrap();
+                if consumed {
                     let use_items = self.inventory.pop_use_item(cementer.input).unwrap();
                     cementer_events.push(use_items().into());
                 }
             }
-        }
-        let mut random = thread_rng();
-
-        let working_events = self.working.update(time, random);
-        for event in &working_events {
-            if let Working::ProcessCompleted { device, process } = event {
-                match process {
-                    Process::CementGeneration => {
-                        let cementer = self
-                            .universe
-                            .cementers
-                            .iter()
-                            .find(|cementer| &cementer.device == device)
-                            .unwrap();
-                        let cementer_kind = self.known.cementers.get(cementer.key).unwrap();
-                        // TODO: errors
-                        let (_, create_item) = self
-                            .inventory
-                            .create_item(&cementer_kind.cement, cementer.output, 1)
-                            .unwrap();
-                        cementer_events.push(create_item().into())
-                    }
+            let output = self.inventory.get_container(cementer.output).unwrap();
+            let can_output = output.items.len() < output.kind.capacity;
+            if can_output {
+                let produced = self.working.produce_output(cementer.device).unwrap();
+                if produced {
+                    let cementer_kind = self.known.cementers.get(cementer.key).unwrap();
+                    let (_, create_item) = self
+                        .inventory
+                        .create_item(&cementer_kind.cement, cementer.output, 1)
+                        .unwrap();
+                    cementer_events.push(create_item().into())
                 }
             }
         }
+
+        let mut random = thread_rng();
+        let working_events = self.working.update(time, random);
 
         let mut events = occur![physics_events, self.planting.update(time), working_events,];
         events.extend(cementer_events);

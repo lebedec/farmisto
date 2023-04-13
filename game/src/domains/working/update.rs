@@ -1,82 +1,70 @@
-use crate::working::Working::{DeviceUpdated, ProcessCompleted};
-use crate::working::{DeviceId, DeviceMode, Working, WorkingDomain, WorkingError};
+use crate::working::Working::DeviceUpdated;
+use crate::working::{DeviceId, Working, WorkingDomain, WorkingError};
 use log::info;
 use rand::Rng;
 
 impl WorkingDomain {
-    pub fn update_device_resource(
-        &mut self,
-        id: DeviceId,
-        resource: u8,
-    ) -> Result<bool, WorkingError> {
+    pub fn consume_input(&mut self, id: DeviceId) -> Result<bool, WorkingError> {
         let device = self.get_device_mut(id)?;
-        if device.resource == 0 && device.mode == DeviceMode::Pending {
-            device.resource += resource;
-            //
-            device.mode = DeviceMode::Running;
-            device.resource -= 1;
-            Ok(true)
+        let consumed = if device.enabled && !device.input {
+            device.input = true;
+            true
         } else {
-            Ok(false)
-        }
+            false
+        };
+        Ok(consumed)
+    }
+
+    pub fn produce_output(&mut self, id: DeviceId) -> Result<bool, WorkingError> {
+        let device = self.get_device_mut(id)?;
+        let produced = if device.output {
+            device.output = false;
+            true
+        } else {
+            false
+        };
+        Ok(produced)
     }
 
     pub fn update(&mut self, time: f32, mut random: impl Rng) -> Vec<Working> {
         let mut events = vec![];
         for device in self.devices.iter_mut() {
-            if device.mode == DeviceMode::Stopped {
+            if device.broken || !device.enabled {
                 continue;
             }
 
-            if device.mode == DeviceMode::Pending {
+            // running, but await result to be taken
+            if device.output {
                 continue;
             }
 
-            if device.mode == DeviceMode::Broken {
+            // running, but await resources input
+            if !device.input {
                 continue;
             }
 
             let jam = random.gen_range(0.0..=1.0);
             let deprecation = device.deprecation / device.kind.durability;
-            // info!(
-            //     "df{deprecation} >= {jam} {} depr{} dura{}",
-            //     deprecation >= jam,
-            //     device.deprecation,
-            //     device.kind.durability
-            // );
             if deprecation > 0.25 && deprecation >= jam {
-                device.mode = DeviceMode::Broken;
-                events.push(DeviceUpdated {
-                    device: device.id,
-                    mode: device.mode,
-                    resource: device.resource,
-                    progress: device.progress,
-                    deprecation: device.deprecation,
-                });
-                continue;
-            }
-
-            device.progress += time;
-            device.deprecation += time;
-            if device.progress >= device.kind.duration {
-                device.progress -= device.kind.duration;
-                events.push(ProcessCompleted {
-                    device: device.id,
-                    process: device.kind.process,
-                });
-                if device.resource > 0 {
-                    device.resource -= 1;
-                } else {
-                    device.progress = 0.0;
-                    device.mode = DeviceMode::Pending;
+                device.broken = true;
+            } else {
+                device.progress += time;
+                device.deprecation += time;
+                if device.progress >= device.kind.duration {
+                    device.progress -= device.kind.duration;
+                    device.output = true;
+                    device.input = false;
                 }
             }
+
             events.push(DeviceUpdated {
                 device: device.id,
-                mode: device.mode,
-                resource: device.resource,
+                enabled: device.enabled,
                 progress: device.progress,
+                input: device.input,
+                output: device.output,
                 deprecation: device.deprecation,
+                broken: device.broken,
             });
         }
         events

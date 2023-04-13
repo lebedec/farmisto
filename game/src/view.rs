@@ -63,7 +63,10 @@ impl Game {
             entity,
             rotation: placement.rotation,
             position: barrier.position,
-            mode: device.mode,
+            enabled: device.enabled,
+            broken: device.broken,
+            input: device.input,
+            output: device.output,
             progress: device.progress,
         }
     }

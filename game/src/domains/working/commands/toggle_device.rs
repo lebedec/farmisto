@@ -1,5 +1,5 @@
 use crate::working::Working::DeviceUpdated;
-use crate::working::{DeviceId, DeviceMode, Working, WorkingDomain, WorkingError};
+use crate::working::{DeviceId, Working, WorkingDomain, WorkingError};
 
 impl WorkingDomain {
     pub fn toggle_device(
@@ -8,16 +8,14 @@ impl WorkingDomain {
     ) -> Result<impl FnOnce() -> Vec<Working> + '_, WorkingError> {
         let device = self.get_device_mut(id)?;
         let command = move || {
-            if device.mode == DeviceMode::Stopped {
-                device.mode = DeviceMode::Running;
-            } else if device.mode == DeviceMode::Running || device.mode == DeviceMode::Pending {
-                device.mode = DeviceMode::Stopped
-            }
+            device.enabled = !device.enabled;
             vec![DeviceUpdated {
                 device: device.id,
-                mode: device.mode,
-                resource: device.resource,
+                enabled: device.enabled,
+                broken: device.broken,
                 progress: device.progress,
+                input: device.input,
+                output: device.output,
                 deprecation: device.deprecation,
             }]
         };

@@ -1,6 +1,6 @@
 use crate::collections::{Shared, TemporaryRef};
 use crate::working::{
-    Device, DeviceId, DeviceKind, DeviceMode, Working, WorkingDomain, WorkingError,
+    Device, DeviceId, DeviceKind, Working, WorkingDomain, WorkingError,
 };
 
 impl WorkingDomain {
@@ -12,9 +12,11 @@ impl WorkingDomain {
         let device = Device {
             id,
             kind: kind.clone(),
-            mode: DeviceMode::Pending,
-            resource: 0,
+            enabled: false,
+            broken: false,
             progress: 0.0,
+            input: false,
+            output: false,
             deprecation: 0.0,
         };
         let mut domain = TemporaryRef::from(self);

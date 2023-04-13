@@ -186,7 +186,8 @@ def create_new_database(dst_path: str, tmp_path: str):
     rows = src.execute("select tbl_name from main.sqlite_master where type = 'table'")
     tables = [name for columns in rows for name in columns if name.endswith('Kind')]
     order = {
-        'AssemblyKind': 1
+        'CementerKind': 1,
+        'AssemblyKind': 2
     }
     tables = sorted(tables, key=lambda name: order.get(name, 0))
 
@@ -242,7 +243,7 @@ def prototype_assembling():
         . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
         . . # # # | # # # . . . . . . . B C D . . k . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
         . . | . . . . . # | | # . . . . . A . . s d . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-        . . # . . . . . . . . # . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+        . . # . . . . . . . . # . . . . . . . . s s . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
         . . # | | | # # # . . | . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
         . . . . . . . . | . . | . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
         . . . . . . . . | . . | . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .

@@ -180,19 +180,23 @@ impl Gameplay {
 
     pub fn handle_working_event(&mut self, _frame: &mut Frame, event: Working) {
         match event {
-            Working::ProcessCompleted { device, process } => {
-                info!("Process {process:?} completed of {device:?}");
-            }
             Working::DeviceUpdated {
                 device,
+                enabled,
+                broken,
                 progress,
-                mode,
-                ..
+                input,
+                output,
+                deprecation,
             } => {
                 for cementer in self.cementers.values_mut() {
                     if cementer.entity.device == device {
                         cementer.progress = progress;
-                        cementer.mode = mode;
+                        cementer.enabled = enabled;
+                        cementer.broken = broken;
+                        cementer.input = input;
+                        cementer.output = output;
+                        cementer.deprecation = deprecation;
                         return;
                     }
                 }
@@ -657,7 +661,7 @@ impl Gameplay {
                 entity,
                 pivot,
                 rotation,
-                valid
+                valid,
             } => {
                 let kind = self.known.assembly.get(entity.key).unwrap();
                 let asset = match &kind.target {
@@ -715,10 +719,13 @@ impl Gameplay {
                 entity,
                 rotation,
                 position,
-                mode,
+                enabled,
+                broken,
+                input,
+                output,
                 progress,
             } => {
-                info!("Appear {entity:?} {mode:?} p{progress}");
+                info!("Appear {entity:?} e{enabled:?} b{broken} i{input} o{output} p{progress}");
                 let kind = self.known.cementers.get(entity.key).unwrap();
                 let asset = assets.cementer(&kind.name);
                 let representation = CementerRep {
@@ -727,7 +734,11 @@ impl Gameplay {
                     asset,
                     rotation,
                     position,
-                    mode,
+                    enabled,
+                    broken,
+                    input,
+                    output,
+                    deprecation: 0.0,
                     progress,
                 };
                 self.cementers.insert(entity, representation);

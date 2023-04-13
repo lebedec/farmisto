@@ -12,7 +12,7 @@ use crate::physics::{
 };
 use crate::planting::{PlantId, PlantKey, PlantKind, SoilId, SoilKey, SoilKind};
 use crate::raising::{AnimalId, AnimalKey, AnimalKind};
-use crate::working::{DeviceId, DeviceKey, DeviceKind, DeviceMode};
+use crate::working::{DeviceId, DeviceKey, DeviceKind};
 
 #[derive(Default)]
 pub struct Knowledge {
@@ -168,7 +168,10 @@ pub enum Universe {
         entity: Cementer,
         rotation: Rotation,
         position: [f32; 2],
-        mode: DeviceMode,
+        enabled: bool,
+        broken: bool,
+        input: bool,
+        output: bool,
         progress: f32,
     },
     CementerVanished(Cementer),

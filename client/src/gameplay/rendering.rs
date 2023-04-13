@@ -1,16 +1,13 @@
 use std::collections::HashMap;
 
 use lazy_static::lazy_static;
-use log::info;
 use rand::prelude::*;
 
 use game::assembling::Rotation;
 use game::building::{Cell, Grid, Marker, Material, Room, Structure};
-use game::collections::Shared;
 use game::inventory::{ContainerId, ItemId};
 use game::math::{Position, Tile, TileMath, VectorMath};
 use game::model::{Activity, CementerKind, Purpose};
-use game::working::DeviceMode;
 
 use crate::assets::CementerAsset;
 use crate::engine::rendering::{xy, Scene, TilemapUniform};
@@ -126,7 +123,6 @@ impl Gameplay {
     }
 
     pub fn render(&mut self, frame: &mut Frame) {
-        let assets = &mut frame.assets;
         let scene = &mut frame.sprites;
         scene.clear();
         scene.look_at(self.camera.eye);
@@ -364,7 +360,10 @@ impl Gameplay {
                         assembly.rotation,
                         cementer,
                         &kind,
-                        DeviceMode::Stopped,
+                        false,
+                        false,
+                        true,
+                        false,
                         highlight,
                         scene,
                     );
@@ -389,7 +388,10 @@ impl Gameplay {
                 cementer.rotation,
                 &cementer.asset,
                 &cementer.kind,
-                cementer.mode,
+                cementer.enabled,
+                cementer.broken,
+                cementer.input,
+                cementer.output,
                 [1.0; 4],
                 scene,
             );
@@ -711,19 +713,28 @@ fn render_cementer(
     rotation: Rotation,
     cementer: &CementerAsset,
     kind: &CementerKind,
-    mode: DeviceMode,
+    enabled: bool,
+    broken: bool,
+    input: bool,
+    output: bool,
     color: [f32; 4],
     scene: &mut Scene,
 ) {
     let position = position_of(pivot);
     let rendering_position = rendering_position_of(position);
 
-    let index = match mode {
-        DeviceMode::Running => 0,
-        DeviceMode::Pending => 1,
-        DeviceMode::Stopped => 2,
-        DeviceMode::Broken => 3,
+    let index = if broken {
+        3
+    } else if enabled {
+        if output || !input {
+            1
+        } else {
+            0
+        }
+    } else {
+        2
     };
+
     let sprite = &cementer.sprites.tiles[index];
     let rot = rotation.index();
 

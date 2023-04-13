@@ -12,7 +12,6 @@ pub struct DeviceKey(pub usize);
 pub struct DeviceKind {
     pub id: DeviceKey,
     pub name: String,
-    pub process: Process,
     pub duration: f32,
     pub durability: f32,
 }
@@ -20,43 +19,26 @@ pub struct DeviceKind {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
 pub struct DeviceId(pub usize);
 
-#[derive(
-    Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode, serde::Deserialize,
-)]
-pub enum DeviceMode {
-    Running,
-    Pending,
-    Stopped,
-    Broken,
-}
-
-#[derive(
-    Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode, serde::Deserialize,
-)]
-pub enum Process {
-    CementGeneration,
-}
-
 pub struct Device {
     pub id: DeviceId,
     pub kind: Shared<DeviceKind>,
-    pub mode: DeviceMode,
-    pub resource: u8,
+    pub enabled: bool,
+    pub broken: bool,
     pub progress: f32,
+    pub input: bool,
+    pub output: bool,
     pub deprecation: f32,
 }
 
 #[derive(Debug, bincode::Encode, bincode::Decode)]
 pub enum Working {
-    ProcessCompleted {
-        device: DeviceId,
-        process: Process,
-    },
     DeviceUpdated {
         device: DeviceId,
-        mode: DeviceMode,
-        resource: u8,
+        enabled: bool,
+        broken: bool,
         progress: f32,
+        input: bool,
+        output: bool,
         deprecation: f32,
     },
 }
