@@ -71,9 +71,14 @@ impl Game {
         }
 
         let mut random = thread_rng();
-        let working_events = self.working.update(time, random);
+        let working_events = self.working.update(time, random.clone());
 
-        let mut events = occur![physics_events, self.planting.update(time), working_events,];
+        let mut events = occur![
+            physics_events,
+            self.planting.update(time),
+            self.landscaping.update(time, random),
+            working_events,
+        ];
         events.extend(cementer_events);
         events.extend(destroy_empty_stacks);
         events

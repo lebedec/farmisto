@@ -90,8 +90,7 @@ create table SoilKind
 create table Soil
 (
     id   integer primary key,
-    kind integer             not null references SoilKind (id),
-    map  blob collate binary not null
+    kind integer             not null references SoilKind (id)
 );
 
 create table PlantKind
@@ -114,6 +113,22 @@ create table Plant
     health real    not null,
     growth real    not null,
     fruits integer not null
+);
+
+-- Landscaping
+
+create table LandKind
+(
+    id   integer primary key,
+    name text not null unique
+);
+
+create table Land
+(
+    id                integer primary key,
+    kind              integer             not null references LandKind (id),
+    moisture          blob collate binary not null,
+    moisture_capacity blob collate binary not null
 );
 
 -- Raising
@@ -252,7 +267,8 @@ create table FarmlandKind
     name  text    not null unique,
     space integer not null references SpaceKind (id),
     soil  integer not null references SoilKind (id),
-    grid  integer not null references GridKind (id)
+    grid  integer not null references GridKind (id),
+    land  text    not null references LandKind (name)
 );
 
 create table Farmland
@@ -261,7 +277,8 @@ create table Farmland
     kind  integer not null references FarmlandKind (id),
     space integer not null references Space (id),
     soil  integer not null references Soil (id),
-    grid  integer not null references Grid (id)
+    grid  integer not null references Grid (id),
+    land  integer not null references Land (id)
 );
 
 create table FarmerKind

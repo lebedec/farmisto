@@ -4,6 +4,7 @@ use crate::assembling::{Assembling, AssemblingError, Rotation};
 use crate::building::{Building, BuildingError, Marker, SurveyorId};
 use crate::collections::DictionaryError;
 use crate::inventory::{ContainerId, Inventory, InventoryError};
+use crate::landscaping::{Landscaping, LandscapingError};
 use crate::model::{
     Activity, Cementer, Construction, Creature, Crop, Door, Equipment, Farmer, Stack, Universe,
     UniverseError,
@@ -178,6 +179,7 @@ pub enum ActionError {
     Raising(RaisingError),
     Assembling(AssemblingError),
     Working(WorkingError),
+    Landscaping(LandscapingError),
 
     Inconsistency(DictionaryError),
 
@@ -246,6 +248,12 @@ impl From<WorkingError> for ActionError {
     }
 }
 
+impl From<LandscapingError> for ActionError {
+    fn from(error: LandscapingError) -> Self {
+        Self::Landscaping(error)
+    }
+}
+
 #[derive(Debug, bincode::Encode, bincode::Decode)]
 pub enum Event {
     UniverseStream(Vec<Universe>),
@@ -256,6 +264,7 @@ pub enum Event {
     RaisingStream(Vec<Raising>),
     AssemblingStream(Vec<Assembling>),
     WorkingStream(Vec<Working>),
+    LandscapingStream(Vec<Landscaping>),
 }
 
 impl Into<Event> for Vec<Universe> {
@@ -306,6 +315,12 @@ impl Into<Event> for Vec<Working> {
     }
 }
 
+impl Into<Event> for Vec<Landscaping> {
+    fn into(self) -> Event {
+        Event::LandscapingStream(self)
+    }
+}
+
 impl Into<Event> for Planting {
     fn into(self) -> Event {
         Event::PlantingStream(vec![self])
@@ -351,5 +366,11 @@ impl Into<Event> for Assembling {
 impl Into<Event> for Working {
     fn into(self) -> Event {
         Event::WorkingStream(vec![self])
+    }
+}
+
+impl Into<Event> for Landscaping {
+    fn into(self) -> Event {
+        Event::LandscapingStream(vec![self])
     }
 }

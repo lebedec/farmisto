@@ -14,7 +14,8 @@ impl Scene {
         &mut self,
         texture: TextureAsset,
         sampler: SamplerAsset,
-        input: &Vec<Vec<(u8, u8)>>,
+        moisture: &[[u8; 128]; 128],
+        moisture_capacity: &[[u8; 128]; 128],
         shapes: &Vec<Room>,
     ) {
         let mut global_interior_map = [0u128; Grid::ROWS];
@@ -28,8 +29,7 @@ impl Scene {
         }
 
         const CELL_SIZE: f32 = 128.0;
-        let input_size = [input[0].len(), input.len()];
-        let [input_size_x, input_size_y] = input_size;
+        let [input_size_x, input_size_y] = [128, 128];
         let offset_step = self.camera_position.div(CELL_SIZE).floor();
         let offset_tile = offset_step.to_tile();
         let offset_step = offset_step.clamp(
@@ -46,7 +46,8 @@ impl Scene {
                 let [step_x, step_y] = offset_step;
                 let iy = y + step_y as usize;
                 let ix = x + step_x as usize;
-                let (capacity, moisture) = input[iy][ix];
+                let moisture = moisture[iy][ix];
+                let capacity = moisture_capacity[iy][ix];
                 let capacity = capacity as f32 / 255.0;
                 let moisture = moisture as f32 / 255.0;
                 map[y][x] = [capacity, moisture, 1.0, 0.0];

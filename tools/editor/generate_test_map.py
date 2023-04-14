@@ -43,19 +43,30 @@ class Editor:
             farmland=farmland
         )
 
-    def create_farmland(self, kind: str, holes: bytes, soil: bytes, grid: bytes) -> str:
+    def create_farmland(self, kind: str, holes: bytes, moisture: bytes, moisture_capacity: bytes, grid: bytes) -> str:
         connection = self.connection
-        print('Create farmland', kind, 'holes:', len(holes), 'soil:', len(soil), 'grid:', len(grid))
+        print('Create farmland', kind, 'holes:', len(holes), 'moisture:', len(moisture), 'moisture_capacity:',
+              len(moisture_capacity), 'grid:', len(grid))
 
-        kind = connection.execute('select id, space, soil, grid from FarmlandKind where name = ?', [kind]).fetchone()
-        kind, space_kind, soil_kind, grid_kind = kind
+        kind = connection.execute('select id, space, soil, grid, land from FarmlandKind where name = ?', [kind]).fetchone()
+        kind, space_kind, soil_kind, grid_kind, land_name = kind
+
         connection.execute('insert into Space values (null, ?, ?)', [space_kind, holes])
         space_id = '(select max(id) from Space)'
-        connection.execute('insert into Soil values (null, ?, ?)', [soil_kind, soil])
+
+        connection.execute('insert into Soil values (null, ?)', [soil_kind])
         soil_id = '(select max(id) from Soil)'
+
         connection.execute('insert into Grid values (null, ?, ?)', [grid_kind, grid])
         grid_id = '(select max(id) from Grid)'
-        connection.execute(f'insert into Farmland values (null, ?, {space_id}, {soil_id}, {grid_id})', [kind])
+
+        connection.execute(
+            'insert into Land values (null, (select id from LandKind where name = ?), ?, ?)',
+            [land_name, moisture, moisture_capacity]
+        )
+        land_id = '(select max(id) from Land)'
+
+        connection.execute(f'insert into Farmland values (null, ?, {space_id}, {soil_id}, {grid_id}, {land_id})', [kind])
         connection.commit()
         return '1'  # TODO: select real id
 
@@ -74,7 +85,8 @@ class Material:
 def generate_farmland(
         editor: Editor,
         farmland_kind: str,
-        soil_data: bytes,
+        moisture_data: bytes,
+        moisture_capacity_data: bytes,
         objects: Dict[str, Callable[[Tuple[int, int], str], None]],
         buildings: Dict[str, Tuple[int, int, int, int]],
         user_define_map: str
@@ -113,12 +125,18 @@ def generate_farmland(
 
     grid_data = grid_data.getvalue()
     holes_data = holes_data.getvalue()
-    farmland_id = editor.create_farmland(farmland_kind, holes_data, soil_data, grid_data)
+    farmland_id = editor.create_farmland(
+        farmland_kind,
+        holes_data,
+        moisture_data,
+        moisture_capacity_data,
+        grid_data
+    )
     for tile, edit in edits:
         edit(tile, farmland_id)
 
 
-def generate_soil(user_define: List[str]) -> bytes:
+def generate_feature_map(feature: Callable[[Tuple[int, int]], int]) -> bytes:
     data = BytesIO()
     size_y = 128
     size_x = 128
@@ -126,18 +144,12 @@ def generate_soil(user_define: List[str]) -> bytes:
     for y in range(size_y):
         data.write(struct.pack('B', size_x))
         for x in range(size_x):
-            capacity = 0.71
-            moisture = 0.0
-            if y < len(user_define) and x < len(user_define[y]):
-                code = user_define[y][x]
-                capacity = float(code) / 10.0
-                moisture = float(code) / 10.0
-            # data.write(struct.pack('=Bff', *[2, capacity, moisture]))
-            data.write(struct.pack('=BB', *[int(capacity * 255), int(moisture * 255)]))
+            value = feature((x, y))
+            data.write(struct.pack('B', value))
     return data.getvalue()
 
 
-def generate_soil_from_image(path: str) -> bytes:
+def moisture_capacity_from_image(path: str) -> bytes:
     image = Image.open(path).convert('L')
     data = BytesIO()
     size_y = 128
@@ -147,9 +159,8 @@ def generate_soil_from_image(path: str) -> bytes:
         data.write(struct.pack('B', size_x))
         for x in range(size_x):
             capacity = 0.7 - (image.getpixel((x, y)) / 255) * 0.7
-            moisture = 0.0
-            # data.write(struct.pack('=Bff', *[2, capacity, moisture]))
-            data.write(struct.pack('=BB', *[int(capacity * 255), int(moisture * 255)]))
+            value = int(capacity * 255)
+            data.write(struct.pack('B', value))
     return data.getvalue()
 
 
@@ -186,6 +197,7 @@ def create_new_database(dst_path: str, tmp_path: str):
     rows = src.execute("select tbl_name from main.sqlite_master where type = 'table'")
     tables = [name for columns in rows for name in columns if name.endswith('Kind')]
     order = {
+        'LandKind': -1,
         'CementerKind': 1,
         'AssemblyKind': 2
     }
@@ -206,7 +218,8 @@ def prototype_assembling():
     generate_farmland(
         editor,
         farmland_kind='test',
-        soil_data=generate_soil_from_image("../bin/data/noise.png"),
+        moisture_data=generate_feature_map(lambda _: 127),
+        moisture_capacity_data=moisture_capacity_from_image("../bin/data/noise.png"),
         objects={
             'A': lambda tile, farmland: editor.add_farmer('farmer', 'Alice', farmland, tile),
             'B': lambda tile, farmland: editor.add_farmer('farmer', 'Boris', farmland, tile),
@@ -283,21 +296,16 @@ def prototype_assembling():
         . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
         """
     )
-    
+
+
 def prototype_building():
     create_new_database('../../assets/database.sqlite', '../../assets/database_tmp.sqlite')
     editor = Editor(sqlite3.connect('../../assets/database.sqlite'))
     generate_farmland(
         editor,
         farmland_kind='test',
-        # soil_data=generate_soil([
-        #     '7777777777777777777777777',
-        #     '0123456777777777777777012',
-        #     '9999999977777777777777012',
-        #     '1111111177777777777777012',
-        #     '9876543277777777777777012'
-        # ]),
-        soil_data=generate_soil_from_image("../bin/data/noise.png"),
+        moisture_data=generate_feature_map(lambda _: 0),
+        moisture_capacity_data=moisture_capacity_from_image("../bin/data/noise.png"),
         objects={
             'A': lambda tile, farmland: editor.add_farmer('farmer', 'Alice', farmland, tile),
             'B': lambda tile, farmland: editor.add_farmer('farmer', 'Boris', farmland, tile),
@@ -372,6 +380,7 @@ def prototype_building():
         . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
         """
     )
+
 
 if __name__ == '__main__':
     prototype_assembling()

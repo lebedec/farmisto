@@ -8,6 +8,7 @@ use game::api::Event;
 use game::assembling::Assembling;
 use game::building::{Building, Material};
 use game::inventory::Inventory;
+use game::landscaping::Landscaping;
 use game::model::{Activity, AssemblyTarget, Universe};
 use game::physics::{Barrier, Physics};
 use game::planting::Planting;
@@ -58,6 +59,11 @@ impl Gameplay {
             Event::WorkingStream(events) => {
                 for event in events {
                     self.handle_working_event(frame, event);
+                }
+            }
+            Event::LandscapingStream(events) => {
+                for event in events {
+                    self.handle_landscaping_event(frame, event);
                 }
             }
         }
@@ -124,16 +130,32 @@ impl Gameplay {
         }
     }
 
-    pub fn handle_planting_event(&mut self, _frame: &mut Frame, event: Planting) {
+    pub fn handle_landscaping_event(&mut self, _frame: &mut Frame, event: Landscaping) {
         match event {
-            Planting::SoilChanged { soil, map } => {
-                for (farmland, behaviour) in self.farmlands.iter_mut() {
-                    if farmland.soil == soil {
-                        behaviour.soil_map = map;
+            Landscaping::MoistureUpdate { land, moisture } => {
+                for farmland in self.farmlands.values_mut() {
+                    if farmland.entity.land == land {
+                        farmland.moisture = moisture;
                         break;
                     }
                 }
             }
+            Landscaping::MoistureCapacityUpdate {
+                land,
+                moisture_capacity,
+            } => {
+                for farmland in self.farmlands.values_mut() {
+                    if farmland.entity.land == land {
+                        farmland.moisture_capacity = moisture_capacity;
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
+    pub fn handle_planting_event(&mut self, _frame: &mut Frame, event: Planting) {
+        match event {
             Planting::PlantUpdated {
                 id,
                 impact,
@@ -319,7 +341,8 @@ impl Gameplay {
             }
             Universe::FarmlandAppeared {
                 farmland,
-                map,
+                moisture,
+                moisture_capacity,
                 cells,
                 rooms,
                 holes,
@@ -397,7 +420,8 @@ impl Gameplay {
                         entity: farmland,
                         kind,
                         asset,
-                        soil_map: map,
+                        moisture,
+                        moisture_capacity,
                         cells,
                         rooms,
                         holes,

@@ -164,7 +164,8 @@ impl Gameplay {
             scene.render_ground(
                 farmland.asset.texture.clone(),
                 farmland.asset.sampler.share(),
-                &farmland.soil_map,
+                &farmland.moisture,
+                &farmland.moisture_capacity,
                 &farmland.rooms,
             );
 

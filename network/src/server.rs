@@ -248,6 +248,14 @@ impl TcpServer {
                                 .with_label_values(&["working"])
                                 .inc();
                         }
+                        Event::LandscapingStream(events) => {
+                            SERVER_SENT_EVENTS_TOTAL
+                                .with_label_values(&["landscaping"])
+                                .inc_by(events.len() as u64);
+                            SERVER_SENT_EVENT_STREAMS_TOTAL
+                                .with_label_values(&["landscaping"])
+                                .inc();
+                        }
                     }
                 }
             }

@@ -6,6 +6,7 @@ use std::collections::HashMap;
 use game::building::{Cell, Room};
 use game::collections::Shared;
 use game::inventory::{ContainerId, ItemId, ItemKind};
+use game::landscaping::LandMap;
 use game::math::{Collider, Tile, VectorMath};
 use game::model::{
     Activity, Assembly, Cementer, CementerKind, Construction, Creature, CreatureKind, Crop, Door,
@@ -82,7 +83,8 @@ pub struct FarmlandRep {
     pub entity: Farmland,
     pub kind: Shared<FarmlandKind>,
     pub asset: FarmlandAsset,
-    pub soil_map: Vec<Vec<(u8, u8)>>,
+    pub moisture: LandMap,
+    pub moisture_capacity: LandMap,
     pub cells: Vec<Vec<Cell>>,
     pub rooms: Vec<Room>,
     pub holes: Vec<Vec<u8>>,

@@ -11,6 +11,7 @@ use crate::collections::DictionaryError;
 use crate::inventory::{
     Container, ContainerId, ContainerKey, ContainerKind, Item, ItemId, ItemKey, ItemKind,
 };
+use crate::landscaping::{Land, LandId, LandKey, LandKind};
 use crate::model::{
     Assembly, AssemblyKey, AssemblyKind, AssemblyTarget, Cementer, CementerKey, CementerKind,
     Construction, Creature, CreatureKey, CreatureKind, Crop, CropKey, CropKind, Door, DoorKey,
@@ -45,7 +46,7 @@ impl Game {
             self.known.sensors.insert(kind.id, kind.name.clone(), kind);
         }
         // planting
-        for kind in storage.find_all(|row| self.load_land_kind(row))? {
+        for kind in storage.find_all(|row| self.load_soil_kind(row))? {
             self.known.soils.insert(kind.id, kind.name.clone(), kind);
         }
         for kind in storage.find_all(|row| self.load_plant_kind(row))? {
@@ -76,6 +77,10 @@ impl Game {
         // working
         for kind in storage.find_all(|row| self.load_device_kind(row))? {
             self.known.devices.insert(kind.id, kind.name.clone(), kind);
+        }
+        // landscaping
+        for kind in storage.find_all(|row| self.load_land_kind(row))? {
+            self.known.lands.insert(kind.id, kind.name.clone(), kind);
         }
         // universe
         for kind in storage.find_all(|row| self.load_tree_kind(row))? {
@@ -137,10 +142,14 @@ impl Game {
         self.physics.load_sensors(sensors, sequence);
 
         // planting
-        let (lands, sequence) = storage.get_sequence(|row| self.load_land(row))?;
-        self.planting.load_soils(lands, sequence);
+        let (soils, sequence) = storage.get_sequence(|row| self.load_soil(row))?;
+        self.planting.load_soils(soils, sequence);
         let (plants, sequence) = storage.get_sequence(|row| self.load_plant(row))?;
         self.planting.load_plants(plants, sequence);
+
+        // landscaping
+        let (lands, _) = storage.get_sequence(|row| self.load_land(row))?;
+        self.landscaping.load_lands(lands);
 
         // raising
         let (animals, sequence) = storage.get_sequence(|row| self.load_animal(row))?;
@@ -252,6 +261,7 @@ impl Game {
             space: SpaceKey(row.get("space")?),
             soil: SoilKey(row.get("soil")?),
             grid: GridKey(row.get("grid")?),
+            land: self.known.lands.find_by(row, "land")?,
         };
         Ok(data)
     }
@@ -263,6 +273,7 @@ impl Game {
             space: SpaceId(row.get("space")?),
             soil: SoilId(row.get("soil")?),
             grid: GridId(row.get("grid")?),
+            land: LandId(row.get("land")?),
         };
         Ok(data)
     }
@@ -669,9 +680,29 @@ impl Game {
         Ok(data)
     }
 
+    // landscaping
+
+    pub(crate) fn load_land_kind(&mut self, row: &rusqlite::Row) -> Result<LandKind, DataError> {
+        let data = LandKind {
+            id: LandKey(row.get("id")?),
+            name: row.get("name")?,
+        };
+        Ok(data)
+    }
+
+    pub(crate) fn load_land(&mut self, row: &rusqlite::Row) -> Result<Land, DataError> {
+        let data = Land {
+            id: LandId(row.get("id")?),
+            kind: self.known.lands.get_by(row, "kind", LandKey)?,
+            moisture: row.decode("moisture")?,
+            moisture_capacity: row.decode("moisture_capacity")?,
+        };
+        Ok(data)
+    }
+
     // planting
 
-    pub(crate) fn load_land_kind(&mut self, row: &rusqlite::Row) -> Result<SoilKind, DataError> {
+    pub(crate) fn load_soil_kind(&mut self, row: &rusqlite::Row) -> Result<SoilKind, DataError> {
         let data = SoilKind {
             id: SoilKey(row.get("id")?),
             name: row.get("name")?,
@@ -679,11 +710,10 @@ impl Game {
         Ok(data)
     }
 
-    pub(crate) fn load_land(&mut self, row: &rusqlite::Row) -> Result<Soil, DataError> {
+    pub(crate) fn load_soil(&mut self, row: &rusqlite::Row) -> Result<Soil, DataError> {
         let data = Soil {
             id: SoilId(row.get("id")?),
             kind: self.known.soils.get_by(row, "kind", SoilKey)?,
-            map: row.decode("map")?,
         };
         Ok(data)
     }

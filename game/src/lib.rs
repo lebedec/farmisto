@@ -10,6 +10,7 @@ use crate::api::{Action, ActionError, ActionResponse, Event, FarmerBound};
 use crate::assembling::{AssemblingDomain, PlacementId};
 use crate::building::{BuildingDomain, Material, Stake, Structure, SurveyorId};
 use crate::inventory::{ContainerId, FunctionsQuery, InventoryDomain, InventoryError};
+use crate::landscaping::LandscapingDomain;
 use crate::model::Activity::Idle;
 use crate::model::Equipment;
 use crate::model::Knowledge;
@@ -50,6 +51,7 @@ pub struct Game {
     pub universe: UniverseDomain,
     pub physics: PhysicsDomain,
     pub planting: PlantingDomain,
+    pub landscaping: LandscapingDomain,
     pub building: BuildingDomain,
     pub inventory: InventoryDomain,
     pub raising: RaisingDomain,
@@ -66,6 +68,7 @@ impl Game {
             universe: UniverseDomain::default(),
             physics: PhysicsDomain::default(),
             planting: PlantingDomain::default(),
+            landscaping: Default::default(),
             building: BuildingDomain::default(),
             inventory: InventoryDomain::default(),
             raising: RaisingDomain::default(),

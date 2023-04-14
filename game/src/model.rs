@@ -6,6 +6,7 @@ use crate::building::{
 };
 use crate::collections::{Dictionary, Shared};
 use crate::inventory::{ContainerId, ContainerKey, ContainerKind, ItemId, ItemKey, ItemKind};
+use crate::landscaping::{LandId, LandKey, LandKind, LandMap};
 use crate::physics::{
     BarrierId, BarrierKey, BarrierKind, BodyId, BodyKey, BodyKind, SensorId, SensorKey, SensorKind,
     SpaceId, SpaceKey, SpaceKind,
@@ -43,6 +44,8 @@ pub struct Knowledge {
     pub animals: Dictionary<AnimalKey, AnimalKind>,
     // working
     pub devices: Dictionary<DeviceKey, DeviceKind>,
+    // landscaping
+    pub lands: Dictionary<LandKey, LandKind>,
 }
 
 #[derive(Default)]
@@ -87,7 +90,8 @@ pub enum Universe {
     TreeVanished(Tree),
     FarmlandAppeared {
         farmland: Farmland,
-        map: Vec<Vec<(u8, u8)>>,
+        moisture: LandMap,
+        moisture_capacity: LandMap,
         cells: Vec<Vec<Cell>>,
         rooms: Vec<Room>,
         holes: Vec<Vec<u8>>,
@@ -471,6 +475,7 @@ pub struct FarmlandKind {
     pub space: SpaceKey,
     pub soil: SoilKey,
     pub grid: GridKey,
+    pub land: Shared<LandKind>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
@@ -480,6 +485,7 @@ pub struct Farmland {
     pub space: SpaceId,
     pub soil: SoilId,
     pub grid: GridId,
+    pub land: LandId,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]

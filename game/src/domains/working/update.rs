@@ -1,7 +1,8 @@
-use crate::working::Working::DeviceUpdated;
-use crate::working::{DeviceId, Working, WorkingDomain, WorkingError};
 use log::info;
 use rand::Rng;
+
+use crate::working::Working::DeviceUpdated;
+use crate::working::{DeviceId, Working, WorkingDomain, WorkingError};
 
 impl WorkingDomain {
     pub fn consume_input(&mut self, id: DeviceId) -> Result<bool, WorkingError> {

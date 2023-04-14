@@ -313,6 +313,7 @@ impl Nature {
                 Event::RaisingStream(_) => {}
                 Event::AssemblingStream(_) => {}
                 Event::WorkingStream(_) => {}
+                Event::LandscapingStream(_) => {}
             }
         }
     }
