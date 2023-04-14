@@ -90,7 +90,7 @@ create table SoilKind
 create table Soil
 (
     id   integer primary key,
-    kind integer             not null references SoilKind (id)
+    kind integer not null references SoilKind (id)
 );
 
 create table PlantKind
@@ -198,9 +198,9 @@ create table ItemKind
 (
     id           integer primary key,
     name         text not null unique,
-    stackable    integer,
     max_quantity integer,
-    functions    json not null
+    functions    json not null,
+    stackable    bool not null
 );
 
 create table Item

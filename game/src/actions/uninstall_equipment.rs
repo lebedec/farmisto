@@ -1,5 +1,6 @@
 use crate::api::{ActionError, Event};
 use crate::building::SurveyorId;
+use crate::inventory::ItemId;
 use crate::model::{Activity, Construction, Equipment, Farmer, Farmland, Purpose};
 use crate::Universe;
 use crate::{occur, Game};
@@ -20,10 +21,11 @@ impl Game {
 
                 let destroy_surveyor = self.building.destroy_surveyor(surveyor)?;
                 let destroy_barrier = self.physics.destroy_barrier(equipment.barrier)?;
-                let equipment_kind = self.known.equipments.get(equipment.key).unwrap();
-                let (_item, create_item) =
+                let equipment_kind = self.known.equipments.get(equipment.key)?;
+                let item = self.inventory.items_id.introduce().one(ItemId);
+                let create_item =
                     self.inventory
-                        .create_item(&equipment_kind.item, farmer.hands, 1)?;
+                        .create_item(item, &equipment_kind.item, farmer.hands, 1)?;
                 let vanish_equipment = self.universe.vanish_equipment(equipment);
                 let change_activity = self.universe.change_activity(farmer, Activity::Usage);
 

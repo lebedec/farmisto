@@ -45,8 +45,10 @@ impl Game {
             }
             AssemblyTarget::Cementer { cementer } => {
                 let [input, output] = self.inventory.containers_id.introduce().many(ContainerId);
-                let create_input = self.inventory.add_container(input, &cementer.input)?;
-                let create_output = self.inventory.add_container(output, &cementer.output)?;
+                let create_input = self.inventory.add_empty_container(input, &cementer.input)?;
+                let create_output = self
+                    .inventory
+                    .add_empty_container(output, &cementer.output)?;
                 let use_assembly_kit = self.inventory.use_items_from(farmer.hands)?;
                 let position = position_of(placement.pivot);
                 let (barrier, create_barrier) = self.physics.create_barrier(

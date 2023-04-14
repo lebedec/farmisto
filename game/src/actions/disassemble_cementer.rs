@@ -1,5 +1,5 @@
 use crate::api::{ActionError, Event};
-use crate::inventory::FunctionsQuery;
+use crate::inventory::{FunctionsQuery, ItemId};
 use crate::model::{Activity, AssemblyKey, Cementer, Farmer};
 use crate::{occur, Game};
 
@@ -15,9 +15,10 @@ impl Game {
         let placement = cementer.placement;
 
         let destroy_barrier = self.physics.destroy_barrier(cementer.barrier)?;
-        let (_item, create_kit) =
-            self.inventory
-                .create_item(&cementer_kind.kit, farmer.hands, 1)?;
+        let item = self.inventory.items_id.introduce().one(ItemId);
+        let create_kit = self
+            .inventory
+            .create_item(item, &cementer_kind.kit, farmer.hands, 1)?;
 
         // TODO: destroy input + output + items
 

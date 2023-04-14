@@ -5,6 +5,7 @@ use crate::building::{Building, BuildingError, Marker, SurveyorId};
 use crate::collections::DictionaryError;
 use crate::inventory::{ContainerId, Inventory, InventoryError};
 use crate::landscaping::{Landscaping, LandscapingError};
+use crate::math::Tile;
 use crate::model::{
     Activity, Cementer, Construction, Creature, Crop, Door, Equipment, Farmer, Stack, Universe,
     UniverseError,
@@ -160,6 +161,9 @@ pub enum FarmerBound {
     ToggleDevice {
         device: DeviceId,
     },
+    PlowFarmland {
+        place: Tile,
+    }
 }
 
 #[derive(Debug, bincode::Encode, bincode::Decode)]

@@ -17,7 +17,9 @@ impl Game {
         let survey = self.building.survey(surveyor, stake)?;
         let container_kind = self.known.containers.find("<construction>")?;
         let container = self.inventory.containers_id.introduce().one(ContainerId);
-        let create_container = self.inventory.add_container(container, &container_kind)?;
+        let create_container = self
+            .inventory
+            .add_empty_container(container, &container_kind)?;
         let appearance =
             self.universe
                 .appear_construction(container, farmland.grid, surveyor, marker, cell);

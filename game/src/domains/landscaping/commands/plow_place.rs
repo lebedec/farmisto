@@ -11,7 +11,7 @@ impl LandscapingDomain {
         let capacity = land.get_moisture_capacity(place)?;
         let command = move || {
             let [x, y] = place;
-            let capacity = (capacity + quality).max(1.0) * 255.0;
+            let capacity = (capacity + quality).min(1.0) * 255.0;
             land.moisture_capacity[y][x] = capacity as u8;
             vec![Landscaping::MoistureCapacityUpdate {
                 land: land.id,

@@ -4,7 +4,7 @@ use game::api::FarmerBound;
 use game::assembling::Rotation;
 use game::building::{Marker, Structure};
 use game::inventory::Function;
-use game::inventory::Function::{Assembly, Installation, Instrumenting, Product, Seeding};
+use game::inventory::Function::{Assembly, Installation, Instrumenting, Product, Seeding, Shovel};
 use game::model::{Activity, CropKey, Purpose};
 
 use crate::gameplay::representation::FarmerRep;
@@ -82,6 +82,10 @@ impl Gameplay {
                             }
                             (Installation { .. }, Ground { tile }) => {
                                 self.send_action(FarmerBound::Install { tile });
+                                break;
+                            }
+                            (Shovel, Ground { tile }) => {
+                                self.send_action(FarmerBound::PlowFarmland { place: tile });
                                 break;
                             }
                             (Instrumenting, Construction(construction)) => {

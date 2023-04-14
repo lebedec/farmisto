@@ -1,6 +1,7 @@
 use rand::thread_rng;
 
 use crate::api::Event;
+use crate::inventory::ItemId;
 use crate::math::VectorMath;
 use crate::{occur, Game};
 
@@ -61,9 +62,10 @@ impl Game {
                 let produced = self.working.produce_output(cementer.device).unwrap();
                 if produced {
                     let cementer_kind = self.known.cementers.get(cementer.key).unwrap();
-                    let (_, create_item) = self
+                    let item = self.inventory.items_id.introduce().one(ItemId);
+                    let create_item = self
                         .inventory
-                        .create_item(&cementer_kind.cement, cementer.output, 1)
+                        .create_item(item, &cementer_kind.cement, cementer.output, 1)
                         .unwrap();
                     cementer_events.push(create_item().into())
                 }

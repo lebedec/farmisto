@@ -1,7 +1,7 @@
 use crate::api::{ActionError, Event};
-use crate::{Game, occur};
-use crate::inventory::FunctionsQuery;
+use crate::inventory::{FunctionsQuery, ItemId};
 use crate::model::{Activity, AssemblyKey, Door, Farmer};
+use crate::{occur, Game};
 
 impl Game {
     pub fn disassemble_door(
@@ -15,9 +15,10 @@ impl Game {
         let placement = door.placement;
 
         let destroy_barrier = self.physics.destroy_barrier(door.barrier)?;
-        let (_item, create_kit) = self
+        let item = self.inventory.items_id.introduce().one(ItemId);
+        let create_kit = self
             .inventory
-            .create_item(&door_kind.kit, farmer.hands, 1)?;
+            .create_item(item, &door_kind.kit, farmer.hands, 1)?;
 
         let events = occur![
             destroy_barrier(),

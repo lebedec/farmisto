@@ -41,29 +41,37 @@ impl InventoryDomain {
         &'operation mut self,
         source: ContainerId,
         offset: isize,
-        destination: ContainerId,
+        destination_id: ContainerId,
         keep_container: bool,
     ) -> Result<impl FnOnce() -> Vec<Inventory> + 'operation, InventoryError> {
-        // SAFETY: self borrowing and closure guarantees safe ptr handling
         let source_container = self.get_container(source)?;
         let index = source_container.ensure_item_at(offset)?;
         let item = &source_container.items[index];
         let item_functions = item.kind.functions.clone();
         let item_id = item.id;
         let keep_container = keep_container || source_container.items.len() > 1;
-        let destination_container = self.get_mut_container(destination)?;
-        if !Self::validate_items_filter(&destination_container.kind.filter, &item_functions) {
+        let destination = self.get_mut_container(destination_id)?;
+
+        // validations:
+        if let Some(item_on_top) = destination.items.last() {
+            if !item_on_top.kind.stackable {
+                return Err(InventoryError::NonStackableItemOnTop {
+                    container: destination.id,
+                    item: item_on_top.id,
+                });
+            }
+        }
+        if !Self::validate_items_filter(&destination.kind.filter, &item_functions) {
             return Err(InventoryError::ContainerFilterError {
-                container: destination_container.id,
+                container: destination.id,
                 item: item_id,
             });
         }
-        if destination_container.items.len() + 1 > destination_container.kind.capacity {
-            return Err(InventoryError::ContainerIsFull {
-                id: destination_container.id,
-            });
+        if destination.items.len() + 1 > destination.kind.capacity {
+            return Err(InventoryError::ContainerIsFull { id: destination.id });
         }
-        let operation = move || {
+
+        let command = move || {
             let mut events = vec![];
             let mut item = if !keep_container {
                 let mut container = self.containers.remove(&source).unwrap();
@@ -85,7 +93,7 @@ impl InventoryDomain {
                 }]);
                 item
             };
-            let destination = self.containers.get_mut(&destination).unwrap();
+            let destination = self.containers.get_mut(&destination_id).unwrap();
             item.container = destination.id;
             events.push(ItemAdded {
                 id: item.id,
@@ -96,6 +104,6 @@ impl InventoryDomain {
             destination.items.push(item);
             events
         };
-        Ok(operation)
+        Ok(command)
     }
 }

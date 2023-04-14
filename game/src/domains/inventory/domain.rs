@@ -41,7 +41,7 @@ pub struct ItemKey(pub usize);
 pub struct ItemKind {
     pub id: ItemKey,
     pub name: String,
-    pub stackable: Option<u8>,
+    pub stackable: bool,
     pub functions: Vec<Function>,
     pub max_quantity: u8,
 }
@@ -109,11 +109,15 @@ pub enum InventoryError {
         container: ContainerId,
         item: ItemId,
     },
+    NonStackableItemOnTop {
+        container: ContainerId,
+        item: ItemId,
+    }
 }
 
 #[derive(Default)]
 pub struct InventoryDomain {
-    pub items_sequence: usize,
+    pub items_id: Sequence,
     pub containers: HashMap<ContainerId, Container>,
     pub containers_id: Sequence,
 }
@@ -127,7 +131,7 @@ impl InventoryDomain {
     }
 
     pub fn load_items(&mut self, items: Vec<Item>, sequence: usize) {
-        self.items_sequence = sequence;
+        self.items_id.set(sequence);
         for item in items {
             let container = self.containers.get_mut(&item.container).unwrap();
             container.items.push(item);

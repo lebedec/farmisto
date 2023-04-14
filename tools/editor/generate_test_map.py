@@ -198,6 +198,9 @@ def create_new_database(dst_path: str, tmp_path: str):
     tables = [name for columns in rows for name in columns if name.endswith('Kind')]
     order = {
         'LandKind': -1,
+        'DoorKind': 1,
+        'CropKind': 1,
+        'EquipmentKind': 1,
         'CementerKind': 1,
         'AssemblyKind': 2
     }
@@ -232,7 +235,8 @@ def prototype_assembling():
             'd': lambda tile, farmland: editor.add_stack(farmland, tile, ['door-x1'] * 5, 1),
             'b': lambda tile, farmland: editor.add_stack(farmland, tile, ['door-x3'] * 5, 1),
             'k': lambda tile, farmland: editor.add_stack(farmland, tile, ['cementer-kit'] * 5, 1),
-            's': lambda tile, farmland: editor.add_stack(farmland, tile, ['stones'] * 5, 1),
+            'r': lambda tile, farmland: editor.add_stack(farmland, tile, ['stones'] * 5, 1),
+            's': lambda tile, farmland: editor.add_stack(farmland, tile, ['shovel'], 1),
             'h': lambda tile, farmland: editor.add_stack(farmland, tile, ['hammer'], 1),
             'n': lambda tile, farmland: editor.add_equipment(farmland, tile, 'theodolite'),
         },
@@ -254,10 +258,10 @@ def prototype_assembling():
         . . . . . . k . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
         . . . . . s d . . . . . . . n h . . . . . n h . . . . . n h . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
         . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-        . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+        . . . . . . . . . . . . . . . . . . . s . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
         . . # # # | # | | | # # . . . . B C D . . k . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-        . . | . . . . . . . . | . . . . . A . . s d b . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-        . . | . . . . . . . . # . . . . . . . . s s . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+        . . | . . . . . . . . | . . . . . A . . r d b . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+        . . | . . . . . . . . # . . . . . . . . r r . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
         . . | . . # | | # . . | . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
         . . # # # # . . | . . | . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
         . . | . . . . . | . . | . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .

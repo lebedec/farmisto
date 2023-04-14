@@ -7,12 +7,12 @@ use crate::inventory::{
 impl InventoryDomain {
     pub fn create_item(
         &mut self,
+        id: ItemId,
         kind: &Shared<ItemKind>,
         container: ContainerId,
         quantity: u8,
-    ) -> Result<(ItemId, impl FnOnce() -> Vec<Inventory> + '_), InventoryError> {
+    ) -> Result<impl FnOnce() -> Vec<Inventory> + '_, InventoryError> {
         self.get_container(container)?; // ensure container valid
-        let id = ItemId(self.items_sequence + 1);
         let item = Item {
             id,
             kind: kind.clone(),
@@ -26,11 +26,11 @@ impl InventoryDomain {
                 container,
                 quantity: item.quantity,
             }];
-            self.items_sequence += 1;
+            self.items_id.register(item.id.0);
             let container = self.get_mut_container(container).unwrap();
             container.items.push(item);
             events
         };
-        Ok((id, operation))
+        Ok(operation)
     }
 }

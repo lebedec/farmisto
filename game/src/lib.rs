@@ -8,13 +8,12 @@ pub use update::*;
 use crate::api::ActionError::PlayerFarmerNotFound;
 use crate::api::{Action, ActionError, ActionResponse, Event, FarmerBound};
 use crate::assembling::{AssemblingDomain, PlacementId};
-use crate::building::{BuildingDomain, Material, Stake, Structure, SurveyorId};
-use crate::inventory::{ContainerId, FunctionsQuery, InventoryDomain, InventoryError};
+use crate::building::{BuildingDomain, Structure, SurveyorId};
+use crate::inventory::{ContainerId, FunctionsQuery, InventoryDomain, InventoryError, ItemId};
 use crate::landscaping::LandscapingDomain;
 use crate::model::Activity::Idle;
 use crate::model::Equipment;
 use crate::model::Knowledge;
-use crate::model::UniverseError;
 use crate::model::{
     Activity, Assembly, AssemblyKey, Cementer, CementerKey, Creature, CreatureKey, Crop, CropKey,
     Door, DoorKey, Stack,
@@ -25,7 +24,7 @@ use crate::model::{Player, Purpose};
 use crate::physics::{BarrierId, BodyId, PhysicsDomain, SensorId};
 use crate::planting::{PlantId, PlantingDomain};
 use crate::raising::{AnimalId, RaisingDomain};
-use crate::working::{DeviceId, Working, WorkingDomain};
+use crate::working::{DeviceId, WorkingDomain};
 
 mod actions;
 pub mod api;
@@ -207,6 +206,9 @@ impl Game {
                     FarmerBound::ToggleDevice { device } => {
                         self.toggle_generic_device(farmer, device)?
                     }
+                    FarmerBound::PlowFarmland { place } => {
+                        self.plow_farmland(farmer, farmland, place)?
+                    }
                 }
             }
         };
@@ -261,9 +263,10 @@ impl Game {
         };
         let (fruits, harvest) = self.planting.harvest_plant(crop.plant, capacity)?;
         let events = if new_harvest {
-            let (_, create_item) = self
+            let item = self.inventory.items_id.introduce().one(ItemId);
+            let create_item = self
                 .inventory
-                .create_item(item_kind, farmer.hands, fruits)?;
+                .create_item(item, item_kind, farmer.hands, fruits)?;
             let change_activity = self.universe.change_activity(farmer, Activity::Usage);
             occur![harvest(), create_item(), change_activity,]
         } else {
@@ -286,80 +289,6 @@ impl Game {
     fn cancel_activity(&mut self, farmer: Farmer) -> Result<Vec<Event>, ActionError> {
         let events = self.universe.change_activity(farmer, Idle);
         Ok(occur![events,])
-    }
-
-    fn toggle_surveying_option(
-        &mut self,
-        farmer: Farmer,
-        option: u8,
-    ) -> Result<Vec<Event>, ActionError> {
-        let activity = self.universe.get_farmer_activity(farmer)?;
-        if let Activity::Surveying {
-            equipment,
-            mut selection,
-        } = activity
-        {
-            selection = option as usize % 4;
-            let activity = Activity::Surveying {
-                equipment,
-                selection,
-            };
-            let events = self.universe.change_activity(farmer, activity);
-            Ok(occur![events,])
-        } else {
-            // TODO: rework expected activity attribute
-            return Err(UniverseError::FarmerActivityMismatch {
-                actual: activity,
-                expected: Activity::Surveying {
-                    equipment: Equipment {
-                        id: 0,
-                        key: EquipmentKey(0),
-                        purpose: Purpose::Surveying {
-                            surveyor: SurveyorId(0),
-                        },
-                        barrier: BarrierId(0),
-                    },
-                    selection: 0,
-                },
-            }
-            .into());
-        }
-    }
-
-    pub fn toggle_door(&mut self, _farmer: Farmer, door: Door) -> Result<Vec<Event>, ActionError> {
-        let barrier = self.physics.get_barrier(door.barrier)?;
-        let door_open = Universe::DoorChanged {
-            entity: door,
-            open: barrier.active,
-        };
-        let toggle_door = self.physics.change_barrier(barrier.id, !barrier.active)?;
-        let events = occur![toggle_door(), door_open,];
-        Ok(events)
-    }
-
-    fn toggle_backpack(&mut self, farmer: Farmer) -> Result<Vec<Event>, ActionError> {
-        let backpack_empty = self
-            .inventory
-            .get_container(farmer.backpack)?
-            .items
-            .is_empty();
-        let hands_empty = self.inventory.get_container(farmer.hands)?.items.is_empty();
-        let mut events = vec![];
-        if hands_empty && !backpack_empty {
-            let transfer = self.inventory.pop_item(farmer.backpack, farmer.hands)?;
-            events = occur![
-                transfer(),
-                self.universe.change_activity(farmer, Activity::Usage),
-            ];
-        }
-        if !hands_empty && backpack_empty {
-            let transfer = self.inventory.pop_item(farmer.hands, farmer.backpack)?;
-            events = occur![
-                transfer(),
-                self.universe.change_activity(farmer, Activity::Idle),
-            ];
-        }
-        Ok(events)
     }
 
     pub fn appear_crop(
