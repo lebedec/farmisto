@@ -3,7 +3,7 @@ use core::fmt::Debug;
 use log::info;
 use serde::de;
 
-use crate::assembling::PlacementId;
+use crate::assembling::{Placement, PlacementId};
 use crate::building::{
     Grid, GridId, GridKey, GridKind, Surveyor, SurveyorId, SurveyorKey, SurveyorKind,
 };
@@ -166,6 +166,10 @@ impl Game {
         self.inventory.load_containers(containers, sequence);
         let (items, sequence) = storage.get_sequence(|row| self.load_item(row))?;
         self.inventory.load_items(items, sequence);
+        
+        // assembling
+        let (placements, sequence) = storage.get_sequence(|row| self.load_placement(row))?;
+        self.assembling.load_placements(placements, sequence);
 
         // working
         let (devices, sequence) = storage.get_sequence(|row| self.load_device(row))?;
@@ -676,6 +680,18 @@ impl Game {
             output: row.get("output")?,
             deprecation: row.get("deprecation")?,
             broken: row.get("broken")?,
+        };
+        Ok(data)
+    }
+    
+    // assembling 
+
+    pub(crate) fn load_placement(&mut self, row: &rusqlite::Row) -> Result<Placement, DataError> {
+        let data = Placement {
+            id: PlacementId(row.get("id")?),
+            rotation: row.get_json("rotation")?,
+            pivot: row.get_json("pivot")?,
+            valid: row.get("valid")?,
         };
         Ok(data)
     }

@@ -154,6 +154,10 @@ impl Game {
             stream.push(self.look_at_door(*door));
         }
 
+        for cementer in &self.universe.cementers {
+            stream.push(self.look_at_cementer(*cementer));
+        }
+
         let mut items_appearance = vec![];
         for container in self.inventory.containers.values() {
             for item in &container.items {

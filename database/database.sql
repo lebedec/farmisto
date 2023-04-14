@@ -217,7 +217,8 @@ create table Placement
 (
     id       integer primary key,
     rotation json not null,
-    pivot    json not null
+    pivot    json not null,
+    valid    bool not null
 );
 
 -- Working
@@ -234,7 +235,6 @@ create table Device
 (
     id          integer primary key,
     kind        integer not null references DeviceKind (id),
-    mode        json    not null,
     progress    real    not null,
     deprecation real    not null,
     enabled     bool    not null,
