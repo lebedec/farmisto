@@ -20,6 +20,7 @@ impl Game {
                 let material_index = item.kind.functions.as_material()?;
                 let material = Material(material_index);
                 let tile = construction.cell;
+                self.ensure_tile_empty(farmland, tile)?;
 
                 let use_items = self.inventory.use_items_from(construction.container)?;
                 let (structure, create_wall) =

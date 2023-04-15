@@ -163,7 +163,7 @@ pub enum FarmerBound {
     },
     PlowFarmland {
         place: Tile,
-    }
+    },
 }
 
 #[derive(Debug, bincode::Encode, bincode::Decode)]
@@ -194,6 +194,7 @@ pub enum ActionError {
     ConstructionContainsUnexpectedItem(Construction),
 
     TargetUnreachable,
+    TileNotEmpty,
 
     Test,
 }

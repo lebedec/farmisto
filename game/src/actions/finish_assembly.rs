@@ -1,6 +1,6 @@
 use crate::api::{ActionError, Event};
 use crate::inventory::ContainerId;
-use crate::math::TileMath;
+use crate::math::{TileMath, VectorMath};
 use crate::model::{Activity, AssemblyTarget, Farmer, Farmland};
 use crate::working::DeviceId;
 use crate::{occur, position_of, Game};
@@ -19,9 +19,10 @@ impl Game {
             .pivot
             .to_position();
         self.ensure_target_reachable(farmland.space, farmer, destination)?;
+        self.ensure_tile_empty(farmland, destination.to_tile())?;
         let key = assembly.key;
-        let assembly_kind = self.known.assembly.get(key)?;
         let (placement, finish_placement) = self.assembling.finish_placement(assembly.placement)?;
+        let assembly_kind = self.known.assembly.get(key)?;
         let events = match &assembly_kind.target {
             AssemblyTarget::Door { door } => {
                 let position = position_of(placement.pivot);
