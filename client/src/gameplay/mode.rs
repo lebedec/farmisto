@@ -26,6 +26,7 @@ use network::TcpClient;
 use server::LocalServerThread;
 
 use crate::assets::{SpriteAsset, TextureAsset};
+use crate::engine::rendering::TextController;
 use crate::engine::Input;
 use crate::gameplay::camera::Camera;
 use crate::gameplay::representation::{
@@ -81,6 +82,8 @@ pub struct Gameplay {
     pub theodolite_gui_sprite: SpriteAsset,
     pub theodolite_gui_select_sprite: SpriteAsset,
     pub gui_controls: SpriteAsset,
+    pub test_text: TextController,
+    pub test_counter: f32,
 }
 
 impl Gameplay {
@@ -100,6 +103,14 @@ impl Gameplay {
             assets.sprite("player-Carol"),
             assets.sprite("player-David"),
         ];
+
+        let test_text = frame.scene.instantiate_text(
+            Some(100.0),
+            String::from("Hello 0!"),
+            assets.texture_white(),
+            assets.fonts_default.share(),
+            frame.scene.ui_element_sampler.share(),
+        );
 
         Self {
             host,
@@ -130,6 +141,8 @@ impl Gameplay {
             theodolite_gui_sprite: assets.sprite("building-gui"),
             theodolite_gui_select_sprite: assets.sprite("building-gui-select"),
             gui_controls: assets.sprite("gui-controls"),
+            test_text,
+            test_counter: 0.0,
         }
     }
 
@@ -321,8 +334,8 @@ impl Gameplay {
         }
 
         // TODO: move camera after farmer rendering position changed
-        let width = frame.sprites.screen.width() as f32 * frame.sprites.zoom;
-        let height = frame.sprites.screen.height() as f32 * frame.sprites.zoom;
+        let width = frame.scene.screen.width() as f32 * frame.scene.zoom;
+        let height = frame.scene.screen.height() as f32 * frame.scene.zoom;
         let farmer_rendering_position = rendering_position_of(farmer.rendering_position);
         self.camera.eye = vec3(
             farmer_rendering_position[0] - width / 2.0,
@@ -338,5 +351,6 @@ impl Mode for Gameplay {
         self.handle_user_input(frame);
         self.animate(frame);
         self.render(frame);
+        self.render_ui(frame);
     }
 }

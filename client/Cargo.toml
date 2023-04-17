@@ -11,7 +11,6 @@ server = { path = "../server" }
 ai = { path = "../ai" }
 log = "0.4"
 env_logger = { version = "0.9", default-features = false, features = ["humantime"] }
-sdl2 = { version = "0.35" }
 bytemuck = { version = "1.9", features = ["derive"] }
 glam = "0.20"
 ash = "0.37"
@@ -27,3 +26,8 @@ rusty_spine = "0.5.1"
 prometheus = { version = "0.13.3", features = ["process"] }
 lazy_static = "1.4.0"
 rand = "0.8.5"
+fontdue = "0.7.3"
+
+[dependencies.sdl2]
+version = "0.35"
+default-features = false

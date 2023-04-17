@@ -6,6 +6,7 @@ use std::ptr;
 use ash::vk::Handle;
 use ash::{vk, Device};
 use lazy_static::lazy_static;
+use log::info;
 
 use crate::assets::TextureAsset;
 
@@ -84,6 +85,7 @@ impl<const B: usize> ShaderDataSet<B> {
         let info = vk::DescriptorPoolCreateInfo::builder()
             .max_sets(descriptor_count)
             .pool_sizes(&pool_sizes);
+        info!("create descriptor pool");
         let pool = unsafe { device.create_descriptor_pool(&info, None).unwrap() };
         let layout = create_descriptor_set_layout(&device, stage_flags, bindings);
         ShaderDataSet {

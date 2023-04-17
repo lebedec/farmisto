@@ -28,7 +28,7 @@ mod pipeline;
 mod screen;
 mod shader;
 
-pub struct Queue {
+pub struct MyQueue {
     pub device: Device,
     pub device_memory: vk::PhysicalDeviceMemoryProperties,
     pub handle: Mutex<vk::Queue>,
@@ -44,7 +44,7 @@ pub struct Base {
     pub debug_utils_loader: DebugUtils,
     pub debug_call_back: vk::DebugUtilsMessengerEXT,
     pub physical_device: vk::PhysicalDevice,
-    pub queue: Arc<Queue>,
+    pub queue: Arc<MyQueue>,
     pub screen: Screen,
     pub swapchain: vk::SwapchainKHR,
     pub present_image_views: Vec<vk::ImageView>,
@@ -318,7 +318,7 @@ impl Base {
 
             let device_memory_properties =
                 instance.get_physical_device_memory_properties(physical_device);
-            let queue = Arc::new(Queue {
+            let queue = Arc::new(MyQueue {
                 device: device.clone(),
                 device_memory: device_memory_properties,
                 handle: Mutex::new(present_queue),

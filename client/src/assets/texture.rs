@@ -1,13 +1,14 @@
 use std::sync::Arc;
 use std::{fs, ptr};
 
+use ash::prelude::VkResult;
 use ash::vk::Handle;
 use ash::{vk, Device};
 use lazy_static::lazy_static;
-use log::debug;
+use log::{debug, error};
 
 use crate::assets::Asset;
-use crate::engine::base::{create_buffer, index_memory_type, Queue};
+use crate::engine::base::{create_buffer, index_memory_type, MyQueue};
 use crate::engine::commands::Single;
 use crate::monitoring::Timer;
 
@@ -19,6 +20,8 @@ lazy_static! {
             &["path", "stage"]
         )
         .unwrap();
+    static ref VULKAN_IMAGES_TOTAL: prometheus::IntGauge =
+        prometheus::register_int_gauge!("vulkan_images_total", "vulkan_images_total").unwrap();
 }
 
 #[repr(i64)]
@@ -34,12 +37,74 @@ pub type TextureAsset = Asset<TextureAssetData>;
 
 #[derive(Clone)]
 pub struct TextureAssetData {
+    pub name: String,
     pub width: u32,
     pub height: u32,
     image: vk::Image,
-    _memory: vk::DeviceMemory,
     pub view: vk::ImageView,
     pub sampler: vk::Sampler,
+    device: Device,
+}
+
+impl TextureAssetData {
+    fn create(
+        name: String,
+        device: &Device,
+        width: u32,
+        height: u32,
+        format: vk::Format,
+        tiling: vk::ImageTiling,
+        usage: vk::ImageUsageFlags,
+        memory_flags: vk::MemoryPropertyFlags,
+        memory_properties: &vk::PhysicalDeviceMemoryProperties,
+    ) -> Self {
+        let image = Self::create_image(
+            device,
+            width,
+            height,
+            format,
+            tiling,
+            usage,
+            memory_flags,
+            memory_properties,
+        )
+        .unwrap();
+        let view = Self::create_image_view(device, image, format);
+        let sampler = Self::create_texture_sampler(device);
+        VULKAN_IMAGES_TOTAL.inc();
+        let n = VULKAN_IMAGES_TOTAL.get();
+        error!("IMG !!! Create image {} {}x{} N{n}", name, width, height);
+        Self {
+            name,
+            width,
+            height,
+            image,
+            view,
+            sampler,
+            device: device.clone(),
+        }
+    }
+}
+
+impl Drop for TextureAssetData {
+    fn drop(&mut self) {
+        if self.name == "./assets/fallback/texture.png" {
+            // do not drop builtin texture
+            // because TextureAsset shares one Arc<RefCell
+            // TODO: add good fallback mechanism
+            error!("IMG !!! skip builtint");
+            return;
+        }
+        VULKAN_IMAGES_TOTAL.dec();
+        error!(
+            "IMG !!! Destroy image {} {}x{}",
+            self.name, self.width, self.height
+        );
+        unsafe {
+            self.device.destroy_image_view(self.view, None);
+            self.device.destroy_image(self.image, None);
+        }
+    }
 }
 
 impl TextureAsset {
@@ -50,70 +115,12 @@ impl TextureAsset {
 }
 
 impl TextureAssetData {
-    fn create(
-        device: &Device,
-        width: u32,
-        height: u32,
-        format: vk::Format,
-        tiling: vk::ImageTiling,
-        usage: vk::ImageUsageFlags,
-        memory_flags: vk::MemoryPropertyFlags,
-        memory_properties: &vk::PhysicalDeviceMemoryProperties,
-    ) -> Self {
-        let image_create_info = vk::ImageCreateInfo {
-            s_type: vk::StructureType::IMAGE_CREATE_INFO,
-            p_next: ptr::null(),
-            flags: vk::ImageCreateFlags::empty(),
-            image_type: vk::ImageType::TYPE_2D,
-            format,
-            extent: vk::Extent3D {
-                width,
-                height,
-                depth: 1,
-            },
-            mip_levels: 1,
-            array_layers: 1,
-            samples: vk::SampleCountFlags::TYPE_1,
-            tiling,
-            usage,
-            sharing_mode: vk::SharingMode::EXCLUSIVE,
-            queue_family_index_count: 0,
-            p_queue_family_indices: ptr::null(),
-            initial_layout: vk::ImageLayout::UNDEFINED,
-        };
-        let image = unsafe { device.create_image(&image_create_info, None).unwrap() };
-        let memory = unsafe { device.get_image_memory_requirements(image) };
-        let memory_type_index =
-            index_memory_type(&memory, memory_properties, memory_flags).unwrap();
-
-        let memory_allocate_info = vk::MemoryAllocateInfo {
-            allocation_size: memory.size,
-            memory_type_index,
-            ..Default::default()
-        };
-        let memory = unsafe { device.allocate_memory(&memory_allocate_info, None).unwrap() };
-        unsafe {
-            device.bind_image_memory(image, memory, 0).unwrap();
-        }
-        let view = Self::create_image_view(device, image, format);
-        let sampler = Self::create_texture_sampler(device);
-        Self {
-            width,
-            height,
-            image,
-            _memory: memory,
-            view,
-            sampler,
-        }
-    }
-
-    pub fn create_and_read_image(
+    pub fn read_image_file(
         device: &Device,
         command_pool: vk::CommandPool,
-        queue: Arc<Queue>,
+        queue: Arc<MyQueue>,
         path: &str,
     ) -> Self {
-        let _timer = Timer::now();
         let data = fs::read(&path).unwrap();
         // timer.record2(path, "io", &METRIC_LOADING_SECONDS);
 
@@ -137,6 +144,28 @@ impl TextureAssetData {
         let image_data = image_data.as_ptr();
         debug!("{path} L{image_data_len} {image_width}x{image_height} {c:?}");
 
+        Self::read_image_data(
+            String::from(path),
+            device,
+            command_pool,
+            queue,
+            image_width,
+            image_height,
+            image_data,
+            image_data_len,
+        )
+    }
+
+    pub fn read_image_data(
+        name: String,
+        device: &Device,
+        command_pool: vk::CommandPool,
+        queue: Arc<MyQueue>,
+        image_width: u32,
+        image_height: u32,
+        image_data: *const u8,
+        image_data_len: usize,
+    ) -> Self {
         // timer.record2(path, "decode", &METRIC_LOADING_SECONDS);
 
         let image_size =
@@ -165,6 +194,7 @@ impl TextureAssetData {
 
         let format = vk::Format::R8G8B8A8_UNORM;
         let image = Self::create(
+            name,
             device,
             image_width,
             image_height,
@@ -318,6 +348,54 @@ impl TextureAssetData {
         }
 
         command_buffer.submit(device, queue);
+    }
+
+    fn create_image(
+        device: &Device,
+        width: u32,
+        height: u32,
+        format: vk::Format,
+        tiling: vk::ImageTiling,
+        usage: vk::ImageUsageFlags,
+        memory_flags: vk::MemoryPropertyFlags,
+        memory_properties: &vk::PhysicalDeviceMemoryProperties,
+    ) -> VkResult<vk::Image> {
+        let image_create_info = vk::ImageCreateInfo {
+            s_type: vk::StructureType::IMAGE_CREATE_INFO,
+            p_next: ptr::null(),
+            flags: vk::ImageCreateFlags::empty(),
+            image_type: vk::ImageType::TYPE_2D,
+            format,
+            extent: vk::Extent3D {
+                width,
+                height,
+                depth: 1,
+            },
+            mip_levels: 1,
+            array_layers: 1,
+            samples: vk::SampleCountFlags::TYPE_1,
+            tiling,
+            usage,
+            sharing_mode: vk::SharingMode::EXCLUSIVE,
+            queue_family_index_count: 0,
+            p_queue_family_indices: ptr::null(),
+            initial_layout: vk::ImageLayout::UNDEFINED,
+        };
+        let image = unsafe { device.create_image(&image_create_info, None)? };
+        let memory = unsafe { device.get_image_memory_requirements(image) };
+        let memory_type_index =
+            index_memory_type(&memory, memory_properties, memory_flags).unwrap();
+
+        let memory_allocate_info = vk::MemoryAllocateInfo {
+            allocation_size: memory.size,
+            memory_type_index,
+            ..Default::default()
+        };
+        let memory = unsafe { device.allocate_memory(&memory_allocate_info, None)? };
+        unsafe {
+            device.bind_image_memory(image, memory, 0)?;
+        }
+        Ok(image)
     }
 
     fn create_image_view(device: &Device, image: vk::Image, format: vk::Format) -> vk::ImageView {

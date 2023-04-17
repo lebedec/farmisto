@@ -15,6 +15,7 @@ pub mod intro;
 pub mod menu;
 pub mod mode;
 pub mod monitoring;
+pub mod bumaga;
 
 fn main() {
     let start = Instant::now();

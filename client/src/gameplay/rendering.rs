@@ -123,8 +123,7 @@ impl Gameplay {
     }
 
     pub fn render(&mut self, frame: &mut Frame) {
-        let scene = &mut frame.sprites;
-        scene.clear();
+        let scene = &mut frame.scene;
         scene.look_at(self.camera.eye);
 
         let cursor = frame
@@ -162,7 +161,7 @@ impl Gameplay {
             }
 
             scene.render_ground(
-                farmland.asset.texture.clone(),
+                farmland.asset.texture.share(),
                 farmland.asset.sampler.share(),
                 &farmland.moisture,
                 &farmland.moisture_capacity,
@@ -536,6 +535,13 @@ impl Gameplay {
         scene.set_point_light([0.0, 0.0, 1.0, 1.0], 512.0, [1024.0, 1024.0]);
 
         scene.render_sprite(&self.gui_controls, xy([-512.0, 512.0]));
+    }
+
+    pub fn render_ui(&mut self, frame: &mut Frame) {
+        self.test_counter += frame.input.time;
+        let c = (self.test_counter as u32) % 10;
+        // self.test_text.set_text(format!("Hello {c}!"));
+        frame.scene.render_text(&mut self.test_text, [512, 0]);
     }
 }
 

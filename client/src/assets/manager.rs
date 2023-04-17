@@ -18,7 +18,7 @@ use crate::assets::prefabs::{TreeAsset, TreeAssetData};
 use crate::assets::tileset::{TilesetAsset, TilesetAssetData, TilesetItem};
 use crate::assets::{
     AssetMap, BehavioursAsset, BuildingMaterialAsset, BuildingMaterialAssetData, CementerAsset,
-    CementerAssetData, DoorAsset, DoorAssetData,
+    CementerAssetData, DoorAsset, DoorAssetData, FontAsset, FontAssetData,
 };
 use crate::assets::{
     CreatureAsset, CreatureAssetData, CropAsset, CropAssetData, FarmerAsset, FarmerAssetData,
@@ -27,7 +27,7 @@ use crate::assets::{
     ShaderAsset, ShaderAssetData, ShaderCompiler, SpineAsset, SpineAssetData, SpriteAsset,
     SpriteAssetData, TextureAsset, TextureAssetData,
 };
-use crate::engine::base::{Base, Queue};
+use crate::engine::base::{Base, MyQueue};
 
 lazy_static! {
     static ref ASSET_REQUESTS_TOTAL: prometheus::IntCounterVec =
@@ -47,16 +47,17 @@ pub struct Assets {
 
     file_system: FileSystem,
 
+    textures: HashMap<PathBuf, TextureAsset>,
     textures_default: TextureAssetData,
     textures_white: TextureAsset,
-    textures: HashMap<PathBuf, TextureAsset>,
-
     shaders: HashMap<PathBuf, ShaderAsset>,
     pipelines: HashMap<String, PipelineAsset>,
     sprites: HashMap<String, SpriteAsset>,
     tilesets: HashMap<String, TilesetAsset>,
     samplers: HashMap<String, SamplerAsset>,
     spines: HashMap<String, SpineAsset>,
+    fonts: HashMap<String, FontAsset>,
+    pub fonts_default: FontAsset,
 
     behaviours: HashMap<PathBuf, BehavioursAsset>,
 
@@ -72,7 +73,7 @@ pub struct Assets {
     doors: HashMap<String, DoorAsset>,
     cementers: HashMap<String, CementerAsset>,
 
-    queue: Arc<Queue>,
+    queue: Arc<MyQueue>,
 }
 
 pub struct AssetRequest {
@@ -101,7 +102,7 @@ pub enum AssetKind {
 fn spawn_loader(
     loader: i32,
     requests: Arc<RwLock<Vec<AssetRequest>>>,
-    queue: Arc<Queue>,
+    queue: Arc<MyQueue>,
     result: Sender<AssetPayload>,
     device: Device,
     pool: vk::CommandPool,
@@ -122,7 +123,7 @@ fn spawn_loader(
                     let path = request.path.clone();
                     match request.kind {
                         AssetKind::Texture => {
-                            let data = TextureAssetData::create_and_read_image(
+                            let data = TextureAssetData::read_image_file(
                                 &device,
                                 pool,
                                 queue.clone(),
@@ -161,17 +162,17 @@ fn spawn_loader(
 }
 
 impl Assets {
-    pub fn new(device: Device, pool: vk::CommandPool, queue: Arc<Queue>) -> Self {
+    pub fn new(device: Device, pool: vk::CommandPool, queue: Arc<MyQueue>) -> Self {
         let storage = Storage::open("./assets/assets.sqlite").unwrap();
         storage.setup_tracking().unwrap();
 
-        let textures_default = TextureAssetData::create_and_read_image(
+        let textures_default = TextureAssetData::read_image_file(
             &device,
             pool,
             queue.clone(),
             "./assets/fallback/texture.png",
         );
-        let textures_white = TextureAsset::from(TextureAssetData::create_and_read_image(
+        let textures_white = TextureAsset::from(TextureAssetData::read_image_file(
             &device,
             pool,
             queue.clone(),
@@ -179,6 +180,15 @@ impl Assets {
         ));
         let textures = HashMap::new();
         let shaders = HashMap::new();
+
+        let font_type =
+            include_bytes!("../../../assets/fonts/fira/FiraSans-Regular.ttf") as &[u8];
+        let font_settings = fontdue::FontSettings::default();
+        let font_data = FontAssetData {
+            font_type: fontdue::Font::from_bytes(font_type, font_settings).unwrap(),
+        };
+
+        let fonts_default = FontAsset::from(font_data);
 
         let loading_requests = Arc::new(RwLock::new(Vec::<AssetRequest>::new()));
         let (loading, loading_result) = channel();
@@ -233,6 +243,7 @@ impl Assets {
             tilesets: Default::default(),
             samplers: Default::default(),
             spines: Default::default(),
+            fonts: Default::default(),
             items: Default::default(),
             crops: Default::default(),
             creatures: Default::default(),
@@ -240,6 +251,7 @@ impl Assets {
             buildings: Default::default(),
             doors: Default::default(),
             cementers: Default::default(),
+            fonts_default,
         }
     }
 
@@ -275,16 +287,16 @@ impl Assets {
         ASSET_REQUESTS_TOTAL.with_label_values(&["texture"]).inc();
         let path = fs::canonicalize(path).unwrap();
         if let Some(texture) = self.textures.get(&path) {
-            return texture.clone();
+            return texture.share();
         }
         let texture = TextureAsset::from(self.textures_default.clone());
-        self.textures.insert(path.clone(), texture.clone());
+        self.textures.insert(path.clone(), texture.share());
         self.require_update(AssetKind::Texture, path);
         texture
     }
 
     pub fn texture_white(&self) -> TextureAsset {
-        self.textures_white.clone()
+        self.textures_white.share()
     }
 
     pub fn spine(&mut self, path: &str) -> SpineAsset {
@@ -628,7 +640,7 @@ impl Assets {
         let mut tiles = vec![];
         for item in items {
             tiles.push(SpriteAsset::from(SpriteAssetData {
-                texture: texture.clone(),
+                texture: texture.share(),
                 position: item.src,
                 size: item.size,
                 sampler: sampler.share(),

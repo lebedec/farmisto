@@ -97,3 +97,18 @@ pub struct SpriteRenderObject {
     pub constants: SpritePushConstants,
     pub texture_descriptor: vk::DescriptorSet,
 }
+
+#[derive(Debug, Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
+#[repr(C)]
+pub struct ElementPushConstants {
+    pub position: [f32; 2],
+    pub size: [f32; 2],
+    pub coords: [f32; 4],
+    pub color: [f32; 4],
+    pub pivot: [f32; 2],
+}
+
+pub struct ElementRenderObject {
+    pub constants: ElementPushConstants,
+    pub texture: vk::DescriptorSet,
+}

@@ -52,7 +52,7 @@ impl Scene {
             skeleton,
             vertex_buffer,
             index_buffer,
-            atlas: spine.atlas.clone(),
+            atlas: spine.atlas.share(),
             colors,
             lights_buffer,
         };
@@ -120,7 +120,7 @@ impl Scene {
         let object = AnimalRenderObject {
             vertex_buffer: spine.vertex_buffer.clone(),
             index_buffer: spine.index_buffer.clone(),
-            texture: spine.atlas.clone(),
+            texture: spine.atlas.share(),
             coloration: coloration.share(),
             position,
             colors: spine.colors,

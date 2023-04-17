@@ -308,7 +308,7 @@ impl Gameplay {
 
     pub fn handle_universe_event(&mut self, frame: &mut Frame, event: Universe) {
         let assets = &mut frame.assets;
-        let renderer = &mut frame.sprites;
+        let renderer = &mut frame.scene;
         match event {
             Universe::TreeAppeared {
                 tree,
@@ -370,10 +370,10 @@ impl Gameplay {
                     let asset = assets.building(asset);
                     let rep = BuildingRep {
                         floor: frame
-                            .sprites
+                            .scene
                             .instantiate_tilemap(asset.floor.share(), asset.floor_sampler.share()),
                         roof: frame
-                            .sprites
+                            .scene
                             .instantiate_tilemap(asset.roof.share(), asset.roof_sampler.share()),
                         asset,
                     };
@@ -381,33 +381,33 @@ impl Gameplay {
                 }
 
                 let construction = BuildingRep {
-                    floor: frame.sprites.instantiate_tilemap(
+                    floor: frame.scene.instantiate_tilemap(
                         construction.floor.share(),
                         construction.floor_sampler.share(),
                     ),
-                    roof: frame.sprites.instantiate_tilemap(
+                    roof: frame.scene.instantiate_tilemap(
                         construction.roof.share(),
                         construction.roof_sampler.share(),
                     ),
                     asset: construction,
                 };
                 let reconstruction = BuildingRep {
-                    floor: frame.sprites.instantiate_tilemap(
+                    floor: frame.scene.instantiate_tilemap(
                         reconstruction.floor.share(),
                         reconstruction.floor_sampler.share(),
                     ),
-                    roof: frame.sprites.instantiate_tilemap(
+                    roof: frame.scene.instantiate_tilemap(
                         reconstruction.roof.share(),
                         reconstruction.roof_sampler.share(),
                     ),
                     asset: reconstruction,
                 };
                 let deconstruction = BuildingRep {
-                    floor: frame.sprites.instantiate_tilemap(
+                    floor: frame.scene.instantiate_tilemap(
                         deconstruction.floor.share(),
                         deconstruction.floor_sampler.share(),
                     ),
-                    roof: frame.sprites.instantiate_tilemap(
+                    roof: frame.scene.instantiate_tilemap(
                         deconstruction.roof.share(),
                         deconstruction.roof_sampler.share(),
                     ),

@@ -25,7 +25,7 @@ lazy_static! {
 pub struct Frame<'c> {
     pub config: &'c AppConfig,
     pub input: Input,
-    pub sprites: &'c mut Scene,
+    pub scene: &'c mut Scene,
     pub assets: &'c mut Assets,
     pub studio: &'c Studio,
 }
@@ -86,6 +86,8 @@ pub fn startup<A: App>(title: String) {
         let mut scene = Scene::create(
             &base.device,
             &base.queue.device_memory,
+            base.pool,
+            base.queue.clone(),
             base.screen.clone(),
             base.present_image_views.len(),
             renderpass,
@@ -175,6 +177,8 @@ pub fn startup<A: App>(title: String) {
                     scene = Scene::create(
                         &base.device,
                         &base.queue.device_memory,
+                        base.pool,
+                        base.queue.clone(),
                         base.screen.clone(),
                         base.present_image_views.len(),
                         renderpass,
@@ -193,7 +197,7 @@ pub fn startup<A: App>(title: String) {
             app.update(&mut Frame {
                 config: &config,
                 input: input.clone(),
-                sprites: &mut scene,
+                scene: &mut scene,
                 assets: &mut assets,
                 studio: &studio,
             });

@@ -10,7 +10,7 @@ use ash::vk;
 use log::{error, info};
 
 use crate::assets::Asset;
-use crate::engine::base::Queue;
+use crate::engine::base::MyQueue;
 
 pub type ShaderAsset = Asset<ShaderAssetData>;
 
@@ -20,7 +20,7 @@ pub struct ShaderAssetData {
 
 impl ShaderAssetData {
     pub fn from_spirv_file<P: AsRef<Path>>(
-        queue: &Arc<Queue>,
+        queue: &Arc<MyQueue>,
         path: P,
     ) -> Result<Self, ShaderAssetError> {
         let time = Instant::now();

@@ -5,13 +5,13 @@ use log::info;
 use std::collections::BTreeMap;
 use std::mem;
 use std::mem::take;
+use std::sync::Arc;
 
 use crate::assets::SamplerAsset;
-use crate::engine::base::MyPipeline;
 use crate::engine::base::Screen;
 use crate::engine::base::ShaderData;
+use crate::engine::base::{MyPipeline, MyQueue};
 use crate::engine::buffers::{CameraUniform, LightUniform, UniformBuffer};
-use crate::engine::rendering::PlantRenderObject;
 use crate::engine::rendering::SpritePushConstants;
 use crate::engine::rendering::SpriteRenderObject;
 use crate::engine::rendering::TilemapPushConstants;
@@ -19,6 +19,7 @@ use crate::engine::rendering::TilemapRenderObject;
 use crate::engine::rendering::GROUND_VERTICES;
 use crate::engine::rendering::SPRITE_VERTICES;
 use crate::engine::rendering::{AnimalPushConstants, AnimalRenderObject, GroundRenderObject};
+use crate::engine::rendering::{ElementPushConstants, ElementRenderObject, PlantRenderObject};
 use crate::engine::rendering::{GroundPushConstants, GroundUniform, Light};
 use crate::engine::rendering::{PlantPushConstants, RenderingLine};
 use crate::engine::VertexBuffer;
@@ -38,6 +39,10 @@ lazy_static! {
 pub struct Scene {
     pub device: Device,
     pub device_memory: vk::PhysicalDeviceMemoryProperties,
+
+    pub command_pool: vk::CommandPool,
+    pub queue: Arc<MyQueue>,
+
     pub present_index: usize,
     pub screen: Screen,
     pub zoom: f32,
@@ -48,18 +53,15 @@ pub struct Scene {
     pub global_lights: Vec<Light>,
 
     pub spine_pipeline: MyPipeline<2, PlantPushConstants, 1>,
-    // pub spines: Vec<Vec<PlantRenderObject>>,
     pub spine_coloration_sampler: SamplerAsset,
 
     pub animals_pipeline: MyPipeline<2, AnimalPushConstants, 1>,
-    // pub animals: Vec<Vec<AnimalRenderObject>>,
     pub ground_pipeline: MyPipeline<1, GroundPushConstants, 2>,
     pub grounds: Vec<GroundRenderObject>,
     pub ground_vertex_buffer: VertexBuffer,
     pub ground_buffer: UniformBuffer<GroundUniform>,
 
     pub sprite_pipeline: MyPipeline<1, SpritePushConstants, 1>,
-    // pub sprites: Vec<Vec<SpriteRenderObject>>,
     pub sprite_vertex_buffer: VertexBuffer,
 
     pub sorted_render_objects: BTreeMap<isize, RenderingLine>,
@@ -68,13 +70,11 @@ pub struct Scene {
     pub tilemaps: Vec<TilemapRenderObject>,
     pub tilemap_vertex_buffer: VertexBuffer,
 
-    // light_map_pipeline: MyPipeline<1, SpritePushConstants, 1>,
-    // light_map_framebuffer: vk::Framebuffer,
-    // light_map_render_pass: vk::RenderPass,
-    // light_map_sampler: SamplerAsset,
-    // light_map_view: vk::ImageView,
-    // lights: Vec<SpriteRenderObject>,
-    // lights_texture: SpriteAsset,
+    pub ui_pipeline: MyPipeline<1, ElementPushConstants, 1>,
+    pub ui_element_vertex_buffer: VertexBuffer,
+    pub ui_element_sampler: SamplerAsset,
+    pub ui_elements: Vec<ElementRenderObject>,
+
     pub swapchain: usize,
 }
 
@@ -82,6 +82,8 @@ impl Scene {
     pub fn create<'a>(
         device: &Device,
         device_memory: &vk::PhysicalDeviceMemoryProperties,
+        command_pool: vk::CommandPool,
+        queue: Arc<MyQueue>,
         screen: Screen,
         swapchain: usize,
         pass: vk::RenderPass,
@@ -132,19 +134,18 @@ impl Scene {
             .data([vk::DescriptorType::UNIFORM_BUFFER])
             .build(device, &screen);
 
-        // let (light_map_view, light_map_render_pass, light_map_framebuffer) =
-        //     Self::create_light_map(device, device_memory).unwrap();
-        //
-        // let light_map_pipeline =
-        //     MyPipeline::build(assets.pipeline("light-map"), light_map_render_pass)
-        //         .material([vk::DescriptorType::COMBINED_IMAGE_SAMPLER])
-        //         .build(device, &screen);
+        let ui_pipeline = MyPipeline::build(assets.pipeline("ui:element"), pass)
+            .material([vk::DescriptorType::COMBINED_IMAGE_SAMPLER])
+            .data([vk::DescriptorType::UNIFORM_BUFFER])
+            .build(device, &screen);
+        let ui_element_vertex_buffer =
+            VertexBuffer::create(device, device_memory, SPRITE_VERTICES.to_vec());
+        let ui_element_sampler = assets.sampler("default");
 
         Self {
             device: device.clone(),
             device_memory: device_memory.clone(),
-            // sprites,
-            // spines,
+            command_pool,
             spine_pipeline,
             ground_pipeline,
             camera_buffer,
@@ -155,9 +156,6 @@ impl Scene {
             tilemaps: vec![],
             tilemap_vertex_buffer: ground_vertex_buffer,
             present_index: 0,
-            //light_map_pipeline,
-            //light_map_framebuffer,
-            //light_map_render_pass,
             spine_coloration_sampler,
             animals_pipeline,
             grounds: vec![],
@@ -166,14 +164,14 @@ impl Scene {
             sprite_pipeline,
             ground_vertex_buffer,
             camera_position: [0.0, 0.0],
-            //light_map_sampler: assets.sampler("light-map"),
-            //light_map_view,
-            // lights: vec![],
-            // lights_texture: assets.sprite("light-test"),
             swapchain,
             global_light_buffer,
             global_lights: vec![],
-            // animals,
+            queue,
+            ui_pipeline,
+            ui_element_sampler,
+            ui_element_vertex_buffer,
+            ui_elements: vec![],
         }
     }
 
@@ -200,27 +198,13 @@ impl Scene {
         self.camera_buffer.update(self.present_index, uniform);
     }
 
-    pub fn clear(&mut self) {
-        // for sprites in self.sprites.iter_mut() {
-        //     sprites.clear();
-        // }
-        // for spines in self.spines.iter_mut() {
-        //     spines.clear();
-        // }
-        // for animals in self.animals.iter_mut() {
-        //     animals.clear();
-        // }
-        self.sorted_render_objects.clear();
-        self.tilemaps.clear();
-        self.grounds.clear();
-    }
-
     pub fn update(&mut self) {
         self.spine_pipeline.update(&self.device, &self.screen);
         self.animals_pipeline.update(&self.device, &self.screen);
         self.ground_pipeline.update(&self.device, &self.screen);
         self.sprite_pipeline.update(&self.device, &self.screen);
         self.tilemap_pipeline.update(&self.device, &self.screen);
+        self.ui_pipeline.update(&self.device, &self.screen);
     }
 
     pub fn set_point_light(&mut self, color: [f32; 4], radius: f32, position: [f32; 2]) {
@@ -279,7 +263,7 @@ impl Scene {
 
         let mut pipeline = self.ground_pipeline.perform(device, buffer);
         pipeline.bind_camera(camera_descriptor);
-        for ground in &self.grounds {
+        for ground in take(&mut self.grounds) {
             pipeline.bind_vertex_buffer(&self.ground_vertex_buffer);
             pipeline.bind_material([(ground.sampler.handle, ground.texture.view)]);
             pipeline.bind_data_by_descriptor(ground.data_descriptor);
@@ -288,9 +272,10 @@ impl Scene {
         }
         timer.record("ground", &METRIC_RENDER_SECONDS);
 
+        let tilemaps = take(&mut self.tilemaps);
         let mut pipeline = self.tilemap_pipeline.perform(device, buffer);
         pipeline.bind_camera(camera_descriptor);
-        for tilemap in self.tilemaps.iter().filter(|tilemap| tilemap.layer <= 0) {
+        for tilemap in tilemaps.iter().filter(|tilemap| tilemap.layer <= 0) {
             pipeline.bind_vertex_buffer(&self.tilemap_vertex_buffer);
             pipeline.bind_material([(tilemap.sampler, tilemap.texture)]);
             pipeline.bind_data([tilemap.data]);
@@ -344,12 +329,11 @@ impl Scene {
                 pipeline.draw(indices);
             }
         }
-
         timer.record("sorted", &METRIC_RENDER_SECONDS);
 
         let mut pipeline = self.tilemap_pipeline.perform(device, buffer);
         pipeline.bind_camera(camera_descriptor);
-        for tilemap in self.tilemaps.iter().filter(|tilemap| tilemap.layer > 0) {
+        for tilemap in tilemaps.iter().filter(|tilemap| tilemap.layer > 0) {
             pipeline.bind_vertex_buffer(&self.tilemap_vertex_buffer);
             pipeline.bind_material([(tilemap.sampler, tilemap.texture)]);
             pipeline.bind_data([tilemap.data]);
@@ -357,5 +341,16 @@ impl Scene {
             pipeline.draw_vertices(self.tilemap_vertex_buffer.vertices);
         }
         timer.record("tilemap-127", &METRIC_RENDER_SECONDS);
+
+        let mut pipeline = self.ui_pipeline.perform(device, buffer);
+        pipeline.bind_data_by_descriptor(lights_descriptor);
+        pipeline.bind_camera(camera_descriptor);
+        pipeline.bind_vertex_buffer(&self.ui_element_vertex_buffer);
+        for element in take(&mut self.ui_elements) {
+            pipeline.bind_texture(element.texture);
+            pipeline.push_constants(element.constants);
+            pipeline.draw_vertices(self.ui_element_vertex_buffer.vertices);
+        }
+        timer.record("ui", &METRIC_RENDER_SECONDS);
     }
 }

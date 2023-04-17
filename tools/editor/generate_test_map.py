@@ -229,6 +229,45 @@ def as_sql_position(tile: Tuple[int, int]) -> str:
     return f"'[{x}.5, {y}.5]'"
 
 
+def prototype_planting():
+    create_new_database('../../assets/database.sqlite', '../../assets/database_tmp.sqlite')
+    editor = Editor(sqlite3.connect('../../assets/database.sqlite'))
+    generate_farmland(
+        editor,
+        farmland_kind='test',
+        moisture_data=generate_feature_map(lambda _: 127),
+        moisture_capacity_data=moisture_capacity_from_image("../bin/data/noise.png"),
+        objects={
+            'A': lambda tile, farmland: editor.add_farmer('farmer', 'Alice', farmland, tile),
+            'B': lambda tile, farmland: editor.add_farmer('farmer', 'Boris', farmland, tile),
+            'C': lambda tile, farmland: editor.add_farmer('farmer', 'Carol', farmland, tile),
+            'D': lambda tile, farmland: editor.add_farmer('farmer', 'David', farmland, tile),
+            's': lambda tile, farmland: editor.add_stack(farmland, tile, ['shovel'], 1),
+        },
+        buildings={
+            # (wall, door, window, material)
+            '.': (0, 0, 0, Material.UNKNOWN),
+            '#': (1, 0, 0, Material.CONCRETE),
+            '|': (1, 1, 0, Material.CONCRETE),
+            '-': (1, 0, 1, Material.CONCRETE),
+            '+': (1, 0, 0, Material.PLANKS)
+        },
+        # . . . . . . . . 1 . . . . . . . . . 2 . . . . . . . . . 3 . . . . . . . . . 4
+        user_define_map="""
+        . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+        . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+        . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+        . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+        . . . . . . . . . s . . . . s . . . s . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+        . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+        . . . . . . . . . A B C D . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+        . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+        . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+        . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+        . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+        """
+    )
+
 def prototype_assembling():
     create_new_database('../../assets/database.sqlite', '../../assets/database_tmp.sqlite')
     editor = Editor(sqlite3.connect('../../assets/database.sqlite'))
@@ -379,5 +418,6 @@ def prototype_building():
 
 
 if __name__ == '__main__':
-    prototype_assembling()
+    prototype_planting()
+    # prototype_assembling()
     # prototype_building()
