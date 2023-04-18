@@ -122,6 +122,7 @@ impl<const B: usize> ShaderDataSet<B> {
             .set_layouts(&layouts);
 
         // TODO: recreate pool
+        // TODO: rewrite allocated descriptor sets
         let descriptor_sets = unsafe {
             self.device
                 .allocate_descriptor_sets(&allocation)

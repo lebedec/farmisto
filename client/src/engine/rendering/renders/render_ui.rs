@@ -1,21 +1,22 @@
-use crate::assets::{FontAsset, SamplerAsset, TextureAsset, TextureAssetData};
-use crate::engine::rendering::{ElementPushConstants, ElementRenderObject, Scene};
-
-use fontdue::layout::{CoordinateSystem, Layout, LayoutSettings, TextStyle};
-use fontdue::{Font, FontSettings};
-use image::{DynamicImage, Rgba, RgbaImage};
-
-use crate::engine::base::ShaderData;
-use ash::vk;
-use log::info;
 use std::fmt;
 use std::rc::Rc;
 
+use ash::vk;
+use fontdue::layout::{CoordinateSystem, Layout, LayoutSettings, TextStyle};
+use fontdue::{Font, FontSettings};
+use image::{DynamicImage, Rgba, RgbaImage};
+use log::info;
+
+use crate::assets::{FontAsset, SamplerAsset, TextureAsset, TextureAssetData};
+use crate::engine::base::ShaderData;
+use crate::engine::rendering::{ElementPushConstants, ElementRenderObject, Scene};
+
 pub struct TextController {
-    max_width: Option<f32>,
+    max_width: u32,
+    max_height: u32,
     text: String,
     font: FontAsset,
-    image: TextureAsset,
+    image: Option<TextureAsset>,
     need_update: bool,
     sampler: SamplerAsset,
 }
@@ -30,17 +31,18 @@ impl TextController {
 impl Scene {
     pub fn instantiate_text(
         &mut self,
-        max_width: Option<f32>,
+        max_width: u32,
+        max_height: u32,
         text: String,
-        placeholder: TextureAsset,
         font: FontAsset,
         sampler: SamplerAsset,
     ) -> TextController {
         TextController {
             max_width,
+            max_height,
             text,
             font,
-            image: placeholder.share(),
+            image: None,
             need_update: true,
             sampler,
         }
@@ -50,8 +52,8 @@ impl Scene {
 
     pub fn render_text(&mut self, text: &mut TextController, top_left: [i32; 2]) {
         if text.need_update {
-            info!("Needs to update TEXT {}", text.text);
             let fonts = FontCollection::from(&text.font);
+
             let mut paragraph = Paragraph {
                 layout: Layout::new(CoordinateSystem::PositiveYDown),
                 spans: vec![Span {
@@ -59,58 +61,69 @@ impl Scene {
                     font_size: 32.0,
                     font_index: 0,
                 }],
-                width: 0.0,
-                height: 0.0,
+                width: 0,
+                height: 0,
             };
-            paragraph.layout(text.max_width, fonts.clone());
+            paragraph.layout(text.max_width, text.max_height, fonts.clone());
             let image = DynamicImage::from(paragraph.draw(fonts));
+
             let image = image.flipv().to_rgba8();
             let (image_width, image_height) = image.dimensions();
             let image_data_len = image.len();
             let image_data = image.as_ptr();
 
-            info!("Creates TEXT {image_width}x{image_height} L{image_data_len}");
-            let data = TextureAssetData::read_image_data(
-                format!("ui:{}", text.text),
-                &self.device,
-                self.command_pool,
-                self.queue.clone(),
-                image_width,
-                image_height,
-                image_data,
-                image_data_len,
-            );
-            text.image.update(data);
+            if let Some(texture) = text.image.as_mut() {
+                texture.write_image_data(
+                    self.queue.clone(),
+                    self.command_pool,
+                    image_data,
+                    image_data_len,
+                );
+            } else {
+                let data = TextureAssetData::read_image_data(
+                    format!("ui:{}", text.text),
+                    &self.device,
+                    self.command_pool,
+                    self.queue.clone(),
+                    image_width,
+                    image_height,
+                    image_data,
+                    image_data_len,
+                );
+                let texture = TextureAsset::from(data);
+                text.image = Some(texture);
+            }
             text.need_update = false;
         }
 
-        let texture = &text.image;
-        let image_w = texture.width as f32;
-        let image_h = texture.height as f32;
-        let [sprite_x, sprite_y] = [0.0, 0.0];
-        let [sprite_w, sprite_h] = [image_w, image_h];
-        let x = sprite_x / image_w;
-        let y = sprite_y / image_h;
-        let w = sprite_w / image_w;
-        let h = sprite_h / image_h;
-        let object = ElementRenderObject {
-            constants: ElementPushConstants {
-                position: [top_left[0] as f32, top_left[1] as f32],
-                size: [image_w, image_h],
-                coords: [x, y, w, h],
-                pivot: [0.0, 0.0],
-                color: [1.0; 4],
-            },
-            texture: self
-                .sprite_pipeline
-                .material
-                .describe(vec![[ShaderData::Texture(vk::DescriptorImageInfo {
-                    sampler: text.sampler.handle,
-                    image_view: texture.view,
-                    image_layout: vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
-                })]])[0],
-        };
-        self.ui_elements.push(object);
+        if let Some(texture) = &text.image {
+            let image_w = texture.width as f32;
+            let image_h = texture.height as f32;
+            let [sprite_x, sprite_y] = [0.0, 0.0];
+            let [sprite_w, sprite_h] = [image_w, image_h];
+            let x = sprite_x / image_w;
+            let y = sprite_y / image_h;
+            let w = sprite_w / image_w;
+            let h = sprite_h / image_h;
+            let object = ElementRenderObject {
+                constants: ElementPushConstants {
+                    position: [top_left[0] as f32, top_left[1] as f32],
+                    size: [image_w, image_h],
+                    coords: [x, y, w, h],
+                    pivot: [0.0, 0.0],
+                    color: [1.0; 4],
+                },
+                texture: self
+                    .sprite_pipeline
+                    .material
+                    .describe(vec![[ShaderData::Texture(vk::DescriptorImageInfo {
+                        sampler: text.sampler.handle,
+                        image_view: texture.view,
+                        image_layout: vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
+                    })]])[0],
+            };
+            self.ui_elements.push(object);
+        }
     }
 }
 
@@ -278,8 +291,8 @@ pub struct Span {
 pub struct Paragraph {
     layout: Layout<()>,
     spans: Vec<Span>,
-    width: f32,
-    height: f32,
+    pub width: u32,
+    pub height: u32,
 }
 
 impl fmt::Debug for Paragraph {
@@ -291,7 +304,7 @@ impl fmt::Debug for Paragraph {
     }
 }
 
-fn _round_up_power_of_2(value: i32) -> u32 {
+fn round_up_pow_2(value: i32) -> u32 {
     let mut value = value - 1;
     value |= value >> 1;
     value |= value >> 2;
@@ -311,24 +324,8 @@ impl Paragraph {
             .join(" ")
     }
 
-    pub fn width(&self) -> f32 {
-        self.width
-    }
-
-    pub fn height(&self) -> f32 {
-        self.height
-    }
-
     pub fn draw(&self, fonts: FontCollectionRef) -> RgbaImage {
-        let mut image = RgbaImage::from_pixel(
-            self.width as u32,
-            self.height as u32,
-            Rgba([255, 255, 255, 0]),
-        );
-        info!(
-            "Rasterize paragraph width: {}, height: {}",
-            self.width, self.height
-        );
+        let mut image = RgbaImage::from_pixel(self.width, self.height, Rgba([255, 255, 255, 0]));
         for glyph in self.layout.glyphs() {
             let (m, data) = fonts
                 .get_font_record(glyph.font_index)
@@ -348,11 +345,11 @@ impl Paragraph {
         image
     }
 
-    pub fn layout(&mut self, max_width: Option<f32>, fonts: FontCollectionRef) {
-        let max_width = max_width.map(|value| value.floor());
+    pub fn layout(&mut self, max_width: u32, max_height: u32, fonts: FontCollectionRef) {
         let mut layout = Layout::new(CoordinateSystem::PositiveYDown);
         layout.reset(&LayoutSettings {
-            max_width,
+            max_width: Some(max_width as f32),
+            max_height: Some(max_height as f32),
             ..LayoutSettings::default()
         });
         for span in &self.spans {
@@ -361,55 +358,57 @@ impl Paragraph {
                 &TextStyle::new(&span.text, span.font_size, span.font_index),
             );
         }
-        let mut my_width = 0.0;
+        let mut text_width = 0.0;
         for g in layout.glyphs() {
             let w = g.x + g.width as f32 + 1.0;
-            if w > my_width {
-                my_width = w;
+            if w > text_width {
+                text_width = w;
             }
         }
-        self.height = layout.height() + 1.0;
-        self.width = my_width;
+        let h = layout.height() + 1.0;
+        let w = text_width;
+        self.height = round_up_pow_2(h as i32);
+        self.width = round_up_pow_2(w as i32);
         self.layout = layout;
     }
 }
 
-pub struct ParagraphBuilder {
-    fonts: FontCollectionRef,
-    spans: Vec<Span>,
-}
-
-impl ParagraphBuilder {
-    pub fn new(fonts: FontCollectionRef) -> Self {
-        Self {
-            fonts,
-            spans: vec![],
-        }
-    }
-
-    pub fn append<T: ToString>(
-        &mut self,
-        text: T,
-        font_family: &str,
-        font_size: f32,
-        font_style: FontStyle,
-    ) {
-        let span = Span {
-            text: text.to_string(),
-            font_size,
-            font_index: self.fonts.match_font(font_family, &font_style),
-        };
-        self.spans.push(span);
-    }
-
-    pub fn build(self, width: Option<f32>) -> Paragraph {
-        let mut paragraph = Paragraph {
-            layout: Layout::new(CoordinateSystem::PositiveYDown),
-            spans: self.spans,
-            width: 0.0,
-            height: 0.0,
-        };
-        paragraph.layout(width, self.fonts);
-        paragraph
-    }
-}
+// pub struct ParagraphBuilder {
+//     fonts: FontCollectionRef,
+//     spans: Vec<Span>,
+// }
+//
+// impl ParagraphBuilder {
+//     pub fn new(fonts: FontCollectionRef) -> Self {
+//         Self {
+//             fonts,
+//             spans: vec![],
+//         }
+//     }
+//
+//     pub fn append<T: ToString>(
+//         &mut self,
+//         text: T,
+//         font_family: &str,
+//         font_size: f32,
+//         font_style: FontStyle,
+//     ) {
+//         let span = Span {
+//             text: text.to_string(),
+//             font_size,
+//             font_index: self.fonts.match_font(font_family, &font_style),
+//         };
+//         self.spans.push(span);
+//     }
+//
+//     pub fn build(self, width: Option<f32>) -> Paragraph {
+//         let mut paragraph = Paragraph {
+//             layout: Layout::new(CoordinateSystem::PositiveYDown),
+//             spans: self.spans,
+//             width: 0,
+//             height: 0,
+//         };
+//         paragraph.layout(width, self.fonts);
+//         paragraph
+//     }
+// }

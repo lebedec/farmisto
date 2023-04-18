@@ -1,21 +1,24 @@
 extern crate core;
 
+use std::io::Write;
+use std::time::Instant;
+
+use log::info;
+
 use crate::assets::Assets;
 use crate::engine::{startup, App, Frame, Input};
 use crate::intro::Intro;
 use crate::mode::Mode;
-use log::info;
-use std::io::Write;
-use std::time::Instant;
 
 pub mod assets;
+pub mod bumaga;
 pub mod engine;
 pub mod gameplay;
 pub mod intro;
 pub mod menu;
 pub mod mode;
 pub mod monitoring;
-pub mod bumaga;
+pub mod translation;
 
 fn main() {
     let start = Instant::now();

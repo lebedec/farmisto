@@ -105,9 +105,9 @@ impl Gameplay {
         ];
 
         let test_text = frame.scene.instantiate_text(
-            Some(100.0),
+            100,
+            100,
             String::from("Hello 0!"),
-            assets.texture_white(),
             assets.fonts_default.share(),
             frame.scene.ui_element_sampler.share(),
         );

@@ -27,6 +27,7 @@ prometheus = { version = "0.13.3", features = ["process"] }
 lazy_static = "1.4.0"
 rand = "0.8.5"
 fontdue = "0.7.3"
+fluent = "0.16"
 
 [dependencies.sdl2]
 version = "0.35"

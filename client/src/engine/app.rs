@@ -13,6 +13,7 @@ use std::thread;
 use std::time::Instant;
 
 use crate::assets::Assets;
+use crate::translation::Translator;
 use lazy_static::lazy_static;
 use sdl2::keyboard::Keycode;
 use sdl2::video::FullscreenType;
@@ -28,6 +29,7 @@ pub struct Frame<'c> {
     pub scene: &'c mut Scene,
     pub assets: &'c mut Assets,
     pub studio: &'c Studio,
+    pub translator: &'c Translator,
 }
 
 pub trait App {
@@ -66,6 +68,10 @@ pub fn startup<A: App>(title: String) {
         base.screen.width(),
         base.screen.height()
     );
+
+    let path = "./assets/text/general.ru.po";
+    info!("Loads translations from {path}");
+    let translator = Translator::new(path);
 
     info!("FMOD expected version: {:#08x}", FMOD_VERSION);
     let studio = Studio::create().unwrap();
@@ -200,6 +206,7 @@ pub fn startup<A: App>(title: String) {
                 scene: &mut scene,
                 assets: &mut assets,
                 studio: &studio,
+                translator: &translator,
             });
 
             let clear_values = [

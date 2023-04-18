@@ -156,10 +156,60 @@ impl TextureAssetData {
         )
     }
 
+    pub fn write_image_data(
+        &mut self,
+        queue: Arc<MyQueue>,
+        pool: vk::CommandPool,
+        image_data: *const u8,
+        image_data_len: usize,
+    ) {
+        let image_width = self.width;
+        let image_height = self.height;
+        let device = &self.device;
+
+        let image_size =
+            (std::mem::size_of::<u8>() as u32 * image_width * image_height * 4) as vk::DeviceSize;
+        let (staging_buffer, staging_buffer_memory, _size) = create_buffer(
+            device,
+            image_size,
+            vk::BufferUsageFlags::TRANSFER_SRC,
+            vk::MemoryPropertyFlags::HOST_VISIBLE | vk::MemoryPropertyFlags::HOST_COHERENT,
+            &queue.device_memory,
+        );
+        unsafe {
+            let data_ptr = device
+                .map_memory(
+                    staging_buffer_memory,
+                    0,
+                    image_size,
+                    vk::MemoryMapFlags::empty(),
+                )
+                .expect("Failed to Map Memory") as *mut u8;
+
+            data_ptr.copy_from_nonoverlapping(image_data, image_data_len);
+            device.unmap_memory(staging_buffer_memory);
+        }
+        let queue = queue.handle.lock().unwrap();
+        let transition = ImageLayoutTransition::new(device, pool, *queue, self.image);
+        transition.specify_layout(
+            vk::ImageLayout::UNDEFINED,
+            vk::ImageLayout::TRANSFER_DST_OPTIMAL,
+        );
+        transition.copy_buffer_to_image(staging_buffer, image_width, image_height);
+        transition.specify_layout(
+            vk::ImageLayout::TRANSFER_DST_OPTIMAL,
+            vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
+        );
+        unsafe {
+            device.destroy_buffer(staging_buffer, None);
+            device.free_memory(staging_buffer_memory, None);
+        }
+    }
+
     pub fn read_image_data(
         name: String,
         device: &Device,
-        command_pool: vk::CommandPool,
+        pool: vk::CommandPool,
         queue: Arc<MyQueue>,
         image_width: u32,
         image_height: u32,
@@ -204,31 +254,15 @@ impl TextureAssetData {
             vk::MemoryPropertyFlags::DEVICE_LOCAL,
             &queue.device_memory,
         );
-        let submit_queue = queue.handle.lock().unwrap();
-        Self::transition_image_layout(
-            device,
-            command_pool,
-            *submit_queue,
-            image.image,
-            format,
+        let queue = queue.handle.lock().unwrap();
+
+        let transition = ImageLayoutTransition::new(device, pool, *queue, image.image);
+        transition.specify_layout(
             vk::ImageLayout::UNDEFINED,
             vk::ImageLayout::TRANSFER_DST_OPTIMAL,
         );
-        Self::copy_buffer_to_image(
-            device,
-            command_pool,
-            *submit_queue,
-            staging_buffer,
-            image.image,
-            image_width,
-            image_height,
-        );
-        Self::transition_image_layout(
-            device,
-            command_pool,
-            *submit_queue,
-            image.image,
-            format,
+        transition.copy_buffer_to_image(staging_buffer, image_width, image_height);
+        transition.specify_layout(
             vk::ImageLayout::TRANSFER_DST_OPTIMAL,
             vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
         );
@@ -238,116 +272,6 @@ impl TextureAssetData {
         }
         // timer.record2(path, "transition", &METRIC_LOADING_SECONDS);
         image
-    }
-
-    fn transition_image_layout(
-        device: &Device,
-        command_pool: vk::CommandPool,
-        submit_queue: vk::Queue,
-        image: vk::Image,
-        _format: vk::Format,
-        old_layout: vk::ImageLayout,
-        new_layout: vk::ImageLayout,
-    ) {
-        let command_buffer = Single::begin(device, command_pool);
-
-        let src_access_mask;
-        let dst_access_mask;
-        let source_stage;
-        let destination_stage;
-
-        if old_layout == vk::ImageLayout::UNDEFINED
-            && new_layout == vk::ImageLayout::TRANSFER_DST_OPTIMAL
-        {
-            src_access_mask = vk::AccessFlags::empty();
-            dst_access_mask = vk::AccessFlags::TRANSFER_WRITE;
-            source_stage = vk::PipelineStageFlags::TOP_OF_PIPE;
-            destination_stage = vk::PipelineStageFlags::TRANSFER;
-        } else if old_layout == vk::ImageLayout::TRANSFER_DST_OPTIMAL
-            && new_layout == vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL
-        {
-            src_access_mask = vk::AccessFlags::TRANSFER_WRITE;
-            dst_access_mask = vk::AccessFlags::SHADER_READ;
-            source_stage = vk::PipelineStageFlags::TRANSFER;
-            destination_stage = vk::PipelineStageFlags::FRAGMENT_SHADER;
-        } else {
-            panic!("Unsupported layout transition!")
-        }
-
-        let image_barriers = [vk::ImageMemoryBarrier {
-            s_type: vk::StructureType::IMAGE_MEMORY_BARRIER,
-            p_next: ptr::null(),
-            src_access_mask,
-            dst_access_mask,
-            old_layout,
-            new_layout,
-            src_queue_family_index: vk::QUEUE_FAMILY_IGNORED,
-            dst_queue_family_index: vk::QUEUE_FAMILY_IGNORED,
-            image,
-            subresource_range: vk::ImageSubresourceRange {
-                aspect_mask: vk::ImageAspectFlags::COLOR,
-                base_mip_level: 0,
-                level_count: 1,
-                base_array_layer: 0,
-                layer_count: 1,
-            },
-        }];
-
-        unsafe {
-            device.cmd_pipeline_barrier(
-                command_buffer.buffer,
-                source_stage,
-                destination_stage,
-                vk::DependencyFlags::empty(),
-                &[],
-                &[],
-                &image_barriers,
-            );
-        }
-
-        command_buffer.submit(device, submit_queue);
-    }
-
-    fn copy_buffer_to_image(
-        device: &Device,
-        command_pool: vk::CommandPool,
-        queue: vk::Queue,
-        buffer: vk::Buffer,
-        image: vk::Image,
-        width: u32,
-        height: u32,
-    ) {
-        let command_buffer = Single::begin(device, command_pool);
-
-        let buffer_image_regions = [vk::BufferImageCopy {
-            image_subresource: vk::ImageSubresourceLayers {
-                aspect_mask: vk::ImageAspectFlags::COLOR,
-                mip_level: 0,
-                base_array_layer: 0,
-                layer_count: 1,
-            },
-            image_extent: vk::Extent3D {
-                width,
-                height,
-                depth: 1,
-            },
-            buffer_offset: 0,
-            buffer_image_height: 0,
-            buffer_row_length: 0,
-            image_offset: vk::Offset3D { x: 0, y: 0, z: 0 },
-        }];
-
-        unsafe {
-            device.cmd_copy_buffer_to_image(
-                command_buffer.buffer,
-                buffer,
-                image,
-                vk::ImageLayout::TRANSFER_DST_OPTIMAL,
-                &buffer_image_regions,
-            );
-        }
-
-        command_buffer.submit(device, queue);
     }
 
     fn create_image(
@@ -455,5 +379,117 @@ impl TextureAssetData {
                 .create_sampler(&sampler_create_info, None)
                 .expect("Failed to create Sampler!")
         }
+    }
+}
+
+struct ImageLayoutTransition<'a> {
+    device: &'a Device,
+    pool: vk::CommandPool,
+    queue: vk::Queue,
+    image: vk::Image,
+}
+
+impl<'a> ImageLayoutTransition<'a> {
+    fn new(device: &'a Device, pool: vk::CommandPool, queue: vk::Queue, image: vk::Image) -> Self {
+        Self {
+            device,
+            pool,
+            queue,
+            image,
+        }
+    }
+
+    fn specify_layout(&self, old_layout: vk::ImageLayout, new_layout: vk::ImageLayout) {
+        let command_buffer = Single::begin(self.device, self.pool);
+
+        let src_access_mask;
+        let dst_access_mask;
+        let source_stage;
+        let destination_stage;
+
+        if old_layout == vk::ImageLayout::UNDEFINED
+            && new_layout == vk::ImageLayout::TRANSFER_DST_OPTIMAL
+        {
+            src_access_mask = vk::AccessFlags::empty();
+            dst_access_mask = vk::AccessFlags::TRANSFER_WRITE;
+            source_stage = vk::PipelineStageFlags::TOP_OF_PIPE;
+            destination_stage = vk::PipelineStageFlags::TRANSFER;
+        } else if old_layout == vk::ImageLayout::TRANSFER_DST_OPTIMAL
+            && new_layout == vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL
+        {
+            src_access_mask = vk::AccessFlags::TRANSFER_WRITE;
+            dst_access_mask = vk::AccessFlags::SHADER_READ;
+            source_stage = vk::PipelineStageFlags::TRANSFER;
+            destination_stage = vk::PipelineStageFlags::FRAGMENT_SHADER;
+        } else {
+            panic!("Unsupported layout transition!")
+        }
+
+        let image_barriers = [vk::ImageMemoryBarrier {
+            s_type: vk::StructureType::IMAGE_MEMORY_BARRIER,
+            p_next: ptr::null(),
+            src_access_mask,
+            dst_access_mask,
+            old_layout,
+            new_layout,
+            src_queue_family_index: vk::QUEUE_FAMILY_IGNORED,
+            dst_queue_family_index: vk::QUEUE_FAMILY_IGNORED,
+            image: self.image,
+            subresource_range: vk::ImageSubresourceRange {
+                aspect_mask: vk::ImageAspectFlags::COLOR,
+                base_mip_level: 0,
+                level_count: 1,
+                base_array_layer: 0,
+                layer_count: 1,
+            },
+        }];
+
+        unsafe {
+            self.device.cmd_pipeline_barrier(
+                command_buffer.buffer,
+                source_stage,
+                destination_stage,
+                vk::DependencyFlags::empty(),
+                &[],
+                &[],
+                &image_barriers,
+            );
+        }
+
+        command_buffer.submit(self.device, self.queue);
+    }
+
+    fn copy_buffer_to_image(&self, buffer: vk::Buffer, width: u32, height: u32) {
+        let command_buffer = Single::begin(self.device, self.pool);
+
+        let buffer_image_regions = [vk::BufferImageCopy {
+            image_subresource: vk::ImageSubresourceLayers {
+                aspect_mask: vk::ImageAspectFlags::COLOR,
+                mip_level: 0,
+                base_array_layer: 0,
+                layer_count: 1,
+            },
+            image_extent: vk::Extent3D {
+                width,
+                height,
+                depth: 1,
+            },
+            buffer_offset: 0,
+            buffer_image_height: 0,
+            buffer_row_length: 0,
+            image_offset: vk::Offset3D { x: 0, y: 0, z: 0 },
+        }];
+
+        unsafe {
+            self.device.cmd_copy_buffer_to_image(
+                command_buffer.buffer,
+                buffer,
+                self.image,
+                vk::ImageLayout::TRANSFER_DST_OPTIMAL,
+                &buffer_image_regions,
+            );
+        }
+
+        command_buffer.submit(self.device, self.queue);
     }
 }
