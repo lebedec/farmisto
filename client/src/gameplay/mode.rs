@@ -83,7 +83,7 @@ pub struct Gameplay {
     pub theodolite_gui_select_sprite: SpriteAsset,
     pub gui_controls: SpriteAsset,
     pub test_text: TextController,
-    pub test_counter: f32,
+    pub time: f32,
 }
 
 impl Gameplay {
@@ -105,8 +105,8 @@ impl Gameplay {
         ];
 
         let test_text = frame.scene.instantiate_text(
-            100,
-            100,
+            1024,
+            128,
             String::from("Hello 0!"),
             assets.fonts_default.share(),
             frame.scene.ui_element_sampler.share(),
@@ -142,7 +142,7 @@ impl Gameplay {
             theodolite_gui_select_sprite: assets.sprite("building-gui-select"),
             gui_controls: assets.sprite("gui-controls"),
             test_text,
-            test_counter: 0.0,
+            time: 0.0,
         }
     }
 

@@ -538,11 +538,16 @@ impl Gameplay {
     }
 
     pub fn render_ui(&mut self, frame: &mut Frame) {
-        self.test_counter += frame.input.time;
-        let c = (self.test_counter as u32) % 10;
-        let text = frame.translator.format("Hello_world_$1", [c]);
+        self.time += frame.input.time;
+        let seconds = self.time as u32;
+        let cd = seconds / 360;
+        let seconds = seconds % 360;
+
+        let text = frame
+            .translator
+            .format("Hello_world_$1", [format!("{cd}.{seconds:03}")]);
         self.test_text.set_text(text);
-        frame.scene.render_text(&mut self.test_text, [512, 0]);
+        frame.scene.render_text(&mut self.test_text, [16, 16]);
     }
 }
 
