@@ -1,6 +1,7 @@
 use std::collections::HashMap;
 
 use glam::vec3;
+use lazy_static::lazy_static;
 use libfmod::TagDataType::Int;
 use log::{error, info};
 use sdl2::keyboard::Keycode;
@@ -34,7 +35,18 @@ use crate::gameplay::representation::{
     FarmerRep, FarmlandRep, ItemRep, StackRep, TreeRep,
 };
 use crate::gameplay::{InputMethod, Target};
+use crate::monitoring::Timer;
 use crate::{Frame, Mode};
+
+lazy_static! {
+    static ref GAMEPLAY_UPDATE_SECONDS: prometheus::HistogramVec =
+        prometheus::register_histogram_vec!(
+            "gameplay_update_seconds",
+            "gameplay_update_seconds",
+            &["stage"]
+        )
+        .unwrap();
+}
 
 pub const TILE_SIZE: f32 = 128.0;
 
@@ -82,8 +94,9 @@ pub struct Gameplay {
     pub theodolite_gui_sprite: SpriteAsset,
     pub theodolite_gui_select_sprite: SpriteAsset,
     pub gui_controls: SpriteAsset,
-    pub test_text: TextController,
-    pub time: f32,
+    pub watch_display: TextController,
+    pub colonization_date: f32,
+    pub speed: f32,
 }
 
 impl Gameplay {
@@ -141,8 +154,9 @@ impl Gameplay {
             theodolite_gui_sprite: assets.sprite("building-gui"),
             theodolite_gui_select_sprite: assets.sprite("building-gui-select"),
             gui_controls: assets.sprite("gui-controls"),
-            test_text,
-            time: 0.0,
+            watch_display: test_text,
+            colonization_date: 0.0,
+            speed: 0.0,
         }
     }
 
@@ -347,10 +361,16 @@ impl Gameplay {
 
 impl Mode for Gameplay {
     fn update(&mut self, frame: &mut Frame) {
+        let mut timer = Timer::now();
         self.handle_server_responses(frame);
+        timer.record("server-response", &GAMEPLAY_UPDATE_SECONDS);
         self.handle_user_input(frame);
+        timer.record("user-input", &GAMEPLAY_UPDATE_SECONDS);
         self.animate(frame);
+        timer.record("animation", &GAMEPLAY_UPDATE_SECONDS);
         self.render(frame);
+        timer.record("render", &GAMEPLAY_UPDATE_SECONDS);
         self.render_ui(frame);
+        timer.record("render-ui", &GAMEPLAY_UPDATE_SECONDS);
     }
 }

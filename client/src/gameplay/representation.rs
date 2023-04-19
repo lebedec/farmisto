@@ -92,6 +92,9 @@ pub struct FarmlandRep {
     pub reconstruction: BuildingRep,
     pub deconstruction: BuildingRep,
     pub buildings: HashMap<u8, BuildingRep>,
+    pub season: u8,
+    pub season_day: f32,
+    pub times_of_day: f32,
 }
 
 pub struct BuildingRep {

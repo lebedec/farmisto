@@ -4,9 +4,24 @@ use crate::api::Event;
 use crate::inventory::ItemId;
 use crate::math::VectorMath;
 use crate::{occur, Game};
+use crate::model::Activity;
 
 impl Game {
-    pub fn update(&mut self, time: f32) -> Vec<Event> {
+    pub fn update(&mut self, real_seconds: f32) -> Vec<Event> {
+        let mut boosts = vec![];
+        for player in self.players.iter() {
+            let farmer = self.universe.get_player_farmer(player.id).unwrap();
+            let activity = self.universe.get_farmer_activity(farmer).unwrap();
+            let boost = match activity {
+                Activity::Rest { comfort } => comfort,
+                _ => 1
+            };
+            boosts.push(boost);
+        }
+        let speed = boosts.iter().max().cloned().unwrap_or(1) as f32;
+        let time = real_seconds * speed;
+
+        let timing_events = self.timing.update(real_seconds, speed);
         let physics_events = self.physics.update(time);
 
         let mut destroy_empty_stacks = vec![];
@@ -76,6 +91,7 @@ impl Game {
         let working_events = self.working.update(time, random.clone());
 
         let mut events = occur![
+            timing_events,
             physics_events,
             self.planting.update(time),
             self.landscaping.update(time, random),

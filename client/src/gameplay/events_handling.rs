@@ -1,9 +1,8 @@
-use crate::engine::Frame;
-use crate::gameplay::representation::{
-    AssemblyRep, AssemblyTargetAsset, BuildingRep, CementerRep, ConstructionRep, CreatureRep,
-    CropRep, DoorRep, EquipmentRep, FarmerRep, FarmlandRep, ItemRep, StackRep, TreeRep,
-};
-use crate::gameplay::Gameplay;
+use std::collections::HashMap;
+
+use log::{debug, info};
+use rusty_spine::Skin;
+
 use game::api::Event;
 use game::assembling::Assembling;
 use game::building::{Building, Material};
@@ -13,14 +12,24 @@ use game::model::{Activity, AssemblyTarget, Universe};
 use game::physics::{Barrier, Physics};
 use game::planting::Planting;
 use game::raising::Raising;
+use game::timing::Timing;
 use game::working::Working;
-use log::{debug, info};
-use rusty_spine::Skin;
-use std::collections::HashMap;
+
+use crate::engine::Frame;
+use crate::gameplay::representation::{
+    AssemblyRep, AssemblyTargetAsset, BuildingRep, CementerRep, ConstructionRep, CreatureRep,
+    CropRep, DoorRep, EquipmentRep, FarmerRep, FarmlandRep, ItemRep, StackRep, TreeRep,
+};
+use crate::gameplay::Gameplay;
 
 impl Gameplay {
     pub fn handle_event(&mut self, frame: &mut Frame, event: Event) {
         match event {
+            Event::TimingStream(events) => {
+                for event in events {
+                    self.handle_timing_event(frame, event);
+                }
+            }
             Event::UniverseStream(events) => {
                 for event in events {
                     self.handle_universe_event(frame, event);
@@ -306,6 +315,36 @@ impl Gameplay {
         }
     }
 
+    pub fn handle_timing_event(&mut self, frame: &mut Frame, event: Timing) {
+        match event {
+            Timing::TimeUpdated {
+                speed,
+                colonization_date,
+            } => {
+                if speed != self.speed {
+                    info!("Set local time speed to {speed}");
+                }
+                self.speed = speed;
+                self.colonization_date = colonization_date;
+            }
+            Timing::CalendarUpdated {
+                id,
+                times_of_day,
+                season_day,
+                season,
+            } => {
+                for farmland in self.farmlands.values_mut() {
+                    if farmland.entity.calendar == id {
+                        farmland.times_of_day = times_of_day;
+                        farmland.season_day = season_day;
+                        farmland.season = season;
+                        break;
+                    }
+                }
+            }
+        }
+    }
+
     pub fn handle_universe_event(&mut self, frame: &mut Frame, event: Universe) {
         let assets = &mut frame.assets;
         let renderer = &mut frame.scene;
@@ -346,6 +385,9 @@ impl Gameplay {
                 cells,
                 rooms,
                 holes,
+                season,
+                season_day,
+                times_of_day,
             } => {
                 let kind = self.known.farmlands.get(farmland.kind).unwrap().clone();
                 info!("Appear {:?} kind='{}'", farmland, kind.name);
@@ -429,6 +471,9 @@ impl Gameplay {
                         reconstruction,
                         deconstruction,
                         buildings,
+                        season,
+                        season_day,
+                        times_of_day,
                     },
                 );
             }

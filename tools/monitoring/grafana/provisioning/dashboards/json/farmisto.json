@@ -1280,37 +1280,112 @@
             "uid": "PBFA97CFB590B2093"
           },
           "editorMode": "code",
-          "expr": "rate(gameplay_animation_seconds_sum[10s]) / rate(gameplay_animation_seconds_count[10s])",
+          "expr": "rate(gameplay_update_seconds_sum[60s]) / rate(gameplay_update_seconds_count[60s])",
           "hide": false,
-          "legendFormat": "animation",
-          "range": true,
-          "refId": "B"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
-          },
-          "editorMode": "code",
-          "expr": "rate(gameplay_draw_request_seconds_sum[10s]) / rate(gameplay_draw_request_seconds_count[10s])",
-          "legendFormat": "draw request",
-          "range": true,
-          "refId": "A"
-        },
-        {
-          "datasource": {
-            "type": "prometheus",
-            "uid": "PBFA97CFB590B2093"
-          },
-          "editorMode": "code",
-          "expr": "rate(sprites_render_seconds_sum[10s]) / rate(sprites_render_seconds_count[10s])",
-          "hide": false,
-          "legendFormat": "render-{{pipeline}}",
+          "legendFormat": "{{stage}}",
           "range": true,
           "refId": "C"
         }
       ],
-      "title": "Render Time",
+      "title": "Gameplay Update",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 46,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineStyle": {
+              "fill": "solid"
+            },
+            "lineWidth": 1,
+            "pointSize": 1,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "auto",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "normal"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "s"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 8,
+        "w": 6,
+        "x": 6,
+        "y": 31
+      },
+      "id": 32,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "single",
+          "sort": "none"
+        }
+      },
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "editorMode": "code",
+          "expr": "rate(sprites_render_seconds_sum[60s]) / rate(sprites_render_seconds_count[60s])",
+          "hide": false,
+          "legendFormat": "{{pipeline}}",
+          "range": true,
+          "refId": "C"
+        }
+      ],
+      "title": "Draw Time",
       "type": "timeseries"
     },
     {
@@ -1378,7 +1453,7 @@
       "gridPos": {
         "h": 8,
         "w": 6,
-        "x": 6,
+        "x": 12,
         "y": 31
       },
       "id": 20,
@@ -1410,6 +1485,74 @@
       ],
       "title": "Draw Calls",
       "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "prometheus",
+        "uid": "PBFA97CFB590B2093"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "min": 0,
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 80
+              }
+            ]
+          },
+          "unit": "none"
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 3,
+        "x": 18,
+        "y": 31
+      },
+      "id": 31,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "",
+          "values": false
+        },
+        "textMode": "auto"
+      },
+      "pluginVersion": "9.4.7",
+      "targets": [
+        {
+          "datasource": {
+            "type": "prometheus",
+            "uid": "PBFA97CFB590B2093"
+          },
+          "editorMode": "code",
+          "expr": "vulkan_images_total\r\n",
+          "hide": false,
+          "legendFormat": "{{pipeline}}",
+          "range": true,
+          "refId": "B"
+        }
+      ],
+      "title": "Vulkan Images",
+      "type": "stat"
     }
   ],
   "refresh": "5s",
@@ -1428,6 +1571,6 @@
   "timezone": "",
   "title": "Farmisto",
   "uid": "HgXVi5p4z",
-  "version": 2,
+  "version": 7,
   "weekStart": ""
 }

@@ -5,7 +5,7 @@ use ash::prelude::VkResult;
 use ash::vk::Handle;
 use ash::{vk, Device};
 use lazy_static::lazy_static;
-use log::{debug, error};
+use log::{debug, error, info};
 
 use crate::assets::Asset;
 use crate::engine::base::{create_buffer, index_memory_type, MyQueue};
@@ -73,7 +73,7 @@ impl TextureAssetData {
         let sampler = Self::create_texture_sampler(device);
         VULKAN_IMAGES_TOTAL.inc();
         let n = VULKAN_IMAGES_TOTAL.get();
-        error!("IMG !!! Create image {} {}x{} N{n}", name, width, height);
+        info!("Create image {} {}x{} N{n}", name, width, height);
         Self {
             name,
             width,
@@ -92,12 +92,11 @@ impl Drop for TextureAssetData {
             // do not drop builtin texture
             // because TextureAsset shares one Arc<RefCell
             // TODO: add good fallback mechanism
-            error!("IMG !!! skip builtint");
             return;
         }
         VULKAN_IMAGES_TOTAL.dec();
-        error!(
-            "IMG !!! Destroy image {} {}x{}",
+        debug!(
+            "Destroys image {} {}x{}",
             self.name, self.width, self.height
         );
         unsafe {

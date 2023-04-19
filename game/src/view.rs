@@ -96,6 +96,7 @@ impl Game {
                 let grid = self.building.get_grid(farmland.grid).unwrap();
                 let space = self.physics.get_space(farmland.space).unwrap();
                 let land = self.landscaping.get_land(farmland.land).unwrap();
+                let calendar = self.timing.get_calendar(farmland.calendar).unwrap();
                 stream.push(Universe::FarmlandAppeared {
                     farmland: *farmland,
                     moisture: land.moisture,
@@ -103,6 +104,9 @@ impl Game {
                     cells: grid.cells.clone(),
                     rooms: grid.rooms.clone(),
                     holes: space.holes.clone(),
+                    season: calendar.season,
+                    season_day: calendar.season_day,
+                    times_of_day: calendar.times_of_day,
                 })
             }
         }

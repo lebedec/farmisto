@@ -184,6 +184,14 @@ impl TcpServer {
             GameResponse::Events { events } => {
                 for event in events {
                     match event {
+                        Event::TimingStream(events) => {
+                            SERVER_SENT_EVENTS_TOTAL
+                                .with_label_values(&["timing"])
+                                .inc_by(events.len() as u64);
+                            SERVER_SENT_EVENT_STREAMS_TOTAL
+                                .with_label_values(&["timing"])
+                                .inc();
+                        }
                         Event::UniverseStream(events) => {
                             SERVER_SENT_EVENTS_TOTAL
                                 .with_label_values(&["universe"])

@@ -5,7 +5,7 @@ pub use domains::*;
 pub use rules::*;
 pub use update::*;
 
-use crate::api::ActionError::PlayerFarmerNotFound;
+use crate::api::ActionError::{PlayerFarmerNotFound, Timing};
 use crate::api::{Action, ActionError, ActionResponse, Event, FarmerBound};
 use crate::assembling::{AssemblingDomain, PlacementId};
 use crate::building::{BuildingDomain, Structure, SurveyorId};
@@ -24,6 +24,7 @@ use crate::model::{Player, Purpose};
 use crate::physics::{BarrierId, BodyId, PhysicsDomain, SensorId};
 use crate::planting::{PlantId, PlantingDomain};
 use crate::raising::{AnimalId, RaisingDomain};
+use crate::timing::TimingDomain;
 use crate::working::{DeviceId, WorkingDomain};
 
 mod actions;
@@ -47,6 +48,7 @@ macro_rules! occur {
 
 pub struct Game {
     pub known: Knowledge,
+    pub timing: TimingDomain,
     pub universe: UniverseDomain,
     pub physics: PhysicsDomain,
     pub planting: PlantingDomain,
@@ -64,6 +66,7 @@ impl Game {
     pub fn new(storage: Storage) -> Self {
         Self {
             known: Knowledge::default(),
+            timing: TimingDomain::default(),
             universe: UniverseDomain::default(),
             physics: PhysicsDomain::default(),
             planting: PlantingDomain::default(),

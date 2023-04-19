@@ -14,6 +14,25 @@ create table Player
     name text not null
 );
 
+-- Timing
+
+create table CalendarKind
+(
+    id           integer primary key,
+    name         text    not null unique,
+    day_duration integer not null,
+    seasons      json    not null
+);
+
+create table Calendar
+(
+    id           integer primary key,
+    key          integer not null references CalendarKind (id),
+    season       integer not null,
+    season_day   real    not null,
+    times_of_day real    not null
+);
+
 -- Physics
 
 create table SpaceKind
@@ -263,22 +282,24 @@ create table Tree
 
 create table FarmlandKind
 (
-    id    integer primary key,
-    name  text    not null unique,
-    space integer not null references SpaceKind (id),
-    soil  integer not null references SoilKind (id),
-    grid  integer not null references GridKind (id),
-    land  text    not null references LandKind (name)
+    id       integer primary key,
+    name     text    not null unique,
+    space    integer not null references SpaceKind (id),
+    soil     integer not null references SoilKind (id),
+    grid     integer not null references GridKind (id),
+    land     text    not null references LandKind (name),
+    calendar text    not null references CalendarKind (name)
 );
 
 create table Farmland
 (
-    id    integer primary key,
-    kind  integer not null references FarmlandKind (id),
-    space integer not null references Space (id),
-    soil  integer not null references Soil (id),
-    grid  integer not null references Grid (id),
-    land  integer not null references Land (id)
+    id       integer primary key,
+    kind     integer not null references FarmlandKind (id),
+    space    integer not null references Space (id),
+    soil     integer not null references Soil (id),
+    grid     integer not null references Grid (id),
+    land     integer not null references Land (id),
+    calendar integer not null references Calendar (id)
 );
 
 create table FarmerKind

@@ -314,6 +314,7 @@ impl Nature {
                 Event::AssemblingStream(_) => {}
                 Event::WorkingStream(_) => {}
                 Event::LandscapingStream(_) => {}
+                Event::TimingStream(_) => {}
             }
         }
     }

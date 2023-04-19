@@ -23,8 +23,10 @@ pub struct TextController {
 
 impl TextController {
     pub fn set_text(&mut self, text: String) {
-        self.text = text;
-        self.need_update = true;
+        if self.text != text {
+            self.need_update = true;
+            self.text = text;
+        }
     }
 }
 

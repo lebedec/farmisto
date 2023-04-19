@@ -13,6 +13,7 @@ use crate::physics::{
 };
 use crate::planting::{PlantId, PlantKey, PlantKind, SoilId, SoilKey, SoilKind};
 use crate::raising::{AnimalId, AnimalKey, AnimalKind};
+use crate::timing::{CalendarId, CalendarKey, CalendarKind};
 use crate::working::{DeviceId, DeviceKey, DeviceKind};
 
 #[derive(Default)]
@@ -26,6 +27,8 @@ pub struct Knowledge {
     pub creatures: Dictionary<CreatureKey, CreatureKind>,
     pub doors: Dictionary<DoorKey, DoorKind>,
     pub cementers: Dictionary<CementerKey, CementerKind>,
+    // timing
+    pub calendars: Dictionary<CalendarKey, CalendarKind>,
     // physics
     pub spaces: Dictionary<SpaceKey, SpaceKind>,
     pub bodies: Dictionary<BodyKey, BodyKind>,
@@ -95,6 +98,9 @@ pub enum Universe {
         cells: Vec<Vec<Cell>>,
         rooms: Vec<Room>,
         holes: Vec<Vec<u8>>,
+        season: u8,
+        season_day: f32,
+        times_of_day: f32,
     },
     FarmlandVanished(Farmland),
     FarmerAppeared {
@@ -183,6 +189,9 @@ pub enum Universe {
 
 #[derive(Debug, bincode::Encode, bincode::Decode)]
 pub enum UniverseError {
+    PlayerFarmerNotFound {
+        player: PlayerId,
+    },
     FarmerActivityNotRegistered {
         farmer: Farmer,
     },
@@ -200,6 +209,14 @@ impl UniverseDomain {
     pub fn load_farmlands(&mut self, farmlands: Vec<Farmland>, farmlands_id: usize) {
         self.farmlands_id = farmlands_id;
         self.farmlands.extend(farmlands);
+    }
+
+    pub fn get_player_farmer(&self, player: PlayerId) -> Result<Farmer, UniverseError> {
+        self.farmers
+            .iter()
+            .find(|farmer| farmer.player == player)
+            .cloned()
+            .ok_or(UniverseError::PlayerFarmerNotFound { player })
     }
 
     pub fn load_farmers(&mut self, farmers: Vec<Farmer>, farmers_id: usize) {
@@ -419,6 +436,9 @@ pub enum Activity {
     Assembling {
         assembly: Assembly,
     },
+    Rest {
+        comfort: u8,
+    },
 }
 
 impl Activity {
@@ -476,6 +496,7 @@ pub struct FarmlandKind {
     pub soil: SoilKey,
     pub grid: GridKey,
     pub land: Shared<LandKind>,
+    pub calendar: Shared<CalendarKind>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
@@ -486,6 +507,7 @@ pub struct Farmland {
     pub soil: SoilId,
     pub grid: GridId,
     pub land: LandId,
+    pub calendar: CalendarId,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]

@@ -55,11 +55,19 @@ class Editor:
 
     def create_farmland(self, kind: str, holes: bytes, moisture: bytes, moisture_capacity: bytes, grid: bytes) -> str:
         connection = self.connection
-        print('Create farmland', kind, 'holes:', len(holes), 'moisture:', len(moisture), 'moisture_capacity:',
-              len(moisture_capacity), 'grid:', len(grid))
+        print(
+            'Create farmland', kind,
+            'holes:', len(holes),
+            'moisture:', len(moisture),
+            'moisture_capacity:', len(moisture_capacity),
+            'grid:', len(grid)
+        )
 
-        kind = connection.execute('select id, space, soil, grid, land from FarmlandKind where name = ?', [kind]).fetchone()
-        kind, space_kind, soil_kind, grid_kind, land_name = kind
+        kind = connection.execute(
+            'select id, space, soil, grid, land, calendar from FarmlandKind where name = ?',
+            [kind]
+        ).fetchone()
+        kind, space_kind, soil_kind, grid_kind, land_name, calendar_name = kind
 
         connection.execute('insert into Space values (null, ?, ?)', [space_kind, holes])
         space_id = '(select max(id) from Space)'
@@ -76,7 +84,15 @@ class Editor:
         )
         land_id = '(select max(id) from Land)'
 
-        connection.execute(f'insert into Farmland values (null, ?, {space_id}, {soil_id}, {grid_id}, {land_id})', [kind])
+        connection.execute(
+            'insert into Calendar values (null, (select id from CalendarKind where name = ?), 0, 0.0, 0.0)',
+            [calendar_name]
+        )
+        calendar_id = '(select max(id) from Calendar)'
+
+        connection.execute(
+            f'insert into Farmland values (null, ?, {space_id}, {soil_id}, {grid_id}, {land_id}, {calendar_id})',
+            [kind])
         connection.commit()
         return '1'  # TODO: select real id
 
@@ -207,7 +223,7 @@ def create_new_database(dst_path: str, tmp_path: str):
     rows = src.execute("select tbl_name from main.sqlite_master where type = 'table'")
     tables = [name for columns in rows for name in columns if name.endswith('Kind')]
     order = {
-        'LandKind': -1,
+        'FarmlandKind': 1,
         'DoorKind': 1,
         'CropKind': 1,
         'EquipmentKind': 1,
@@ -223,6 +239,7 @@ def create_new_database(dst_path: str, tmp_path: str):
 def as_sql_tile(tile: Tuple[int, int]) -> str:
     x, y = tile
     return f"'[{x}, {y}]'"
+
 
 def as_sql_position(tile: Tuple[int, int]) -> str:
     x, y = tile
@@ -267,6 +284,7 @@ def prototype_planting():
         . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
         """
     )
+
 
 def prototype_assembling():
     create_new_database('../../assets/database.sqlite', '../../assets/database_tmp.sqlite')

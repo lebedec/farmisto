@@ -25,6 +25,7 @@ use crate::physics::{
 };
 use crate::planting::{Plant, PlantId, PlantKey, PlantKind, Soil, SoilId, SoilKey, SoilKind};
 use crate::raising::{Animal, AnimalId, AnimalKey, AnimalKind};
+use crate::timing::{Calendar, CalendarId, CalendarKey, CalendarKind, MinGameMinute};
 use crate::working::{Device, DeviceId, DeviceKey, DeviceKind};
 use crate::Game;
 
@@ -32,6 +33,12 @@ impl Game {
     pub fn load_game_knowledge(&mut self) -> Result<(), DataError> {
         info!("Starts game knowledge loading from {}", self.storage.path);
         let storage = self.storage.open_into();
+        // timing
+        for kind in storage.find_all(|row| self.load_calendar_kind(row))? {
+            self.known
+                .calendars
+                .insert(kind.id, kind.name.clone(), kind);
+        }
         // physics
         for kind in storage.find_all(|row| self.load_space_kind(row))? {
             self.known.spaces.insert(kind.id, kind.name.clone(), kind);
@@ -131,6 +138,10 @@ impl Game {
         let storage = self.storage.open_into();
         self.players = storage.find_all(|row| self.load_player(row))?;
 
+        // timing
+        let (calendars, _) = storage.get_sequence(|row| self.load_calendar(row))?;
+        self.timing.load_calendars(calendars);
+
         // physics
         let (spaces, sequence) = storage.get_sequence(|row| self.load_space(row))?;
         self.physics.load_spaces(spaces, sequence);
@@ -166,7 +177,7 @@ impl Game {
         self.inventory.load_containers(containers, sequence);
         let (items, sequence) = storage.get_sequence(|row| self.load_item(row))?;
         self.inventory.load_items(items, sequence);
-        
+
         // assembling
         let (placements, sequence) = storage.get_sequence(|row| self.load_placement(row))?;
         self.assembling.load_placements(placements, sequence);
@@ -266,6 +277,7 @@ impl Game {
             soil: SoilKey(row.get("soil")?),
             grid: GridKey(row.get("grid")?),
             land: self.known.lands.find_by(row, "land")?,
+            calendar: self.known.calendars.find_by(row, "calendar")?,
         };
         Ok(data)
     }
@@ -278,6 +290,7 @@ impl Game {
             soil: SoilId(row.get("soil")?),
             grid: GridId(row.get("grid")?),
             land: LandId(row.get("land")?),
+            calendar: CalendarId(row.get("calendar")?),
         };
         Ok(data)
     }
@@ -683,8 +696,8 @@ impl Game {
         };
         Ok(data)
     }
-    
-    // assembling 
+
+    // assembling
 
     pub(crate) fn load_placement(&mut self, row: &rusqlite::Row) -> Result<Placement, DataError> {
         let data = Placement {
@@ -712,6 +725,32 @@ impl Game {
             kind: self.known.lands.get_by(row, "kind", LandKey)?,
             moisture: row.decode("moisture")?,
             moisture_capacity: row.decode("moisture_capacity")?,
+        };
+        Ok(data)
+    }
+
+    // timing
+
+    pub(crate) fn load_calendar_kind(
+        &mut self,
+        row: &rusqlite::Row,
+    ) -> Result<CalendarKind, DataError> {
+        let data = CalendarKind {
+            id: CalendarKey(row.get("id")?),
+            name: row.get("name")?,
+            day_duration: MinGameMinute(row.get("day_duration")?),
+            seasons: row.get_json("seasons")?,
+        };
+        Ok(data)
+    }
+
+    pub(crate) fn load_calendar(&mut self, row: &rusqlite::Row) -> Result<Calendar, DataError> {
+        let data = Calendar {
+            id: CalendarId(row.get("id")?),
+            kind: self.known.calendars.get_by(row, "key", CalendarKey)?,
+            season: row.get("season")?,
+            season_day: row.get("season_day")?,
+            times_of_day: row.get("times_of_day")?,
         };
         Ok(data)
     }

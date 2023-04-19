@@ -1,4 +1,5 @@
 use std::collections::HashMap;
+use std::fmt::format;
 
 use lazy_static::lazy_static;
 use rand::prelude::*;
@@ -14,18 +15,6 @@ use crate::engine::rendering::{xy, Scene, TilemapUniform};
 use crate::engine::Frame;
 use crate::gameplay::representation::{AssemblyTargetAsset, CreatureRep, CropRep, ItemRep};
 use crate::gameplay::{position_of, rendering_position_of, Gameplay, TILE_SIZE};
-
-lazy_static! {
-    static ref METRIC_ANIMATION_SECONDS: prometheus::Histogram =
-        prometheus::register_histogram!("gameplay_animation_seconds", "gameplay_animation_seconds")
-            .unwrap();
-    static ref METRIC_DRAW_REQUEST_SECONDS: prometheus::Histogram =
-        prometheus::register_histogram!(
-            "gameplay_draw_request_seconds",
-            "gameplay_draw_request_seconds"
-        )
-        .unwrap();
-}
 
 impl Gameplay {
     pub fn animate(&mut self, frame: &mut Frame) {
@@ -55,71 +44,68 @@ impl Gameplay {
                 .unwrap();
             idle.set_alpha(1.0 - alpha);
         }
-        METRIC_ANIMATION_SECONDS.observe_closure_duration(|| {
-            for creature in self.creatures.values_mut() {
-                creature
-                    .spine
-                    .skeleton
-                    .skeleton
-                    .set_scale_x(creature.direction[0].signum());
-                creature.spine.skeleton.update(time);
-            }
-            for crop in self.crops.values_mut() {
-                crop.animate_growth(time);
-                if let Some(mut impact_bone) = crop.spines[crop.spine]
-                    .skeleton
-                    .skeleton
-                    .find_bone_mut("impact")
-                {
-                    if crop.impact > 0.0 {
-                        impact_bone.set_rotation(360.0 - crop.impact * 90.0);
-                    } else {
-                        impact_bone.set_rotation(-crop.impact * 90.0);
-                    }
+        for creature in self.creatures.values_mut() {
+            creature
+                .spine
+                .skeleton
+                .skeleton
+                .set_scale_x(creature.direction[0].signum());
+            creature.spine.skeleton.update(time);
+        }
+        for crop in self.crops.values_mut() {
+            crop.animate_growth(time);
+            if let Some(mut impact_bone) = crop.spines[crop.spine]
+                .skeleton
+                .skeleton
+                .find_bone_mut("impact")
+            {
+                if crop.impact > 0.0 {
+                    impact_bone.set_rotation(360.0 - crop.impact * 90.0);
+                } else {
+                    impact_bone.set_rotation(-crop.impact * 90.0);
                 }
-                let mut growth = crop.spines[crop.spine]
-                    .skeleton
-                    .animation_state
-                    .track_at_index_mut(CropRep::ANIMATION_TRACK_GROWTH as usize)
-                    .unwrap();
-                growth.set_animation_start(crop.growth);
-                growth.set_animation_end(crop.growth);
-                // let mut growth = crop
-                //     .spine
-                //     .skeleton
-                //     .animation_state
-                //     .track_at_index_mut(3)
-                //     .unwrap();
-                // growth.set_timescale(1.0);
-                // let f = 100.0 * (1.0 / 30.0);
-                // growth.set_animation_start(f);
-                // growth.set_animation_end(f);
-                //
-                // let mut drying = crop
-                //     .spine
-                //     .skeleton
-                //     .animation_state
-                //     .track_at_index_mut(2)
-                //     .unwrap();
-                // drying.set_timescale(1.0);
-                // let f = (100.0 * crop.thirst) * (1.0 / 30.0);
-                // drying.set_animation_start(f);
-                // drying.set_animation_end(f);
-                //
-                // let mut development = crop
-                //     .spine
-                //     .skeleton
-                //     .animation_state
-                //     .track_at_index_mut(1)
-                //     .unwrap();
-                // development.set_timescale(1.0);
-                // let f = 50.0 * (1.0 / 30.0);
-                // development.set_animation_start(f);
-                // development.set_animation_end(f);
-
-                crop.spines[crop.spine].skeleton.update(time);
             }
-        });
+            let mut growth = crop.spines[crop.spine]
+                .skeleton
+                .animation_state
+                .track_at_index_mut(CropRep::ANIMATION_TRACK_GROWTH as usize)
+                .unwrap();
+            growth.set_animation_start(crop.growth);
+            growth.set_animation_end(crop.growth);
+            // let mut growth = crop
+            //     .spine
+            //     .skeleton
+            //     .animation_state
+            //     .track_at_index_mut(3)
+            //     .unwrap();
+            // growth.set_timescale(1.0);
+            // let f = 100.0 * (1.0 / 30.0);
+            // growth.set_animation_start(f);
+            // growth.set_animation_end(f);
+            //
+            // let mut drying = crop
+            //     .spine
+            //     .skeleton
+            //     .animation_state
+            //     .track_at_index_mut(2)
+            //     .unwrap();
+            // drying.set_timescale(1.0);
+            // let f = (100.0 * crop.thirst) * (1.0 / 30.0);
+            // drying.set_animation_start(f);
+            // drying.set_animation_end(f);
+            //
+            // let mut development = crop
+            //     .spine
+            //     .skeleton
+            //     .animation_state
+            //     .track_at_index_mut(1)
+            //     .unwrap();
+            // development.set_timescale(1.0);
+            // let f = 50.0 * (1.0 / 30.0);
+            // development.set_animation_start(f);
+            // development.set_animation_end(f);
+            crop.spines[crop.spine].skeleton.update(time);
+        }
     }
 
     pub fn render(&mut self, frame: &mut Frame) {
@@ -510,21 +496,6 @@ impl Gameplay {
                 ],
             );
         }
-
-        METRIC_DRAW_REQUEST_SECONDS.observe_closure_duration(|| {
-            // for spine in &self.spines {
-            //     renderer.render_spine(
-            //         &spine.sprite,
-            //         spine.position,
-            //         [
-            //             [1.0, 1.0, 1.0, 1.0],
-            //             [1.0, 1.0, 1.0, 1.0],
-            //             [1.0, 1.0, 1.0, 1.0],
-            //             [1.0, 1.0, 1.0, 1.0],
-            //         ],
-            //     );
-            // }
-        });
         scene.set_point_light(
             [1.0, 0.0, 0.0, 1.0],
             512.0,
@@ -538,16 +509,50 @@ impl Gameplay {
     }
 
     pub fn render_ui(&mut self, frame: &mut Frame) {
-        self.time += frame.input.time;
-        let seconds = self.time as u32;
-        let cd = seconds / 360;
-        let seconds = seconds % 360;
+        if let Some(farmland) = self.current_farmland {
+            let farmland = self.farmlands.get(&farmland).unwrap();
+            let m = self.colonization_date.floor();
+            let s = ((self.colonization_date - m) * 60.0) as u8;
+            let m = m as u32;
+            let cd = format!("{m}:{s:02}");
+            let cd_text = frame.translator.format("CD_$1", [cd]);
 
-        let text = frame
-            .translator
-            .format("Hello_world_$1", [format!("{cd}.{seconds:03}")]);
-        self.test_text.set_text(text);
-        frame.scene.render_text(&mut self.test_text, [16, 16]);
+            let calendar = &farmland.kind.calendar;
+            let season = &calendar.seasons[farmland.season as usize];
+            let d = farmland.season_day / calendar.day_duration.as_f32();
+            let d = d as u8 + 1;
+            let dl = season.duration.as_f32() / calendar.day_duration.as_f32();
+            let dl = dl as u8;
+            let season_key = format!("Season_{}_$1_of_$2", season.key);
+            let season_text = frame.translator.format(&season_key, [d, dl]);
+
+            let time_text = match farmland.times_of_day {
+                value if value < 0.125 => {
+                    let dt = (((value + 0.125) / 0.25) * 100.0) as u8;
+                    frame.translator.format("Time_night_$1", [dt])
+                }
+                value if value < 0.25 => {
+                    let dt = (((value - 0.125) / 0.125) * 100.0) as u8;
+                    frame.translator.format("Time_morning_$1", [dt])
+                }
+                value if value < 0.75 => {
+                    let dt = (((value - 0.25) / 0.5) * 100.0) as u8;
+                    frame.translator.format("Time_day_$1", [dt])
+                }
+                value if value < 0.875 => {
+                    let dt = (((value - 0.75) / 0.125) * 100.0) as u8;
+                    frame.translator.format("Time_evening_$1", [dt])
+                }
+                value => {
+                    let dt = (((value - 0.875) / 0.25) * 100.0) as u8;
+                    frame.translator.format("Time_night_$1", [dt])
+                }
+            };
+
+            self.watch_display
+                .set_text(format!("{cd_text}\n{season_text}, {time_text}"));
+            frame.scene.render_text(&mut self.watch_display, [16, 16]);
+        }
     }
 }
 

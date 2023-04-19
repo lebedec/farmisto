@@ -303,6 +303,17 @@ impl Gameplay {
                     }
                 }
             }
+            Activity::Rest { .. } => match intention {
+                Put => {
+                    self.send_action(FarmerBound::CancelActivity);
+                    farmer.activity = Activity::Idle;
+                }
+                Move => {
+                    self.send_action(FarmerBound::CancelActivity);
+                    farmer.activity = Activity::Idle;
+                }
+                _ => {}
+            },
         }
     }
 }

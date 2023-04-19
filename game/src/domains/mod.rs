@@ -5,4 +5,5 @@ pub mod landscaping;
 pub mod physics;
 pub mod planting;
 pub mod raising;
+pub mod timing;
 pub mod working;

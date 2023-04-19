@@ -231,7 +231,7 @@ pub fn startup<A: App>(title: String) {
                     .render_area(base.screen.resolution().into())
                     .clear_values(&clear_values);
                 base.begin_commands(frame_command_buffer).unwrap();
-                scene.render2(&base.device, frame_command_buffer, &render_begin);
+                scene.draw2(&base.device, frame_command_buffer, &render_begin);
                 base.end_commands(frame_command_buffer, *present_queue)
                     .unwrap();
 

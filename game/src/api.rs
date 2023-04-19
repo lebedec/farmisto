@@ -13,6 +13,7 @@ use crate::model::{
 use crate::physics::{Physics, PhysicsError};
 use crate::planting::{Planting, PlantingError};
 use crate::raising::{Raising, RaisingError};
+use crate::timing::{Timing, TimingError};
 use crate::working::{DeviceId, Working, WorkingError};
 
 pub const API_VERSION: &str = "0.1";
@@ -175,6 +176,7 @@ pub struct ActionResponse {
 
 #[derive(Debug, bincode::Encode, bincode::Decode)]
 pub enum ActionError {
+    Timing(TimingError),
     Building(BuildingError),
     Inventory(InventoryError),
     Universe(UniverseError),
@@ -202,6 +204,12 @@ pub enum ActionError {
 impl From<DictionaryError> for ActionError {
     fn from(error: DictionaryError) -> Self {
         Self::Inconsistency(error)
+    }
+}
+
+impl From<TimingError> for ActionError {
+    fn from(error: TimingError) -> Self {
+        Self::Timing(error)
     }
 }
 
@@ -261,6 +269,7 @@ impl From<LandscapingError> for ActionError {
 
 #[derive(Debug, bincode::Encode, bincode::Decode)]
 pub enum Event {
+    TimingStream(Vec<Timing>),
     UniverseStream(Vec<Universe>),
     PhysicsStream(Vec<Physics>),
     BuildingStream(Vec<Building>),
@@ -270,6 +279,12 @@ pub enum Event {
     AssemblingStream(Vec<Assembling>),
     WorkingStream(Vec<Working>),
     LandscapingStream(Vec<Landscaping>),
+}
+
+impl Into<Event> for Vec<Timing> {
+    fn into(self) -> Event {
+        Event::TimingStream(self)
+    }
 }
 
 impl Into<Event> for Vec<Universe> {
@@ -323,6 +338,12 @@ impl Into<Event> for Vec<Working> {
 impl Into<Event> for Vec<Landscaping> {
     fn into(self) -> Event {
         Event::LandscapingStream(self)
+    }
+}
+
+impl Into<Event> for Timing {
+    fn into(self) -> Event {
+        Event::TimingStream(vec![self])
     }
 }
 

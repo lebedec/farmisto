@@ -215,7 +215,7 @@ impl Scene {
         })
     }
 
-    pub unsafe fn render2(
+    pub unsafe fn draw2(
         &mut self,
         device: &Device,
         buffer: vk::CommandBuffer,
