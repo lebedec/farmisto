@@ -3,8 +3,8 @@ use rand::thread_rng;
 use crate::api::Event;
 use crate::inventory::ItemId;
 use crate::math::VectorMath;
-use crate::{occur, Game};
 use crate::model::Activity;
+use crate::{occur, Game};
 
 impl Game {
     pub fn update(&mut self, real_seconds: f32) -> Vec<Event> {
@@ -13,8 +13,8 @@ impl Game {
             let farmer = self.universe.get_player_farmer(player.id).unwrap();
             let activity = self.universe.get_farmer_activity(farmer).unwrap();
             let boost = match activity {
-                Activity::Rest { comfort } => comfort,
-                _ => 1
+                Activity::Resting { comfort } => comfort,
+                _ => 1,
             };
             boosts.push(boost);
         }

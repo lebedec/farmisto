@@ -265,6 +265,8 @@ impl Nature {
                             Universe::DoorChanged { .. } => {}
                             Universe::CementerAppeared { .. } => {}
                             Universe::CementerVanished(_) => {}
+                            Universe::RestAppeared { .. } => {}
+                            Universe::RestVanished(_) => {}
                         }
                     }
                 }

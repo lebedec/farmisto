@@ -393,13 +393,30 @@ create table DoorKind
     id      integer primary key,
     name    text not null unique,
     barrier text not null references BarrierKind (name),
-    item    text not null references ItemKind (name)
+    kit     text not null references ItemKind (name)
 );
 
 create table Door
 (
     id        integer primary key,
-    key       integer not null references CreatureKind (id),
+    key       integer not null references DoorKind (id),
+    barrier   integer not null references Barrier (id),
+    placement integer not null references Placement (id)
+);
+
+create table RestKind
+(
+    id      integer primary key,
+    name    text    not null unique,
+    comfort integer not null,
+    barrier text    not null references BarrierKind (name),
+    kit     text    not null references ItemKind (name)
+);
+
+create table Rest
+(
+    id        integer primary key,
+    key       integer not null references RestKind (id),
     barrier   integer not null references Barrier (id),
     placement integer not null references Placement (id)
 );
@@ -409,7 +426,8 @@ create table AssemblyKind
     id         integer primary key,
     name       text not null unique,
     t_door     text references DoorKind (name),
-    t_cementer text references CementerKind (name)
+    t_cementer text references CementerKind (name),
+    t_rest     text references RestKind (name)
 );
 
 create table Assembly

@@ -11,7 +11,6 @@ use datamap::Storage;
 use game::api::{Action, FarmerBound, GameResponse, PlayerRequest};
 use game::inventory::{ContainerId, ItemId};
 use game::math::{test_collisions, VectorMath};
-use game::model::Creature;
 use game::model::Crop;
 use game::model::Equipment;
 use game::model::Farmer;
@@ -21,18 +20,19 @@ use game::model::Stack;
 use game::model::Tree;
 use game::model::{Activity, Assembly, Door};
 use game::model::{Cementer, Construction};
+use game::model::{Creature, Rest};
 use game::physics::{generate_holes, Barrier};
 use game::Game;
 use network::TcpClient;
 use server::LocalServerThread;
 
-use crate::assets::{SpriteAsset, TextureAsset};
+use crate::assets::{SamplerAsset, SpriteAsset, TextureAsset};
 use crate::engine::rendering::TextController;
 use crate::engine::Input;
 use crate::gameplay::camera::Camera;
 use crate::gameplay::representation::{
     AssemblyRep, CementerRep, ConstructionRep, CreatureRep, CropRep, DoorRep, EquipmentRep,
-    FarmerRep, FarmlandRep, ItemRep, StackRep, TreeRep,
+    FarmerRep, FarmlandRep, ItemRep, RestRep, StackRep, TreeRep,
 };
 use crate::gameplay::{InputMethod, Target};
 use crate::monitoring::Timer;
@@ -79,6 +79,7 @@ pub struct Gameplay {
     pub equipments: HashMap<Equipment, EquipmentRep>,
     pub assembly: HashMap<Assembly, AssemblyRep>,
     pub doors: HashMap<Door, DoorRep>,
+    pub rests: HashMap<Rest, RestRep>,
     pub cementers: HashMap<Cementer, CementerRep>,
     pub constructions: HashMap<Construction, ConstructionRep>,
     pub crops: HashMap<Crop, CropRep>,
@@ -97,6 +98,7 @@ pub struct Gameplay {
     pub watch_display: TextController,
     pub colonization_date: f32,
     pub speed: f32,
+    pub default_sampler: SamplerAsset,
 }
 
 impl Gameplay {
@@ -139,6 +141,7 @@ impl Gameplay {
             equipments: Default::default(),
             assembly: Default::default(),
             doors: Default::default(),
+            rests: Default::default(),
             cementers: Default::default(),
             constructions: Default::default(),
             crops: Default::default(),
@@ -157,6 +160,7 @@ impl Gameplay {
             watch_display: test_text,
             colonization_date: 0.0,
             speed: 0.0,
+            default_sampler: assets.sampler("default"),
         }
     }
 

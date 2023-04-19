@@ -80,6 +80,25 @@ impl Game {
                     self.universe.change_activity(farmer, Activity::Idle),
                 ]
             }
+            AssemblyTarget::Rest { rest } => {
+                let position = position_of(placement.pivot);
+                let (barrier, create_barrier) = self.physics.create_barrier(
+                    farmland.space,
+                    rest.barrier.clone(),
+                    position,
+                    true,
+                    false,
+                )?;
+                let use_assembly_kit = self.inventory.use_items_from(farmer.hands)?;
+                occur![
+                    use_assembly_kit(),
+                    finish_placement(),
+                    create_barrier(),
+                    self.appear_rest(rest.key, barrier, placement.id),
+                    self.universe.vanish_assembly(assembly),
+                    self.universe.change_activity(farmer, Activity::Idle),
+                ]
+            }
         };
         Ok(events)
     }

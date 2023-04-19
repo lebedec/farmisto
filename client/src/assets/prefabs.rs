@@ -71,6 +71,12 @@ pub struct DoorAssetData {
     pub sprites: TilesetAsset,
 }
 
+pub type RestAsset = Asset<RestAssetData>;
+
+pub struct RestAssetData {
+    pub sprites: TilesetAsset,
+}
+
 pub type CementerAsset = Asset<CementerAssetData>;
 
 pub struct CementerAssetData {

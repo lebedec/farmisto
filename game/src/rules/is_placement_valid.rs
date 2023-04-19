@@ -33,6 +33,10 @@ impl Game {
                     offset: rotation.apply_i8(cementer.output_offset),
                 },
             ],
+            AssemblyTarget::Rest { .. } => vec![Part {
+                binding: Binding::Ground,
+                offset: [0, 0],
+            }],
         };
 
         for part in parts {

@@ -10,7 +10,7 @@ use game::inventory::{ContainerId, ItemId};
 use game::math::{Position, Tile, TileMath, VectorMath};
 use game::model::{Activity, CementerKind, Purpose};
 
-use crate::assets::CementerAsset;
+use crate::assets::{CementerAsset, SpriteAsset, SpriteAssetData};
 use crate::engine::rendering::{xy, Scene, TilemapUniform};
 use crate::engine::Frame;
 use crate::gameplay::representation::{AssemblyTargetAsset, CreatureRep, CropRep, ItemRep};
@@ -354,17 +354,30 @@ impl Gameplay {
                         scene,
                     );
                 }
+                AssemblyTargetAsset::Rest { rest } => {
+                    let index = assembly.rotation.index();
+                    let sprite = &rest.sprites.tiles[index];
+                    scene.render_sprite_colored(sprite, xy(rendering_position), highlight)
+                }
             }
         }
 
         for door in self.doors.values() {
             let mut rendering_position = rendering_position_of(door.position);
+            // fix door offset
             rendering_position[1] += TILE_SIZE / 2.0;
             let mut index = door.rotation.index();
             if door.open {
                 index += 4;
             }
             let sprite = &door.asset.sprites.tiles[index];
+            scene.render_sprite(sprite, xy(rendering_position))
+        }
+
+        for rest in self.rests.values() {
+            let rendering_position = rendering_position_of(rest.position);
+            let index = rest.rotation.index();
+            let sprite = &rest.asset.sprites.tiles[index];
             scene.render_sprite(sprite, xy(rendering_position))
         }
 
@@ -411,7 +424,17 @@ impl Gameplay {
                 );
             }
 
-            scene.render_sprite(&self.players[farmer.entity.id - 1], xy(rendering_position));
+            let highlight = if let Activity::Resting { .. } = farmer.activity {
+                [0.8, 0.8, 1.0, 1.0]
+            } else {
+                [1.0; 4]
+            };
+
+            scene.render_sprite_colored(
+                &self.players[farmer.entity.id - 1],
+                xy(rendering_position),
+                highlight,
+            );
 
             for (i, item) in self
                 .items
@@ -548,6 +571,23 @@ impl Gameplay {
                     frame.translator.format("Time_night_$1", [dt])
                 }
             };
+
+            // simple night overlay
+            // TODO: lights system
+            let alpha = match farmland.times_of_day {
+                value if value < 0.25 => (1.0 - (value / 0.25)) * 0.65,
+                value if value >= 0.75 => ((value - 0.75) / 0.25) * 0.65,
+                _ => 0.0,
+            };
+            if alpha > 0.0 {
+                let color = [0.07, 0.05, 0.2, alpha];
+                frame.scene.render_texture(
+                    frame.assets.texture_white(),
+                    [0, 0],
+                    frame.scene.screen.size_f32().mul(frame.scene.zoom),
+                    color,
+                );
+            }
 
             self.watch_display
                 .set_text(format!("{cd_text}\n{season_text}, {time_text}"));

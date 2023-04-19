@@ -1,6 +1,6 @@
 use crate::api::Event;
 use crate::model::{
-    Assembly, Cementer, Creature, Crop, Door, Equipment, ItemData, Stack, Universe,
+    Assembly, Cementer, Creature, Crop, Door, Equipment, ItemData, Rest, Stack, Universe,
     UniverseSnapshot,
 };
 use crate::physics::Physics;
@@ -50,6 +50,16 @@ impl Game {
         Universe::DoorAppeared {
             entity,
             open: !barrier.active,
+            rotation: placement.rotation,
+            position: barrier.position,
+        }
+    }
+
+    pub fn look_at_rest(&self, entity: Rest) -> Universe {
+        let barrier = self.physics.get_barrier(entity.barrier).unwrap();
+        let placement = self.assembling.get_placement(entity.placement).unwrap();
+        Universe::RestAppeared {
+            entity,
             rotation: placement.rotation,
             position: barrier.position,
         }
@@ -156,6 +166,10 @@ impl Game {
 
         for door in &self.universe.doors {
             stream.push(self.look_at_door(*door));
+        }
+
+        for rest in &self.universe.rests {
+            stream.push(self.look_at_rest(*rest));
         }
 
         for cementer in &self.universe.cementers {

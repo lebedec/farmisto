@@ -13,7 +13,7 @@ use crate::physics::{
 };
 use crate::planting::{PlantId, PlantKey, PlantKind, SoilId, SoilKey, SoilKind};
 use crate::raising::{AnimalId, AnimalKey, AnimalKind};
-use crate::timing::{CalendarId, CalendarKey, CalendarKind};
+use crate::timing::{CalendarId, CalendarKey, CalendarKind, Sequence};
 use crate::working::{DeviceId, DeviceKey, DeviceKind};
 
 #[derive(Default)]
@@ -27,6 +27,7 @@ pub struct Knowledge {
     pub creatures: Dictionary<CreatureKey, CreatureKind>,
     pub doors: Dictionary<DoorKey, DoorKind>,
     pub cementers: Dictionary<CementerKey, CementerKind>,
+    pub rests: Dictionary<RestKey, RestKind>,
     // timing
     pub calendars: Dictionary<CalendarKey, CalendarKind>,
     // physics
@@ -75,6 +76,8 @@ pub struct UniverseDomain {
     pub assembly_id: usize,
     pub doors: Vec<Door>,
     pub doors_id: usize,
+    pub rests: Vec<Rest>,
+    pub rests_id: usize,
     pub cementers: Vec<Cementer>,
     pub cementers_id: usize,
 }
@@ -174,6 +177,12 @@ pub enum Universe {
         open: bool,
     },
     DoorVanished(Door),
+    RestAppeared {
+        entity: Rest,
+        rotation: Rotation,
+        position: [f32; 2],
+    },
+    RestVanished(Rest),
     CementerAppeared {
         entity: Cementer,
         rotation: Rotation,
@@ -271,6 +280,11 @@ impl UniverseDomain {
         self.doors.extend(doors);
     }
 
+    pub fn load_rests(&mut self, rests: Vec<Rest>, rests_id: usize) {
+        self.rests_id = rests_id;
+        self.rests.extend(rests);
+    }
+
     pub fn load_cementers(&mut self, cementers: Vec<Cementer>, cementers_id: usize) {
         self.cementers_id = cementers_id;
         self.cementers.extend(cementers);
@@ -326,6 +340,15 @@ impl UniverseDomain {
         if let Some(index) = self.doors.iter().position(|door| door == &id) {
             self.doors.remove(index);
             vec![Universe::DoorVanished(id)]
+        } else {
+            vec![]
+        }
+    }
+
+    pub(crate) fn vanish_rest(&mut self, id: Rest) -> Vec<Universe> {
+        if let Some(index) = self.rests.iter().position(|rest| rest == &id) {
+            self.rests.remove(index);
+            vec![Universe::RestVanished(id)]
         } else {
             vec![]
         }
@@ -436,7 +459,7 @@ pub enum Activity {
     Assembling {
         assembly: Assembly,
     },
-    Rest {
+    Resting {
         comfort: u8,
     },
 }
@@ -609,6 +632,7 @@ pub struct AssemblyKey(pub usize);
 pub enum AssemblyTarget {
     Door { door: Shared<DoorKind> },
     Cementer { cementer: Shared<CementerKind> },
+    Rest { rest: Shared<RestKind> },
 }
 
 pub struct AssemblyKind {
@@ -638,6 +662,25 @@ pub struct DoorKind {
 pub struct Door {
     pub id: usize,
     pub key: DoorKey,
+    pub barrier: BarrierId,
+    pub placement: PlacementId,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
+pub struct RestKey(pub usize);
+
+pub struct RestKind {
+    pub key: RestKey,
+    pub name: String,
+    pub comfort: u8,
+    pub barrier: Shared<BarrierKind>,
+    pub kit: Shared<ItemKind>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
+pub struct Rest {
+    pub id: usize,
+    pub key: RestKey,
     pub barrier: BarrierId,
     pub placement: PlacementId,
 }

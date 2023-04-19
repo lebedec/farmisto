@@ -16,8 +16,8 @@ use crate::model::{
     Assembly, AssemblyKey, AssemblyKind, AssemblyTarget, Cementer, CementerKey, CementerKind,
     Construction, Creature, CreatureKey, CreatureKind, Crop, CropKey, CropKind, Door, DoorKey,
     DoorKind, Equipment, EquipmentKey, EquipmentKind, Farmer, FarmerKey, FarmerKind, Farmland,
-    FarmlandKey, FarmlandKind, Player, PlayerId, Purpose, PurposeDescription, Stack, Tree, TreeKey,
-    TreeKind,
+    FarmlandKey, FarmlandKind, Player, PlayerId, Purpose, PurposeDescription, Rest, RestKey,
+    RestKind, Stack, Tree, TreeKey, TreeKind,
 };
 use crate::physics::{
     Barrier, BarrierId, BarrierKey, BarrierKind, Body, BodyId, BodyKey, BodyKind, Sensor, SensorId,
@@ -123,6 +123,9 @@ impl Game {
         for kind in storage.find_all(|row| self.load_door_kind(row))? {
             self.known.doors.insert(kind.key, kind.name.clone(), kind);
         }
+        for kind in storage.find_all(|row| self.load_rest_kind(row))? {
+            self.known.rests.insert(kind.key, kind.name.clone(), kind);
+        }
         for kind in storage.find_all(|row| self.load_assembly_kind(row))? {
             self.known
                 .assembly
@@ -206,6 +209,8 @@ impl Game {
         // assembly references:
         let (doors, id) = storage.get_sequence(|row| self.load_door(row))?;
         self.universe.load_doors(doors, id);
+        let (rests, id) = storage.get_sequence(|row| self.load_rest(row))?;
+        self.universe.load_rests(rests, id);
         let (cementers, id) = storage.get_sequence(|row| self.load_cementer(row))?;
         self.universe.load_cementers(cementers, id);
         let (assembly, id) = storage.get_sequence(|row| self.load_assembly(row))?;
@@ -421,6 +426,9 @@ impl Game {
         } else if let Ok(Some(name)) = row.get("t_cementer") {
             let cementer = self.known.cementers.find2(&name)?;
             AssemblyTarget::Cementer { cementer }
+        } else if let Ok(Some(name)) = row.get("t_rest") {
+            let rest = self.known.rests.find2(&name)?;
+            AssemblyTarget::Rest { rest }
         } else {
             return Err(DataError::NotSpecifiedVariant);
         };
@@ -446,7 +454,7 @@ impl Game {
             key: DoorKey(row.get("id")?),
             name: row.get("name")?,
             barrier: self.known.barriers.find_by(row, "barrier")?,
-            kit: self.known.items.find_by(row, "item")?,
+            kit: self.known.items.find_by(row, "kit")?,
         };
         Ok(data)
     }
@@ -455,6 +463,27 @@ impl Game {
         let data = Door {
             id: row.get("id")?,
             key: DoorKey(row.get("key")?),
+            barrier: BarrierId(row.get("barrier")?),
+            placement: PlacementId(row.get("placement")?),
+        };
+        Ok(data)
+    }
+
+    pub(crate) fn load_rest_kind(&mut self, row: &rusqlite::Row) -> Result<RestKind, DataError> {
+        let data = RestKind {
+            key: RestKey(row.get("id")?),
+            name: row.get("name")?,
+            comfort: row.get("comfort")?,
+            barrier: self.known.barriers.find_by(row, "barrier")?,
+            kit: self.known.items.find_by(row, "kit")?,
+        };
+        Ok(data)
+    }
+
+    pub(crate) fn load_rest(&mut self, row: &rusqlite::Row) -> Result<Rest, DataError> {
+        let data = Rest {
+            id: row.get("id")?,
+            key: RestKey(row.get("key")?),
             barrier: BarrierId(row.get("barrier")?),
             placement: PlacementId(row.get("placement")?),
         };

@@ -18,7 +18,7 @@ use game::working::Working;
 use crate::engine::Frame;
 use crate::gameplay::representation::{
     AssemblyRep, AssemblyTargetAsset, BuildingRep, CementerRep, ConstructionRep, CreatureRep,
-    CropRep, DoorRep, EquipmentRep, FarmerRep, FarmlandRep, ItemRep, StackRep, TreeRep,
+    CropRep, DoorRep, EquipmentRep, FarmerRep, FarmlandRep, ItemRep, RestRep, StackRep, TreeRep,
 };
 use crate::gameplay::Gameplay;
 
@@ -745,6 +745,10 @@ impl Gameplay {
                             kind: cementer.clone(),
                         }
                     }
+                    AssemblyTarget::Rest { rest } => {
+                        let rest = assets.rest(&rest.name);
+                        AssemblyTargetAsset::Rest { rest }
+                    }
                 };
                 let representation = AssemblyRep {
                     entity,
@@ -814,6 +818,24 @@ impl Gameplay {
             }
             Universe::CementerVanished(entity) => {
                 self.cementers.remove(&entity);
+            }
+            Universe::RestAppeared {
+                entity,
+                position,
+                rotation,
+            } => {
+                let kind = self.known.rests.get(entity.key).unwrap();
+                let asset = assets.rest(&kind.name);
+                let representation = RestRep {
+                    entity,
+                    asset,
+                    rotation,
+                    position,
+                };
+                self.rests.insert(entity, representation);
+            }
+            Universe::RestVanished(entity) => {
+                self.rests.remove(&entity);
             }
         }
     }

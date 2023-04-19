@@ -50,7 +50,40 @@ impl Scene {
         }
     }
 
-    pub fn render_rect(&mut self, top_left: [i32; 2]) {}
+    pub fn render_texture(
+        &mut self,
+        texture: TextureAsset,
+        top_left: [i32; 2],
+        size: [f32; 2],
+        color: [f32; 4],
+    ) {
+        let image_w = texture.width as f32;
+        let image_h = texture.height as f32;
+        let [sprite_x, sprite_y] = [0.0, 0.0];
+        let [sprite_w, sprite_h] = [image_w, image_h];
+        let x = sprite_x / image_w;
+        let y = sprite_y / image_h;
+        let w = sprite_w / image_w;
+        let h = sprite_h / image_h;
+        let object = ElementRenderObject {
+            constants: ElementPushConstants {
+                position: [top_left[0] as f32, top_left[1] as f32],
+                size,
+                coords: [x, y, w, h],
+                pivot: [0.0, 0.0],
+                color,
+            },
+            texture: self
+                .sprite_pipeline
+                .material
+                .describe(vec![[ShaderData::Texture(vk::DescriptorImageInfo {
+                    sampler: texture.sampler,
+                    image_view: texture.view,
+                    image_layout: vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
+                })]])[0],
+        };
+        self.ui_elements.push(object);
+    }
 
     pub fn render_text(&mut self, text: &mut TextController, top_left: [i32; 2]) {
         if text.need_update {

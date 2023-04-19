@@ -10,15 +10,15 @@ use game::landscaping::LandMap;
 use game::math::{Collider, Tile, VectorMath};
 use game::model::{
     Activity, Assembly, Cementer, CementerKind, Construction, Creature, CreatureKind, Crop, Door,
-    Equipment, Farmer, FarmerKind, Farmland, FarmlandKind, Stack, Tree, TreeKind,
+    Equipment, Farmer, FarmerKind, Farmland, FarmlandKind, Rest, Stack, Tree, TreeKind,
 };
 use game::physics::BodyKind;
 
-use crate::assets::TreeAsset;
 use crate::assets::{BuildingMaterialAsset, CreatureAsset};
 use crate::assets::{CementerAsset, FarmerAsset};
 use crate::assets::{CropAsset, DoorAsset};
 use crate::assets::{FarmlandAsset, ItemAsset};
+use crate::assets::{RestAsset, TreeAsset};
 use crate::engine::rendering::{SpineRenderController, TilemapController};
 
 pub struct FarmerRep {
@@ -134,6 +134,9 @@ pub enum AssemblyTargetAsset {
         cementer: CementerAsset,
         kind: Shared<CementerKind>,
     },
+    Rest {
+        rest: RestAsset,
+    },
 }
 
 pub struct AssemblyRep {
@@ -148,6 +151,13 @@ pub struct DoorRep {
     pub entity: Door,
     pub asset: DoorAsset,
     pub open: bool,
+    pub rotation: Rotation,
+    pub position: [f32; 2],
+}
+
+pub struct RestRep {
+    pub entity: Rest,
+    pub asset: RestAsset,
     pub rotation: Rotation,
     pub position: [f32; 2],
 }

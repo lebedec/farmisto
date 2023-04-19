@@ -12,12 +12,12 @@ use crate::building::{BuildingDomain, Structure, SurveyorId};
 use crate::inventory::{ContainerId, FunctionsQuery, InventoryDomain, InventoryError, ItemId};
 use crate::landscaping::LandscapingDomain;
 use crate::model::Activity::Idle;
-use crate::model::Equipment;
 use crate::model::Knowledge;
 use crate::model::{
     Activity, Assembly, AssemblyKey, Cementer, CementerKey, Creature, CreatureKey, Crop, CropKey,
     Door, DoorKey, Stack,
 };
+use crate::model::{Equipment, Rest, RestKey};
 use crate::model::{EquipmentKey, UniverseDomain};
 use crate::model::{Farmer, Universe};
 use crate::model::{Player, Purpose};
@@ -200,6 +200,7 @@ impl Game {
                     FarmerBound::CancelAssembly => self.cancel_assembly(farmer, farmland)?,
                     FarmerBound::ToggleDoor { door } => self.toggle_door(farmer, door)?,
                     FarmerBound::DisassembleDoor { door } => self.disassemble_door(farmer, door)?,
+                    FarmerBound::DisassembleRest { rest } => self.disassemble_rest(farmer, rest)?,
                     FarmerBound::DisassembleCementer { cementer } => {
                         self.disassemble_cementer(farmer, cementer)?
                     }
@@ -212,6 +213,7 @@ impl Game {
                     FarmerBound::PlowFarmland { place } => {
                         self.plow_farmland(farmer, farmland, place)?
                     }
+                    FarmerBound::Relax { rest } => self.relax(farmer, farmland, rest)?,
                 }
             }
         };
@@ -366,6 +368,23 @@ impl Game {
         };
         self.universe.doors.push(entity);
         self.look_at_door(entity)
+    }
+
+    pub fn appear_rest(
+        &mut self,
+        key: RestKey,
+        barrier: BarrierId,
+        placement: PlacementId,
+    ) -> Universe {
+        self.universe.rests_id += 1;
+        let entity = Rest {
+            id: self.universe.doors_id,
+            key,
+            barrier,
+            placement,
+        };
+        self.universe.rests.push(entity);
+        self.look_at_rest(entity)
     }
 
     pub fn appear_cementer(

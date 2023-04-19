@@ -53,6 +53,16 @@ class Editor:
             farmland=farmland
         )
 
+    def add_rest(self, farmland: str, tile: [int, int], kind_name: str):
+        execute_script(
+            self.connection,
+            './add_rest.sql',
+            kind_name=f"'{kind_name}'",
+            position=as_sql_position(tile),
+            pivot=as_sql_tile(tile),
+            farmland=farmland
+        )
+
     def create_farmland(self, kind: str, holes: bytes, moisture: bytes, moisture_capacity: bytes, grid: bytes) -> str:
         connection = self.connection
         print(
@@ -224,6 +234,7 @@ def create_new_database(dst_path: str, tmp_path: str):
     tables = [name for columns in rows for name in columns if name.endswith('Kind')]
     order = {
         'FarmlandKind': 1,
+        'RestKind': 1,
         'DoorKind': 1,
         'CropKind': 1,
         'EquipmentKind': 1,
@@ -260,6 +271,7 @@ def prototype_planting():
             'C': lambda tile, farmland: editor.add_farmer('farmer', 'Carol', farmland, tile),
             'D': lambda tile, farmland: editor.add_farmer('farmer', 'David', farmland, tile),
             's': lambda tile, farmland: editor.add_stack(farmland, tile, ['shovel'], 1),
+            'r': lambda tile, farmland: editor.add_rest(farmland, tile, 'bed'),
         },
         buildings={
             # (wall, door, window, material)
@@ -279,7 +291,7 @@ def prototype_planting():
         . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
         . . . . . . . . . A B C D . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
         . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-        . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+        . . . . . . . . . . . r . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
         . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
         . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
         """

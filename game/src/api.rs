@@ -7,8 +7,8 @@ use crate::inventory::{ContainerId, Inventory, InventoryError};
 use crate::landscaping::{Landscaping, LandscapingError};
 use crate::math::Tile;
 use crate::model::{
-    Activity, Cementer, Construction, Creature, Crop, Door, Equipment, Farmer, Stack, Universe,
-    UniverseError,
+    Activity, Cementer, Construction, Creature, Crop, Door, Equipment, Farmer, Rest, Stack,
+    Universe, UniverseError,
 };
 use crate::physics::{Physics, PhysicsError};
 use crate::planting::{Planting, PlantingError};
@@ -156,6 +156,9 @@ pub enum FarmerBound {
     DisassembleCementer {
         cementer: Cementer,
     },
+    DisassembleRest {
+        rest: Rest,
+    },
     RepairDevice {
         device: DeviceId,
     },
@@ -164,6 +167,9 @@ pub enum FarmerBound {
     },
     PlowFarmland {
         place: Tile,
+    },
+    Relax {
+        rest: Rest,
     },
 }
 

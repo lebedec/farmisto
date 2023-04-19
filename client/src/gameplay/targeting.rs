@@ -2,7 +2,7 @@ use sdl2::keyboard::Keycode;
 
 use game::inventory::ContainerId;
 use game::math::{TileMath, VectorMath};
-use game::model::{Assembly, Cementer, Construction, Creature, Crop, Door, Equipment, Stack};
+use game::model::{Assembly, Cementer, Construction, Creature, Crop, Door, Equipment, Rest, Stack};
 use game::working::DeviceId;
 
 use crate::engine::{Cursor, Input};
@@ -21,12 +21,12 @@ pub enum Intention {
 #[derive(Clone)]
 pub enum Target {
     Ground { tile: [usize; 2] },
-    Assembly(Assembly),
     Construction(Construction),
     Equipment(Equipment),
     Wall([usize; 2]),
     Crop(Crop),
     Door(Door),
+    Rest(Rest),
     Stack(Stack),
     Cementer(Cementer),
     CementerContainer(Cementer, ContainerId),
@@ -103,6 +103,12 @@ impl Gameplay {
         for door in self.doors.values() {
             if door.position.to_tile() == tile {
                 return vec![Target::Door(door.entity)];
+            }
+        }
+
+        for rest in self.rests.values() {
+            if rest.position.to_tile() == tile {
+                return vec![Target::Rest(rest.entity)];
             }
         }
 

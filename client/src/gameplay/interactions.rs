@@ -10,7 +10,8 @@ use game::model::{Activity, CropKey, Purpose};
 use crate::gameplay::representation::FarmerRep;
 use crate::gameplay::Intention::{Aim, Move, Put, QuickSwap, Swap, Use};
 use crate::gameplay::Target::{
-    Cementer, CementerContainer, Construction, Crop, Door, Equipment, Ground, Stack, Wall,
+    Cementer, CementerContainer, Construction, Creature, Crop, Device, Door, Equipment, Ground,
+    Rest, Stack, Wall,
 };
 use crate::gameplay::{Gameplay, Intention, Target};
 
@@ -51,7 +52,13 @@ impl Gameplay {
                             device: cementer.device,
                         });
                     }
-                    _ => {}
+                    Ground { .. } => {}
+                    Wall(_) => {}
+                    Rest(rest) => {
+                        self.send_action(FarmerBound::Relax { rest });
+                    }
+                    Creature(_) => {}
+                    Device(_) => {}
                 },
                 Put => match target {
                     Equipment(equipment) => {
@@ -62,6 +69,9 @@ impl Gameplay {
                     }
                     Cementer(cementer) => {
                         self.send_action(FarmerBound::DisassembleCementer { cementer });
+                    }
+                    Rest(rest) => {
+                        self.send_action(FarmerBound::DisassembleRest { rest });
                     }
                     _ => {}
                 },
@@ -303,7 +313,7 @@ impl Gameplay {
                     }
                 }
             }
-            Activity::Rest { .. } => match intention {
+            Activity::Resting { .. } => match intention {
                 Put => {
                     self.send_action(FarmerBound::CancelActivity);
                     farmer.activity = Activity::Idle;

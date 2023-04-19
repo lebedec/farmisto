@@ -18,7 +18,8 @@ use crate::assets::prefabs::{TreeAsset, TreeAssetData};
 use crate::assets::tileset::{TilesetAsset, TilesetAssetData, TilesetItem};
 use crate::assets::{
     AssetMap, BehavioursAsset, BuildingMaterialAsset, BuildingMaterialAssetData, CementerAsset,
-    CementerAssetData, DoorAsset, DoorAssetData, FontAsset, FontAssetData,
+    CementerAssetData, DoorAsset, DoorAssetData, FontAsset, FontAssetData, RestAsset,
+    RestAssetData,
 };
 use crate::assets::{
     CreatureAsset, CreatureAssetData, CropAsset, CropAssetData, FarmerAsset, FarmerAssetData,
@@ -71,6 +72,7 @@ pub struct Assets {
     creatures: HashMap<String, CreatureAsset>,
     buildings: HashMap<String, BuildingMaterialAsset>,
     doors: HashMap<String, DoorAsset>,
+    rests: HashMap<String, RestAsset>,
     cementers: HashMap<String, CementerAsset>,
 
     queue: Arc<MyQueue>,
@@ -250,6 +252,7 @@ impl Assets {
             behaviours: Default::default(),
             buildings: Default::default(),
             doors: Default::default(),
+            rests: Default::default(),
             cementers: Default::default(),
             fonts_default,
         }
@@ -423,6 +426,17 @@ impl Assets {
         }
     }
 
+    pub fn rest(&mut self, name: &str) -> RestAsset {
+        ASSET_REQUESTS_TOTAL.with_label_values(&["rest"]).inc();
+        match self.rests.get(name) {
+            Some(asset) => asset.share(),
+            None => {
+                let data = self.load_rest_data(name).unwrap();
+                self.rests.publish(name, data)
+            }
+        }
+    }
+
     pub fn cementer(&mut self, name: &str) -> CementerAsset {
         ASSET_REQUESTS_TOTAL.with_label_values(&["cementer"]).inc();
         match self.cementers.get(name) {
@@ -524,6 +538,14 @@ impl Assets {
     pub fn load_door_data(&mut self, id: &str) -> Result<DoorAssetData, serde_json::Error> {
         let entry = self.storage.fetch_one::<DoorAssetData>(id);
         let data = DoorAssetData {
+            sprites: self.tileset(entry.get("sprites")?),
+        };
+        Ok(data)
+    }
+
+    pub fn load_rest_data(&mut self, id: &str) -> Result<RestAssetData, serde_json::Error> {
+        let entry = self.storage.fetch_one::<RestAssetData>(id);
+        let data = RestAssetData {
             sprites: self.tileset(entry.get("sprites")?),
         };
         Ok(data)
