@@ -24,8 +24,8 @@ pub struct Container {
 
 #[derive(Debug, Clone, Copy, PartialEq, serde::Deserialize)]
 pub struct Nozzle {
-    pressure: f32,
-    spread: f32,
+    pub pressure: f32,
+    pub spread: u32,
 }
 
 #[derive(Debug, Clone, PartialEq, serde::Deserialize)]

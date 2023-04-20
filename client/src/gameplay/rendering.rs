@@ -7,6 +7,7 @@ use rand::prelude::*;
 use game::assembling::Rotation;
 use game::building::{Cell, Grid, Marker, Material, Room, Structure};
 use game::inventory::{ContainerId, ItemId};
+use game::landscaping::{LAND_HEIGHT, LAND_WIDTH};
 use game::math::{Position, Tile, TileMath, VectorMath};
 use game::model::{Activity, CementerKind, Purpose};
 
@@ -125,7 +126,7 @@ impl Gameplay {
         let render_offset = self.camera.position().div(TILE_SIZE).to_tile();
         let [render_offset_x, render_offset_y] = render_offset;
 
-        for farmland in self.farmlands.values() {
+        for farmland in self.farmlands.values_mut() {
             let mut cursor_room = 0;
             let mut all_cursor_rooms = vec![];
             let mut farmer_room = 0;
@@ -145,6 +146,16 @@ impl Gameplay {
                     farmer_room = room.id;
                 }
             }
+
+            // TODO: client interpolation without heavy server events
+            // let not_synchronized_heat = 0.00233 * frame.input.time;
+            // let moisture = &mut farmland.moisture;
+            // for y in 0..LAND_HEIGHT {
+            //     for x in 0..LAND_WIDTH {
+            //         let value = moisture[y][x] as f32 / 255.0;
+            //         moisture[y][x] = ((value - not_synchronized_heat).max(0.0) * 255.0) as u8;
+            //     }
+            // }
 
             scene.render_ground(
                 farmland.asset.texture.share(),

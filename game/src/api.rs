@@ -171,6 +171,9 @@ pub enum FarmerBound {
     FillBasin {
         place: Tile,
     },
+    PourWater {
+        place: Tile,
+    },
     Relax {
         rest: Rest,
     },

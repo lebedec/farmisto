@@ -212,6 +212,7 @@ impl Game {
                     }
                     FarmerBound::DigPlace { place } => self.dig_place(farmer, farmland, place)?,
                     FarmerBound::FillBasin { place } => self.fill_basin(farmer, farmland, place)?,
+                    FarmerBound::PourWater { place } => self.pour_water(farmer, farmland, place)?,
                     FarmerBound::Relax { rest } => self.relax(farmer, farmland, rest)?,
                 }
             }

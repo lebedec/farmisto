@@ -1,4 +1,5 @@
 use crate::landscaping::{Landscaping, LandscapingDomain, LAND_HEIGHT, LAND_WIDTH};
+use log::info;
 use rand::Rng;
 
 impl LandscapingDomain {
@@ -15,7 +16,8 @@ impl LandscapingDomain {
                 for x in 0..LAND_WIDTH {
                     let _capacity = land.moisture_capacity[y][x] as f32 / 255.0;
                     let moisture = land.moisture[y][x] as f32 / 255.0;
-                    let heat = random.gen_range(0.01..0.11);
+                    // let heat = random.gen_range(0.01..0.11);
+                    let heat = 0.00233;
                     land.moisture[y][x] = ((moisture - heat * time).max(0.0) * 255.0) as u8;
                 }
             }

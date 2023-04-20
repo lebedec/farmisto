@@ -12,9 +12,10 @@ impl LandscapingDomain {
         id: LandId,
         place: Place,
         volume: f32,
-        spread: i32,
+        spread: u32,
         mut random: ThreadRng,
     ) -> Result<impl FnOnce() -> Vec<Landscaping> + '_, LandscapingError> {
+        let spread = spread as i32;
         let land = self.get_land_mut(id)?;
         land.ensure_surface(place, Surface::PLAINS)?;
 
@@ -41,7 +42,7 @@ impl LandscapingDomain {
                     };
                     factor += random.gen_range(0.0..0.1);
                     let volume = volume * factor;
-                    let result = (moisture + volume).max(moisture_capacity);
+                    let result = (moisture + volume).min(moisture_capacity);
                     land.moisture[y][x] = (result * 255.0) as u8;
                 }
             }

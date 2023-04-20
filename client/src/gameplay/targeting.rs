@@ -21,7 +21,7 @@ pub enum Intention {
 
 #[derive(Clone)]
 pub enum Target {
-    Ground { tile: Tile },
+    Ground(Tile),
     Construction(Construction),
     Equipment(Equipment),
     Wall([usize; 2]),
@@ -98,7 +98,7 @@ impl Gameplay {
 
         for crop in self.crops.values() {
             if crop.position.to_tile() == tile {
-                return vec![Target::Crop(crop.entity)];
+                return vec![Target::Crop(crop.entity), Target::Ground(tile)];
             }
         }
 
@@ -149,6 +149,6 @@ impl Gameplay {
             }
         }
 
-        vec![Target::Ground { tile }]
+        vec![Target::Ground(tile)]
     }
 }

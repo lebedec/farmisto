@@ -1,3 +1,4 @@
+use log::info;
 use rand::thread_rng;
 
 use crate::api::Event;

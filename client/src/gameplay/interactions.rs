@@ -5,7 +5,7 @@ use game::assembling::Rotation;
 use game::building::{Marker, Structure};
 use game::inventory::Function;
 use game::inventory::Function::{
-    Assembly, Installation, Instrumenting, Product, Seeding, Shovel, Stone,
+    Assembly, Installation, Instrumenting, Moistener, Product, Seeding, Shovel, Stone,
 };
 use game::model::{Activity, CropKey, Purpose};
 
@@ -89,15 +89,15 @@ impl Gameplay {
                 Use => {
                     for function in item {
                         match (function, target.clone()) {
-                            (Seeding { .. }, Ground { tile }) => {
+                            (Seeding { .. }, Ground(tile)) => {
                                 self.send_action(FarmerBound::PlantCrop { tile });
                                 break;
                             }
-                            (Installation { .. }, Ground { tile }) => {
+                            (Installation { .. }, Ground(tile)) => {
                                 self.send_action(FarmerBound::Install { tile });
                                 break;
                             }
-                            (Shovel, Ground { tile }) => {
+                            (Shovel, Ground(tile)) => {
                                 self.send_action(FarmerBound::DigPlace { place: tile });
                                 break;
                             }
@@ -115,12 +115,15 @@ impl Gameplay {
                                 });
                                 break;
                             }
+                            (Moistener(_), Ground(place)) => {
+                                self.send_action(FarmerBound::PourWater { place });
+                            }
                             (Product(kind), Crop(crop)) => {
                                 if CropKey(kind) == crop.key {
                                     self.send_action(FarmerBound::HarvestCrop { crop });
                                 }
                             }
-                            (Assembly(_kind), Ground { tile }) => {
+                            (Assembly(_kind), Ground(tile)) => {
                                 self.send_action(FarmerBound::StartAssembly {
                                     pivot: tile,
                                     rotation: Rotation::A000,
@@ -155,7 +158,7 @@ impl Gameplay {
                     }
                 }
                 Put => match target {
-                    Ground { tile } => {
+                    Ground(tile) => {
                         self.send_action(FarmerBound::DropItem { tile });
                     }
                     Stack(stack) => {
@@ -184,7 +187,7 @@ impl Gameplay {
                 selection,
             } => match intention {
                 Use => match target {
-                    Ground { tile } => {
+                    Ground(tile) => {
                         let structure = match selection {
                             1 => Structure::Door,
                             2 => Structure::Window,
@@ -280,7 +283,7 @@ impl Gameplay {
                 let assembly = self.assembly.get(&assembly).unwrap();
                 match intention {
                     Use => match target {
-                        Ground { tile } => {
+                        Ground(tile) => {
                             self.send_action(FarmerBound::FinishAssembly {
                                 pivot: tile,
                                 rotation: assembly.rotation,
