@@ -144,7 +144,7 @@ impl Gameplay {
             Landscaping::MoistureUpdate { land, moisture } => {
                 for farmland in self.farmlands.values_mut() {
                     if farmland.entity.land == land {
-                        farmland.moisture = moisture;
+                        farmland.moisture = Box::new(moisture);
                         break;
                     }
                 }
@@ -155,7 +155,16 @@ impl Gameplay {
             } => {
                 for farmland in self.farmlands.values_mut() {
                     if farmland.entity.land == land {
-                        farmland.moisture_capacity = moisture_capacity;
+                        farmland.moisture_capacity = Box::new(moisture_capacity);
+                        break;
+                    }
+                }
+            }
+            Landscaping::SurfaceUpdate { land, surface } => {
+                info!("Surface update {land:?}");
+                for farmland in self.farmlands.values_mut() {
+                    if farmland.entity.land == land {
+                        farmland.surface = Box::new(surface);
                         break;
                     }
                 }
@@ -456,14 +465,20 @@ impl Gameplay {
                     asset: deconstruction,
                 };
 
+                info!("Before insert !!! {}", std::mem::size_of::<FarmlandRep>());
                 self.farmlands.insert(
                     farmland,
                     FarmlandRep {
                         entity: farmland,
                         kind,
                         asset,
-                        moisture,
-                        moisture_capacity,
+                        moisture: Box::new(moisture),
+                        moisture_capacity: Box::new(moisture_capacity),
+                        surface: Box::new([[0; 128]; 128]),
+                        surface_tilemap: frame.scene.instantiate_tilemap(
+                            assets.texture("./assets/texture/tiles-waterbody.png"),
+                            assets.sampler("pixel-perfect"),
+                        ),
                         cells,
                         rooms,
                         holes,
@@ -476,6 +491,7 @@ impl Gameplay {
                         times_of_day,
                     },
                 );
+                info!("Farmland created !!!")
             }
             Universe::FarmlandVanished(id) => {
                 info!("Vanish farmland {:?}", id);

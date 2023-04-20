@@ -1,8 +1,8 @@
 use std::collections::HashMap;
+use std::fmt::format;
 
 use glam::vec3;
 use lazy_static::lazy_static;
-use libfmod::TagDataType::Int;
 use log::{error, info};
 use sdl2::keyboard::Keycode;
 
@@ -69,6 +69,7 @@ pub struct Gameplay {
     pub host: Option<Host>,
     pub client: TcpClient,
     pub action_id: usize,
+    pub sent_actions: HashMap<usize, FarmerBound>,
     pub known: Knowledge,
     pub barriers_hint: Vec<Barrier>,
     pub farmlands: HashMap<Farmland, FarmlandRep>,
@@ -131,6 +132,7 @@ impl Gameplay {
             host,
             client,
             action_id: 0,
+            sent_actions: Default::default(),
             known: knowledge,
             barriers_hint: Default::default(),
             farmlands: Default::default(),
@@ -181,7 +183,11 @@ impl Gameplay {
                     action_id,
                     response,
                 } => {
-                    error!("Action {} error response {:?}", action_id, response);
+                    let action = match self.sent_actions.get(&action_id) {
+                        Some(action) => format!("{action:?}"),
+                        None => format!("id={action_id}"),
+                    };
+                    error!("Action {action} error {response:?}");
                     self.farmers.get_mut(&response.farmer).unwrap().activity = response.correction;
                 }
             }
@@ -190,12 +196,16 @@ impl Gameplay {
 
     pub fn send_action(&mut self, action: FarmerBound) -> usize {
         self.action_id += 1;
+        self.sent_actions.insert(self.action_id, action.clone());
+        if self.sent_actions.len() > 100 {
+            self.sent_actions.remove(&(self.action_id - 100));
+        }
         match action {
             FarmerBound::Move { .. } => {
                 // do not spam logs with real time movement
             }
             _ => {
-                info!("Client sends id={} {:?}", self.action_id, action);
+                // info!("Client sends id={} {:?}", self.action_id, action);
             }
         }
         self.client.send(PlayerRequest::Perform {

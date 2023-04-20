@@ -147,7 +147,8 @@ create table Land
     id                integer primary key,
     kind              integer             not null references LandKind (id),
     moisture          blob collate binary not null,
-    moisture_capacity blob collate binary not null
+    moisture_capacity blob collate binary not null,
+    surface           blob collate binary not null
 );
 
 -- Raising

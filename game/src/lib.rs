@@ -210,9 +210,8 @@ impl Game {
                     FarmerBound::ToggleDevice { device } => {
                         self.toggle_generic_device(farmer, device)?
                     }
-                    FarmerBound::PlowFarmland { place } => {
-                        self.plow_farmland(farmer, farmland, place)?
-                    }
+                    FarmerBound::DigPlace { place } => self.dig_place(farmer, farmland, place)?,
+                    FarmerBound::FillBasin { place } => self.fill_basin(farmer, farmland, place)?,
                     FarmerBound::Relax { rest } => self.relax(farmer, farmland, rest)?,
                 }
             }
@@ -349,7 +348,7 @@ impl Game {
         let activity = Activity::Assembling { assembly };
         let events = self.universe.change_activity(farmer, activity);
         let mut stream = vec![look_event];
-        stream.extend(events);
+        stream.push(events);
         stream
     }
 

@@ -1,4 +1,5 @@
 use crate::api::Event;
+use crate::landscaping::Landscaping;
 use crate::model::{
     Assembly, Cementer, Creature, Crop, Door, Equipment, ItemData, Rest, Stack, Universe,
     UniverseSnapshot,
@@ -102,7 +103,7 @@ impl Game {
 
         for farmland in self.universe.farmlands.iter() {
             if snapshot.whole || snapshot.farmlands.contains(&farmland.id) {
-                let land = self.planting.get_soil(farmland.soil).unwrap();
+                let soil = self.planting.get_soil(farmland.soil).unwrap();
                 let grid = self.building.get_grid(farmland.grid).unwrap();
                 let space = self.physics.get_space(farmland.space).unwrap();
                 let land = self.landscaping.get_land(farmland.land).unwrap();
@@ -117,7 +118,7 @@ impl Game {
                     season: calendar.season,
                     season_day: calendar.season_day,
                     times_of_day: calendar.times_of_day,
-                })
+                });
             }
         }
 
@@ -204,9 +205,20 @@ impl Game {
             })
             .collect();
 
+        let surfaces = self
+            .landscaping
+            .lands
+            .values()
+            .map(|land| Landscaping::SurfaceUpdate {
+                land: land.id,
+                surface: land.surface,
+            })
+            .collect();
+
         vec![
             Event::UniverseStream(stream),
             Event::PhysicsStream(barriers_hint),
+            Event::LandscapingStream(surfaces),
         ]
     }
 }

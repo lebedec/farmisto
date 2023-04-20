@@ -72,7 +72,7 @@ pub enum Action {
     },
 }
 
-#[derive(Debug, bincode::Encode, bincode::Decode)]
+#[derive(Debug, Clone, bincode::Encode, bincode::Decode)]
 pub enum FarmerBound {
     Move {
         destination: [f32; 2],
@@ -165,7 +165,10 @@ pub enum FarmerBound {
     ToggleDevice {
         device: DeviceId,
     },
-    PlowFarmland {
+    DigPlace {
+        place: Tile,
+    },
+    FillBasin {
         place: Tile,
     },
     Relax {

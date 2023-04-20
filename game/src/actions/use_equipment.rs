@@ -16,7 +16,7 @@ impl Game {
                     equipment,
                     selection: 0,
                 };
-                self.universe.change_activity(farmer, activity)
+                vec![self.universe.change_activity(farmer, activity)]
             }
             Purpose::Moisture { .. } => {
                 vec![]

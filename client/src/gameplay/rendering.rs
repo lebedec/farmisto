@@ -154,6 +154,16 @@ impl Gameplay {
                 &farmland.rooms,
             );
 
+            let mut surface_map = [[[0; 4]; 31]; 18];
+            for y in 0..18 {
+                let y = y + render_offset_y;
+                for x in 0..31 {
+                    let x = x + render_offset_x;
+                    let s = farmland.surface[y][x];
+                    surface_map[y - render_offset_y][x - render_offset_x] = [s as u32, 0, 0, 0];
+                }
+            }
+
             let mut floor_map = [[[0; 4]; 31]; 18];
             for (room_index, room) in farmland.rooms.iter().enumerate() {
                 if room.id == Room::EXTERIOR_ID {
@@ -179,6 +189,7 @@ impl Gameplay {
                     }
                 }
             }
+
             let mut roof_map = [[[0; 4]; 31]; 18];
             for room in &farmland.rooms {
                 if room.id == Room::EXTERIOR_ID
@@ -214,6 +225,15 @@ impl Gameplay {
                 ],
                 0,
                 TilemapUniform { map: floor_map },
+            );
+            scene.render_tilemap(
+                &farmland.surface_tilemap,
+                [
+                    render_offset_x as f32 * TILE_SIZE,
+                    render_offset_y as f32 * TILE_SIZE,
+                ],
+                0,
+                TilemapUniform { map: surface_map },
             );
             scene.render_tilemap(
                 &farmland.construction.roof, // TODO: detect roof

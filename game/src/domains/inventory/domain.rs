@@ -22,6 +22,12 @@ pub struct Container {
     pub items: Vec<Item>,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, serde::Deserialize)]
+pub struct Nozzle {
+    pressure: f32,
+    spread: f32,
+}
+
 #[derive(Debug, Clone, PartialEq, serde::Deserialize)]
 pub enum Function {
     Material(u8),
@@ -33,6 +39,7 @@ pub enum Function {
     Product(usize),
     Assembly(usize),
     Stone,
+    Moistener(Nozzle),
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
@@ -112,7 +119,7 @@ pub enum InventoryError {
     NonStackableItemOnTop {
         container: ContainerId,
         item: ItemId,
-    }
+    },
 }
 
 #[derive(Default)]
@@ -148,6 +155,22 @@ impl InventoryDomain {
             container: id,
             index: 0,
         })
+    }
+
+    pub fn get_container_item_for_use(
+        &self,
+        id: ContainerId,
+    ) -> Result<(bool, &Item), InventoryError> {
+        let container = self.get_container(id)?;
+        let is_last = container.items.len() == 1;
+        container
+            .items
+            .get(0)
+            .map(|item| (is_last, item))
+            .ok_or(ItemNotFoundByIndex {
+                container: id,
+                index: 0,
+            })
     }
 
     pub fn get_mut_container(&mut self, id: ContainerId) -> Result<&mut Container, InventoryError> {

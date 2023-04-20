@@ -63,13 +63,22 @@ class Editor:
             farmland=farmland
         )
 
-    def create_farmland(self, kind: str, holes: bytes, moisture: bytes, moisture_capacity: bytes, grid: bytes) -> str:
+    def create_farmland(
+            self,
+            kind: str,
+            holes: bytes,
+            moisture: bytes,
+            moisture_capacity: bytes,
+            surface: bytes,
+            grid: bytes
+    ) -> str:
         connection = self.connection
         print(
             'Create farmland', kind,
             'holes:', len(holes),
             'moisture:', len(moisture),
             'moisture_capacity:', len(moisture_capacity),
+            'surface:', len(surface),
             'grid:', len(grid)
         )
 
@@ -89,13 +98,13 @@ class Editor:
         grid_id = '(select max(id) from Grid)'
 
         connection.execute(
-            'insert into Land values (null, (select id from LandKind where name = ?), ?, ?)',
-            [land_name, moisture, moisture_capacity]
+            'insert into Land values (null, (select id from LandKind where name = ?), ?, ?, ?)',
+            [land_name, moisture, moisture_capacity, surface]
         )
         land_id = '(select max(id) from Land)'
 
         connection.execute(
-            'insert into Calendar values (null, (select id from CalendarKind where name = ?), 0, 0.0, 0.0)',
+            'insert into Calendar values (null, (select id from CalendarKind where name = ?), 0, 0.0, 0.25)',
             [calendar_name]
         )
         calendar_id = '(select max(id) from Calendar)'
@@ -125,6 +134,7 @@ def generate_farmland(
         moisture_capacity_data: bytes,
         objects: Dict[str, Callable[[Tuple[int, int], str], None]],
         buildings: Dict[str, Tuple[int, int, int, int]],
+        surfaces: Dict[str, int],
         user_define_map: str
 ):
     user_define = []
@@ -132,41 +142,46 @@ def generate_farmland(
         line = line.strip().replace(' ', '')
         if line:
             user_define.append(line)
+    surface_data = BytesIO()
     grid_data = BytesIO()
     holes_data = BytesIO()
     size_y = 128
     size_x = 128
     grid_data.write(struct.pack('B', size_y))
     holes_data.write(struct.pack('B', size_y))
+    surface_data.write(struct.pack('B', size_y))
     edits = []
     for y in range(size_y):
         grid_data.write(struct.pack('B', size_x))
         holes_data.write(struct.pack('B', size_x))
+        surface_data.write(struct.pack('B', size_x))
         for x in range(size_x):
+            surface = 0
+            wall, door, window, material = 0, 0, 0, 0
+            is_hole = 0
             if y < len(user_define) and x < len(user_define[y]):
                 code = user_define[y][x]
                 if code in objects:
                     tile = (x, y)
                     edits.append((tile, objects[code]))
-                    wall, door, window, material = 0, 0, 0, 0
-                    is_hole = 0
+                elif code in surfaces:
+                    surface = surfaces[code]
+                    is_hole = 1
                 else:
                     wall, door, window, material = buildings[code]
                     is_hole = 1 if wall and not door else 0
-            else:
-                wall, door, window, material = 0, 0, 0, 0
-                is_hole = 0
+
             grid_data.write(struct.pack('BBBB', *[wall, door, window, material]))
             holes_data.write(struct.pack('B', is_hole))
+            surface_data.write(struct.pack('B', surface))
 
-    grid_data = grid_data.getvalue()
-    holes_data = holes_data.getvalue()
     farmland_id = editor.create_farmland(
         farmland_kind,
-        holes_data,
+        holes_data.getvalue(),
         moisture_data,
         moisture_capacity_data,
-        grid_data
+        surface_data.getvalue(),
+        grid_data.getvalue()
     )
     for tile, edit in edits:
         edit(tile, farmland_id)
@@ -281,19 +296,31 @@ def prototype_planting():
             '-': (1, 0, 1, Material.CONCRETE),
             '+': (1, 0, 0, Material.PLANKS)
         },
+        surfaces={
+            '~': 1
+        },
         # . . . . . . . . 1 . . . . . . . . . 2 . . . . . . . . . 3 . . . . . . . . . 4
         user_define_map="""
         . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
         . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+        . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . ~ ~ . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+        . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+        . . . . . . . . . s . . . . s . . . s . . . . . . ~ . . . . . ~ ~ ~ . . ~ . . . . . . . . . . . . . . . . . . . . . . . . . .
+        . . . . . . . . . . . . . . . . . . . . . . . . ~ ~ ~ . . ~ . . . . . . ~ . . ~ . . . . . . . . . . . . . . . . . . . . . . .
+        . . . . . . . . . A B C D . . . . . . . . . . . ~ ~ ~ . . . . ~ ~ . . . . . ~ ~ ~ . . . . . . . . . . . . . . . . . . . . . .
+        . . . . . . . . . . . . . . . . . . . . . . ~ ~ ~ ~ ~ ~ ~ . . ~ ~ . . . ~ . . ~ . . . . . . . . . . . . . . . . . . . . . . .
+        . . . . . . . . . . . r . . . . . . . . . ~ ~ ~ ~ ~ ~ ~ ~ ~ . . . . . . ~ . . . ~ . . . . . . . . . . . . . . . . . . . . . .
+        . . . . . . . . . . . . . . . . . . . . . . ~ ~ ~ ~ ~ ~ ~ . . . ~ ~ . . ~ . . ~ ~ . . . . . . . . . . . . . . . . . . . . . .
+        . . . . . . . . . . . . . . . . . . . . . . . . ~ ~ ~ . . . . . ~ ~ . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
         . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
         . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-        . . . . . . . . . s . . . . s . . . s . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
         . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-        . . . . . . . . . A B C D . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-        . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-        . . . . . . . . . . . r . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-        . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-        . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+        . . . . . . . . . . . . . . # # | # - # # . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+        . . . . . . . . . . . . . . # . . . r . # . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+        . . . . . . . . . . . . . . - . . . . . - . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+        . . . . . . . . . . . . . . # . . . . . # . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+        . . . . . . . . . . . . . . # . r . r . # . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+        . . . . . . . . . . . . . . # # - # - # # . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
         """
     )
 
@@ -332,6 +359,7 @@ def prototype_assembling():
             '-': (1, 0, 1, Material.CONCRETE),
             '+': (1, 0, 0, Material.PLANKS)
         },
+        surfaces={},
         # . . . . . . . . 1 . . . . . . . . . 2 . . . . . . . . . 3 . . . . . . . . . 4
         user_define_map="""
         . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
@@ -393,6 +421,7 @@ def prototype_building():
             '-': (1, 0, 1, Material.CONCRETE),
             '+': (1, 0, 0, Material.PLANKS)
         },
+        surfaces={},
         # . . . . . . . . 1 . . . . . . . . . 2 . . . . . . . . . 3 . . . . . . . . . 4
         user_define_map="""
         . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .

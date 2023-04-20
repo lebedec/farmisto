@@ -4,14 +4,16 @@ use game::api::FarmerBound;
 use game::assembling::Rotation;
 use game::building::{Marker, Structure};
 use game::inventory::Function;
-use game::inventory::Function::{Assembly, Installation, Instrumenting, Product, Seeding, Shovel};
+use game::inventory::Function::{
+    Assembly, Installation, Instrumenting, Product, Seeding, Shovel, Stone,
+};
 use game::model::{Activity, CropKey, Purpose};
 
 use crate::gameplay::representation::FarmerRep;
 use crate::gameplay::Intention::{Aim, Move, Put, QuickSwap, Swap, Use};
 use crate::gameplay::Target::{
     Cementer, CementerContainer, Construction, Creature, Crop, Device, Door, Equipment, Ground,
-    Rest, Stack, Wall,
+    Rest, Stack, Wall, Waterbody,
 };
 use crate::gameplay::{Gameplay, Intention, Target};
 
@@ -59,6 +61,7 @@ impl Gameplay {
                     }
                     Creature(_) => {}
                     Device(_) => {}
+                    Target::Waterbody(_) => {}
                 },
                 Put => match target {
                     Equipment(equipment) => {
@@ -95,7 +98,7 @@ impl Gameplay {
                                 break;
                             }
                             (Shovel, Ground { tile }) => {
-                                self.send_action(FarmerBound::PlowFarmland { place: tile });
+                                self.send_action(FarmerBound::DigPlace { place: tile });
                                 break;
                             }
                             (Instrumenting, Construction(construction)) => {
@@ -129,7 +132,9 @@ impl Gameplay {
                                     rotation: Rotation::A000,
                                 });
                             }
-
+                            (Stone, Waterbody(place)) => {
+                                self.send_action(FarmerBound::FillBasin { place });
+                            }
                             (_, Stack(stack)) => {
                                 self.send_action(FarmerBound::TakeItemFromStack { stack });
                             }

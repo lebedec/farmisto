@@ -18,4 +18,22 @@ impl Land {
             Err(LandscapingError::OutOfLand { place, id: self.id })
         }
     }
+
+    pub fn ensure_surface(&self, place: Place, expected: u8) -> Result<u8, LandscapingError> {
+        let [x, y] = place;
+        if y < LAND_HEIGHT && x < LAND_WIDTH {
+            let actual = self.surface[y][x];
+            if actual != expected {
+                Err(LandscapingError::InvalidLandSurface {
+                    id: self.id,
+                    actual,
+                    expected,
+                })
+            } else {
+                Ok(actual)
+            }
+        } else {
+            Err(LandscapingError::OutOfLand { place, id: self.id })
+        }
+    }
 }

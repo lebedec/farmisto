@@ -754,6 +754,7 @@ impl Game {
             kind: self.known.lands.get_by(row, "kind", LandKey)?,
             moisture: row.decode("moisture")?,
             moisture_capacity: row.decode("moisture_capacity")?,
+            surface: row.decode("surface")?,
         };
         Ok(data)
     }

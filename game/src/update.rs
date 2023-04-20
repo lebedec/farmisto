@@ -24,6 +24,23 @@ impl Game {
         let timing_events = self.timing.update(real_seconds, speed);
         let physics_events = self.physics.update(time);
 
+        // Change farmer activity after item usage
+        // HACK: to eliminate boilerplate code from actions before new activity system will created
+        let mut to_change = vec![];
+        for farmer in self.universe.farmers.iter() {
+            if self.universe.get_farmer_activity(*farmer).unwrap() == Activity::Usage {
+                let hands = self.inventory.get_container(farmer.hands).unwrap();
+                if hands.items.len() == 0 {
+                    to_change.push((*farmer, Activity::Idle));
+                }
+            }
+        }
+        let mut activity_events = vec![];
+        for (farmer, activity) in to_change {
+            let event = self.universe.change_activity(farmer, activity);
+            activity_events.push(event);
+        }
+
         let mut destroy_empty_stacks = vec![];
         for stack in self.universe.stacks.clone() {
             let container = self.inventory.get_container(stack.container).unwrap();
@@ -92,6 +109,7 @@ impl Game {
 
         let mut events = occur![
             timing_events,
+            activity_events,
             physics_events,
             self.planting.update(time),
             self.landscaping.update(time, random),

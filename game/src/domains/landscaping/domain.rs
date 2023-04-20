@@ -8,6 +8,13 @@ pub const LAND_HEIGHT: usize = 128;
 pub type LandMap = [[u8; LAND_WIDTH]; LAND_HEIGHT];
 pub type Place = [usize; 2];
 
+pub struct Surface {}
+
+impl Surface {
+    pub const PLAINS: u8 = 0;
+    pub const BASIN: u8 = 1;
+}
+
 pub struct LandscapingDomain {
     pub lands_update_interval: f32,
     pub lands_update: f32,
@@ -42,6 +49,7 @@ pub struct Land {
     pub kind: Shared<LandKind>,
     pub moisture: LandMap,
     pub moisture_capacity: LandMap,
+    pub surface: LandMap,
 }
 
 #[derive(Debug, bincode::Encode, bincode::Decode)]
@@ -54,10 +62,24 @@ pub enum Landscaping {
         land: LandId,
         moisture_capacity: LandMap,
     },
+    SurfaceUpdate {
+        land: LandId,
+        surface: LandMap,
+    },
 }
 
 #[derive(Debug, bincode::Encode, bincode::Decode)]
 pub enum LandscapingError {
-    LandNotFound { id: LandId },
-    OutOfLand { id: LandId, place: Place },
+    LandNotFound {
+        id: LandId,
+    },
+    InvalidLandSurface {
+        id: LandId,
+        expected: u8,
+        actual: u8,
+    },
+    OutOfLand {
+        id: LandId,
+        place: Place,
+    },
 }

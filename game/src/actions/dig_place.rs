@@ -5,7 +5,7 @@ use crate::model::{Farmer, Farmland};
 use crate::{occur, Game};
 
 impl Game {
-    pub(crate) fn plow_farmland(
+    pub(crate) fn dig_place(
         &mut self,
         farmer: Farmer,
         farmland: Farmland,
@@ -16,7 +16,8 @@ impl Game {
         let land = self.landscaping.get_land(farmland.land)?;
         let capacity = land.get_moisture_capacity(place)?;
         let is_stones_gathered = capacity >= 0.55 && capacity < 0.6;
-        let plow_place = self.landscaping.plow_place(farmland.land, place, quality)?;
+        let is_basin_generated = capacity == 1.0;
+        let dig_place = self.landscaping.dig_place(farmland.land, place, quality)?;
         let events = if is_stones_gathered {
             let barrier_kind = self.known.barriers.find("<drop>").unwrap();
             let (barrier, create_barrier) = self.physics.create_barrier(
@@ -42,13 +43,16 @@ impl Game {
                 .add_container(container, &container_kind, items)?;
 
             occur![
-                plow_place(),
+                dig_place(),
                 create_barrier(),
                 create_stones(),
                 self.appear_stack(container, barrier),
             ]
+        } else if is_basin_generated {
+            let create_hole = self.physics.create_hole(farmland.space, place)?;
+            occur![dig_place(), create_hole(),]
         } else {
-            occur![plow_place(),]
+            occur![dig_place(),]
         };
         Ok(events)
     }

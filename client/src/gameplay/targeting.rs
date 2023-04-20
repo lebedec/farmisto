@@ -1,7 +1,8 @@
 use sdl2::keyboard::Keycode;
 
 use game::inventory::ContainerId;
-use game::math::{TileMath, VectorMath};
+use game::landscaping::Surface;
+use game::math::{Tile, TileMath, VectorMath};
 use game::model::{Assembly, Cementer, Construction, Creature, Crop, Door, Equipment, Rest, Stack};
 use game::working::DeviceId;
 
@@ -20,7 +21,7 @@ pub enum Intention {
 
 #[derive(Clone)]
 pub enum Target {
-    Ground { tile: [usize; 2] },
+    Ground { tile: Tile },
     Construction(Construction),
     Equipment(Equipment),
     Wall([usize; 2]),
@@ -32,6 +33,7 @@ pub enum Target {
     CementerContainer(Cementer, ContainerId),
     Creature(Creature),
     Device(DeviceId),
+    Waterbody(Tile),
 }
 
 pub trait InputMethod {
@@ -136,8 +138,12 @@ impl Gameplay {
 
         if let Some(farmland) = self.current_farmland {
             let farmland = self.farmlands.get(&farmland).unwrap();
+            let [x, y] = tile;
+            if farmland.surface[y][x] == Surface::BASIN {
+                return vec![Target::Waterbody(tile)];
+            }
 
-            let cell = farmland.cells[tile[1]][tile[0]];
+            let cell = farmland.cells[y][x];
             if cell.wall {
                 return vec![Target::Wall(tile)];
             }

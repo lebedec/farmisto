@@ -406,9 +406,9 @@ impl UniverseDomain {
         }
     }
 
-    pub fn change_activity(&mut self, farmer: Farmer, activity: Activity) -> Vec<Universe> {
+    pub fn change_activity(&mut self, farmer: Farmer, activity: Activity) -> Universe {
         self.farmers_activity.insert(farmer, activity);
-        vec![Universe::ActivityChanged { farmer, activity }]
+        Universe::ActivityChanged { farmer, activity }
     }
 }
 
