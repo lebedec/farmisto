@@ -7,9 +7,9 @@ use std::net::TcpListener;
 use std::process::Command;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::mpsc::{channel, Receiver, RecvTimeoutError, Sender};
-use std::sync::Arc;
+use std::sync::{Arc, LockResult, RwLock};
 use std::thread;
-use std::time::Duration;
+use std::time::{Duration, Instant};
 
 lazy_static! {
     static ref SERVER_SENT_BYTES: prometheus::IntCounterVec =
@@ -26,6 +26,9 @@ lazy_static! {
             &["player"]
         )
         .unwrap();
+    static ref SERVER_RTT_SECONDS: prometheus::GaugeVec =
+        prometheus::register_gauge_vec!("server_rtt_seconds", "server_rtt_seconds", &["player"])
+            .unwrap();
     static ref SERVER_SENT_EVENTS_TOTAL: prometheus::IntCounterVec =
         prometheus::register_int_counter_vec!(
             "server_sent_events_total",
@@ -180,7 +183,8 @@ impl TcpServer {
 
     fn measure_response(&self, response: &GameResponse) {
         match response {
-            GameResponse::Heartbeat => {}
+            GameResponse::Heartbeat { .. } => {}
+            GameResponse::Trip { .. } => {}
             GameResponse::Events { events } => {
                 for event in events {
                     match event {
@@ -277,6 +281,27 @@ impl TcpServer {
     }
 }
 
+#[derive(Default)]
+struct Trip {
+    trips_id: usize,
+    trips: HashMap<usize, Instant>,
+}
+
+impl Trip {
+    pub fn start(&mut self) -> usize {
+        self.trips_id += 1;
+        self.trips.insert(self.trips_id, Instant::now());
+        self.trips_id
+    }
+
+    pub fn finish(&mut self, trip_id: usize) -> f64 {
+        match self.trips.remove(&trip_id) {
+            None => 0.0,
+            Some(timer) => timer.elapsed().as_secs_f64(),
+        }
+    }
+}
+
 fn spawn_listener(
     running: Arc<AtomicBool>,
     config: Configuration,
@@ -298,7 +323,7 @@ fn spawn_listener(
         };
 
         let default_timeout = Duration::from_secs(5);
-        let heartbeat = Duration::from_secs(2);
+        let heartbeat_timeout = Duration::from_secs(2);
 
         while running.load(Ordering::Relaxed) {
             // todo: nonblocking
@@ -378,13 +403,26 @@ fn spawn_listener(
                     responses,
                 };
 
+                let trip = Arc::new(RwLock::new(Trip::default()));
+
                 let player_id = player.name.clone();
                 let player_disconnection = disconnection.clone();
+                let player_requests_trip = trip.clone();
                 let player_requests = move || {
                     info!("Start player '{}' requests thread", player_id);
                     while let Some((bytes, request)) = player_requests.receive() {
                         SERVER_RECEIVED_BYTES.inc_by(bytes as u64);
                         SERVER_RECEIVED_REQUESTS_TOTAL.inc();
+                        if let PlayerRequest::Trip { id } = request {
+                            if let Ok(trip) = player_requests_trip.write().as_mut() {
+                                let rtt = trip.finish(id);
+                                SERVER_RTT_SECONDS.with_label_values(&[&player_id]).set(rtt);
+                            } else {
+                                error!("Player '{player_id}' responses thread panicked");
+                                break;
+                            }
+                            continue;
+                        }
                         if requests_sender.send(request).is_err() {
                             error!("Unable to receive request, server not working");
                             break;
@@ -403,7 +441,7 @@ fn spawn_listener(
 
                 let player_id = player.name.clone();
                 let player_responses = move || {
-                    info!("Start player '{}' responses thread", player_id);
+                    info!("Start player '{player_id}' responses thread");
 
                     let response = GameResponse::Login {
                         result: LoginResult::Success,
@@ -411,7 +449,7 @@ fn spawn_listener(
                     player_responses.send(&response).unwrap();
 
                     loop {
-                        let response = match responses_receiver.recv_timeout(heartbeat) {
+                        let response = match responses_receiver.recv_timeout(heartbeat_timeout) {
                             Ok(response) => response,
                             Err(RecvTimeoutError::Timeout) => {
                                 encode(&GameResponse::Heartbeat).unwrap()
@@ -421,6 +459,17 @@ fn spawn_listener(
                                 break;
                             }
                         };
+                        if let Ok(trip) = trip.write().as_mut() {
+                            let id = trip.start();
+                            let response = GameResponse::Trip { id };
+                            if player_responses.send(&response).is_none() {
+                                error!("Unable to send trip '{player_id}'");
+                                break;
+                            }
+                        } else {
+                            error!("Player '{player_id}' requests thread panicked");
+                            break;
+                        }
                         match player_responses.send_body(response) {
                             Some(bytes) => {
                                 SERVER_SENT_BYTES

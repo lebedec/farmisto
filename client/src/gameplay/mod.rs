@@ -11,3 +11,4 @@ mod mode;
 mod rendering;
 pub mod representation;
 mod targeting;
+mod user_input;

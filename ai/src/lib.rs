@@ -78,6 +78,7 @@ fn handle_server_responses(client: &mut TcpClient) -> Vec<Event> {
             } => {
                 error!("Action {} error response {:?}", action_id, response);
             }
+            GameResponse::Trip { id } => client.send(PlayerRequest::Trip { id }),
         }
     }
     all_events

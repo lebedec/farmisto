@@ -16,11 +16,14 @@ use crate::raising::{Raising, RaisingError};
 use crate::timing::{Timing, TimingError};
 use crate::working::{DeviceId, Working, WorkingError};
 
-pub const API_VERSION: &str = "0.1";
+pub const API_VERSION: &str = "0.1.2";
 
 #[derive(Debug, bincode::Encode, bincode::Decode)]
 pub enum PlayerRequest {
     Heartbeat,
+    Trip {
+        id: usize,
+    },
     Login {
         version: String,
         player: String,
@@ -35,6 +38,9 @@ pub enum PlayerRequest {
 #[derive(bincode::Encode, bincode::Decode)]
 pub enum GameResponse {
     Heartbeat,
+    Trip {
+        id: usize,
+    },
     Events {
         events: Vec<Event>,
     },

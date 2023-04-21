@@ -1,5 +1,6 @@
 import json
 import os
+import shutil
 import sqlite3
 import struct
 from io import BytesIO
@@ -222,13 +223,18 @@ def execute_script(connection: Connection, script_path: str, **params):
     connection.executescript(script)
 
 
-def create_new_database(dst_path: str, tmp_path: str):
-    if os.path.exists(tmp_path):
-        os.remove(tmp_path)
+def copy_database(src_path: str, dst_path: str):
+    if os.path.exists(dst_path):
+        os.remove(dst_path)
 
-    os.rename(dst_path, tmp_path)
+    shutil.copy(src_path, dst_path)
 
-    src = sqlite3.connect(tmp_path)
+
+def create_new_database(src_path: str, dst_path: str):
+    if os.path.exists(dst_path):
+        os.remove(dst_path)
+
+    src = sqlite3.connect(src_path)
     dst = sqlite3.connect(dst_path)
 
     def move_table(table: str):
@@ -272,9 +278,9 @@ def as_sql_position(tile: Tuple[int, int]) -> str:
     return f"'[{x}.5, {y}.5]'"
 
 
-def prototype_planting():
-    create_new_database('../../assets/database.sqlite', '../../assets/database_tmp.sqlite')
-    editor = Editor(sqlite3.connect('../../assets/database.sqlite'))
+def prototype_planting(destination_path: str, template_path: str):
+    create_new_database(template_path, destination_path)
+    editor = Editor(sqlite3.connect(destination_path))
     generate_farmland(
         editor,
         farmland_kind='test',
@@ -326,9 +332,9 @@ def prototype_planting():
     )
 
 
-def prototype_assembling():
-    create_new_database('../../assets/database.sqlite', '../../assets/database_tmp.sqlite')
-    editor = Editor(sqlite3.connect('../../assets/database.sqlite'))
+def prototype_assembling(destination_path: str, template_path: str):
+    create_new_database(template_path, destination_path)
+    editor = Editor(sqlite3.connect(destination_path))
     generate_farmland(
         editor,
         farmland_kind='test',
@@ -392,9 +398,9 @@ def prototype_assembling():
     )
 
 
-def prototype_building():
-    create_new_database('../../assets/database.sqlite', '../../assets/database_tmp.sqlite')
-    editor = Editor(sqlite3.connect('../../assets/database.sqlite'))
+def prototype_building(destination_path: str, template_path: str):
+    create_new_database(template_path, destination_path)
+    editor = Editor(sqlite3.connect(destination_path))
     generate_farmland(
         editor,
         farmland_kind='test',
@@ -478,6 +484,9 @@ def prototype_building():
 
 
 if __name__ == '__main__':
-    prototype_planting()
-    # prototype_assembling()
-    # prototype_building()
+    template = '../../assets/database.sqlite'
+    prototype_planting('../../assets/saves/prototype-planting.sqlite', template)
+    prototype_assembling('../../assets/saves/prototype-assembling.sqlite', template)
+    prototype_building('../../assets/saves/prototype-building.sqlite', template)
+
+    copy_database('../../assets/saves/prototype-planting.sqlite', template)

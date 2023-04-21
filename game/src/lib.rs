@@ -1,4 +1,5 @@
 extern crate alloc;
+extern crate core;
 
 use datamap::Storage;
 pub use domains::*;

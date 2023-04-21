@@ -119,6 +119,7 @@ pub enum Physics {
         id: BodyId,
         space: SpaceId,
         position: [f32; 2],
+        destination: [f32; 2],
     },
     BarrierCreated {
         id: BarrierId,
@@ -158,10 +159,10 @@ impl Debug for Physics {
 pub enum PhysicsError {
     SpaceNotFound { space: SpaceId },
     BodyNotFound { id: BodyId },
-    BodyNotFoundAt {position: [f32; 2]},
+    BodyNotFoundAt { position: [f32; 2] },
     BarrierCreationOverlaps { other: BarrierId },
     BarrierNotFound { id: BarrierId },
-    BarrierNotFoundAt { position: [f32; 2]},
+    BarrierNotFoundAt { position: [f32; 2] },
     SensorNotFound { id: SensorId },
     HoleNotFound { hole: [usize; 2] },
     HoleAlreadyExists { hole: [usize; 2] },

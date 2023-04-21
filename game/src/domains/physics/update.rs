@@ -80,6 +80,7 @@ impl PhysicsDomain {
                         id: body.id.into(),
                         space: body.space.into(),
                         position: body.position,
+                        destination: body.destination,
                     });
                 }
             }

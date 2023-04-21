@@ -35,10 +35,12 @@ pub struct FarmerRep {
 }
 
 impl FarmerRep {
-    pub fn synchronize_position(&mut self, position: [f32; 2]) {
+    pub fn synchronize_position(&mut self, position: [f32; 2], destination: [f32; 2]) {
         self.last_sync_position = position;
         let error = position.distance(self.estimated_position);
-        if error > 0.5 {
+        let skip_obsolete_move_updates =
+            self.is_controlled && self.estimated_position.distance(destination) > 0.001;
+        if error > 0.5 && !skip_obsolete_move_updates {
             error!(
                 "Correct farmer {:?} position error {} {:?} -> {:?}",
                 self.entity, error, self.estimated_position, position
@@ -52,7 +54,7 @@ impl FarmerRep {
         if self.is_controlled {
             self.rendering_position = self.estimated_position;
         } else {
-            // smooth movement
+            // movement interpolation
             let distance = self.estimated_position.distance(self.last_sync_position);
             let direction = self
                 .estimated_position

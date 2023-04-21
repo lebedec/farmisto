@@ -58,6 +58,11 @@ pub enum Landscaping {
         land: LandId,
         moisture: LandMap,
     },
+    // MoistureUpdated {
+    //     land: LandId,
+    //     rect: [usize; 4],
+    //     moisture: Vec<f32>,
+    // },
     MoistureCapacityUpdate {
         land: LandId,
         moisture_capacity: LandMap,

@@ -246,10 +246,15 @@ impl Gameplay {
 
     pub fn handle_physics_event(&mut self, _frame: &mut Frame, event: Physics) {
         match event {
-            Physics::BodyPositionChanged { id, position, .. } => {
+            Physics::BodyPositionChanged {
+                id,
+                position,
+                destination,
+                ..
+            } => {
                 for farmer in self.farmers.values_mut() {
                     if farmer.entity.body == id {
-                        farmer.synchronize_position(position);
+                        farmer.synchronize_position(position, destination);
                         return;
                     }
                 }

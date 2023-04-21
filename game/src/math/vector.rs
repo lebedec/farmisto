@@ -1,4 +1,8 @@
+use core::slice::Iter;
+use std::iter::Map;
+
 pub type Tile = [usize; 2];
+pub type Rect = [usize; 4];
 
 pub trait TileMath {
     fn add_offset(self, offset: [i8; 2]) -> Self;
@@ -142,5 +146,23 @@ impl FloatMath for f32 {
     #[inline]
     fn clamp(self, min: Self, max: Self) -> Self {
         self.max(min).min(max)
+    }
+}
+
+pub trait Array2D<T> {
+    fn extract_rect(&self, width: usize, rect: Rect) -> Vec<T>;
+    fn patch_rect(&mut self, width: usize, rect: Rect, data: Vec<T>);
+}
+
+impl<T> Array2D<T> for Vec<T>
+where
+    T: Copy,
+{
+    fn extract_rect(&self, width: usize, rect: Rect) -> Vec<T> {
+        unimplemented!()
+    }
+
+    fn patch_rect(&mut self, width: usize, rect: Rect, data: Vec<T>) {
+        unimplemented!()
     }
 }
