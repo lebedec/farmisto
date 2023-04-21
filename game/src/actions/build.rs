@@ -12,7 +12,7 @@ impl Game {
         farmland: Farmland,
         construction: Construction,
     ) -> Result<Vec<Event>, ActionError> {
-        let destination = construction.cell.to_position();
+        let destination = construction.cell.position();
         self.ensure_target_reachable(farmland.space, farmer, destination)?;
         match construction.marker {
             Marker::Construction(_) => {

@@ -5,7 +5,7 @@ import sqlite3
 import struct
 from io import BytesIO
 from sqlite3 import Connection
-from typing import List, Dict, Tuple, Callable
+from typing import List, Dict, Tuple, Callable, Union
 
 from PIL import Image
 
@@ -128,6 +128,9 @@ class Material:
     TARPAULIN = 50
 
 
+def pack_bincode_length():
+    return struct.pack('BBB', *[251, 0, 64])
+
 def generate_farmland(
         editor: Editor,
         farmland_kind: str,
@@ -150,12 +153,11 @@ def generate_farmland(
     size_x = 128
     grid_data.write(struct.pack('B', size_y))
     holes_data.write(struct.pack('B', size_y))
-    surface_data.write(struct.pack('B', size_y))
+    surface_data.write(pack_bincode_length())
     edits = []
     for y in range(size_y):
         grid_data.write(struct.pack('B', size_x))
         holes_data.write(struct.pack('B', size_x))
-        surface_data.write(struct.pack('B', size_x))
         for x in range(size_x):
             surface = 0
             wall, door, window, material = 0, 0, 0, 0
@@ -188,16 +190,18 @@ def generate_farmland(
         edit(tile, farmland_id)
 
 
-def generate_feature_map(feature: Callable[[Tuple[int, int]], int]) -> bytes:
+def generate_feature_map(feature: Callable[[Tuple[int, int]], Union[int, float]]) -> bytes:
     data = BytesIO()
     size_y = 128
     size_x = 128
-    data.write(struct.pack('B', size_y))
+    data.write(pack_bincode_length())
     for y in range(size_y):
-        data.write(struct.pack('B', size_x))
         for x in range(size_x):
             value = feature((x, y))
-            data.write(struct.pack('B', value))
+            if isinstance(value, int):
+                data.write(struct.pack('B', value))
+            else:
+                data.write(struct.pack('f', value))
     return data.getvalue()
 
 
@@ -206,13 +210,11 @@ def moisture_capacity_from_image(path: str) -> bytes:
     data = BytesIO()
     size_y = 128
     size_x = 128
-    data.write(struct.pack('B', size_y))
+    data.write(pack_bincode_length())
     for y in range(size_y):
-        data.write(struct.pack('B', size_x))
         for x in range(size_x):
             capacity = 0.7 - (image.getpixel((x, y)) / 255) * 0.7
-            value = int(capacity * 255)
-            data.write(struct.pack('B', value))
+            data.write(struct.pack('f', capacity))
     return data.getvalue()
 
 
@@ -284,7 +286,7 @@ def prototype_planting(destination_path: str, template_path: str):
     generate_farmland(
         editor,
         farmland_kind='test',
-        moisture_data=generate_feature_map(lambda _: 127),
+        moisture_data=generate_feature_map(lambda _: 0.5),
         moisture_capacity_data=moisture_capacity_from_image("../bin/data/noise.png"),
         objects={
             'A': lambda tile, farmland: editor.add_farmer('farmer', 'Alice', farmland, tile),
@@ -338,7 +340,7 @@ def prototype_assembling(destination_path: str, template_path: str):
     generate_farmland(
         editor,
         farmland_kind='test',
-        moisture_data=generate_feature_map(lambda _: 127),
+        moisture_data=generate_feature_map(lambda _: 0.0),
         moisture_capacity_data=moisture_capacity_from_image("../bin/data/noise.png"),
         objects={
             'A': lambda tile, farmland: editor.add_farmer('farmer', 'Alice', farmland, tile),
@@ -404,7 +406,7 @@ def prototype_building(destination_path: str, template_path: str):
     generate_farmland(
         editor,
         farmland_kind='test',
-        moisture_data=generate_feature_map(lambda _: 0),
+        moisture_data=generate_feature_map(lambda _: 0.5),
         moisture_capacity_data=moisture_capacity_from_image("../bin/data/noise.png"),
         objects={
             'A': lambda tile, farmland: editor.add_farmer('farmer', 'Alice', farmland, tile),

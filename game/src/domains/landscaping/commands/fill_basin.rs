@@ -1,6 +1,7 @@
 use crate::landscaping::{
     LandId, Landscaping, LandscapingDomain, LandscapingError, Place, Surface,
 };
+use crate::math::{Array2D, TileMath};
 
 impl LandscapingDomain {
     pub fn fill_basin(
@@ -11,19 +12,10 @@ impl LandscapingDomain {
         let land = self.get_land_mut(id)?;
         land.ensure_surface(place, Surface::BASIN)?;
         let command = move || {
-            let [x, y] = place;
-            land.surface[y][x] = Surface::PLAINS;
-            land.moisture_capacity[y][x] = 127;
-            vec![
-                Landscaping::SurfaceUpdate {
-                    land: land.id,
-                    surface: land.surface,
-                },
-                Landscaping::MoistureCapacityUpdate {
-                    land: land.id,
-                    moisture_capacity: land.moisture_capacity,
-                },
-            ]
+            let place = place.fit(land.kind.width);
+            land.surface[place] = Surface::PLAINS;
+            land.moisture_capacity[place] = 0.5;
+            vec![]
         };
         Ok(command)
     }

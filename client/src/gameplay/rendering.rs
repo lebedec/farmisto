@@ -7,12 +7,11 @@ use rand::prelude::*;
 use game::assembling::Rotation;
 use game::building::{Cell, Grid, Marker, Material, Room, Structure};
 use game::inventory::{ContainerId, ItemId};
-use game::landscaping::{LAND_HEIGHT, LAND_WIDTH};
 use game::math::{Position, Tile, TileMath, VectorMath};
 use game::model::{Activity, CementerKind, Purpose};
 
 use crate::assets::{CementerAsset, SpriteAsset, SpriteAssetData};
-use crate::engine::rendering::{xy, Scene, TilemapUniform};
+use crate::engine::rendering::{xy, Scene, TilemapUniform, VISIBLE_MAP_X, VISIBLE_MAP_Y};
 use crate::engine::Frame;
 use crate::gameplay::representation::{AssemblyTargetAsset, CreatureRep, CropRep, ItemRep};
 use crate::gameplay::{position_of, rendering_position_of, Gameplay, TILE_SIZE};
@@ -157,12 +156,36 @@ impl Gameplay {
             //     }
             // }
 
+            let camera_position = [self.camera.eye.x, self.camera.eye.y];
+            let [input_size_x, input_size_y] =
+                [farmland.kind.land.width, farmland.kind.land.height];
+            let offset_step = camera_position.div(TILE_SIZE).floor();
+            let offset_step = offset_step.clamp(
+                [0.0, 0.0],
+                [
+                    (input_size_x - VISIBLE_MAP_X) as f32,
+                    (input_size_y - VISIBLE_MAP_Y) as f32,
+                ],
+            );
+            let offset = offset_step.mul(TILE_SIZE);
+            let mut map: [[[f32; 4]; VISIBLE_MAP_X]; VISIBLE_MAP_Y] = Default::default();
+            for y in 0..VISIBLE_MAP_Y {
+                for x in 0..VISIBLE_MAP_X {
+                    let [step_x, step_y] = offset_step;
+                    let iy = y + step_y as usize;
+                    let ix = x + step_x as usize;
+                    let index = [ix, iy].fit(farmland.kind.land.width);
+                    let moisture = farmland.moisture[index];
+                    let capacity = farmland.moisture_capacity[index];
+                    map[y][x] = [capacity, moisture, 1.0, 0.0];
+                }
+            }
             scene.render_ground(
                 farmland.asset.texture.share(),
                 farmland.asset.sampler.share(),
-                &farmland.moisture,
-                &farmland.moisture_capacity,
-                &farmland.rooms,
+                map,
+                TILE_SIZE,
+                offset,
             );
 
             let mut surface_map = [[[0; 4]; 31]; 18];
@@ -170,7 +193,7 @@ impl Gameplay {
                 let y = y + render_offset_y;
                 for x in 0..31 {
                     let x = x + render_offset_x;
-                    let s = farmland.surface[y][x];
+                    let s = farmland.surface[[x, y].fit(farmland.kind.land.width)];
                     surface_map[y - render_offset_y][x - render_offset_x] = [s as u32, 0, 0, 0];
                 }
             }
@@ -429,10 +452,10 @@ impl Gameplay {
             let pivot = cementer.position.to_tile();
             let input_position =
                 pivot.add_offset(cementer.rotation.apply_i8(cementer.kind.input_offset));
-            let input_position = rendering_position_of(input_position.to_position());
+            let input_position = rendering_position_of(input_position.position());
             let output_position =
                 pivot.add_offset(cementer.rotation.apply_i8(cementer.kind.output_offset));
-            let output_position = rendering_position_of(output_position.to_position());
+            let output_position = rendering_position_of(output_position.position());
             render_items_stack(&self.items, cementer.entity.input, input_position, scene);
             render_items_stack(&self.items, cementer.entity.output, output_position, scene);
         }
@@ -832,12 +855,12 @@ fn render_cementer(
     let input_offset = rotation.apply_i8(kind.input_offset);
     let input_sprite = &cementer.sprites.tiles[4 + rot];
     let input_tile = pivot.add_offset(input_offset);
-    let input_pos = rendering_position_of(input_tile.to_position());
+    let input_pos = rendering_position_of(input_tile.position());
     scene.render_sprite_colored(input_sprite, xy(input_pos), color);
 
     let output_offset = rotation.apply_i8(kind.output_offset);
     let output_sprite = &cementer.sprites.tiles[8 + rot];
     let output_tile = pivot.add_offset(output_offset);
-    let output_pos = rendering_position_of(output_tile.to_position());
+    let output_pos = rendering_position_of(output_tile.position());
     scene.render_sprite_colored(output_sprite, xy(output_pos), color);
 }

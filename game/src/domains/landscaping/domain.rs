@@ -1,11 +1,8 @@
 use std::collections::HashMap;
 
 use crate::collections::{Sequence, Shared};
+use crate::math::Rect;
 
-pub const LAND_WIDTH: usize = 128;
-pub const LAND_HEIGHT: usize = 128;
-
-pub type LandMap = [[u8; LAND_WIDTH]; LAND_HEIGHT];
 pub type Place = [usize; 2];
 
 pub struct Surface {}
@@ -39,6 +36,8 @@ pub struct LandKey(pub usize);
 pub struct LandKind {
     pub id: LandKey,
     pub name: String,
+    pub width: usize,
+    pub height: usize,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
@@ -47,30 +46,44 @@ pub struct LandId(pub usize);
 pub struct Land {
     pub id: LandId,
     pub kind: Shared<LandKind>,
-    pub moisture: LandMap,
-    pub moisture_capacity: LandMap,
-    pub surface: LandMap,
+    pub moisture: Vec<f32>,
+    pub moisture_capacity: Vec<f32>,
+    pub surface: Vec<u8>,
 }
 
 #[derive(Debug, bincode::Encode, bincode::Decode)]
 pub enum Landscaping {
-    MoistureUpdate {
+    MoistureInspected {
         land: LandId,
-        moisture: LandMap,
+        rect: Rect,
+        moisture: Vec<f32>,
     },
-    // MoistureUpdated {
-    //     land: LandId,
-    //     rect: [usize; 4],
-    //     moisture: Vec<f32>,
-    // },
-    MoistureCapacityUpdate {
+    MoistureCapacityInspected {
         land: LandId,
-        moisture_capacity: LandMap,
+        rect: Rect,
+        moisture_capacity: Vec<f32>,
     },
-    SurfaceUpdate {
+    SurfaceInspected {
         land: LandId,
-        surface: LandMap,
-    },
+        rect: Rect,
+        surface: Vec<u8>,
+    }, // MoistureUpdate {
+       //     land: LandId,
+       //     moisture: LandMap,
+       // },
+       // MoistureUpdated {
+       //     land: LandId,
+       //     rect: [usize; 4],
+       //     moisture: Vec<f32>,
+       // },
+       // MoistureCapacityUpdate {
+       //     land: LandId,
+       //     moisture_capacity: LandMap,
+       // },
+       // SurfaceUpdate {
+       //     land: LandId,
+       //     surface: LandMap,
+       // },
 }
 
 #[derive(Debug, bincode::Encode, bincode::Decode)]

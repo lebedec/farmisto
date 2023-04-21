@@ -744,6 +744,8 @@ impl Game {
         let data = LandKind {
             id: LandKey(row.get("id")?),
             name: row.get("name")?,
+            width: row.get("width")?,
+            height: row.get("height")?,
         };
         Ok(data)
     }

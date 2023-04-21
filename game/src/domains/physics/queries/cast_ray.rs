@@ -13,14 +13,14 @@ impl PhysicsDomain {
         let line = rasterize_line(start.to_tile(), end.to_tile());
         let space = self.get_space(space)?;
         for point in line {
-            if let Some(barrier) = self.get_barrier_at(space.id, point.to_position()) {
+            if let Some(barrier) = self.get_barrier_at(space.id, point.position()) {
                 if barrier.position != end {
                     contacts.push(barrier.position);
                 }
             } else {
                 let [x, y] = point;
-                if space.holes[y][x] == 1 && point.to_position() != end {
-                    contacts.push(point.to_position())
+                if space.holes[y][x] == 1 && point.position() != end {
+                    contacts.push(point.position())
                 }
             }
         }

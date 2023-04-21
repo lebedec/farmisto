@@ -33,11 +33,11 @@ pub mod api;
 pub mod collections;
 mod data;
 mod domains;
+mod inspection;
 pub mod math;
 pub mod model;
 mod rules;
 mod update;
-mod view;
 
 #[macro_export]
 macro_rules! occur {
@@ -303,7 +303,7 @@ impl Game {
         barrier: BarrierId,
         sensor: SensorId,
         plant: PlantId,
-    ) -> Universe {
+    ) -> Result<Universe, ActionError> {
         self.universe.crops_id += 1;
         let entity = Crop {
             id: self.universe.crops_id,
@@ -313,7 +313,7 @@ impl Game {
             sensor,
         };
         self.universe.crops.push(entity);
-        self.look_at_crop(entity)
+        self.inspect_crop(entity)
     }
 
     pub fn appear_creature(

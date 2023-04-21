@@ -17,7 +17,7 @@ impl Game {
             .assembling
             .get_placement(assembly.placement)?
             .pivot
-            .to_position();
+            .position();
         self.ensure_target_reachable(farmland.space, farmer, destination)?;
         self.ensure_tile_empty(farmland, destination.to_tile())?;
         let key = assembly.key;

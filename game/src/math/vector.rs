@@ -6,7 +6,8 @@ pub type Rect = [usize; 4];
 
 pub trait TileMath {
     fn add_offset(self, offset: [i8; 2]) -> Self;
-    fn to_position(self) -> Position;
+    fn position(self) -> Position;
+    fn fit(self, width: usize) -> usize;
 }
 
 impl TileMath for [usize; 2] {
@@ -22,8 +23,13 @@ impl TileMath for [usize; 2] {
         [x as usize, y as usize]
     }
 
-    fn to_position(self) -> Position {
+    fn position(self) -> Position {
         [self[0] as f32 + 0.5, self[1] as f32 + 0.5]
+    }
+
+    #[inline]
+    fn fit(self, width: usize) -> usize {
+        self[0] + self[1] * width
     }
 }
 
@@ -146,23 +152,5 @@ impl FloatMath for f32 {
     #[inline]
     fn clamp(self, min: Self, max: Self) -> Self {
         self.max(min).min(max)
-    }
-}
-
-pub trait Array2D<T> {
-    fn extract_rect(&self, width: usize, rect: Rect) -> Vec<T>;
-    fn patch_rect(&mut self, width: usize, rect: Rect, data: Vec<T>);
-}
-
-impl<T> Array2D<T> for Vec<T>
-where
-    T: Copy,
-{
-    fn extract_rect(&self, width: usize, rect: Rect) -> Vec<T> {
-        unimplemented!()
-    }
-
-    fn patch_rect(&mut self, width: usize, rect: Rect, data: Vec<T>) {
-        unimplemented!()
     }
 }

@@ -1,17 +1,65 @@
-use crate::api::Event;
+use crate::api::{ActionError, Event};
 use crate::landscaping::Landscaping;
+use crate::math::{Array2D, VectorMath};
 use crate::model::{
-    Assembly, Cementer, Creature, Crop, Door, Equipment, ItemData, Rest, Stack, Universe,
-    UniverseSnapshot,
+    Assembly, Cementer, Creature, Crop, Door, Equipment, Farmer, ItemData, PlayerId, Rest, Stack,
+    Universe, UniverseSnapshot,
 };
 use crate::physics::Physics;
 use crate::Game;
+use log::info;
+use std::time::Instant;
 
 impl Game {
-    pub fn look_at_crop(&self, entity: Crop) -> Universe {
-        let plant = self.planting.get_plant(entity.plant).unwrap();
-        let barrier = self.physics.get_barrier(entity.barrier).unwrap();
-        Universe::CropAppeared {
+    pub fn inspect_player_private_space(
+        &self,
+        player: PlayerId,
+    ) -> Result<Vec<Event>, ActionError> {
+        let mut events = vec![];
+        let limit_x = 128;
+        let limit_y = 128;
+        let range = [36, 20];
+        let farmer = self.universe.get_player_farmer(player)?;
+        let body = self.physics.get_body(farmer.body)?;
+        let farmland = self.universe.get_farmland_by_space(body.space)?;
+        let [x, y] = body.position.to_tile();
+        let [w, h] = range;
+        let x = if x >= w / 2 { x - w / 2 } else { 0 };
+        let y = if y >= h / 2 { y - h / 2 } else { 0 };
+        let w = if x + w < limit_x { x + w } else { limit_x - x };
+        let h = if y + h < limit_y { y + h } else { limit_y - y };
+        let rect = [x, y, w, h];
+        let land = self.landscaping.get_land(farmland.land)?;
+        let surface = land.surface.extract_rect(land.kind.width, rect);
+        let moisture = land.moisture.extract_rect(land.kind.width, rect);
+        let moisture_capacity = land.moisture_capacity.extract_rect(land.kind.width, rect);
+        events.push(
+            vec![
+                Landscaping::SurfaceInspected {
+                    land: land.id,
+                    rect,
+                    surface,
+                },
+                Landscaping::MoistureCapacityInspected {
+                    land: land.id,
+                    rect,
+                    moisture_capacity,
+                },
+                Landscaping::MoistureInspected {
+                    land: land.id,
+                    rect,
+                    moisture,
+                },
+            ]
+            .into(),
+        );
+        Ok(events)
+    }
+
+    pub fn inspect_crop(&self, entity: Crop) -> Result<Universe, ActionError> {
+        let plant = self.planting.get_plant(entity.plant)?;
+        let barrier = self.physics.get_barrier(entity.barrier)?;
+        let event = Universe::CropAppeared {
             entity,
             impact: plant.impact,
             thirst: plant.thirst,
@@ -20,7 +68,8 @@ impl Game {
             health: plant.health,
             fruits: plant.fruits,
             position: barrier.position,
-        }
+        };
+        Ok(event)
     }
 
     pub fn look_at_creature(&self, entity: Creature) -> Universe {
@@ -110,8 +159,8 @@ impl Game {
                 let calendar = self.timing.get_calendar(farmland.calendar).unwrap();
                 stream.push(Universe::FarmlandAppeared {
                     farmland: *farmland,
-                    moisture: land.moisture,
-                    moisture_capacity: land.moisture_capacity,
+                    // moisture: land.moisture,
+                    // moisture_capacity: land.moisture_capacity,
                     cells: grid.cells.clone(),
                     rooms: grid.rooms.clone(),
                     holes: space.holes.clone(),
@@ -150,7 +199,7 @@ impl Game {
         }
 
         for crop in &self.universe.crops {
-            stream.push(self.look_at_crop(*crop));
+            stream.push(self.inspect_crop(*crop).unwrap());
         }
 
         for creature in &self.universe.creatures {
@@ -205,20 +254,20 @@ impl Game {
             })
             .collect();
 
-        let surfaces = self
-            .landscaping
-            .lands
-            .values()
-            .map(|land| Landscaping::SurfaceUpdate {
-                land: land.id,
-                surface: land.surface,
-            })
-            .collect();
+        // let surfaces = self
+        //     .landscaping
+        //     .lands
+        //     .values()
+        //     .map(|land| Landscaping::SurfaceUpdate {
+        //         land: land.id,
+        //         surface: land.surface,
+        //     })
+        //     .collect();
 
         vec![
             Event::UniverseStream(stream),
             Event::PhysicsStream(barriers_hint),
-            Event::LandscapingStream(surfaces),
+            // Event::LandscapingStream(surfaces),
         ]
     }
 }

@@ -43,9 +43,7 @@ impl Game {
             let tile = pivot.add_offset(part.offset);
             let grid = self.building.get_grid(farmland.grid)?;
             let cell = grid.get_cell(tile)?;
-            let barrier = self
-                .physics
-                .get_barrier_at(farmland.space, tile.to_position());
+            let barrier = self.physics.get_barrier_at(farmland.space, tile.position());
             let valid = match part.binding {
                 Binding::Doorway => cell.door,
                 Binding::Ground => !cell.wall && barrier.is_none(),

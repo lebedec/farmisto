@@ -4,7 +4,7 @@ use rand::Rng;
 use crate::landscaping::{
     LandId, Landscaping, LandscapingDomain, LandscapingError, Place, Surface,
 };
-use crate::math::{TileMath, VectorMath};
+use crate::math::{Array2D, TileMath, VectorMath};
 
 impl LandscapingDomain {
     pub fn pour_water(
@@ -20,7 +20,7 @@ impl LandscapingDomain {
         land.ensure_surface(place, Surface::PLAINS)?;
 
         let command = move || {
-            let center = place.to_position();
+            let center = place.position();
             let [x, y] = place;
             for sy in -spread..=spread {
                 for sx in -spread..=spread {
@@ -30,10 +30,11 @@ impl LandscapingDomain {
                     }
                     let x = sx as usize;
                     let y = sy as usize;
-                    let moisture = land.moisture[y][x] as f32 / 255.0;
-                    let moisture_capacity = land.moisture_capacity[y][x] as f32 / 255.0;
-                    let place = [sx as usize, sy as usize].to_position();
-                    let distance = place.distance(center);
+                    let place = [x, y];
+                    let distance = place.position().distance(center);
+                    let place = place.fit(land.kind.width);
+                    let moisture = land.moisture[place];
+                    let moisture_capacity = land.moisture_capacity[place];
                     let mut factor = if distance == 1.0 {
                         1.0
                     } else {
@@ -42,14 +43,11 @@ impl LandscapingDomain {
                     };
                     factor += random.gen_range(0.0..0.1);
                     let volume = volume * factor;
-                    let result = (moisture + volume).min(moisture_capacity);
-                    land.moisture[y][x] = (result * 255.0) as u8;
+                    let moisture = (moisture + volume).min(moisture_capacity);
+                    land.moisture[place] = moisture;
                 }
             }
-            vec![Landscaping::MoistureUpdate {
-                land: land.id,
-                moisture: land.moisture,
-            }]
+            vec![]
         };
         Ok(command)
     }

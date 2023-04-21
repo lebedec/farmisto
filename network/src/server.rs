@@ -112,6 +112,10 @@ impl TcpServer {
         &self.address
     }
 
+    pub fn has_player(&self, player: &str) -> bool {
+        self.players.contains_key(player)
+    }
+
     pub fn accept_players(&mut self) -> Vec<String> {
         let mut players = vec![];
         for player in self.authorization.try_iter() {

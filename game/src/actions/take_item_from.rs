@@ -22,7 +22,7 @@ impl Game {
         farmland: Farmland,
         construction: Construction,
     ) -> Result<Vec<Event>, ActionError> {
-        let destination = construction.cell.to_position();
+        let destination = construction.cell.position();
         self.ensure_target_reachable(farmland.space, farmer, destination)?;
         self.take_item_from_container(farmer, construction.container)
     }
@@ -38,12 +38,12 @@ impl Game {
         let cementer_kind = self.known.cementers.get(cementer.key)?;
         if container == cementer.input {
             let offset = placement.rotation.apply_i8(cementer_kind.input_offset);
-            let destination = placement.pivot.add_offset(offset).to_position();
+            let destination = placement.pivot.add_offset(offset).position();
             self.ensure_target_reachable(farmland.space, farmer, destination)?;
             self.take_item_from_container(farmer, cementer.input)
         } else {
             let offset = placement.rotation.apply_i8(cementer_kind.output_offset);
-            let destination = placement.pivot.add_offset(offset).to_position();
+            let destination = placement.pivot.add_offset(offset).position();
             self.ensure_target_reachable(farmland.space, farmer, destination)?;
             self.take_item_from_container(farmer, cementer.output)
         }

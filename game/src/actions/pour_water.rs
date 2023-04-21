@@ -14,7 +14,7 @@ impl Game {
         place: Tile,
     ) -> Result<Vec<Event>, ActionError> {
         self.universe.ensure_activity(farmer, Activity::Usage)?;
-        self.ensure_target_reachable(farmland.space, farmer, place.to_position())?;
+        self.ensure_target_reachable(farmland.space, farmer, place.position())?;
         let item = self.inventory.get_container_item(farmer.hands)?;
         let nozzle = item.kind.functions.as_moistener()?;
         let random = thread_rng();

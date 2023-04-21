@@ -139,7 +139,7 @@ impl Gameplay {
         if let Some(farmland) = self.current_farmland {
             let farmland = self.farmlands.get(&farmland).unwrap();
             let [x, y] = tile;
-            if farmland.surface[y][x] == Surface::BASIN {
+            if farmland.surface[tile.fit(farmland.kind.land.width)] == Surface::BASIN {
                 return vec![Target::Waterbody(tile)];
             }
 

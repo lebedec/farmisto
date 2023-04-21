@@ -15,7 +15,7 @@ impl Game {
     pub fn is_tile_empty(&self, farmland: Farmland, tile: Tile) -> bool {
         if self
             .physics
-            .get_body_at(farmland.space, tile.to_position())
+            .get_body_at(farmland.space, tile.position())
             .is_ok()
         {
             return false;
@@ -23,7 +23,7 @@ impl Game {
 
         if self
             .physics
-            .get_barrier_at(farmland.space, tile.to_position())
+            .get_barrier_at(farmland.space, tile.position())
             .is_some()
         {
             return false;

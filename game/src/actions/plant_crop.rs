@@ -30,7 +30,7 @@ impl Game {
             decrease_item(),
             create_barrier_sensor(),
             create_plant(),
-            self.appear_crop(kind.id, barrier, sensor, plant),
+            self.appear_crop(kind.id, barrier, sensor, plant)?,
         ];
         Ok(events)
     }

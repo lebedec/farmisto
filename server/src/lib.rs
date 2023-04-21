@@ -4,10 +4,10 @@ use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, Instant};
 
-use log::info;
+use log::{error, info};
 
 use datamap::Storage;
-use game::api::{GameResponse, PlayerRequest};
+use game::api::{ActionError, Event, GameResponse, PlayerRequest};
 use game::model::UniverseSnapshot;
 use game::Game;
 use lazy_static::lazy_static;
@@ -88,7 +88,21 @@ impl LocalServerThread {
                     if !events.is_empty() {
                         server.broadcast(GameResponse::Events { events });
                     }
-
+                    for player in &game.players {
+                        // TODO: alive players detection
+                        if !server.has_player(&player.name) {
+                            continue;
+                        }
+                        match game.inspect_player_private_space(player.id) {
+                            Ok(events) => {
+                                let inspection = GameResponse::Events { events };
+                                server.send(player.name.clone(), inspection);
+                            }
+                            Err(error) => {
+                                error!("Unable to inspect player scope {error:?}")
+                            }
+                        }
+                    }
                     thread::sleep(Duration::from_millis(20));
                 }
                 info!("Stop game server thread");

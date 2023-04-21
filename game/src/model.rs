@@ -6,7 +6,7 @@ use crate::building::{
 };
 use crate::collections::{Dictionary, Shared};
 use crate::inventory::{ContainerId, ContainerKey, ContainerKind, ItemId, ItemKey, ItemKind};
-use crate::landscaping::{LandId, LandKey, LandKind, LandMap};
+use crate::landscaping::{LandId, LandKey, LandKind};
 use crate::physics::{
     BarrierId, BarrierKey, BarrierKind, BodyId, BodyKey, BodyKind, SensorId, SensorKey, SensorKind,
     SpaceId, SpaceKey, SpaceKind,
@@ -96,8 +96,8 @@ pub enum Universe {
     TreeVanished(Tree),
     FarmlandAppeared {
         farmland: Farmland,
-        moisture: LandMap,
-        moisture_capacity: LandMap,
+        // moisture: LandMap,
+        // moisture_capacity: LandMap,
         cells: Vec<Vec<Cell>>,
         rooms: Vec<Room>,
         holes: Vec<Vec<u8>>,
@@ -198,6 +198,9 @@ pub enum Universe {
 
 #[derive(Debug, bincode::Encode, bincode::Decode)]
 pub enum UniverseError {
+    FarmlandBySpaceNotFound {
+        space: SpaceId,
+    },
     PlayerFarmerNotFound {
         player: PlayerId,
     },
@@ -226,6 +229,14 @@ impl UniverseDomain {
             .find(|farmer| farmer.player == player)
             .cloned()
             .ok_or(UniverseError::PlayerFarmerNotFound { player })
+    }
+
+    pub fn get_farmland_by_space(&self, space: SpaceId) -> Result<Farmland, UniverseError> {
+        self.farmlands
+            .iter()
+            .find(|farmland| farmland.space == space)
+            .cloned()
+            .ok_or(UniverseError::FarmlandBySpaceNotFound { space })
     }
 
     pub fn load_farmers(&mut self, farmers: Vec<Farmer>, farmers_id: usize) {

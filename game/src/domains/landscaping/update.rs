@@ -1,6 +1,7 @@
-use crate::landscaping::{Landscaping, LandscapingDomain, LAND_HEIGHT, LAND_WIDTH};
-use log::info;
 use rand::Rng;
+
+use crate::landscaping::{Landscaping, LandscapingDomain};
+use crate::math::TileMath;
 
 impl LandscapingDomain {
     pub fn update(&mut self, time: f32, mut random: impl Rng) -> Vec<Landscaping> {
@@ -12,20 +13,19 @@ impl LandscapingDomain {
             need_update = true;
         }
         for land in self.lands.values_mut() {
-            for y in 0..LAND_HEIGHT {
-                for x in 0..LAND_WIDTH {
-                    let _capacity = land.moisture_capacity[y][x] as f32 / 255.0;
-                    let moisture = land.moisture[y][x] as f32 / 255.0;
-                    // let heat = random.gen_range(0.01..0.11);
-                    let heat = 0.00233;
-                    land.moisture[y][x] = ((moisture - heat * time).max(0.0) * 255.0) as u8;
+            for y in 0..land.kind.height {
+                for x in 0..land.kind.width {
+                    let place = [x, y].fit(land.kind.width);
+                    let moisture = land.moisture[place];
+                    let heat = random.gen_range(0.01..0.11);
+                    land.moisture[place] = (moisture - heat * time).max(0.0);
                 }
             }
             if need_update {
-                events.push(Landscaping::MoistureUpdate {
-                    land: land.id,
-                    moisture: land.moisture,
-                });
+                // events.push(Landscaping::MoistureUpdate {
+                //     land: land.id,
+                //     moisture: land.moisture,
+                // });
             }
         }
         events

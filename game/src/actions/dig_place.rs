@@ -11,7 +11,7 @@ impl Game {
         farmland: Farmland,
         place: Tile,
     ) -> Result<Vec<Event>, ActionError> {
-        self.ensure_target_reachable(farmland.space, farmer, place.to_position())?;
+        self.ensure_target_reachable(farmland.space, farmer, place.position())?;
         let quality = 0.05;
         let land = self.landscaping.get_land(farmland.land)?;
         let capacity = land.get_moisture_capacity(place)?;
@@ -23,7 +23,7 @@ impl Game {
             let (barrier, create_barrier) = self.physics.create_barrier(
                 farmland.space,
                 barrier_kind,
-                place.to_position(),
+                place.position(),
                 true,
                 false,
             )?;

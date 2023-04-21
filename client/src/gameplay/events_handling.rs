@@ -8,6 +8,7 @@ use game::assembling::Assembling;
 use game::building::{Building, Material};
 use game::inventory::Inventory;
 use game::landscaping::Landscaping;
+use game::math::Array2D;
 use game::model::{Activity, AssemblyTarget, Universe};
 use game::physics::{Barrier, Physics};
 use game::planting::Planting;
@@ -141,30 +142,75 @@ impl Gameplay {
 
     pub fn handle_landscaping_event(&mut self, _frame: &mut Frame, event: Landscaping) {
         match event {
-            Landscaping::MoistureUpdate { land, moisture } => {
+            // Landscaping::MoistureUpdate { land, moisture } => {
+            //     for farmland in self.farmlands.values_mut() {
+            //         if farmland.entity.land == land {
+            //             farmland.moisture = Box::new(moisture);
+            //             break;
+            //         }
+            //     }
+            // }
+            // Landscaping::MoistureCapacityUpdate {
+            //     land,
+            //     moisture_capacity,
+            // } => {
+            //     for farmland in self.farmlands.values_mut() {
+            //         if farmland.entity.land == land {
+            //             farmland.moisture_capacity = Box::new(moisture_capacity);
+            //             break;
+            //         }
+            //     }
+            // }
+            // Landscaping::SurfaceUpdate { land, surface } => {
+            //     info!("Surface update {land:?}");
+            //     for farmland in self.farmlands.values_mut() {
+            //         if farmland.entity.land == land {
+            //             farmland.surface = Box::new(surface);
+            //             break;
+            //         }
+            //     }
+            // }
+            Landscaping::MoistureInspected {
+                land,
+                rect,
+                moisture,
+            } => {
                 for farmland in self.farmlands.values_mut() {
                     if farmland.entity.land == land {
-                        farmland.moisture = Box::new(moisture);
+                        farmland
+                            .moisture
+                            .patch_rect(farmland.kind.land.width, rect, moisture);
                         break;
                     }
                 }
             }
-            Landscaping::MoistureCapacityUpdate {
+            Landscaping::MoistureCapacityInspected {
                 land,
+                rect,
                 moisture_capacity,
             } => {
                 for farmland in self.farmlands.values_mut() {
                     if farmland.entity.land == land {
-                        farmland.moisture_capacity = Box::new(moisture_capacity);
+                        farmland.moisture_capacity.patch_rect(
+                            farmland.kind.land.width,
+                            rect,
+                            moisture_capacity,
+                        );
                         break;
                     }
                 }
             }
-            Landscaping::SurfaceUpdate { land, surface } => {
-                info!("Surface update {land:?}");
+            Landscaping::SurfaceInspected {
+                surface,
+                rect,
+                land,
+            } => {
+                // info!("Surface update {land:?}");
                 for farmland in self.farmlands.values_mut() {
                     if farmland.entity.land == land {
-                        farmland.surface = Box::new(surface);
+                        farmland
+                            .surface
+                            .patch_rect(farmland.kind.land.width, rect, surface);
                         break;
                     }
                 }
@@ -394,8 +440,6 @@ impl Gameplay {
             }
             Universe::FarmlandAppeared {
                 farmland,
-                moisture,
-                moisture_capacity,
                 cells,
                 rooms,
                 holes,
@@ -477,9 +521,9 @@ impl Gameplay {
                         entity: farmland,
                         kind,
                         asset,
-                        moisture: Box::new(moisture),
-                        moisture_capacity: Box::new(moisture_capacity),
-                        surface: Box::new([[0; 128]; 128]),
+                        moisture: vec![0.0; 128 * 128],
+                        moisture_capacity: vec![0.0; 128 * 128],
+                        surface: vec![0; 128 * 128],
                         surface_tilemap: frame.scene.instantiate_tilemap(
                             assets.texture("./assets/texture/tiles-waterbody.png"),
                             assets.sampler("pixel-perfect"),

@@ -138,8 +138,10 @@ create table Plant
 
 create table LandKind
 (
-    id   integer primary key,
-    name text not null unique
+    id     integer primary key,
+    name   text    not null unique,
+    width  integer not null,
+    height integer not null
 );
 
 create table Land

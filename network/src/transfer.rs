@@ -1,4 +1,4 @@
-use std::io::{Read, Write};
+use std::io::{BufReader, Cursor, Read, Write};
 use std::net::TcpStream;
 
 use bincode::error::{DecodeError, EncodeError};
@@ -24,6 +24,12 @@ impl SyncReceiver {
             error!("Unable to receive because of body read, {}", error);
             return None;
         }
+
+        // let mut rdr = snap::read::FrameDecoder::new(Cursor::new(buffer));
+        // let mut out = vec![];
+        // rdr.read_to_end(&mut out).unwrap();
+        // let buffer = out;
+
         match decode(&buffer) {
             Ok(response) => Some((HEADER_LENGTH + length, response)),
             Err(error) => {
@@ -40,6 +46,13 @@ pub struct SyncSender {
 
 impl SyncSender {
     pub fn send_body(&mut self, body: Vec<u8>) -> Option<usize> {
+        // let mut buf = vec![];
+        // {
+        //     let mut wtr = snap::write::FrameEncoder::new(&mut buf);
+        //     wtr.write_all(&body).unwrap();
+        // }
+        // let body = buf;
+
         let header = match u32::try_from(body.len()) {
             Ok(body_length) => body_length.to_be_bytes(),
             Err(error) => {

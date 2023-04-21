@@ -28,6 +28,7 @@ lazy_static = "1.4.0"
 rand = "0.8.5"
 fontdue = "0.7.3"
 fluent = "0.16"
+bincode = "2.0.0-rc.2"
 
 [dependencies.sdl2]
 version = "0.35"

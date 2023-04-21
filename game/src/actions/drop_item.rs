@@ -11,7 +11,7 @@ impl Game {
         farmer: Farmer,
         tile: [usize; 2],
     ) -> Result<Vec<Event>, ActionError> {
-        self.ensure_target_reachable(farmland.space, farmer, tile.to_position())?;
+        self.ensure_target_reachable(farmland.space, farmer, tile.position())?;
         let body = self.physics.get_body(farmer.body)?;
         let space = body.space;
         let barrier_kind = self.known.barriers.find("<drop>").unwrap();
