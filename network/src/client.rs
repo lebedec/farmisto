@@ -39,15 +39,15 @@ impl TcpClient {
         player: String,
         password: Option<String>,
     ) -> Result<Self, String> {
-        let address: SocketAddr = address.parse().unwrap();
         info!("Connect to {}, API version is {}", address, API_VERSION);
 
         let (requests, requests_receiver) = channel::<PlayerRequest>();
         let (responses_sender, responses) = channel::<GameResponse>();
 
         let thread_player = player.clone();
+        let thread_address = address.to_string();
         let client_connect = move || {
-            let stream = TcpStream::connect(address).unwrap();
+            let stream = TcpStream::connect(thread_address).unwrap();
             let heartbeat = Duration::from_secs(2);
             let mut receiver = SyncReceiver {
                 reader: stream.try_clone().unwrap(),
