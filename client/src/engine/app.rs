@@ -1,27 +1,20 @@
 use crate::engine::base::Base;
-use crate::engine::rendering::Scene;
+use crate::engine::rendering::{Scene, SceneMetrics};
 use crate::engine::{AppConfig, Input};
 use ash::vk;
-use std::io::Write;
-use std::net::TcpListener;
 
 use libfmod::ffi::{FMOD_INIT_NORMAL, FMOD_STUDIO_INIT_NORMAL, FMOD_VERSION};
 use libfmod::{SpeakerMode, Studio};
 use log::info;
 
-use std::thread;
 use std::time::Instant;
 
 use crate::assets::Assets;
+use crate::monitoring::{spawn_prometheus_metrics_pusher, spawn_prometheus_metrics_server};
 use crate::translation::Translator;
-use lazy_static::lazy_static;
+use prometheus::Registry;
 use sdl2::keyboard::Keycode;
 use sdl2::video::FullscreenType;
-
-lazy_static! {
-    static ref METRIC_FRAME: prometheus::IntCounter =
-        prometheus::register_int_counter!("app_frame", "app_frame").unwrap();
-}
 
 pub struct Frame<'c> {
     pub config: &'c AppConfig,
@@ -30,6 +23,7 @@ pub struct Frame<'c> {
     pub assets: &'c mut Assets,
     pub studio: &'c Studio,
     pub translator: &'c Translator,
+    pub metrics_registry: &'c Registry,
 }
 
 pub trait App {
@@ -83,6 +77,13 @@ pub fn startup<A: App>(title: String) {
         .initialize(1024, FMOD_STUDIO_INIT_NORMAL, FMOD_INIT_NORMAL, None)
         .unwrap();
 
+    info!("Spawns monitoring agents");
+    spawn_prometheus_metrics_server();
+    let metrics_registry = Registry::new();
+    if let Some(gateway) = config.metrics_gateway.clone() {
+        spawn_prometheus_metrics_pusher(gateway, metrics_registry.clone());
+    }
+
     unsafe {
         let renderpass = Base::create_render_pass(&base.device, &base.screen);
         base.recreate_frame_buffers(renderpass);
@@ -99,6 +100,7 @@ pub fn startup<A: App>(title: String) {
             renderpass,
             &mut assets,
             2160.0 / base.screen.height() as f32, // reference resolution 4K
+            SceneMetrics::new(&metrics_registry).unwrap(),
         );
 
         let mut app = A::start(&mut assets);
@@ -106,29 +108,7 @@ pub fn startup<A: App>(title: String) {
         let mut time = Instant::now();
         let mut input = Input::new(base.screen.size());
 
-        thread::Builder::new()
-            .name("prometheus".into())
-            .spawn(|| {
-                let encoder = prometheus::TextEncoder::new();
-                let listener = TcpListener::bind("127.0.0.1:9091").unwrap();
-                for stream in listener.incoming() {
-                    let mut stream = stream.unwrap();
-                    let status_line = "HTTP/1.1 200 OK";
-                    let mut contents = String::new();
-                    let metric_families = prometheus::gather();
-                    encoder
-                        .encode_utf8(&metric_families, &mut contents)
-                        .unwrap();
-                    let length = contents.len();
-                    let response =
-                        format!("{status_line}\r\nContent-Length: {length}\r\n\r\n{contents}");
-                    stream.write_all(response.as_bytes()).unwrap();
-                }
-            })
-            .unwrap();
-
         loop {
-            METRIC_FRAME.inc();
             assets.process_assets_loading();
             studio.update().unwrap();
 
@@ -168,7 +148,6 @@ pub fn startup<A: App>(title: String) {
                 info!("ZOOM: {}", scene.zoom);
             }
 
-            //scene_renderer.update();
             scene.update();
 
             let present_index = match base.swapchain_loader.acquire_next_image(
@@ -180,6 +159,7 @@ pub fn startup<A: App>(title: String) {
                 Ok((present_index, _)) => present_index,
                 Err(vk::Result::ERROR_OUT_OF_DATE_KHR) => {
                     base.recreate_swapchain(renderpass);
+                    // TODO: do not recreate, update
                     scene = Scene::create(
                         &base.device,
                         &base.queue.device_memory,
@@ -190,6 +170,7 @@ pub fn startup<A: App>(title: String) {
                         renderpass,
                         &mut assets,
                         2160.0 / base.screen.height() as f32, // reference resolution 4K
+                        SceneMetrics::new(&metrics_registry).unwrap(),
                     );
                     continue;
                 }
@@ -207,6 +188,7 @@ pub fn startup<A: App>(title: String) {
                 assets: &mut assets,
                 studio: &studio,
                 translator: &translator,
+                metrics_registry: &metrics_registry,
             });
 
             let clear_values = [

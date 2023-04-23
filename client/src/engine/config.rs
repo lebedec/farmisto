@@ -21,6 +21,9 @@ pub struct AppConfig {
 
     #[serde(default = "default_save_file")]
     pub save_file: String,
+
+    #[serde(default = "default_metrics_gateway")]
+    pub metrics_gateway: Option<String>
 }
 
 impl Default for AppConfig {
@@ -32,6 +35,7 @@ impl Default for AppConfig {
             position: default_position(),
             windowed: default_windowed(),
             save_file: default_save_file(),
+            metrics_gateway: default_metrics_gateway(),
         }
     }
 }
@@ -81,4 +85,8 @@ fn default_windowed() -> bool {
 
 fn default_save_file() -> String {
     String::from("./assets/database.sqlite")
+}
+
+fn default_metrics_gateway() -> Option<String> {
+    None
 }

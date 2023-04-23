@@ -3,5 +3,6 @@
   "host": "playtest.farmisto.online:8080",
   "windowed": true,
   "resolution": [1920, 1080],
-  "save_file": "./assets/database.sqlite"
+  "save_file": "./assets/database.sqlite",
+  "metrics_gateway": "playtest.farmisto.online:8081"
 }

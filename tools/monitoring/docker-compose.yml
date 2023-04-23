@@ -6,6 +6,10 @@ services:
       - "./prometheus.yml:/etc/prometheus/prometheus.yml"
     ports:
       - "9090:9090"
+  pushgateway:
+    image: prom/pushgateway
+    ports:
+      - "9091:9091"
   grafana:
     depends_on:
       - prometheus

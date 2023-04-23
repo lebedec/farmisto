@@ -1,36 +1,19 @@
+use log::{error, info};
 use std::net::{SocketAddr, TcpStream};
 use std::sync::mpsc::{channel, Receiver, RecvTimeoutError, Sender, TryIter};
 use std::thread;
 use std::time::{Duration, Instant};
 
-use lazy_static::lazy_static;
-use log::{error, info};
-
+use crate::metrics::ClientMetrics;
 use game::api::{GameResponse, LoginResult, PlayerRequest, API_VERSION};
 
 use crate::transfer::{SyncReceiver, SyncSender};
-
-lazy_static! {
-    static ref METRIC_SENT_BYTES: prometheus::IntCounterVec =
-        prometheus::register_int_counter_vec!(
-            "client_sent_bytes",
-            "client_sent_bytes",
-            &["player"]
-        )
-        .unwrap();
-    static ref METRIC_RECEIVED_BYTES: prometheus::IntCounterVec =
-        prometheus::register_int_counter_vec!(
-            "client_received_bytes",
-            "client_received_bytes",
-            &["player"]
-        )
-        .unwrap();
-}
 
 pub struct TcpClient {
     pub player: String,
     requests: Sender<PlayerRequest>,
     responses: Receiver<GameResponse>,
+    metrics: ClientMetrics,
 }
 
 impl TcpClient {
@@ -38,6 +21,7 @@ impl TcpClient {
         address: &str,
         player: String,
         password: Option<String>,
+        metrics: ClientMetrics,
     ) -> Result<Self, String> {
         info!("Connect to {}, API version is {}", address, API_VERSION);
 
@@ -46,6 +30,7 @@ impl TcpClient {
 
         let thread_player = player.clone();
         let thread_address = address.to_string();
+        let thread_metrics = metrics.clone();
         let client_connect = move || {
             let stream = TcpStream::connect(thread_address).unwrap();
             let heartbeat = Duration::from_secs(2);
@@ -80,9 +65,7 @@ impl TcpClient {
                     loop {
                         match receiver.receive() {
                             Some((bytes, response)) => {
-                                METRIC_RECEIVED_BYTES
-                                    .with_label_values(&[&player_id])
-                                    .inc_by(bytes as u64);
+                                thread_metrics.received_bytes.inc_by(bytes as u64);
                                 responses.push(response);
                             }
                             None => {
@@ -136,9 +119,7 @@ impl TcpClient {
                     for request in requests {
                         match sender.send(&request) {
                             Some(bytes) => {
-                                METRIC_SENT_BYTES
-                                    .with_label_values(&[&player_id])
-                                    .inc_by(bytes as u64);
+                                thread_metrics.sent_bytes.inc_by(bytes as u64);
                             }
                             None => {
                                 error!("Unable to send request, network error");
@@ -163,6 +144,7 @@ impl TcpClient {
             player,
             requests,
             responses,
+            metrics,
         };
         Ok(client)
     }

@@ -2,17 +2,19 @@ use ash::{vk, Device};
 use glam::{vec3, Mat4, Vec3};
 use lazy_static::lazy_static;
 use log::info;
+use prometheus::{register_histogram_vec_with_registry, HistogramVec, Registry};
+use sdl2::libc::pipe;
 use std::collections::BTreeMap;
 use std::mem;
 use std::mem::take;
 use std::sync::Arc;
+use std::time::Instant;
 
 use crate::assets::SamplerAsset;
 use crate::engine::base::Screen;
 use crate::engine::base::ShaderData;
 use crate::engine::base::{MyPipeline, MyQueue};
 use crate::engine::buffers::{CameraUniform, LightUniform, UniformBuffer};
-use crate::engine::rendering::SpritePushConstants;
 use crate::engine::rendering::SpriteRenderObject;
 use crate::engine::rendering::TilemapPushConstants;
 use crate::engine::rendering::TilemapRenderObject;
@@ -22,19 +24,10 @@ use crate::engine::rendering::{AnimalPushConstants, AnimalRenderObject, GroundRe
 use crate::engine::rendering::{ElementPushConstants, ElementRenderObject, PlantRenderObject};
 use crate::engine::rendering::{GroundPushConstants, GroundUniform, Light};
 use crate::engine::rendering::{PlantPushConstants, RenderingLine};
+use crate::engine::rendering::{SceneMetrics, SpritePushConstants};
 use crate::engine::VertexBuffer;
 use crate::monitoring::Timer;
 use crate::Assets;
-
-lazy_static! {
-    static ref METRIC_RENDER_SECONDS: prometheus::HistogramVec =
-        prometheus::register_histogram_vec!(
-            "sprites_render_seconds",
-            "sprites_render_seconds",
-            &["pipeline"]
-        )
-        .unwrap();
-}
 
 pub struct Scene {
     pub device: Device,
@@ -76,6 +69,8 @@ pub struct Scene {
     pub ui_elements: Vec<ElementRenderObject>,
 
     pub swapchain: usize,
+
+    metrics: SceneMetrics,
 }
 
 impl Scene {
@@ -89,6 +84,7 @@ impl Scene {
         pass: vk::RenderPass,
         assets: &mut Assets,
         zoom: f32,
+        metrics: SceneMetrics,
     ) -> Self {
         let spine_coloration_sampler = assets.sampler("coloration");
         let camera_buffer = UniformBuffer::create(device.clone(), device_memory, swapchain);
@@ -172,6 +168,7 @@ impl Scene {
             ui_element_sampler,
             ui_element_vertex_buffer,
             ui_elements: vec![],
+            metrics,
         }
     }
 
@@ -199,6 +196,7 @@ impl Scene {
     }
 
     pub fn update(&mut self) {
+        self.metrics.frames.inc();
         self.spine_pipeline.update(&self.device, &self.screen);
         self.animals_pipeline.update(&self.device, &self.screen);
         self.ground_pipeline.update(&self.device, &self.screen);
@@ -270,7 +268,7 @@ impl Scene {
             pipeline.push_constants(ground.constants);
             pipeline.draw_vertices(self.ground_vertex_buffer.vertices);
         }
-        timer.record("ground", &METRIC_RENDER_SECONDS);
+        timer.gauge("ground", &self.metrics.draw);
 
         let tilemaps = take(&mut self.tilemaps);
         let mut pipeline = self.tilemap_pipeline.perform(device, buffer);
@@ -282,7 +280,7 @@ impl Scene {
             pipeline.push_constants(tilemap.constants);
             pipeline.draw_vertices(self.tilemap_vertex_buffer.vertices);
         }
-        timer.record("tilemap-0", &METRIC_RENDER_SECONDS);
+        timer.gauge("tilemap-0", &self.metrics.draw);
 
         for (line, objects) in take(&mut self.sorted_render_objects) {
             let mut pipeline = self.sprite_pipeline.perform(device, buffer);
@@ -329,7 +327,7 @@ impl Scene {
                 pipeline.draw(indices);
             }
         }
-        timer.record("sorted", &METRIC_RENDER_SECONDS);
+        timer.gauge("sorted", &self.metrics.draw);
 
         let mut pipeline = self.tilemap_pipeline.perform(device, buffer);
         pipeline.bind_camera(camera_descriptor);
@@ -340,7 +338,7 @@ impl Scene {
             pipeline.push_constants(tilemap.constants);
             pipeline.draw_vertices(self.tilemap_vertex_buffer.vertices);
         }
-        timer.record("tilemap-127", &METRIC_RENDER_SECONDS);
+        timer.gauge("tilemap-127", &self.metrics.draw);
 
         let mut pipeline = self.ui_pipeline.perform(device, buffer);
         pipeline.bind_data_by_descriptor(lights_descriptor);
@@ -351,6 +349,6 @@ impl Scene {
             pipeline.push_constants(element.constants);
             pipeline.draw_vertices(self.ui_element_vertex_buffer.vertices);
         }
-        timer.record("ui", &METRIC_RENDER_SECONDS);
+        timer.gauge("ui", &self.metrics.draw);
     }
 }

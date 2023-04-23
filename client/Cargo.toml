@@ -23,7 +23,7 @@ datamap = { path = "../datamap" }
 rusqlite = { version = "0.27", default-features = false, features = ["serde_json", "bundled"] }
 libfmod = { version = "2.2.601" }
 rusty_spine = "0.5.1"
-prometheus = { version = "0.13.3", features = ["process"] }
+prometheus = { version = "0.13.3", features = ["process", "push"] }
 lazy_static = "1.4.0"
 rand = "0.8.5"
 fontdue = "0.7.3"

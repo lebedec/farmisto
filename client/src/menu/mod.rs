@@ -1,11 +1,14 @@
-use crate::gameplay::{Gameplay, Host};
+use log::info;
+use sdl2::keyboard::Keycode;
+
+use ai::AiThread;
+use network::{ClientMetrics, Configuration, TcpClient};
+use server::LocalServerThread;
+
+use crate::gameplay::{Gameplay, GameplayMetrics, Host};
+use crate::monitoring::set_monitoring_context;
 use crate::Frame;
 use crate::Mode;
-use ai::AiThread;
-use log::info;
-use network::{Configuration, TcpClient};
-use sdl2::keyboard::Keycode;
-use server::LocalServerThread;
 
 pub struct Menu {
     host: Option<String>,
@@ -52,6 +55,7 @@ impl Mode for Menu {
 
     fn transition(&self, frame: &mut Frame) -> Option<Box<dyn Mode>> {
         if let Some(player) = self.host.as_ref() {
+            set_monitoring_context(&player);
             let config = Configuration {
                 host: player.clone(),
                 port: frame.config.port,
@@ -59,19 +63,28 @@ impl Mode for Menu {
                 save_file: frame.config.save_file.clone(),
             };
             let server = LocalServerThread::spawn(config);
-            let client = TcpClient::connect(&server.address, player.clone(), None).unwrap();
+            let metrics = ClientMetrics::new(frame.metrics_registry).unwrap();
+            let client =
+                TcpClient::connect(&server.address, player.clone(), None, metrics).unwrap();
 
-            let ai_client = TcpClient::connect(&server.address, "<AI>".to_string(), None).unwrap();
+            let metrics = ClientMetrics::new_ai(frame.metrics_registry).unwrap();
+            let ai_client =
+                TcpClient::connect(&server.address, "<AI>".to_string(), None, metrics).unwrap();
             let ai_behaviours = frame.assets.behaviours("./assets/ai/nature.json");
             let ai = AiThread::spawn(ai_client, ai_behaviours.share_data());
 
+            let metrics = GameplayMetrics::new(frame.metrics_registry).unwrap();
             let host = Host { server, ai };
-            let gameplay = Gameplay::new(Some(host), client, frame);
+            let gameplay = Gameplay::new(Some(host), client, frame, metrics);
             return Some(Box::new(gameplay));
         }
         if let Some(player) = self.join.as_ref() {
-            let client = TcpClient::connect(&frame.config.host, player.to_string(), None).unwrap();
-            let gameplay = Gameplay::new(None, client, frame);
+            set_monitoring_context(&player);
+            let metrics = ClientMetrics::new(frame.metrics_registry).unwrap();
+            let client =
+                TcpClient::connect(&frame.config.host, player.to_string(), None, metrics).unwrap();
+            let metrics = GameplayMetrics::new(frame.metrics_registry).unwrap();
+            let gameplay = Gameplay::new(None, client, frame, metrics);
             return Some(Box::new(gameplay));
         }
         None

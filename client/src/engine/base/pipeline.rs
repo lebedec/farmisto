@@ -13,18 +13,8 @@ use crate::engine::base::{Screen, ShaderData, ShaderDataSet};
 use crate::engine::rendering::SpriteVertex;
 use crate::engine::{IndexBuffer, VertexBuffer};
 
-lazy_static! {
-    static ref METRIC_DRAW_CALLS: prometheus::IntCounterVec =
-        prometheus::register_int_counter_vec!(
-            "pipeline_draw_calls",
-            "pipeline_draw_calls",
-            &["pipeline"]
-        )
-        .unwrap();
-}
-
 pub struct MyPipelinePerformer<'a, const M: usize, C, const D: usize> {
-    pipeline: &'a mut MyPipeline<M, C, D>,
+    pub pipeline: &'a mut MyPipeline<M, C, D>,
     device: Device,
     buffer: vk::CommandBuffer,
 }
@@ -138,9 +128,6 @@ where
     }
 
     pub fn draw_vertices(&self, vertex_count: usize) {
-        METRIC_DRAW_CALLS
-            .with_label_values(&[&self.pipeline.asset.name])
-            .inc();
         unsafe {
             self.device
                 .cmd_draw(self.buffer, vertex_count as u32, 1, 0, 0);
@@ -148,9 +135,6 @@ where
     }
 
     pub fn draw(&self, index_count: usize) {
-        METRIC_DRAW_CALLS
-            .with_label_values(&[&self.pipeline.asset.name])
-            .inc();
         unsafe {
             self.device
                 .cmd_draw_indexed(self.buffer, index_count as u32, 1, 0, 0, 1);

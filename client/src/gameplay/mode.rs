@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 use std::fmt::format;
+use std::time::Instant;
 
 use glam::vec3;
-use lazy_static::lazy_static;
 use log::{error, info};
 use sdl2::keyboard::Keycode;
 
@@ -34,19 +34,9 @@ use crate::gameplay::representation::{
     AssemblyRep, CementerRep, ConstructionRep, CreatureRep, CropRep, DoorRep, EquipmentRep,
     FarmerRep, FarmlandRep, ItemRep, RestRep, StackRep, TreeRep,
 };
-use crate::gameplay::{InputMethod, Target};
-use crate::monitoring::Timer;
+use crate::gameplay::{GameplayMetrics, InputMethod, Target};
+use crate::monitoring::{Timer, TimerIntegration};
 use crate::{Frame, Mode};
-
-lazy_static! {
-    static ref GAMEPLAY_UPDATE_SECONDS: prometheus::HistogramVec =
-        prometheus::register_histogram_vec!(
-            "gameplay_update_seconds",
-            "gameplay_update_seconds",
-            &["stage"]
-        )
-        .unwrap();
-}
 
 pub const TILE_SIZE: f32 = 128.0;
 
@@ -100,10 +90,16 @@ pub struct Gameplay {
     pub colonization_date: f32,
     pub speed: f32,
     pub default_sampler: SamplerAsset,
+    pub metrics: GameplayMetrics,
 }
 
 impl Gameplay {
-    pub fn new(host: Option<Host>, client: TcpClient, frame: &mut Frame) -> Self {
+    pub fn new(
+        host: Option<Host>,
+        client: TcpClient,
+        frame: &mut Frame,
+        metrics: GameplayMetrics,
+    ) -> Self {
         let assets = &mut frame.assets;
         let mut camera = Camera::new();
         camera.eye = vec3(0.0, 0.0, -1.0);
@@ -163,6 +159,7 @@ impl Gameplay {
             colonization_date: 0.0,
             speed: 0.0,
             default_sampler: assets.sampler("default"),
+            metrics,
         }
     }
 
@@ -245,16 +242,16 @@ impl Gameplay {
 
 impl Mode for Gameplay {
     fn update(&mut self, frame: &mut Frame) {
-        let mut timer = Timer::now();
+        let timer = &mut Timer::now();
         self.handle_server_responses(frame);
-        timer.record("server-response", &GAMEPLAY_UPDATE_SECONDS);
+        self.metrics.update.record("server-response", timer);
         self.handle_user_input(frame);
-        timer.record("user-input", &GAMEPLAY_UPDATE_SECONDS);
+        self.metrics.update.record("user-input", timer);
         self.animate(frame);
-        timer.record("animation", &GAMEPLAY_UPDATE_SECONDS);
+        self.metrics.update.record("animation", timer);
         self.render(frame);
-        timer.record("render", &GAMEPLAY_UPDATE_SECONDS);
+        self.metrics.update.record("render", timer);
         self.render_ui(frame);
-        timer.record("render-ui", &GAMEPLAY_UPDATE_SECONDS);
+        self.metrics.update.record("render-ui", timer);
     }
 }
