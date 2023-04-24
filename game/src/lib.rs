@@ -214,6 +214,7 @@ impl Game {
                     FarmerBound::DigPlace { place } => self.dig_place(farmer, farmland, place)?,
                     FarmerBound::FillBasin { place } => self.fill_basin(farmer, farmland, place)?,
                     FarmerBound::PourWater { place } => self.pour_water(farmer, farmland, place)?,
+                    FarmerBound::Fertilize { tile } => self.fertilize(farmer, farmland, tile)?,
                     FarmerBound::Relax { rest } => self.relax(farmer, farmland, rest)?,
                 }
             }
@@ -251,35 +252,6 @@ impl Game {
     fn water_crop(&mut self, _farmer: Farmer, crop: Crop) -> Result<Vec<Event>, ActionError> {
         let water_plant = self.planting.water_plant(crop.plant, 0.5)?;
         let events = occur![water_plant(),];
-        Ok(events)
-    }
-
-    fn harvest_crop(&mut self, farmer: Farmer, crop: Crop) -> Result<Vec<Event>, ActionError> {
-        let crop_kind = self.known.crops.get(crop.key).unwrap();
-        let item_kind = &crop_kind.fruits;
-        let (new_harvest, capacity) = match self.inventory.get_container_item(farmer.hands) {
-            Ok(item) => {
-                let kind = item.kind.functions.as_product()?;
-                if crop.key != CropKey(kind) {
-                    return Err(InventoryError::ItemFunctionNotFound.into());
-                }
-                (false, item.kind.max_quantity - item.quantity)
-            }
-            _ => (true, item_kind.max_quantity),
-        };
-        let (fruits, harvest) = self.planting.harvest_plant(crop.plant, capacity)?;
-        let events = if new_harvest {
-            let item = self.inventory.items_id.introduce().one(ItemId);
-            let create_item = self
-                .inventory
-                .create_item(item, item_kind, farmer.hands, fruits)?;
-            let change_activity = self.universe.change_activity(farmer, Activity::Usage);
-            occur![harvest(), create_item(), change_activity,]
-        } else {
-            let increase_item = self.inventory.increase_item(farmer.hands, fruits)?;
-
-            occur![harvest(), increase_item(),]
-        };
         Ok(events)
     }
 

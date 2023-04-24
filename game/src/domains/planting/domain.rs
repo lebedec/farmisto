@@ -1,4 +1,5 @@
 use crate::collections::Shared;
+use crate::math::Rect;
 
 pub const MAX_SOILS: usize = 128;
 
@@ -26,6 +27,8 @@ pub struct SoilKey(pub(crate) usize);
 pub struct SoilKind {
     pub id: SoilKey,
     pub name: String,
+    pub width: usize,
+    pub height: usize,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
@@ -34,6 +37,7 @@ pub struct SoilId(pub usize);
 pub struct Soil {
     pub id: SoilId,
     pub kind: Shared<SoilKind>,
+    pub fertility: Vec<f32>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
@@ -80,6 +84,11 @@ pub enum Planting {
         id: PlantId,
         fruits: u8,
     },
+    SoilFertilityInspected {
+        soil: SoilId,
+        rect: Rect,
+        fertility: Vec<f32>,
+    },
 }
 
 #[derive(Debug, bincode::Encode, bincode::Decode)]
@@ -87,52 +96,6 @@ pub enum PlantingError {
     PlantNotFound { id: PlantId },
     NotReadyToHarvest { id: PlantId },
     HasNoFruitsToHarvest { id: PlantId },
-}
-
-impl PlantingDomain {
-    pub fn load_soils(&mut self, soils: Vec<Soil>, sequence: usize) {
-        self.soils_sequence = sequence;
-        self.soils.extend(soils);
-    }
-
-    pub fn load_plants(&mut self, plants: Vec<Plant>, sequence: usize) {
-        self.plants_sequence = sequence;
-        for plant in plants {
-            self.plants[plant.soil.0].push(plant);
-        }
-    }
-
-    pub fn get_soil(&self, id: SoilId) -> Option<&Soil> {
-        self.soils.iter().find(|soil| soil.id == id)
-    }
-
-    pub fn get_plant(&self, id: PlantId) -> Result<&Plant, PlantingError> {
-        for plants in &self.plants {
-            if let Some(plant) = plants.iter().find(|plant| plant.id == id) {
-                return Ok(plant);
-            }
-        }
-        Err(PlantingError::PlantNotFound { id })
-    }
-
-    pub fn get_plant_mut(&mut self, id: PlantId) -> Result<&mut Plant, PlantingError> {
-        for plants in &mut self.plants {
-            if let Some(plant) = plants.iter_mut().find(|plant| plant.id == id) {
-                return Ok(plant);
-            }
-        }
-        Err(PlantingError::PlantNotFound { id })
-    }
-
-    pub fn integrate_impact(&mut self, id: PlantId, impact: f32) -> Result<(), PlantingError> {
-        let plant = self.get_plant_mut(id)?;
-        plant.impact += impact;
-        if plant.impact < -1.0 {
-            plant.impact = -1.0;
-        }
-        if plant.impact > 1.0 {
-            plant.impact = 1.0;
-        }
-        Ok(())
-    }
+    SoilNotFound { id: SoilId },
+    OutOfSoil { id: SoilId, tile: [usize; 2] },
 }

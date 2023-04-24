@@ -104,8 +104,9 @@ create table TilesetAssetData
 
 create table ItemAssetData
 (
-    id     text primary key unique,
-    sprite text not null references SpriteAssetData
+    id           text primary key unique,
+    sprite       text not null references SpriteAssetData,
+    quantitative text references TilesetAssetData
 );
 
 create table CropAssetData

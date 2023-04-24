@@ -12,6 +12,7 @@ pub trait FunctionsQuery {
     fn as_installation(&self) -> Result<usize, InventoryError>;
     fn as_assembly<T>(&self, constructor: Constructor<T>) -> Result<T, InventoryError>;
     fn as_moistener(&self) -> Result<Nozzle, InventoryError>;
+    fn as_fertilizer(&self) -> Result<f32, InventoryError>;
 }
 
 impl FunctionsQuery for Vec<Function> {
@@ -37,6 +38,15 @@ impl FunctionsQuery for Vec<Function> {
         for function in self {
             if let Function::Moistener(nozzle) = function {
                 return Ok(*nozzle);
+            }
+        }
+        Err(InventoryError::ItemFunctionNotFound)
+    }
+
+    fn as_fertilizer(&self) -> Result<f32, InventoryError> {
+        for function in self {
+            if let Function::Fertilizer(quality) = function {
+                return Ok(*quality);
             }
         }
         Err(InventoryError::ItemFunctionNotFound)

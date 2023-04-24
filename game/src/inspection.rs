@@ -9,6 +9,7 @@ use crate::physics::Physics;
 use crate::Game;
 use log::info;
 use std::time::Instant;
+use crate::planting::Planting;
 
 impl Game {
     pub fn inspect_player_private_space(
@@ -52,6 +53,17 @@ impl Game {
                 },
             ]
             .into(),
+        );
+        let soil = self.planting.get_soil(farmland.soil)?;
+        let fertility = soil.fertility.extract_rect(soil.kind.width, rect);
+        events.push(
+            vec![
+                Planting::SoilFertilityInspected {
+                    soil: soil.id,
+                    rect,
+                    fertility
+                }
+            ].into()
         );
         Ok(events)
     }

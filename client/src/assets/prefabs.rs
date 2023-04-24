@@ -34,6 +34,7 @@ pub type ItemAsset = Asset<ItemAssetData>;
 
 pub struct ItemAssetData {
     pub sprite: SpriteAsset,
+    pub quantitative: Option<TilesetAsset>,
 }
 
 pub type CropAsset = Asset<CropAssetData>;

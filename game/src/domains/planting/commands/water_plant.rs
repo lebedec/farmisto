@@ -9,10 +9,7 @@ impl PlantingDomain {
     ) -> Result<impl FnOnce() -> Vec<Planting> + '_, PlantingError> {
         let plant = self.get_plant_mut(id)?;
         let operation = move || {
-            plant.thirst -= amount;
-            if plant.thirst < 0.0 {
-                plant.thirst = 0.0;
-            }
+            plant.thirst = (plant.thirst - amount).max(0.0);
             vec![PlantUpdated {
                 id,
                 impact: plant.impact,

@@ -13,7 +13,7 @@ impl Gameplay {
         let farmer = match self.get_my_farmer_mut() {
             Some(farmer) => unsafe { &mut *farmer },
             None => {
-                error!("Farmer behaviour not initialized yet");
+                // error!("Farmer behaviour not initialized yet");
                 return;
             }
         };

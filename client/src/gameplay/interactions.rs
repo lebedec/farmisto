@@ -5,7 +5,7 @@ use game::assembling::Rotation;
 use game::building::{Marker, Structure};
 use game::inventory::Function;
 use game::inventory::Function::{
-    Assembly, Installation, Instrumenting, Moistener, Product, Seeding, Shovel, Stone,
+    Assembly, Fertilizer, Installation, Instrumenting, Moistener, Product, Seeding, Shovel, Stone,
 };
 use game::model::{Activity, CropKey, Purpose};
 
@@ -117,6 +117,9 @@ impl Gameplay {
                             }
                             (Moistener(_), Ground(place)) => {
                                 self.send_action(FarmerBound::PourWater { place });
+                            }
+                            (Fertilizer(_), Ground(tile)) => {
+                                self.send_action(FarmerBound::Fertilize { tile });
                             }
                             (Product(kind), Crop(crop)) => {
                                 if CropKey(kind) == crop.key {

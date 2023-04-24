@@ -1,8 +1,20 @@
 use crate::planting::Planting::PlantUpdated;
-use crate::planting::{Planting, PlantingDomain};
+use crate::planting::{PlantId, Planting, PlantingDomain, PlantingError};
 
 impl PlantingDomain {
     pub fn update_impact(&mut self) {}
+    
+    pub fn integrate_impact(&mut self, id: PlantId, impact: f32) -> Result<(), PlantingError> {
+        let plant = self.get_plant_mut(id)?;
+        plant.impact += impact;
+        if plant.impact < -1.0 {
+            plant.impact = -1.0;
+        }
+        if plant.impact > 1.0 {
+            plant.impact = 1.0;
+        }
+        Ok(())
+    }
 
     pub fn update(&mut self, time: f32) -> Vec<Planting> {
         let mut events = vec![];

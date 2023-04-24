@@ -253,6 +253,20 @@ impl Gameplay {
                     }
                 }
             }
+            Planting::SoilFertilityInspected {
+                soil,
+                fertility,
+                rect,
+            } => {
+                for farmland in self.farmlands.values_mut() {
+                    if farmland.entity.soil == soil {
+                        farmland
+                            .fertility
+                            .patch_rect(farmland.kind.soil.width, rect, fertility);
+                        break;
+                    }
+                }
+            }
         }
     }
 
@@ -514,7 +528,6 @@ impl Gameplay {
                     asset: deconstruction,
                 };
 
-                info!("Before insert !!! {}", std::mem::size_of::<FarmlandRep>());
                 self.farmlands.insert(
                     farmland,
                     FarmlandRep {
@@ -528,6 +541,7 @@ impl Gameplay {
                             assets.texture("./assets/texture/tiles-waterbody.png"),
                             assets.sampler("pixel-perfect"),
                         ),
+                        fertility: vec![0.0; 128 * 128],
                         cells,
                         rooms,
                         holes,
@@ -540,10 +554,8 @@ impl Gameplay {
                         times_of_day,
                     },
                 );
-                info!("Farmland created !!!")
             }
             Universe::FarmlandVanished(id) => {
-                info!("Vanish farmland {:?}", id);
                 self.farmlands.remove(&id);
             }
             Universe::FarmerAppeared {

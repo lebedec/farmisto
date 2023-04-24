@@ -526,9 +526,9 @@ pub struct FarmlandKey(pub usize);
 pub struct FarmlandKind {
     pub id: FarmlandKey,
     pub name: String,
-    pub space: SpaceKey,
-    pub soil: SoilKey,
-    pub grid: GridKey,
+    pub space: Shared<SpaceKind>,
+    pub soil: Shared<SoilKind>,
+    pub grid: Shared<GridKind>,
     pub land: Shared<LandKind>,
     pub calendar: Shared<CalendarKind>,
 }

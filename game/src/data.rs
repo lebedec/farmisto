@@ -278,9 +278,9 @@ impl Game {
         let data = FarmlandKind {
             id: FarmlandKey(row.get("id")?),
             name: row.get("name")?,
-            space: SpaceKey(row.get("space")?),
-            soil: SoilKey(row.get("soil")?),
-            grid: GridKey(row.get("grid")?),
+            space: self.known.spaces.find_by(row, "space")?,
+            soil: self.known.soils.find_by(row, "soil")?,
+            grid: self.known.grids.find_by(row, "grid")?,
             land: self.known.lands.find_by(row, "land")?,
             calendar: self.known.calendars.find_by(row, "calendar")?,
         };
@@ -793,6 +793,8 @@ impl Game {
         let data = SoilKind {
             id: SoilKey(row.get("id")?),
             name: row.get("name")?,
+            width: row.get("width")?,
+            height: row.get("height")?,
         };
         Ok(data)
     }
@@ -801,6 +803,7 @@ impl Game {
         let data = Soil {
             id: SoilId(row.get("id")?),
             kind: self.known.soils.get_by(row, "kind", SoilKey)?,
+            fertility: row.decode("fertility")?,
         };
         Ok(data)
     }

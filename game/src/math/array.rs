@@ -3,7 +3,10 @@ use log::info;
 
 pub trait Array2D<T> {
     fn extract_rect(&self, width: usize, rect: Rect) -> Vec<T>;
+
     fn patch_rect(&mut self, width: usize, rect: Rect, data: Vec<T>);
+    
+    
 }
 
 impl<T> Array2D<T> for Vec<T>
@@ -33,4 +36,8 @@ where
             self[dst_range].copy_from_slice(&src[src_range])
         }
     }
+}
+
+trait ArrayIndex {
+    
 }

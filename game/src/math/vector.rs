@@ -4,9 +4,22 @@ use std::iter::Map;
 pub type Tile = [usize; 2];
 pub type Rect = [usize; 4];
 
+pub trait TileOffsetMath {
+    fn fit_offset(self, width: usize) -> isize;
+}
+
+impl TileOffsetMath for [isize; 2] {
+    #[inline]
+    fn fit_offset(self, width: usize) -> isize {
+        self[0] + self[1] * width as isize
+    }
+}
+
 pub trait TileMath {
     fn add_offset(self, offset: [i8; 2]) -> Self;
+
     fn position(self) -> Position;
+
     fn fit(self, width: usize) -> usize;
 }
 

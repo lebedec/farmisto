@@ -88,6 +88,7 @@ pub struct FarmlandRep {
     pub moisture_capacity: Vec<f32>,
     pub surface: Vec<u8>,
     pub surface_tilemap: TilemapController,
+    pub fertility: Vec<f32>,
     pub cells: Vec<Vec<Cell>>,
     pub rooms: Vec<Room>,
     pub holes: Vec<Vec<u8>>,

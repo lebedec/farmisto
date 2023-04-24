@@ -102,14 +102,17 @@ create table Sensor
 
 create table SoilKind
 (
-    id   integer primary key,
-    name text not null unique
+    id     integer primary key,
+    name   text    not null unique,
+    width  integer not null,
+    height integer not null
 );
 
 create table Soil
 (
-    id   integer primary key,
-    kind integer not null references SoilKind (id)
+    id        integer primary key,
+    kind      integer             not null references SoilKind (id),
+    fertility blob collate binary not null
 );
 
 create table PlantKind
@@ -286,12 +289,12 @@ create table Tree
 create table FarmlandKind
 (
     id       integer primary key,
-    name     text    not null unique,
-    space    integer not null references SpaceKind (id),
-    soil     integer not null references SoilKind (id),
-    grid     integer not null references GridKind (id),
-    land     text    not null references LandKind (name),
-    calendar text    not null references CalendarKind (name)
+    name     text not null unique,
+    space    text not null references SpaceKind (name),
+    soil     text not null references SoilKind (name),
+    grid     text not null references GridKind (name),
+    land     text not null references LandKind (name),
+    calendar text not null references CalendarKind (name)
 );
 
 create table Farmland

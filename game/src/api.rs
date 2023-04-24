@@ -180,6 +180,9 @@ pub enum FarmerBound {
     PourWater {
         place: Tile,
     },
+    Fertilize {
+        tile: Tile,
+    },
     Relax {
         rest: Rest,
     },

@@ -14,6 +14,7 @@ class Editor:
 
     def __init__(self, connection: Connection):
         self.connection = connection
+        self.connection.execute("PRAGMA foreign_keys = ON")
 
     def add_farmer(self, kind_name: str, player: str, space: str, tile: Tuple[int, int]):
         execute_script(
@@ -71,6 +72,7 @@ class Editor:
             moisture: bytes,
             moisture_capacity: bytes,
             surface: bytes,
+            fertility: bytes,
             grid: bytes
     ) -> str:
         connection = self.connection
@@ -80,6 +82,7 @@ class Editor:
             'moisture:', len(moisture),
             'moisture_capacity:', len(moisture_capacity),
             'surface:', len(surface),
+            'fertility:', len(fertility),
             'grid:', len(grid)
         )
 
@@ -87,25 +90,39 @@ class Editor:
             'select id, space, soil, grid, land, calendar from FarmlandKind where name = ?',
             [kind]
         ).fetchone()
-        kind, space_kind, soil_kind, grid_kind, land_name, calendar_name = kind
+        kind, space_name, soil_name, grid_name, land_name, calendar_name = kind
 
-        connection.execute('insert into Space values (null, ?, ?)', [space_kind, holes])
+        space_kind = '(select id from SpaceKind where name = ?)'
+        connection.execute(
+            f'insert into Space values (null, {space_kind}, ?)',
+            [space_name, holes]
+        )
         space_id = '(select max(id) from Space)'
 
-        connection.execute('insert into Soil values (null, ?)', [soil_kind])
+        soil_kind = '(select id from SoilKind where name = ?)'
+        connection.execute(
+            f'insert into Soil values (null, {soil_kind}, ?)',
+            [soil_name, fertility]
+        )
         soil_id = '(select max(id) from Soil)'
 
-        connection.execute('insert into Grid values (null, ?, ?)', [grid_kind, grid])
+        grid_kind = '(select id from GridKind where name = ?)'
+        connection.execute(
+            f'insert into Grid values (null, {grid_kind}, ?)',
+            [grid_name, grid]
+        )
         grid_id = '(select max(id) from Grid)'
 
+        land_kind = '(select id from LandKind where name = ?)'
         connection.execute(
-            'insert into Land values (null, (select id from LandKind where name = ?), ?, ?, ?)',
+            f'insert into Land values (null, {land_kind}, ?, ?, ?)',
             [land_name, moisture, moisture_capacity, surface]
         )
         land_id = '(select max(id) from Land)'
 
+        calendar_kind = '(select id from CalendarKind where name = ?)'
         connection.execute(
-            'insert into Calendar values (null, (select id from CalendarKind where name = ?), 0, 0.0, 0.25)',
+            f'insert into Calendar values (null, {calendar_kind}, 0, 0.0, 0.25)',
             [calendar_name]
         )
         calendar_id = '(select max(id) from Calendar)'
@@ -131,11 +148,13 @@ class Material:
 def pack_bincode_length():
     return struct.pack('BBB', *[251, 0, 64])
 
+
 def generate_farmland(
         editor: Editor,
         farmland_kind: str,
         moisture_data: bytes,
         moisture_capacity_data: bytes,
+        fertility_data: bytes,
         objects: Dict[str, Callable[[Tuple[int, int], str], None]],
         buildings: Dict[str, Tuple[int, int, int, int]],
         surfaces: Dict[str, int],
@@ -184,6 +203,7 @@ def generate_farmland(
         moisture_data,
         moisture_capacity_data,
         surface_data.getvalue(),
+        fertility_data,
         grid_data.getvalue()
     )
     for tile, edit in edits:
@@ -216,6 +236,7 @@ def moisture_capacity_from_image(path: str) -> bytes:
             capacity = 0.7 - (image.getpixel((x, y)) / 255) * 0.7
             data.write(struct.pack('f', capacity))
     return data.getvalue()
+
 
 
 def execute_script(connection: Connection, script_path: str, **params):
@@ -286,8 +307,9 @@ def prototype_planting(destination_path: str, template_path: str):
     generate_farmland(
         editor,
         farmland_kind='test',
-        moisture_data=generate_feature_map(lambda _: 0.5),
+        moisture_data=generate_feature_map(lambda _: 0.0),
         moisture_capacity_data=moisture_capacity_from_image("../bin/data/noise.png"),
+        fertility_data=generate_feature_map(lambda _: 0.0),
         objects={
             'A': lambda tile, farmland: editor.add_farmer('farmer', 'Alice', farmland, tile),
             'B': lambda tile, farmland: editor.add_farmer('farmer', 'Boris', farmland, tile),
@@ -296,6 +318,7 @@ def prototype_planting(destination_path: str, template_path: str):
             's': lambda tile, farmland: editor.add_stack(farmland, tile, ['shovel'], 1),
             'r': lambda tile, farmland: editor.add_rest(farmland, tile, 'bed'),
             'w': lambda tile, farmland: editor.add_stack(farmland, tile, ['watering-can'], 1),
+            'f': lambda tile, farmland: editor.add_stack(farmland, tile, ['fertilizer'], 10),
         },
         buildings={
             # (wall, door, window, material)
@@ -316,8 +339,8 @@ def prototype_planting(destination_path: str, template_path: str):
         . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
         . . . . . . . . . s w . . . s w . . s w . . . . . ~ . . . . . ~ ~ ~ . . ~ . . . . . . . . . . . . . . . . . . . . . . . . . .
         . . . . . . . . . . . . . . . . . . . . . . . . ~ ~ ~ . . ~ . . . . . . ~ . . ~ . . . . . . . . . . . . . . . . . . . . . . .
-        . . . . . . . . . A B C D . . . . . . . . . . . ~ ~ ~ . . . . ~ ~ . . . . . ~ ~ ~ . . . . . . . . . . . . . . . . . . . . . .
-        . . . . . . . . . . . . . . . . . . . . . . ~ ~ ~ ~ ~ ~ ~ . . ~ ~ . . . ~ . . ~ . . . . . . . . . . . . . . . . . . . . . . .
+        . . . . . . . . . A B C D . . . . . f f . . . . ~ ~ ~ . . . . ~ ~ . . . . . ~ ~ ~ . . . . . . . . . . . . . . . . . . . . . .
+        . . . . . . . . . . . . . . . . . . f f . . ~ ~ ~ ~ ~ ~ ~ . . ~ ~ . . . ~ . . ~ . . . . . . . . . . . . . . . . . . . . . . .
         . . . . . . . . . . . . . . . . . . . . . ~ ~ ~ ~ ~ ~ ~ ~ ~ . . . . . . ~ . . . ~ . . . . . . . . . . . . . . . . . . . . . .
         . . . . . . . . . . . . . . . . . . . . . . ~ ~ ~ ~ ~ ~ ~ . . . ~ ~ . . ~ . . ~ ~ . . . . . . . . . . . . . . . . . . . . . .
         . . . . . . . . . . . . . . . . . . . . . . . . ~ ~ ~ . . . . . ~ ~ . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
@@ -342,6 +365,7 @@ def prototype_assembling(destination_path: str, template_path: str):
         farmland_kind='test',
         moisture_data=generate_feature_map(lambda _: 0.0),
         moisture_capacity_data=moisture_capacity_from_image("../bin/data/noise.png"),
+        fertility_data=generate_feature_map(lambda _: 0.0),
         objects={
             'A': lambda tile, farmland: editor.add_farmer('farmer', 'Alice', farmland, tile),
             'B': lambda tile, farmland: editor.add_farmer('farmer', 'Boris', farmland, tile),
@@ -408,6 +432,7 @@ def prototype_building(destination_path: str, template_path: str):
         farmland_kind='test',
         moisture_data=generate_feature_map(lambda _: 0.5),
         moisture_capacity_data=moisture_capacity_from_image("../bin/data/noise.png"),
+        fertility_data=generate_feature_map(lambda _: 0.0),
         objects={
             'A': lambda tile, farmland: editor.add_farmer('farmer', 'Alice', farmland, tile),
             'B': lambda tile, farmland: editor.add_farmer('farmer', 'Boris', farmland, tile),

@@ -515,8 +515,10 @@ impl Assets {
     pub fn load_item_data(&mut self, id: &str) -> Result<ItemAssetData, serde_json::Error> {
         let entry = self.storage.fetch_one::<ItemAssetData>(id);
         let sprite: String = entry.get("sprite")?;
+        let quantitative: Option<String> = entry.get("quantitative")?;
         let data = ItemAssetData {
             sprite: self.sprite(&sprite),
+            quantitative: quantitative.map(|name| self.tileset(&name)),
         };
         Ok(data)
     }
