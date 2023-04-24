@@ -17,8 +17,9 @@ impl Game {
         self.ensure_target_reachable(farmland.space, farmer, tile.position())?;
         let item = self.inventory.get_container_item(farmer.hands)?;
         let quality = item.kind.functions.as_fertilizer()?;
+        let decrease_item = self.inventory.decrease_item(farmer.hands)?;
         let fertilize = self.planting.fertilize(farmland.soil, tile, quality)?;
-        let events = occur![fertilize(),];
+        let events = occur![decrease_item(), fertilize(),];
         Ok(events)
     }
 }

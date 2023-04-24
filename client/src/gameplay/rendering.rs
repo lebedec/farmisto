@@ -177,7 +177,8 @@ impl Gameplay {
                     let index = [ix, iy].fit(farmland.kind.land.width);
                     let moisture = farmland.moisture[index];
                     let capacity = farmland.moisture_capacity[index];
-                    map[y][x] = [capacity, moisture, 1.0, 0.0];
+                    let fertility = farmland.fertility[index];
+                    map[y][x] = [capacity, moisture, fertility, 0.0];
                 }
             }
             scene.render_ground(
@@ -473,7 +474,7 @@ impl Gameplay {
             {
                 let offset = [32.0, -192.0 - (32.0 * i as f32)];
                 scene.render_sprite(
-                    &item.asset.sprite,
+                    &item.sprite(),
                     xy(rendering_position.add(offset)).sorting(item_sorting - 1),
                 );
             }
@@ -499,7 +500,7 @@ impl Gameplay {
             {
                 let offset = [0.0, -128.0 - (32.0 * i as f32)];
                 scene.render_sprite(
-                    &item.asset.sprite,
+                    &item.sprite(),
                     xy(rendering_position.add(offset)).sorting(item_sorting + 1),
                 );
             }
@@ -812,7 +813,7 @@ fn render_items_stack(
                     -24.0 + (48.0 * (i % 2) as f32) - (48.0 * (i / 2) as f32),
                 ];
                 scene.render_sprite(
-                    &item.asset.sprite,
+                    item.sprite(),
                     xy(center.add(offset)).sorting(center[1] as isize),
                 );
             }

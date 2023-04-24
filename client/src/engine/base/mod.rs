@@ -239,6 +239,7 @@ impl Base {
                 .unwrap();
 
             let present_queue = device.get_device_queue(queue_family_index as u32, 0);
+            let working_queue = device.get_device_queue(queue_family_index as u32, 1);
 
             let swapchain_loader = Swapchain::new(&instance, &device);
             let swapchain = Self::create_swapchain(&instance, &screen, &device);
@@ -322,6 +323,13 @@ impl Base {
                 device: device.clone(),
                 device_memory: device_memory_properties,
                 handle: Mutex::new(present_queue),
+                family: queue_family_index,
+            });
+
+            let working_queue = Arc::new(MyQueue {
+                device: device.clone(),
+                device_memory: device_memory_properties,
+                handle: Mutex::new(working_queue),
                 family: queue_family_index,
             });
 

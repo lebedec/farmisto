@@ -254,7 +254,6 @@ impl TextureAssetData {
             &queue.device_memory,
         );
         let queue = queue.handle.lock().unwrap();
-
         let transition = ImageLayoutTransition::new(device, pool, *queue, image.image);
         transition.specify_layout(
             vk::ImageLayout::UNDEFINED,

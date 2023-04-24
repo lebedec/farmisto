@@ -1,5 +1,5 @@
 use game::assembling::Rotation;
-use log::error;
+use log::{error, info};
 use rusty_spine::Skin;
 use std::collections::HashMap;
 
@@ -13,7 +13,7 @@ use game::model::{
 };
 use game::physics::BodyKind;
 
-use crate::assets::{BuildingMaterialAsset, CreatureAsset};
+use crate::assets::{BuildingMaterialAsset, CreatureAsset, SpriteAsset};
 use crate::assets::{CementerAsset, FarmerAsset};
 use crate::assets::{CropAsset, DoorAsset};
 use crate::assets::{FarmlandAsset, ItemAsset};
@@ -186,6 +186,19 @@ pub struct ItemRep {
     pub asset: ItemAsset,
     pub container: ContainerId,
     pub quantity: u8,
+}
+
+impl ItemRep {
+    pub fn sprite(&self) -> &SpriteAsset {
+        if let Some(tileset) = self.asset.quantitative.as_ref() {
+            let n = tileset.tiles.len() as f32;
+            let f = 1.0 - (self.quantity as f32 / self.kind.max_quantity as f32).min(1.0);
+            let i = (f * n - 0.55).round() as usize;
+            &tileset.tiles[i]
+        } else {
+            &self.asset.sprite
+        }
+    }
 }
 
 pub struct CropRep {

@@ -1,5 +1,7 @@
+use ash::vk::FenceCreateInfo;
 use ash::{vk, Device};
 use std::ptr;
+use std::time::Duration;
 
 pub struct Single {
     pub buffer: vk::CommandBuffer,
@@ -61,6 +63,15 @@ impl Single {
         }];
 
         unsafe {
+            // let fence = device
+            //     .create_fence(&FenceCreateInfo::builder().build(), None)
+            //     .unwrap();
+            // device.queue_submit(queue, &info, fence).unwrap();
+            // device
+            //     .wait_for_fences(&[fence], true, Duration::from_secs(10).as_nanos() as u64)
+            //     .unwrap();
+            // device.free_command_buffers(self.command_pool, &buffers);
+
             device
                 .queue_submit(queue, &info, vk::Fence::null())
                 .unwrap();

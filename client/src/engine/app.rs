@@ -204,6 +204,7 @@ pub fn startup<A: App>(title: String) {
                     },
                 },
             ];
+
             let present_queue = base.queue.handle.lock().unwrap();
             let frame_command_buffer = base.command_buffers[present_index as usize];
             let present = {
