@@ -49,6 +49,7 @@ pub struct PlantKind {
     pub growth: f32,
     pub flexibility: f32,
     pub transpiration: f32,
+    pub max_fruits: f32,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
@@ -64,7 +65,7 @@ pub struct Plant {
     pub hunger: f32,
     pub health: f32,
     pub growth: f32,
-    pub fruits: u8,
+    pub fruits: f32,
 }
 
 #[derive(Debug, bincode::Encode, bincode::Decode)]
@@ -80,9 +81,9 @@ pub enum Planting {
         id: PlantId,
         health: f32,
     },
-    PlantHarvested {
+    PlantFruitsChanged {
         id: PlantId,
-        fruits: u8,
+        fruits: f32,
     },
     SoilFertilityInspected {
         soil: SoilId,

@@ -817,6 +817,7 @@ impl Game {
             growth: row.get("growth")?,
             flexibility: row.get("flexibility")?,
             transpiration: row.get("transpiration")?,
+            max_fruits: row.get("max_fruits")?,
         };
         Ok(data)
     }

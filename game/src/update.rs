@@ -80,10 +80,20 @@ impl Game {
                 .request_consumption(farmland.land, place, consumption)
                 .unwrap();
             let lack = consumption - consumed;
-
             self.planting
                 .integrate_thirst(crop.plant, lack, consumption)
                 .unwrap();
+
+            let consumption = (1.0 / (360.0 * 3.0)) * time;
+            let consumed = self
+                .planting
+                .request_fertility_consumption(farmland.soil, place, consumption)
+                .unwrap();
+            let lack = consumption - consumed;
+            self.planting
+                .integrate_hunger(crop.plant, lack, consumption)
+                .unwrap();
+
             self.planting
                 .integrate_impact(crop.plant, impact[0])
                 .unwrap();

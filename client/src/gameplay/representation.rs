@@ -205,14 +205,13 @@ pub struct CropRep {
     pub entity: Crop,
     pub asset: CropAsset,
     pub spines: Vec<SpineRenderController>,
-    pub spine: usize,
     pub position: [f32; 2],
     pub impact: f32,
     pub thirst: f32,
     pub hunger: f32,
     pub growth: f32,
     pub health: f32,
-    pub fruits: u8,
+    pub fruits: f32,
 }
 
 impl CropRep {
@@ -238,17 +237,17 @@ impl CropRep {
         self.hunger = hunger;
     }
 
-    pub fn animate_growth(&mut self, _time: f32) {
-        self.spine = self.growth.floor() as usize;
+    pub fn spine(&self) -> usize {
+        (self.growth.floor() as usize).min(4)
     }
 
-    pub fn synchronize_fruits(&mut self, fruits: u8) {
+    pub fn synchronize_fruits(&mut self, fruits: f32) {
         self.fruits = fruits;
         let ripening = &mut self.spines[3];
         let skins = ripening.skeleton.skeleton.data();
         let skin_names = ["fruit-a", "fruit-b", "fruit-c"];
         let mut skin = Skin::new(&format!("fruits-{}", fruits));
-        for name in &skin_names[0..fruits as usize] {
+        for name in &skin_names[0..(fruits as usize).min(skin_names.len())] {
             // TODO: validate skins on load
             let fruit = skins.find_skin(name).unwrap();
             skin.add_skin(&fruit);

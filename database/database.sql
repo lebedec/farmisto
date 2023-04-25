@@ -121,7 +121,8 @@ create table PlantKind
     name          text not null unique,
     growth        real not null,
     flexibility   real not null,
-    transpiration real not null
+    transpiration real not null,
+    max_fruits    real not null
 );
 
 create table Plant
@@ -134,7 +135,7 @@ create table Plant
     hunger real    not null,
     health real    not null,
     growth real    not null,
-    fruits integer not null
+    fruits real    not null
 );
 
 -- Landscaping

@@ -66,7 +66,7 @@ impl LandscapingDomain {
                         fluid += 1;
                     }
                 }
-                let fluid = (fluid as f32 / 8.0).max(1.0);
+                let fluid = (fluid as f32 / 8.0).min(1.0);
                 flow.push((place, fluid));
             }
         }

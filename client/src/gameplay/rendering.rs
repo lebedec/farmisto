@@ -54,8 +54,8 @@ impl Gameplay {
             creature.spine.skeleton.update(time);
         }
         for crop in self.crops.values_mut() {
-            crop.animate_growth(time);
-            if let Some(mut impact_bone) = crop.spines[crop.spine]
+            let current_spine = crop.spine();
+            if let Some(mut impact_bone) = crop.spines[current_spine]
                 .skeleton
                 .skeleton
                 .find_bone_mut("impact")
@@ -67,7 +67,7 @@ impl Gameplay {
                     impact_bone.set_rotation(-crop.impact * 90.0);
                 }
             }
-            let mut growth = crop.spines[crop.spine]
+            let mut growth = crop.spines[current_spine]
                 .skeleton
                 .animation_state
                 .track_at_index_mut(CropRep::ANIMATION_TRACK_GROWTH as usize)
@@ -106,7 +106,7 @@ impl Gameplay {
             // let f = 50.0 * (1.0 / 30.0);
             // development.set_animation_start(f);
             // development.set_animation_end(f);
-            crop.spines[crop.spine].skeleton.update(time);
+            crop.spines[current_spine].skeleton.update(time);
         }
     }
 
@@ -562,7 +562,7 @@ impl Gameplay {
             let offset_y: f32 = random.gen_range(-0.05..0.05);
             let offset = [offset_x, offset_y];
             scene.render_plant(
-                &crop.spines[crop.spine],
+                &crop.spines[crop.spine()],
                 crop.asset.damage_mask.share(),
                 rendering_position_of(crop.position.add(offset)),
                 crop.health,

@@ -237,7 +237,7 @@ impl Gameplay {
                     }
                 }
             }
-            Planting::PlantHarvested { id, fruits } => {
+            Planting::PlantFruitsChanged { id, fruits } => {
                 for crop in self.crops.values_mut() {
                     if crop.entity.plant == id {
                         crop.synchronize_fruits(fruits);
@@ -745,7 +745,6 @@ impl Gameplay {
                         .set_animation_by_name(CropRep::ANIMATION_TRACK_GROWTH, "growth", true)
                         .unwrap();
                 }
-                let spine = 0;
 
                 // let mut spine = renderer.instantiate_spine(&asset.spine, colors);
                 //let spine_data = spine.skeleton.skeleton.data();
@@ -788,14 +787,13 @@ impl Gameplay {
                     entity,
                     asset,
                     spines,
-                    spine,
                     position,
                     impact,
                     thirst,
                     hunger,
                     growth,
                     health,
-                    fruits: 0,
+                    fruits,
                 };
                 representation.synchronize_fruits(fruits);
                 self.crops.insert(entity, representation);

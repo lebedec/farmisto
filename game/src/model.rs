@@ -124,7 +124,7 @@ pub enum Universe {
         hunger: f32,
         growth: f32,
         health: f32,
-        fruits: u8,
+        fruits: f32,
         position: [f32; 2],
     },
     CropVanished(Crop),

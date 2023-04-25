@@ -18,7 +18,7 @@ impl PlantingDomain {
             hunger: 0.0,
             health: 1.0,
             growth: 0.0,
-            fruits: 3,
+            fruits: kind.max_fruits,
         };
         let operation = move || {
             let events = vec![];
