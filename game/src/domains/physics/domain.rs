@@ -1,4 +1,5 @@
 use core::fmt::{Debug, Formatter};
+use std::collections::{HashMap, HashSet};
 
 use crate::collections::Shared;
 use crate::math::Collider;
@@ -111,6 +112,7 @@ pub struct Sensor {
     pub position: [f32; 2],
     pub space: SpaceId,
     pub signals: Vec<[f32; 2]>,
+    pub registered: HashSet<BodyId>,
 }
 
 #[derive(bincode::Encode, bincode::Decode)]

@@ -3,10 +3,23 @@ use std::collections::HashSet;
 use rand::rngs::ThreadRng;
 use rand::Rng;
 
-use crate::landscaping::{Land, Landscaping, LandscapingDomain, Surface};
+use crate::landscaping::{Land, LandId, Landscaping, LandscapingDomain, LandscapingError, Surface};
 use crate::math::TileOffsetMath;
 
 impl LandscapingDomain {
+    pub fn request_consumption(
+        &mut self,
+        land: LandId,
+        place: usize,
+        expected: f32,
+    ) -> Result<f32, LandscapingError> {
+        let land = self.get_land_mut(land)?;
+        let moisture = land.moisture[place];
+        let delta = expected.min(moisture);
+        land.moisture[place] -= delta;
+        Ok(delta)
+    }
+
     pub fn update(&mut self, time: f32, random: ThreadRng) -> Vec<Landscaping> {
         for land in self.lands.values_mut() {
             LandscapingDomain::drain(land, time, random.clone());

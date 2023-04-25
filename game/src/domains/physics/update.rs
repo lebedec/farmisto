@@ -1,5 +1,6 @@
 use crate::math::{collide_circle_to_circle, test_collisions, VectorMath};
 use crate::physics::{Hole, Physics, PhysicsDomain};
+use std::collections::HashSet;
 
 const MAX_ELAPSED_TIME: f32 = 0.03; // 40 ms
 
@@ -88,6 +89,7 @@ impl PhysicsDomain {
             for index in 0..sensors.len() {
                 let sensor = &mut sensors[index];
                 sensor.signals = vec![];
+                let mut now = HashSet::new();
                 for body in &self.bodies[space.id.0] {
                     let collision = collide_circle_to_circle(
                         sensor.position,
@@ -96,7 +98,16 @@ impl PhysicsDomain {
                         body.kind.radius,
                     );
                     if let Some(_) = collision {
-                        sensor.signals.push(body.position.sub(sensor.position));
+                        now.insert(body.id);
+                        if !sensor.registered.contains(&body.id) {
+                            sensor.registered.insert(body.id);
+                            sensor.signals.push(body.position.sub(sensor.position));
+                        }
+                    }
+                }
+                for body in sensor.registered.clone() {
+                    if !now.contains(&body) {
+                        sensor.registered.remove(&body);
                     }
                 }
             }

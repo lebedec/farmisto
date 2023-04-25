@@ -44,6 +44,7 @@ impl PhysicsDomain {
             position,
             space,
             signals: vec![],
+            registered: Default::default(),
         };
         let operation = move || {
             let events = vec![BarrierCreated {

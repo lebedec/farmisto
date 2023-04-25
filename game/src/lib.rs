@@ -188,8 +188,11 @@ impl Game {
                         self.toggle_surveying_option(farmer, option)?
                     }
                     FarmerBound::PlantCrop { tile } => self.plant_crop(farmer, farmland, tile)?,
+                    FarmerBound::DigUpCrop { crop } => self.dig_up_crop(farmer, farmland, crop)?,
                     FarmerBound::WaterCrop { crop } => self.water_crop(farmer, crop)?,
-                    FarmerBound::HarvestCrop { crop } => self.harvest_crop(farmer, crop)?,
+                    FarmerBound::HarvestCrop { crop } => {
+                        self.harvest_crop(farmer, farmland, crop)?
+                    }
                     FarmerBound::StartAssembly {
                         pivot: tile,
                         rotation,

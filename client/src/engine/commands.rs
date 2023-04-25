@@ -6,6 +6,7 @@ use std::time::Duration;
 pub struct Single {
     pub buffer: vk::CommandBuffer,
     command_pool: vk::CommandPool,
+    fence: vk::Fence,
 }
 
 impl Single {
@@ -37,9 +38,16 @@ impl Single {
                 .unwrap();
         }
 
+        let fence = unsafe {
+            device
+                .create_fence(&FenceCreateInfo::builder().build(), None)
+                .unwrap()
+        };
+
         Self {
             buffer,
             command_pool,
+            fence,
         }
     }
 
@@ -63,20 +71,22 @@ impl Single {
         }];
 
         unsafe {
-            // let fence = device
-            //     .create_fence(&FenceCreateInfo::builder().build(), None)
-            //     .unwrap();
-            // device.queue_submit(queue, &info, fence).unwrap();
-            // device
-            //     .wait_for_fences(&[fence], true, Duration::from_secs(10).as_nanos() as u64)
-            //     .unwrap();
-            // device.free_command_buffers(self.command_pool, &buffers);
-
-            device
-                .queue_submit(queue, &info, vk::Fence::null())
+            let fence = device
+                .create_fence(&FenceCreateInfo::builder().build(), None)
                 .unwrap();
-            device.queue_wait_idle(queue).unwrap();
+            device.queue_submit(queue, &info, fence).unwrap();
+            device
+                .wait_for_fences(&[fence], true, Duration::from_secs(10).as_nanos() as u64)
+                .unwrap();
             device.free_command_buffers(self.command_pool, &buffers);
+
+            // device
+            //     .queue_submit(queue, &info, vk::Fence::null())
+            //     .unwrap();
+            // device.queue_wait_idle(queue).unwrap();
+            // device.free_command_buffers(self.command_pool, &buffers);
         }
     }
+
+    pub fn wait() {}
 }

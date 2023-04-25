@@ -40,7 +40,8 @@ pub enum Function {
     Assembly(usize),
     Stone,
     Moistener(Nozzle),
-    Fertilizer(f32)
+    Fertilizer(f32),
+    Residue,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]

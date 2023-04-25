@@ -2,6 +2,7 @@ use crate::api::{ActionError, Event};
 use crate::inventory::FunctionsQuery;
 use crate::model::{Activity, CropKey, Farmer, Farmland};
 use crate::{occur, position_of, Game};
+use crate::math::TileMath;
 
 impl Game {
     pub(crate) fn plant_crop(
@@ -11,6 +12,8 @@ impl Game {
         tile: [usize; 2],
     ) -> Result<Vec<Event>, ActionError> {
         self.universe.ensure_activity(farmer, Activity::Usage)?;
+        let destination = tile.position();
+        self.ensure_target_reachable(farmland.space, farmer, destination)?;
         let item = self.inventory.get_container_item(farmer.hands)?;
         let key = item.kind.functions.as_seeds(CropKey)?;
         let kind = self.known.crops.get(key)?;

@@ -3,7 +3,7 @@ use rand::thread_rng;
 
 use crate::api::Event;
 use crate::inventory::ItemId;
-use crate::math::VectorMath;
+use crate::math::{TileMath, VectorMath};
 use crate::model::Activity;
 use crate::{occur, Game};
 
@@ -59,14 +59,31 @@ impl Game {
             }
         }
 
+        // TODO: optimize by farmland
         for crop in &self.universe.crops {
             let sensor = self.physics.get_sensor(crop.sensor).unwrap();
+            let farmland = self.universe.get_farmland_by_space(sensor.space).unwrap();
+            let farmland_kind = self.known.farmlands.get(farmland.kind).unwrap();
+            let place = sensor.position.to_tile().fit(farmland_kind.land.width);
+            let plant = self.planting.get_plant(crop.plant).unwrap();
+            let plant_transpiration = plant.kind.transpiration;
+
             let mut impact = [0.0, 0.0];
             for signal in &sensor.signals {
                 impact = impact.add(*signal);
             }
             impact = impact.normalize().neg();
 
+            let consumption = plant_transpiration * time;
+            let consumed = self
+                .landscaping
+                .request_consumption(farmland.land, place, consumption)
+                .unwrap();
+            let lack = consumption - consumed;
+
+            self.planting
+                .integrate_thirst(crop.plant, lack, consumption)
+                .unwrap();
             self.planting
                 .integrate_impact(crop.plant, impact[0])
                 .unwrap();

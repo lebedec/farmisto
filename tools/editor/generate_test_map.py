@@ -317,6 +317,7 @@ def prototype_planting(destination_path: str, template_path: str):
             'D': lambda tile, farmland: editor.add_farmer('farmer', 'David', farmland, tile),
             's': lambda tile, farmland: editor.add_stack(farmland, tile, ['shovel'], 1),
             'r': lambda tile, farmland: editor.add_rest(farmland, tile, 'bed'),
+            'e': lambda tile, farmland: editor.add_stack(farmland, tile, ['seeds'], 10),
             'w': lambda tile, farmland: editor.add_stack(farmland, tile, ['watering-can'], 1),
             'f': lambda tile, farmland: editor.add_stack(farmland, tile, ['fertilizer'], 10),
         },
@@ -339,8 +340,8 @@ def prototype_planting(destination_path: str, template_path: str):
         . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
         . . . . . . . . . s w . . . s w . . s w . . . . . ~ . . . . . ~ ~ ~ . . ~ . . . . . . . . . . . . . . . . . . . . . . . . . .
         . . . . . . . . . . . . . . . . . . . . . . . . ~ ~ ~ . . ~ . . . . . . ~ . . ~ . . . . . . . . . . . . . . . . . . . . . . .
-        . . . . . . . . . A B C D . . . . . f f . . . . ~ ~ ~ . . . . ~ ~ . . . . . ~ ~ ~ . . . . . . . . . . . . . . . . . . . . . .
-        . . . . . . . . . . . . . . . . . . f f . . ~ ~ ~ ~ ~ ~ ~ . . ~ ~ . . . ~ . . ~ . . . . . . . . . . . . . . . . . . . . . . .
+        . . . . . . . . . A B C D . . e e . f f . . . . ~ ~ ~ . . . . ~ ~ . . . . . ~ ~ ~ . . . . . . . . . . . . . . . . . . . . . .
+        . . . . . . . . . . . . . . . e e . f f . . ~ ~ ~ ~ ~ ~ ~ . . ~ ~ . . . ~ . . ~ . . . . . . . . . . . . . . . . . . . . . . .
         . . . . . . . . . . . . . . . . . . . . . ~ ~ ~ ~ ~ ~ ~ ~ ~ . . . . . . ~ . . . ~ . . . . . . . . . . . . . . . . . . . . . .
         . . . . . . . . . . . . . . . . . . . . . . ~ ~ ~ ~ ~ ~ ~ . . . ~ ~ . . ~ . . ~ ~ . . . . . . . . . . . . . . . . . . . . . .
         . . . . . . . . . . . . . . . . . . . . . . . . ~ ~ ~ . . . . . ~ ~ . . . . . . . . . . . . . . . . . . . . . . . . . . . . .

@@ -51,6 +51,7 @@ pub struct Land {
     pub surface: Vec<u8>,
 }
 
+
 #[derive(Debug, bincode::Encode, bincode::Decode)]
 pub enum Landscaping {
     MoistureInspected {

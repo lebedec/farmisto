@@ -97,6 +97,10 @@ impl Gameplay {
                                 self.send_action(FarmerBound::Install { tile });
                                 break;
                             }
+                            (Shovel, Crop(crop)) => {
+                                self.send_action(FarmerBound::DigUpCrop { crop });
+                                break;
+                            }
                             (Shovel, Ground(tile)) => {
                                 self.send_action(FarmerBound::DigPlace { place: tile });
                                 break;

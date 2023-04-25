@@ -366,7 +366,8 @@ create table CropKind
     plant   text not null references PlantKind (name),
     barrier text not null references BarrierKind (name),
     sensor  text not null references SensorKind (name),
-    fruits  text not null references ItemKind (name)
+    fruits  text not null references ItemKind (name),
+    residue text not null references ItemKind (name)
 );
 
 create table Crop

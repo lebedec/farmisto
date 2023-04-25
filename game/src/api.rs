@@ -134,6 +134,9 @@ pub enum FarmerBound {
     PlantCrop {
         tile: [usize; 2],
     },
+    DigUpCrop {
+        crop: Crop,
+    },
     WaterCrop {
         crop: Crop,
     },

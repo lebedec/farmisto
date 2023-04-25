@@ -1,11 +1,17 @@
-use crate::{Game, occur};
 use crate::api::{ActionError, Event};
 use crate::inventory::{FunctionsQuery, InventoryError, ItemId};
-use crate::model::{Activity, Crop, CropKey, Farmer};
+use crate::model::{Activity, Crop, CropKey, Farmer, Farmland};
+use crate::{occur, Game};
 
 impl Game {
-    
-    pub(crate) fn harvest_crop(&mut self, farmer: Farmer, crop: Crop) -> Result<Vec<Event>, ActionError> {
+    pub(crate) fn harvest_crop(
+        &mut self,
+        farmer: Farmer,
+        farmland: Farmland,
+        crop: Crop,
+    ) -> Result<Vec<Event>, ActionError> {
+        let destination = self.physics.get_barrier(crop.barrier)?.position;
+        self.ensure_target_reachable(farmland.space, farmer, destination)?;
         let crop_kind = self.known.crops.get(crop.key).unwrap();
         let item_kind = &crop_kind.fruits;
         let (new_harvest, capacity) = match self.inventory.get_container_item(farmer.hands) {

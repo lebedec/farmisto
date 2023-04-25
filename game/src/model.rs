@@ -356,6 +356,15 @@ impl UniverseDomain {
         }
     }
 
+    pub(crate) fn vanish_crop(&mut self, id: Crop) -> Vec<Universe> {
+        if let Some(index) = self.crops.iter().position(|crop| crop == &id) {
+            self.crops.remove(index);
+            vec![Universe::CropVanished(id)]
+        } else {
+            vec![]
+        }
+    }
+
     pub(crate) fn vanish_rest(&mut self, id: Rest) -> Vec<Universe> {
         if let Some(index) = self.rests.iter().position(|rest| rest == &id) {
             self.rests.remove(index);
@@ -608,6 +617,7 @@ pub struct CropKind {
     pub barrier: Shared<BarrierKind>,
     pub sensor: Shared<SensorKind>,
     pub fruits: Shared<ItemKind>,
+    pub residue: Shared<ItemKind>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]

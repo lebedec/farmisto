@@ -2,13 +2,13 @@ use crate::physics::Physics::BarrierDestroyed;
 use crate::physics::{BarrierId, Physics, PhysicsDomain, PhysicsError};
 
 impl PhysicsDomain {
-    pub fn destroy_barrier<'operation>(
-        &'operation mut self,
+    pub fn destroy_barrier(
+        & mut self,
         id: BarrierId,
-    ) -> Result<impl FnOnce() -> Vec<Physics> + 'operation, PhysicsError> {
+    ) -> Result<impl FnOnce() -> Vec<Physics> + '_, PhysicsError> {
         let barrier = self.get_barrier(id)?;
         let space = barrier.space;
-        let operation = move || {
+        let command = move || {
             let index = self.barriers[space.0]
                 .iter()
                 .position(|barrier| barrier.id == id)
@@ -21,6 +21,6 @@ impl PhysicsDomain {
                 position: barrier.position,
             }]
         };
-        Ok(operation)
+        Ok(command)
     }
 }

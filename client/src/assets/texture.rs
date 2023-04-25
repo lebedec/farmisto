@@ -188,8 +188,11 @@ impl TextureAssetData {
             data_ptr.copy_from_nonoverlapping(image_data, image_data_len);
             device.unmap_memory(staging_buffer_memory);
         }
-        let queue = queue.handle.lock().unwrap();
-        let transition = ImageLayoutTransition::new(device, pool, *queue, self.image);
+
+        let transition = {
+            let queue = queue.handle.lock().unwrap();
+            ImageLayoutTransition::new(device, pool, *queue, self.image)
+        };
         transition.specify_layout(
             vk::ImageLayout::UNDEFINED,
             vk::ImageLayout::TRANSFER_DST_OPTIMAL,

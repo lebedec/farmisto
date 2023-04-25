@@ -334,6 +334,7 @@ impl Game {
             barrier: self.known.barriers.find_by(row, "barrier")?,
             sensor: self.known.sensors.find_by(row, "sensor")?,
             fruits: self.known.items.find_by(row, "fruits")?,
+            residue: self.known.items.find_by(row, "residue")?,
         };
         Ok(data)
     }
@@ -605,6 +606,7 @@ impl Game {
             position: row.get_json("position")?,
             space: SpaceId(row.get("space")?),
             signals: row.get_json("signals")?,
+            registered: Default::default(),
         };
         Ok(data)
     }

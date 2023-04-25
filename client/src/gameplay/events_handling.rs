@@ -231,7 +231,7 @@ impl Gameplay {
                     if crop.entity.plant == id {
                         crop.synchronize_impact(impact);
                         crop.synchronize_thirst(thirst);
-                        crop.synchronize_thirst(hunger);
+                        crop.synchronize_hunger(hunger);
                         crop.synchronize_growth(growth);
                         break;
                     }

@@ -2,6 +2,7 @@ use std::collections::HashMap;
 use std::fmt::format;
 
 use lazy_static::lazy_static;
+use log::info;
 use rand::prelude::*;
 
 use game::assembling::Rotation;
@@ -59,9 +60,10 @@ impl Gameplay {
                 .skeleton
                 .find_bone_mut("impact")
             {
+                info!("IMPACT REnDER {}", crop.impact);
                 if crop.impact > 0.0 {
                     impact_bone.set_rotation(360.0 - crop.impact * 90.0);
-                } else {
+                } else if crop.impact < 0.0 {
                     impact_bone.set_rotation(-crop.impact * 90.0);
                 }
             }
@@ -566,8 +568,7 @@ impl Gameplay {
                 crop.health,
                 crop.thirst,
                 [
-                    // [1.0, 1.0 - crop.thirst * 0.5, 1.0 - crop.thirst * 0.75, 1.0],
-                    [1.0, 1.0, 1.0, 1.0],
+                    [1.0, 1.0 - crop.thirst * 0.5, 1.0 - crop.thirst * 0.75, 1.0],
                     [1.0, 1.0, 1.0, 1.0],
                     [1.0, 1.0, 1.0, 1.0],
                     [1.0, 1.0, 1.0, 1.0],
