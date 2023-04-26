@@ -52,6 +52,17 @@ take on planet environment challenges.
   Suite supports the entirety of the game development process — external editors formats import and export,
   performance monitoring, instrumentation, AI configuration, scripting to customize the game creation scenarios, etc.
 
+- [testing](testing)
+  
+  A dynamic Rust library contains FFI of game testing scenarios to be able to use it in any testing framework, in 
+  other programming languages.
+
+- [tests](tests)
+  
+  A game tests focuses on obtaining a clear understanding of desired game behavior through discussion with QA, 
+  players or non-programmers participants. It implements BDD.
+  
+
 ## Design Principles
 
 ### Database as Single Source of Data
