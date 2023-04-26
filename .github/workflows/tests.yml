@@ -20,7 +20,9 @@ jobs:
       run: cargo --version
     - name: Prepare Python
       run: python --version
+    - name: Prepare fs
+      run: ls
     - name: Install requirements
       run: pip3 install -r tests/requirements.txt
     - name: Run tests
-      run: behave tests
+      run: cd tests && behave .
