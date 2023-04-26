@@ -431,11 +431,12 @@ create table Rest
 
 create table AssemblyKind
 (
-    id         integer primary key,
-    name       text not null unique,
-    t_door     text references DoorKind (name),
-    t_cementer text references CementerKind (name),
-    t_rest     text references RestKind (name)
+    id          integer primary key,
+    name        text not null unique,
+    t_door      text references DoorKind (name),
+    t_cementer  text references CementerKind (name),
+    t_rest      text references RestKind (name),
+    t_composter text references ComposterKind (name)
 );
 
 create table Assembly
@@ -463,6 +464,31 @@ create table Cementer
 (
     id        integer primary key,
     kind      integer not null references CementerKind (id),
+    input     integer not null references Container (id),
+    device    integer not null references Device (id),
+    output    integer not null references Container (id),
+    barrier   integer not null references Barrier (id),
+    placement integer not null references Placement (id)
+);
+
+create table ComposterKind
+(
+    id            integer primary key,
+    name          text not null unique,
+    kit           text references ItemKind (name),
+    barrier       text references BarrierKind (name),
+    device        text references DeviceKind (name),
+    input_offset  json not null,
+    input         text references ContainerKind (name),
+    output_offset json not null,
+    output        text references ContainerKind (name),
+    compost       text references ItemKind (name)
+);
+
+create table Composter
+(
+    id        integer primary key,
+    kind      integer not null references ComposterKind (id),
     input     integer not null references Container (id),
     device    integer not null references Device (id),
     output    integer not null references Container (id),

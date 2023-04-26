@@ -149,3 +149,10 @@ create table CementerAssetData
     id      text primary key unique,
     sprites text not null references TilesetAssetData
 );
+
+create table ComposterAssetData
+(
+    id      text primary key unique,
+    sprites text not null references TilesetAssetData
+);
+

@@ -1,7 +1,7 @@
 use crate::api::{ActionError, Event};
 use crate::inventory::ContainerId;
 use crate::math::TileMath;
-use crate::model::{Activity, Cementer, Construction, Farmer, Farmland, Stack};
+use crate::model::{Activity, Cementer, Composter, Construction, Farmer, Farmland, Stack};
 use crate::{occur, Game};
 
 impl Game {
@@ -46,6 +46,28 @@ impl Game {
             let destination = placement.pivot.add_offset(offset).position();
             self.ensure_target_reachable(farmland.space, farmer, destination)?;
             self.put_item_into_container(farmer, cementer.output)
+        }
+    }
+
+    pub(crate) fn put_item_into_composter(
+        &mut self,
+        farmer: Farmer,
+        farmland: Farmland,
+        composter: Composter,
+        container: ContainerId,
+    ) -> Result<Vec<Event>, ActionError> {
+        let placement = self.assembling.get_placement(composter.placement)?;
+        let composter_kind = self.known.composters.get(composter.key)?;
+        if container == composter.input {
+            let offset = placement.rotation.apply_i8(composter_kind.input_offset);
+            let destination = placement.pivot.add_offset(offset).position();
+            self.ensure_target_reachable(farmland.space, farmer, destination)?;
+            self.put_item_into_container(farmer, composter.input)
+        } else {
+            let offset = placement.rotation.apply_i8(composter_kind.output_offset);
+            let destination = placement.pivot.add_offset(offset).position();
+            self.ensure_target_reachable(farmland.space, farmer, destination)?;
+            self.put_item_into_container(farmer, composter.output)
         }
     }
 

@@ -3,7 +3,7 @@ use sdl2::keyboard::Keycode;
 use game::inventory::ContainerId;
 use game::landscaping::Surface;
 use game::math::{Tile, TileMath, VectorMath};
-use game::model::{Assembly, Cementer, Construction, Creature, Crop, Door, Equipment, Rest, Stack};
+use game::model::{Assembly, Cementer, Composter, Construction, Creature, Crop, Door, Equipment, Rest, Stack};
 use game::working::DeviceId;
 
 use crate::engine::{Cursor, Input};
@@ -31,6 +31,8 @@ pub enum Target {
     Stack(Stack),
     Cementer(Cementer),
     CementerContainer(Cementer, ContainerId),
+    Composter(Composter),
+    ComposterContainer(Composter, ContainerId),
     Creature(Creature),
     Device(DeviceId),
     Waterbody(Tile),
@@ -132,6 +134,28 @@ impl Gameplay {
                 return vec![
                     Target::Cementer(cementer.entity),
                     Target::Device(cementer.entity.device),
+                ];
+            }
+        }
+
+        for composter in self.composters.values() {
+            let pivot = composter.position.to_tile();
+            if tile == pivot.add_offset(composter.rotation.apply_i8(composter.kind.input_offset)) {
+                return vec![Target::ComposterContainer(
+                    composter.entity,
+                    composter.entity.input,
+                )];
+            }
+            if tile == pivot.add_offset(composter.rotation.apply_i8(composter.kind.output_offset)) {
+                return vec![Target::ComposterContainer(
+                    composter.entity,
+                    composter.entity.output,
+                )];
+            }
+            if tile == pivot {
+                return vec![
+                    Target::Composter(composter.entity),
+                    Target::Device(composter.entity.device),
                 ];
             }
         }

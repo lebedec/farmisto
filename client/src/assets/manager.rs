@@ -18,8 +18,8 @@ use crate::assets::prefabs::{TreeAsset, TreeAssetData};
 use crate::assets::tileset::{TilesetAsset, TilesetAssetData, TilesetItem};
 use crate::assets::{
     AssetMap, BehavioursAsset, BuildingMaterialAsset, BuildingMaterialAssetData, CementerAsset,
-    CementerAssetData, DoorAsset, DoorAssetData, FontAsset, FontAssetData, RestAsset,
-    RestAssetData,
+    CementerAssetData, ComposterAsset, ComposterAssetData, DoorAsset, DoorAssetData, FontAsset,
+    FontAssetData, RestAsset, RestAssetData,
 };
 use crate::assets::{
     CreatureAsset, CreatureAssetData, CropAsset, CropAssetData, FarmerAsset, FarmerAssetData,
@@ -74,6 +74,7 @@ pub struct Assets {
     doors: HashMap<String, DoorAsset>,
     rests: HashMap<String, RestAsset>,
     cementers: HashMap<String, CementerAsset>,
+    composters: HashMap<String, ComposterAsset>,
 
     queue: Arc<MyQueue>,
 }
@@ -255,6 +256,7 @@ impl Assets {
             rests: Default::default(),
             cementers: Default::default(),
             fonts_default,
+            composters: Default::default(),
         }
     }
 
@@ -448,6 +450,17 @@ impl Assets {
         }
     }
 
+    pub fn composter(&mut self, name: &str) -> ComposterAsset {
+        ASSET_REQUESTS_TOTAL.with_label_values(&["composter"]).inc();
+        match self.composters.get(name) {
+            Some(asset) => asset.share(),
+            None => {
+                let data = self.load_composter_data(name).unwrap();
+                self.composters.publish(name, data)
+            }
+        }
+    }
+
     pub fn creature(&mut self, name: &str) -> CreatureAsset {
         ASSET_REQUESTS_TOTAL.with_label_values(&["creature"]).inc();
         match self.creatures.get(name) {
@@ -556,6 +569,17 @@ impl Assets {
     pub fn load_cementer_data(&mut self, id: &str) -> Result<CementerAssetData, serde_json::Error> {
         let entry = self.storage.fetch_one::<CementerAssetData>(id);
         let data = CementerAssetData {
+            sprites: self.tileset(entry.get("sprites")?),
+        };
+        Ok(data)
+    }
+
+    pub fn load_composter_data(
+        &mut self,
+        id: &str,
+    ) -> Result<ComposterAssetData, serde_json::Error> {
+        let entry = self.storage.fetch_one::<ComposterAssetData>(id);
+        let data = ComposterAssetData {
             sprites: self.tileset(entry.get("sprites")?),
         };
         Ok(data)

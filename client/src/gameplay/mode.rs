@@ -11,7 +11,6 @@ use datamap::Storage;
 use game::api::{Action, FarmerBound, GameResponse, PlayerRequest};
 use game::inventory::{ContainerId, ItemId};
 use game::math::{test_collisions, VectorMath};
-use game::model::Crop;
 use game::model::Equipment;
 use game::model::Farmer;
 use game::model::Farmland;
@@ -20,6 +19,7 @@ use game::model::Stack;
 use game::model::Tree;
 use game::model::{Activity, Assembly, Door};
 use game::model::{Cementer, Construction};
+use game::model::{Composter, Crop};
 use game::model::{Creature, Rest};
 use game::physics::{generate_holes, Barrier};
 use game::Game;
@@ -31,8 +31,8 @@ use crate::engine::rendering::TextController;
 use crate::engine::Input;
 use crate::gameplay::camera::Camera;
 use crate::gameplay::representation::{
-    AssemblyRep, CementerRep, ConstructionRep, CreatureRep, CropRep, DoorRep, EquipmentRep,
-    FarmerRep, FarmlandRep, ItemRep, RestRep, StackRep, TreeRep,
+    AssemblyRep, CementerRep, ComposterRep, ConstructionRep, CreatureRep, CropRep, DoorRep,
+    EquipmentRep, FarmerRep, FarmlandRep, ItemRep, RestRep, StackRep, TreeRep,
 };
 use crate::gameplay::{GameplayMetrics, InputMethod, Target};
 use crate::monitoring::{Timer, TimerIntegration};
@@ -72,6 +72,7 @@ pub struct Gameplay {
     pub doors: HashMap<Door, DoorRep>,
     pub rests: HashMap<Rest, RestRep>,
     pub cementers: HashMap<Cementer, CementerRep>,
+    pub composters: HashMap<Composter, ComposterRep>,
     pub constructions: HashMap<Construction, ConstructionRep>,
     pub crops: HashMap<Crop, CropRep>,
     pub creatures: HashMap<Creature, CreatureRep>,
@@ -141,6 +142,7 @@ impl Gameplay {
             doors: Default::default(),
             rests: Default::default(),
             cementers: Default::default(),
+            composters: Default::default(),
             constructions: Default::default(),
             crops: Default::default(),
             creatures: Default::default(),

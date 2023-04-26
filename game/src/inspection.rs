@@ -2,14 +2,14 @@ use crate::api::{ActionError, Event};
 use crate::landscaping::Landscaping;
 use crate::math::{Array2D, VectorMath};
 use crate::model::{
-    Assembly, Cementer, Creature, Crop, Door, Equipment, Farmer, ItemData, PlayerId, Rest, Stack,
-    Universe, UniverseSnapshot,
+    Assembly, Cementer, Composter, Creature, Crop, Door, Equipment, Farmer, ItemData, PlayerId,
+    Rest, Stack, Universe, UniverseSnapshot,
 };
 use crate::physics::Physics;
+use crate::planting::Planting;
 use crate::Game;
 use log::info;
 use std::time::Instant;
-use crate::planting::Planting;
 
 impl Game {
     pub fn inspect_player_private_space(
@@ -57,13 +57,12 @@ impl Game {
         let soil = self.planting.get_soil(farmland.soil)?;
         let fertility = soil.fertility.extract_rect(soil.kind.width, rect);
         events.push(
-            vec![
-                Planting::SoilFertilityInspected {
-                    soil: soil.id,
-                    rect,
-                    fertility
-                }
-            ].into()
+            vec![Planting::SoilFertilityInspected {
+                soil: soil.id,
+                rect,
+                fertility,
+            }]
+            .into(),
         );
         Ok(events)
     }
@@ -127,11 +126,27 @@ impl Game {
         }
     }
 
-    pub fn look_at_cementer(&self, entity: Cementer) -> Universe {
+    pub fn inspect_cementer(&self, entity: Cementer) -> Universe {
         let barrier = self.physics.get_barrier(entity.barrier).unwrap();
         let placement = self.assembling.get_placement(entity.placement).unwrap();
         let device = self.working.get_device(entity.device).unwrap();
         Universe::CementerAppeared {
+            entity,
+            rotation: placement.rotation,
+            position: barrier.position,
+            enabled: device.enabled,
+            broken: device.broken,
+            input: device.input,
+            output: device.output,
+            progress: device.progress,
+        }
+    }
+
+    pub fn inspect_composter(&self, entity: Composter) -> Universe {
+        let barrier = self.physics.get_barrier(entity.barrier).unwrap();
+        let placement = self.assembling.get_placement(entity.placement).unwrap();
+        let device = self.working.get_device(entity.device).unwrap();
+        Universe::ComposterInspected {
             entity,
             rotation: placement.rotation,
             position: barrier.position,
@@ -235,7 +250,11 @@ impl Game {
         }
 
         for cementer in &self.universe.cementers {
-            stream.push(self.look_at_cementer(*cementer));
+            stream.push(self.inspect_cementer(*cementer));
+        }
+
+        for composter in &self.universe.composters {
+            stream.push(self.inspect_composter(*composter));
         }
 
         let mut items_appearance = vec![];

@@ -17,10 +17,7 @@ use game::timing::Timing;
 use game::working::Working;
 
 use crate::engine::Frame;
-use crate::gameplay::representation::{
-    AssemblyRep, AssemblyTargetAsset, BuildingRep, CementerRep, ConstructionRep, CreatureRep,
-    CropRep, DoorRep, EquipmentRep, FarmerRep, FarmlandRep, ItemRep, RestRep, StackRep, TreeRep,
-};
+use crate::gameplay::representation::{AssemblyRep, AssemblyTargetAsset, BuildingRep, CementerRep, ComposterRep, ConstructionRep, CreatureRep, CropRep, DoorRep, EquipmentRep, FarmerRep, FarmlandRep, ItemRep, RestRep, StackRep, TreeRep};
 use crate::gameplay::Gameplay;
 
 impl Gameplay {
@@ -820,10 +817,18 @@ impl Gameplay {
                             kind: cementer.clone(),
                         }
                     }
+                    AssemblyTarget::Composter { composter } => {
+                        let asset = assets.composter(&composter.name);
+                        AssemblyTargetAsset::Composter {
+                            composter: asset,
+                            kind: composter.clone(),
+                        }
+                    }
                     AssemblyTarget::Rest { rest } => {
                         let rest = assets.rest(&rest.name);
                         AssemblyTargetAsset::Rest { rest }
                     }
+                    
                 };
                 let representation = AssemblyRep {
                     entity,
@@ -911,6 +916,37 @@ impl Gameplay {
             }
             Universe::RestVanished(entity) => {
                 self.rests.remove(&entity);
+            }
+            Universe::ComposterInspected {
+                entity,
+                rotation,
+                position,
+                enabled,
+                broken,
+                input,
+                output,
+                progress,
+            } => {
+                info!("Appear {entity:?} e{enabled:?} b{broken} i{input} o{output} p{progress}");
+                let kind = self.known.composters.get(entity.key).unwrap();
+                let asset = assets.composter(&kind.name);
+                let representation = ComposterRep {
+                    entity,
+                    kind,
+                    asset,
+                    rotation,
+                    position,
+                    enabled,
+                    broken,
+                    input,
+                    output,
+                    deprecation: 0.0,
+                    progress,
+                };
+                self.composters.insert(entity, representation);
+            }
+            Universe::ComposterVanished(entity) => {
+                self.composters.remove(&entity);
             }
         }
     }

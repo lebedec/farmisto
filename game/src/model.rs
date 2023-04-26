@@ -27,6 +27,7 @@ pub struct Knowledge {
     pub creatures: Dictionary<CreatureKey, CreatureKind>,
     pub doors: Dictionary<DoorKey, DoorKind>,
     pub cementers: Dictionary<CementerKey, CementerKind>,
+    pub composters: Dictionary<ComposterKey, ComposterKind>,
     pub rests: Dictionary<RestKey, RestKind>,
     // timing
     pub calendars: Dictionary<CalendarKey, CalendarKind>,
@@ -80,6 +81,8 @@ pub struct UniverseDomain {
     pub rests_id: usize,
     pub cementers: Vec<Cementer>,
     pub cementers_id: usize,
+    pub composters: Vec<Composter>,
+    pub composters_id: usize,
 }
 
 #[derive(Debug, bincode::Encode, bincode::Decode)]
@@ -194,6 +197,17 @@ pub enum Universe {
         progress: f32,
     },
     CementerVanished(Cementer),
+    ComposterInspected {
+        entity: Composter,
+        rotation: Rotation,
+        position: [f32; 2],
+        enabled: bool,
+        broken: bool,
+        input: bool,
+        output: bool,
+        progress: f32,
+    },
+    ComposterVanished(Composter),
 }
 
 #[derive(Debug, bincode::Encode, bincode::Decode)]
@@ -301,6 +315,11 @@ impl UniverseDomain {
         self.cementers.extend(cementers);
     }
 
+    pub fn load_composters(&mut self, composters: Vec<Composter>, composters_id: usize) {
+        self.composters_id = composters_id;
+        self.composters.extend(composters);
+    }
+
     pub(crate) fn appear_construction(
         &mut self,
         container: ContainerId,
@@ -378,6 +397,19 @@ impl UniverseDomain {
         if let Some(index) = self.cementers.iter().position(|cementer| cementer == &id) {
             self.cementers.remove(index);
             vec![Universe::CementerVanished(id)]
+        } else {
+            vec![]
+        }
+    }
+
+    pub(crate) fn vanish_composter(&mut self, id: Composter) -> Vec<Universe> {
+        if let Some(index) = self
+            .composters
+            .iter()
+            .position(|composter| composter == &id)
+        {
+            self.composters.remove(index);
+            vec![Universe::ComposterVanished(id)]
         } else {
             vec![]
         }
@@ -653,6 +685,7 @@ pub struct AssemblyKey(pub usize);
 pub enum AssemblyTarget {
     Door { door: Shared<DoorKind> },
     Cementer { cementer: Shared<CementerKind> },
+    Composter { composter: Shared<ComposterKind> },
     Rest { rest: Shared<RestKind> },
 }
 
@@ -726,6 +759,33 @@ pub struct CementerKind {
 pub struct Cementer {
     pub id: usize,
     pub key: CementerKey,
+    pub input: ContainerId,
+    pub device: DeviceId,
+    pub output: ContainerId,
+    pub barrier: BarrierId,
+    pub placement: PlacementId,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
+pub struct ComposterKey(pub usize);
+
+pub struct ComposterKind {
+    pub key: ComposterKey,
+    pub name: String,
+    pub kit: Shared<ItemKind>,
+    pub barrier: Shared<BarrierKind>,
+    pub device: Shared<DeviceKind>,
+    pub input_offset: [i8; 2],
+    pub input: Shared<ContainerKind>,
+    pub output_offset: [i8; 2],
+    pub output: Shared<ContainerKind>,
+    pub compost: Shared<ItemKind>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
+pub struct Composter {
+    pub id: usize,
+    pub key: ComposterKey,
     pub input: ContainerId,
     pub device: DeviceId,
     pub output: ContainerId,

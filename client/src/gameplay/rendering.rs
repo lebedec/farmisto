@@ -9,9 +9,9 @@ use game::assembling::Rotation;
 use game::building::{Cell, Grid, Marker, Material, Room, Structure};
 use game::inventory::{ContainerId, ItemId};
 use game::math::{Position, Tile, TileMath, VectorMath};
-use game::model::{Activity, CementerKind, Purpose};
+use game::model::{Activity, CementerKind, ComposterKind, Purpose};
 
-use crate::assets::{CementerAsset, SpriteAsset, SpriteAssetData};
+use crate::assets::{CementerAsset, ComposterAsset, SpriteAsset, SpriteAssetData};
 use crate::engine::rendering::{xy, Scene, TilemapUniform, VISIBLE_MAP_X, VISIBLE_MAP_Y};
 use crate::engine::Frame;
 use crate::gameplay::representation::{AssemblyTargetAsset, CreatureRep, CropRep, ItemRep};
@@ -411,6 +411,20 @@ impl Gameplay {
                         scene,
                     );
                 }
+                AssemblyTargetAsset::Composter { composter, kind } => {
+                    render_composter(
+                        assembly.pivot,
+                        assembly.rotation,
+                        composter,
+                        &kind,
+                        false,
+                        false,
+                        true,
+                        false,
+                        highlight,
+                        scene,
+                    );
+                }
                 AssemblyTargetAsset::Rest { rest } => {
                     let index = assembly.rotation.index();
                     let sprite = &rest.sprites.tiles[index];
@@ -461,6 +475,31 @@ impl Gameplay {
             let output_position = rendering_position_of(output_position.position());
             render_items_stack(&self.items, cementer.entity.input, input_position, scene);
             render_items_stack(&self.items, cementer.entity.output, output_position, scene);
+        }
+
+        for composter in self.composters.values() {
+            render_composter(
+                composter.position.to_tile(),
+                composter.rotation,
+                &composter.asset,
+                &composter.kind,
+                composter.enabled,
+                composter.broken,
+                composter.input,
+                composter.output,
+                [1.0; 4],
+                scene,
+            );
+
+            let pivot = composter.position.to_tile();
+            let input_position =
+                pivot.add_offset(composter.rotation.apply_i8(composter.kind.input_offset));
+            let input_position = rendering_position_of(input_position.position());
+            let output_position =
+                pivot.add_offset(composter.rotation.apply_i8(composter.kind.output_offset));
+            let output_position = rendering_position_of(output_position.position());
+            render_items_stack(&self.items, composter.entity.input, input_position, scene);
+            render_items_stack(&self.items, composter.entity.output, output_position, scene);
         }
 
         for farmer in self.farmers.values() {
@@ -827,6 +866,51 @@ fn render_cementer(
     rotation: Rotation,
     cementer: &CementerAsset,
     kind: &CementerKind,
+    enabled: bool,
+    broken: bool,
+    input: bool,
+    output: bool,
+    color: [f32; 4],
+    scene: &mut Scene,
+) {
+    let position = position_of(pivot);
+    let rendering_position = rendering_position_of(position);
+
+    let index = if broken {
+        3
+    } else if enabled {
+        if output || !input {
+            1
+        } else {
+            0
+        }
+    } else {
+        2
+    };
+
+    let sprite = &cementer.sprites.tiles[index];
+    let rot = rotation.index();
+
+    scene.render_sprite_colored(sprite, xy(rendering_position), color);
+
+    let input_offset = rotation.apply_i8(kind.input_offset);
+    let input_sprite = &cementer.sprites.tiles[4 + rot];
+    let input_tile = pivot.add_offset(input_offset);
+    let input_pos = rendering_position_of(input_tile.position());
+    scene.render_sprite_colored(input_sprite, xy(input_pos), color);
+
+    let output_offset = rotation.apply_i8(kind.output_offset);
+    let output_sprite = &cementer.sprites.tiles[8 + rot];
+    let output_tile = pivot.add_offset(output_offset);
+    let output_pos = rendering_position_of(output_tile.position());
+    scene.render_sprite_colored(output_sprite, xy(output_pos), color);
+}
+
+fn render_composter(
+    pivot: Tile,
+    rotation: Rotation,
+    cementer: &ComposterAsset,
+    kind: &ComposterKind,
     enabled: bool,
     broken: bool,
     input: bool,

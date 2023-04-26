@@ -13,11 +13,11 @@ use crate::building::{BuildingDomain, Structure, SurveyorId};
 use crate::inventory::{ContainerId, FunctionsQuery, InventoryDomain, InventoryError, ItemId};
 use crate::landscaping::LandscapingDomain;
 use crate::model::Activity::Idle;
-use crate::model::Knowledge;
 use crate::model::{
     Activity, Assembly, AssemblyKey, Cementer, CementerKey, Creature, CreatureKey, Crop, CropKey,
     Door, DoorKey, Stack,
 };
+use crate::model::{Composter, ComposterKey, Knowledge};
 use crate::model::{Equipment, Rest, RestKey};
 use crate::model::{EquipmentKey, UniverseDomain};
 use crate::model::{Farmer, Universe};
@@ -162,6 +162,10 @@ impl Game {
                         cementer,
                         container,
                     } => self.take_item_from_cementer(farmer, farmland, cementer, container)?,
+                    FarmerBound::TakeItemFromComposter {
+                        composter,
+                        container,
+                    } => self.take_item_from_composter(farmer, farmland, composter, container)?,
                     FarmerBound::PutItemIntoStack { stack } => {
                         self.put_item_into_stack(farmer, farmland, stack)?
                     }
@@ -172,6 +176,10 @@ impl Game {
                         cementer,
                         container,
                     } => self.put_item_into_cementer(farmer, farmland, cementer, container)?,
+                    FarmerBound::PutItemIntoComposter {
+                        composter,
+                        container,
+                    } => self.put_item_into_composter(farmer, farmland, composter, container)?,
                     FarmerBound::DropItem { tile } => self.drop_item(farmland, farmer, tile)?,
                     FarmerBound::ToggleBackpack => self.toggle_backpack(farmer)?,
                     FarmerBound::Uninstall { equipment } => {
@@ -207,6 +215,9 @@ impl Game {
                     FarmerBound::DisassembleRest { rest } => self.disassemble_rest(farmer, rest)?,
                     FarmerBound::DisassembleCementer { cementer } => {
                         self.disassemble_cementer(farmer, cementer)?
+                    }
+                    FarmerBound::DisassembleComposter { composter } => {
+                        self.disassemble_composter(farmer, composter)?
                     }
                     FarmerBound::RepairDevice { device } => {
                         self.repair_generic_device(farmer, device)?
@@ -383,7 +394,30 @@ impl Game {
             placement,
         };
         self.universe.cementers.push(entity);
-        self.look_at_cementer(entity)
+        self.inspect_cementer(entity)
+    }
+
+    pub fn appear_composter(
+        &mut self,
+        key: ComposterKey,
+        barrier: BarrierId,
+        placement: PlacementId,
+        input: ContainerId,
+        device: DeviceId,
+        output: ContainerId,
+    ) -> Universe {
+        self.universe.composters_id += 1;
+        let entity = Composter {
+            id: self.universe.composters_id,
+            key,
+            input,
+            device,
+            output,
+            barrier,
+            placement,
+        };
+        self.universe.composters.push(entity);
+        self.inspect_composter(entity)
     }
 
     pub fn appear_stack(&mut self, container: ContainerId, barrier: BarrierId) -> Universe {

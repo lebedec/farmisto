@@ -132,6 +132,45 @@ impl Game {
             }
         }
 
+        let mut composter_events = vec![];
+        for composter in &self.universe.composters {
+            // TODO: transactional with working
+            // TODO: errors, unwraps
+            // TODO: generalize with cementer ?
+            let has_input = !self
+                .inventory
+                .get_container(composter.input)
+                .unwrap()
+                .items
+                .is_empty();
+            if has_input {
+                let consumed = self.working.consume_input(composter.device).unwrap();
+                if consumed {
+                    let use_items = self.inventory.pop_use_item(composter.input).unwrap();
+                    composter_events.push(use_items().into());
+                }
+            }
+            let output = self.inventory.get_container(composter.output).unwrap();
+            let can_output = output.items.len() < output.kind.capacity;
+            if can_output {
+                let produced = self.working.produce_output(composter.device).unwrap();
+                if produced {
+                    let composter_kind = self.known.composters.get(composter.key).unwrap();
+                    let item = self.inventory.items_id.introduce().one(ItemId);
+                    let create_item = self
+                        .inventory
+                        .create_item(
+                            item,
+                            &composter_kind.compost,
+                            composter.output,
+                            composter_kind.compost.max_quantity,
+                        )
+                        .unwrap();
+                    composter_events.push(create_item().into())
+                }
+            }
+        }
+
         let mut random = thread_rng();
         let working_events = self.working.update(time, random.clone());
 
@@ -144,6 +183,7 @@ impl Game {
             working_events,
         ];
         events.extend(cementer_events);
+        events.extend(composter_events);
         events.extend(destroy_empty_stacks);
         events
     }

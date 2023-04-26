@@ -55,6 +55,16 @@ class Editor:
             farmland=farmland
         )
 
+    def add_composter(self, farmland: str, tile: [int, int], kind_name: str):
+        execute_script(
+            self.connection,
+            './add_composter.sql',
+            kind_name=f"'{kind_name}'",
+            position=as_sql_position(tile),
+            pivot=as_sql_tile(tile),
+            farmland=farmland
+        )
+
     def add_rest(self, farmland: str, tile: [int, int], kind_name: str):
         execute_script(
             self.connection,
@@ -65,14 +75,18 @@ class Editor:
             farmland=farmland
         )
 
-    def add_crop(self, farmland: str, tile: [int, int], kind_name: str, growth: float):
+    def add_crop(self, farmland: str, tile: [int, int],
+                 kind_name: str, growth: float, health: float = 1.0, hunger: float = 0.0, thirst: float = 0.0):
         execute_script(
             self.connection,
             './add_crop.sql',
             kind_name=f"'{kind_name}'",
             position=as_sql_position(tile),
             farmland=farmland,
-            growth=str(growth)
+            growth=str(growth),
+            health=str(health),
+            hunger=str(hunger),
+            thirst=str(thirst)
         )
 
     def create_farmland(
@@ -235,7 +249,7 @@ def generate_feature_map(feature: Callable[[Tuple[int, int]], Union[int, float]]
     return data.getvalue()
 
 
-def moisture_capacity_from_image(path: str) -> bytes:
+def moisture_capacity_from_image(path: str, max_value=0.7) -> bytes:
     image = Image.open(path).convert('L')
     data = BytesIO()
     size_y = 128
@@ -243,7 +257,7 @@ def moisture_capacity_from_image(path: str) -> bytes:
     data.write(pack_bincode_length())
     for y in range(size_y):
         for x in range(size_x):
-            capacity = 0.7 - (image.getpixel((x, y)) / 255) * 0.7
+            capacity = max_value - (image.getpixel((x, y)) / 255) * max_value
             data.write(struct.pack('f', capacity))
     return data.getvalue()
 
@@ -318,8 +332,11 @@ def prototype_planting(destination_path: str, template_path: str):
         editor,
         farmland_kind='test',
         moisture_data=generate_feature_map(lambda _: 0.0),
-        moisture_capacity_data=moisture_capacity_from_image("../bin/data/noise.png"),
-        fertility_data=generate_feature_map(lambda _: 0.0),
+        moisture_capacity_data=moisture_capacity_from_image(
+            "../bin/data/prototype-planting-moisture-capacity.png",
+            max_value=1.0
+        ),
+        fertility_data=generate_feature_map(lambda tile: 1.0 if 24 <= tile[0] < 32 and 5 < tile[1] < 14 else 0.0),
         objects={
             'A': lambda tile, farmland: editor.add_farmer('farmer', 'Alice', farmland, tile),
             'B': lambda tile, farmland: editor.add_farmer('farmer', 'Boris', farmland, tile),
@@ -334,6 +351,9 @@ def prototype_planting(destination_path: str, template_path: str):
             '2': lambda tile, farmland: editor.add_crop(farmland, tile, 'corn', 2.0),
             '3': lambda tile, farmland: editor.add_crop(farmland, tile, 'corn', 3.0),
             '4': lambda tile, farmland: editor.add_crop(farmland, tile, 'corn', 4.0),
+            '8': lambda tile, f: editor.add_crop(f, tile, 'corn', 1.3, health=0.75, hunger=1.0, thirst=0.5),
+            '9': lambda tile, f: editor.add_crop(f, tile, 'corn', 1.9, health=0.5, hunger=1.0, thirst=0.5),
+            'k': lambda tile, farmland: editor.add_composter(farmland, tile, 'composter'),
         },
         buildings={
             # (wall, door, window, material)
@@ -348,26 +368,29 @@ def prototype_planting(destination_path: str, template_path: str):
         },
         # . . . . . . . . 1 . . . . . . . . . 2 . . . . . . . . . 3 . . . . . . . . . 4
         user_define_map="""
-        . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-        . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-        . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . ~ ~ . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-        . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-        . . . . . . . . . s w . . . s w . . s w . . . . . . . . . . . ~ ~ ~ . . ~ . . . . . . . . . . . . . . . . . . . . . . . . . .
-        . . . . . . . . . . . . . . . . . . . . . . . . ~ ~ ~ . . ~ . . . . . . ~ . . ~ . . . . . . . . . . . . . . . . . . . . . . .
-        . . . . . . . . . A B C D . . e e . f f . . . . ~ ~ ~ . . . . ~ ~ . . . . . ~ ~ ~ . . . . . . . . . . . . . . . . . . . . . .
-        . . . . . . . . . . . . . . . e e . f f . . ~ ~ ~ ~ ~ ~ ~ . . ~ ~ . . . ~ . . ~ . . . . . . . . . . . . . . . . . . . . . . .
-        . . . . . . . . . . . . . . . . . . . . . . ~ ~ ~ ~ ~ ~ ~ . . . . . . . ~ . . . ~ . . . . . . . . . . . . . . . . . . . . . .
-        . . . . . . . . . . . . . . . . . . . . . . ~ ~ ~ ~ ~ ~ ~ . . . ~ ~ . . ~ . . ~ ~ . . . . . . . . . . . . . . . . . . . . . .
-        . . . . . . . . . . . . . . . . . . . . . . . . ~ ~ ~ . . . . . ~ ~ . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-        . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-        . . . . . . 1 1 . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-        . . . . . . 2 2 . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-        . . . . . . 3 3 . . . . . . # # | # - # # . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-        . . . . . . 4 4 . . . . . . # . . . r . # . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-        . . . . . . . . . . . . . . - . . . . . - . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-        . . . . . . . . . . . . . . # . . . . . # . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-        . . . . . . . . . . . . . . # . r . r . # . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-        . . . . . . . . . . . . . . # # - # - # # . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+        . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+        . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+        . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+        . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+        . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+        . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+        . . . . . . . . . . . . . . . . . B C D . . . . . . . . . . . . . # # | # - # # . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+        . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . # . . . r . # . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+        . . . . . . . . . . . . . . . . . . A . . . w e . . . . . . . . . # . . . . . - . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+        . . . . . . . . . . . . . . 8 . . . . . . . w e . . . . . . . . . | . . . r . # . . . . . . . . . . . . . . . . . . . s . . . . . . . . . . . . . . . . . . . .
+        . . . . . . . . . . . . . . . 9 . . s . . . w e . . . . . . . . . # . . . . . - . . . . . . . . . . . . . . . . . . . s s s . . . . . . . . . . . . . . . . . .
+        . . . . . . . . . . . . 9 . . 8 . . . . . . w e . . . . . . . . . # . . . r . # . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+        . . . . . . . . . . . . . 8 . . . . k . . . . . . . . . . . . . . # # | # - # # . . . . . . . . . . . . . # # - # | # # . . . . . . . . . . . . . . . . . . . .
+        . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . # . r . . . # . . . . . . . . . . . . . . . . . . . .
+        . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . - . . . . . # . . . . . . . . . . . ~ ~ ~ ~ . . . . .
+        . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . # . r . . . | . . . . . . . . . . . ~ ~ ~ ~ . . . . .
+        . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . - . . . . . # . . . . ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ . . .
+        . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . # . r . . . # . . . . ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ . . .
+        . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . # # - # | # # . . . . . . . . . . . ~ ~ ~ ~ ~ ~ . . .
+        . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . ~ ~ ~ ~ ~ ~ . . .
+        . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+        . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+        . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
         """
     )
 

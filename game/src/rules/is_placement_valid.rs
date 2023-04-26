@@ -33,6 +33,20 @@ impl Game {
                     offset: rotation.apply_i8(cementer.output_offset),
                 },
             ],
+            AssemblyTarget::Composter { composter } => vec![
+                Part {
+                    binding: Binding::Ground,
+                    offset: rotation.apply_i8(composter.input_offset),
+                },
+                Part {
+                    binding: Binding::Ground,
+                    offset: [0, 0],
+                },
+                Part {
+                    binding: Binding::Ground,
+                    offset: rotation.apply_i8(composter.output_offset),
+                },
+            ],
             AssemblyTarget::Rest { .. } => vec![Part {
                 binding: Binding::Ground,
                 offset: [0, 0],

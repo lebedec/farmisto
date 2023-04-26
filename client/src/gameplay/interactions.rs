@@ -12,8 +12,8 @@ use game::model::{Activity, CropKey, Purpose};
 use crate::gameplay::representation::FarmerRep;
 use crate::gameplay::Intention::{Aim, Move, Put, QuickSwap, Swap, Use};
 use crate::gameplay::Target::{
-    Cementer, CementerContainer, Construction, Creature, Crop, Device, Door, Equipment, Ground,
-    Rest, Stack, Wall, Waterbody,
+    Cementer, CementerContainer, Composter, ComposterContainer, Construction, Creature, Crop,
+    Device, Door, Equipment, Ground, Rest, Stack, Wall, Waterbody,
 };
 use crate::gameplay::{Gameplay, Intention, Target};
 
@@ -34,12 +34,7 @@ impl Gameplay {
                     Construction(construction) => {
                         self.send_action(FarmerBound::TakeItemFromConstruction { construction });
                     }
-                    CementerContainer(cementer, container) => {
-                        self.send_action(FarmerBound::TakeItemFromCementer {
-                            cementer,
-                            container,
-                        });
-                    }
+
                     Equipment(equipment) => {
                         self.send_action(FarmerBound::UseEquipment { equipment });
                     }
@@ -52,6 +47,23 @@ impl Gameplay {
                     Cementer(cementer) => {
                         self.send_action(FarmerBound::ToggleDevice {
                             device: cementer.device,
+                        });
+                    }
+                    CementerContainer(cementer, container) => {
+                        self.send_action(FarmerBound::TakeItemFromCementer {
+                            cementer,
+                            container,
+                        });
+                    }
+                    Composter(composter) => {
+                        self.send_action(FarmerBound::ToggleDevice {
+                            device: composter.device,
+                        });
+                    }
+                    ComposterContainer(composter, container) => {
+                        self.send_action(FarmerBound::TakeItemFromComposter {
+                            composter,
+                            container,
                         });
                     }
                     Ground { .. } => {}
@@ -72,6 +84,9 @@ impl Gameplay {
                     }
                     Cementer(cementer) => {
                         self.send_action(FarmerBound::DisassembleCementer { cementer });
+                    }
+                    Composter(composter) => {
+                        self.send_action(FarmerBound::DisassembleComposter { composter });
                     }
                     Rest(rest) => {
                         self.send_action(FarmerBound::DisassembleRest { rest });
@@ -119,6 +134,12 @@ impl Gameplay {
                                 });
                                 break;
                             }
+                            (Instrumenting, Composter(composter)) => {
+                                self.send_action(FarmerBound::RepairDevice {
+                                    device: composter.device,
+                                });
+                                break;
+                            }
                             (Moistener(_), Ground(place)) => {
                                 self.send_action(FarmerBound::PourWater { place });
                             }
@@ -159,6 +180,12 @@ impl Gameplay {
                                     container,
                                 });
                             }
+                            (_, ComposterContainer(composter, container)) => {
+                                self.send_action(FarmerBound::TakeItemFromComposter {
+                                    composter,
+                                    container,
+                                });
+                            }
 
                             _ => {}
                         }
@@ -177,6 +204,12 @@ impl Gameplay {
                     CementerContainer(cementer, container) => {
                         self.send_action(FarmerBound::PutItemIntoCementer {
                             cementer,
+                            container,
+                        });
+                    }
+                    ComposterContainer(composter, container) => {
+                        self.send_action(FarmerBound::PutItemIntoComposter {
+                            composter,
                             container,
                         });
                     }

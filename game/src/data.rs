@@ -14,10 +14,10 @@ use crate::inventory::{
 use crate::landscaping::{Land, LandId, LandKey, LandKind};
 use crate::model::{
     Assembly, AssemblyKey, AssemblyKind, AssemblyTarget, Cementer, CementerKey, CementerKind,
-    Construction, Creature, CreatureKey, CreatureKind, Crop, CropKey, CropKind, Door, DoorKey,
-    DoorKind, Equipment, EquipmentKey, EquipmentKind, Farmer, FarmerKey, FarmerKind, Farmland,
-    FarmlandKey, FarmlandKind, Player, PlayerId, Purpose, PurposeDescription, Rest, RestKey,
-    RestKind, Stack, Tree, TreeKey, TreeKind,
+    Composter, ComposterKey, ComposterKind, Construction, Creature, CreatureKey, CreatureKind,
+    Crop, CropKey, CropKind, Door, DoorKey, DoorKind, Equipment, EquipmentKey, EquipmentKind,
+    Farmer, FarmerKey, FarmerKind, Farmland, FarmlandKey, FarmlandKind, Player, PlayerId, Purpose,
+    PurposeDescription, Rest, RestKey, RestKind, Stack, Tree, TreeKey, TreeKind,
 };
 use crate::physics::{
     Barrier, BarrierId, BarrierKey, BarrierKind, Body, BodyId, BodyKey, BodyKind, Sensor, SensorId,
@@ -120,6 +120,11 @@ impl Game {
                 .cementers
                 .insert(kind.key, kind.name.clone(), kind);
         }
+        for kind in storage.find_all(|row| self.load_composter_kind(row))? {
+            self.known
+                .composters
+                .insert(kind.key, kind.name.clone(), kind);
+        }
         for kind in storage.find_all(|row| self.load_door_kind(row))? {
             self.known.doors.insert(kind.key, kind.name.clone(), kind);
         }
@@ -213,6 +218,8 @@ impl Game {
         self.universe.load_rests(rests, id);
         let (cementers, id) = storage.get_sequence(|row| self.load_cementer(row))?;
         self.universe.load_cementers(cementers, id);
+        let (composters, id) = storage.get_sequence(|row| self.load_composter(row))?;
+        self.universe.load_composters(composters, id);
         let (assembly, id) = storage.get_sequence(|row| self.load_assembly(row))?;
         self.universe.load_assembly(assembly, id);
 
@@ -430,6 +437,9 @@ impl Game {
         } else if let Ok(Some(name)) = row.get("t_rest") {
             let rest = self.known.rests.find2(&name)?;
             AssemblyTarget::Rest { rest }
+        } else if let Ok(Some(name)) = row.get("t_composter") {
+            let composter = self.known.composters.find2(&name)?;
+            AssemblyTarget::Composter { composter }
         } else {
             return Err(DataError::NotSpecifiedVariant);
         };
@@ -514,6 +524,38 @@ impl Game {
         let data = Cementer {
             id: row.get("id")?,
             key: CementerKey(row.get("kind")?),
+            input: ContainerId(row.get("input")?),
+            device: DeviceId(row.get("device")?),
+            output: ContainerId(row.get("output")?),
+            barrier: BarrierId(row.get("barrier")?),
+            placement: PlacementId(row.get("placement")?),
+        };
+        Ok(data)
+    }
+
+    pub(crate) fn load_composter_kind(
+        &mut self,
+        row: &rusqlite::Row,
+    ) -> Result<ComposterKind, DataError> {
+        let data = ComposterKind {
+            key: ComposterKey(row.get("id")?),
+            name: row.get("name")?,
+            barrier: self.known.barriers.find_by(row, "barrier")?,
+            device: self.known.devices.find_by(row, "device")?,
+            input_offset: row.get_json("input_offset")?,
+            input: self.known.containers.find_by(row, "input")?,
+            output_offset: row.get_json("output_offset")?,
+            output: self.known.containers.find_by(row, "output")?,
+            kit: self.known.items.find_by(row, "kit")?,
+            compost: self.known.items.find_by(row, "compost")?,
+        };
+        Ok(data)
+    }
+
+    pub(crate) fn load_composter(&mut self, row: &rusqlite::Row) -> Result<Composter, DataError> {
+        let data = Composter {
+            id: row.get("id")?,
+            key: ComposterKey(row.get("kind")?),
             input: ContainerId(row.get("input")?),
             device: DeviceId(row.get("device")?),
             output: ContainerId(row.get("output")?),

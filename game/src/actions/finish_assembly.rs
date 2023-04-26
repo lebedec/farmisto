@@ -80,6 +80,44 @@ impl Game {
                     self.universe.change_activity(farmer, Activity::Idle),
                 ]
             }
+            AssemblyTarget::Composter { composter } => {
+                let [input, output] = self.inventory.containers_id.introduce().many(ContainerId);
+                let create_input = self
+                    .inventory
+                    .add_empty_container(input, &composter.input)?;
+                let create_output = self
+                    .inventory
+                    .add_empty_container(output, &composter.output)?;
+                let use_assembly_kit = self.inventory.use_items_from(farmer.hands)?;
+                let position = position_of(placement.pivot);
+                let (barrier, create_barrier) = self.physics.create_barrier(
+                    farmland.space,
+                    composter.barrier.clone(),
+                    position,
+                    true,
+                    false,
+                )?;
+                let device = self.working.devices_id.introduce().one(DeviceId);
+                let create_device = self.working.create_device(device, &composter.device)?;
+                occur![
+                    use_assembly_kit(),
+                    finish_placement(),
+                    create_barrier(),
+                    create_device(),
+                    create_input(),
+                    create_output(),
+                    self.appear_composter(
+                        composter.key,
+                        barrier,
+                        placement.id,
+                        input,
+                        device,
+                        output
+                    ),
+                    self.universe.vanish_assembly(assembly),
+                    self.universe.change_activity(farmer, Activity::Idle),
+                ]
+            }
             AssemblyTarget::Rest { rest } => {
                 let position = position_of(placement.pivot);
                 let (barrier, create_barrier) = self.physics.create_barrier(

@@ -5,9 +5,9 @@ values (null,
         (select id from PlantKind where name = (select plant from CropKind where name = :kind_name)),
         (select soil from Farmland where id = :farmland),
         0.0, -- impact
-        0.0, -- thirst
-        0.0, -- hunger
-        1.0, -- health
+        :thirst,
+        :hunger,
+        :health,
         :growth,
         (select max_fruits from PlantKind where name = (select plant from CropKind where name = :kind_name)));
 

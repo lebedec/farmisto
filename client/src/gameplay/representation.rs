@@ -7,13 +7,10 @@ use game::building::{Cell, Room};
 use game::collections::Shared;
 use game::inventory::{ContainerId, ItemId, ItemKind};
 use game::math::{Collider, Tile, VectorMath};
-use game::model::{
-    Activity, Assembly, Cementer, CementerKind, Construction, Creature, CreatureKind, Crop, Door,
-    Equipment, Farmer, FarmerKind, Farmland, FarmlandKind, Rest, Stack, Tree, TreeKind,
-};
+use game::model::{Activity, Assembly, Cementer, CementerKind, Composter, ComposterKind, Construction, Creature, CreatureKind, Crop, Door, Equipment, Farmer, FarmerKind, Farmland, FarmlandKind, Rest, Stack, Tree, TreeKind};
 use game::physics::BodyKind;
 
-use crate::assets::{BuildingMaterialAsset, CreatureAsset, SpriteAsset};
+use crate::assets::{BuildingMaterialAsset, ComposterAsset, CreatureAsset, SpriteAsset};
 use crate::assets::{CementerAsset, FarmerAsset};
 use crate::assets::{CropAsset, DoorAsset};
 use crate::assets::{FarmlandAsset, ItemAsset};
@@ -138,6 +135,10 @@ pub enum AssemblyTargetAsset {
         cementer: CementerAsset,
         kind: Shared<CementerKind>,
     },
+    Composter {
+        composter: ComposterAsset,
+        kind: Shared<ComposterKind>,
+    },
     Rest {
         rest: RestAsset,
     },
@@ -170,6 +171,20 @@ pub struct CementerRep {
     pub entity: Cementer,
     pub kind: Shared<CementerKind>,
     pub asset: CementerAsset,
+    pub rotation: Rotation,
+    pub position: [f32; 2],
+    pub enabled: bool,
+    pub broken: bool,
+    pub input: bool,
+    pub output: bool,
+    pub deprecation: f32,
+    pub progress: f32,
+}
+
+pub struct ComposterRep {
+    pub entity: Composter,
+    pub kind: Shared<ComposterKind>,
+    pub asset: ComposterAsset,
     pub rotation: Rotation,
     pub position: [f32; 2],
     pub enabled: bool,
