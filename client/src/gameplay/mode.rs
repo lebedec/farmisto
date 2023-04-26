@@ -8,7 +8,7 @@ use sdl2::keyboard::Keycode;
 
 use ai::AiThread;
 use datamap::Storage;
-use game::api::{Action, FarmerBound, GameResponse, PlayerRequest};
+use game::api::{Action, Cheat, FarmerBound, GameResponse, PlayerRequest};
 use game::inventory::{ContainerId, ItemId};
 use game::math::{test_collisions, VectorMath};
 use game::model::Equipment;
@@ -215,6 +215,14 @@ impl Gameplay {
         self.action_id
     }
 
+    pub fn send_cheat(&mut self, action: Cheat) {
+        self.action_id += 1;
+        self.client.send(PlayerRequest::Perform {
+            action: Action::Cheat { action },
+            action_id: self.action_id
+        })
+    }
+    
     pub fn send_action_as_ai(&mut self, action: Action) -> usize {
         self.action_id += 1;
         info!("Client sends as AI id={} {:?}", self.action_id, action);

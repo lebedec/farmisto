@@ -1,6 +1,6 @@
 use game::math::VectorMath;
 use sdl2::event::Event;
-use sdl2::keyboard::Keycode;
+use sdl2::keyboard::{Keycode, Mod};
 use sdl2::mouse::MouseButton;
 use std::collections::HashSet;
 
@@ -13,6 +13,7 @@ pub struct Input {
     mouse_left_button_click: bool,
     mouse_right_button_click: bool,
     key_pressed: HashSet<Keycode>,
+    key_pressed_mod: HashSet<Mod>,
     key_down: HashSet<Keycode>,
     pub terminating: bool,
     pub window: [f32; 2],
@@ -36,6 +37,7 @@ impl Input {
             mouse_left_button_click: false,
             mouse_right_button_click: false,
             key_pressed: Default::default(),
+            key_pressed_mod: Default::default(),
             key_down: Default::default(),
             terminating: false,
             window: window.map(|value| value as f32),
@@ -62,10 +64,13 @@ impl Input {
                     self.key_down.insert(keycode);
                 }
             }
-            Event::KeyUp { keycode, .. } => {
+            Event::KeyUp {
+                keycode, keymod, ..
+            } => {
                 if let Some(keycode) = keycode {
                     self.key_down.remove(&keycode);
                     self.key_pressed.insert(keycode);
+                    self.key_pressed_mod.insert(keymod);
                 }
             }
             Event::TextEditing { .. } => {}
@@ -127,6 +132,7 @@ impl Input {
         self.mouse_left_button_click = false;
         self.mouse_right_button_click = false;
         self.key_pressed.clear();
+        self.key_pressed_mod.clear();
     }
 
     pub fn mouse_position(&self, camera_offset: [f32; 2], tile_size: f32) -> Cursor {
@@ -134,7 +140,10 @@ impl Input {
         let tile = position.to_tile();
         let viewport = self.mouse_viewport;
         Cursor {
-            previous_position: self.previous_mouse_position.add(camera_offset).div(tile_size),
+            previous_position: self
+                .previous_mouse_position
+                .add(camera_offset)
+                .div(tile_size),
             position,
             viewport,
             tile,
@@ -151,6 +160,10 @@ impl Input {
 
     pub fn pressed(&self, key: Keycode) -> bool {
         self.key_pressed.contains(&key)
+    }
+
+    pub fn ctrl_pressed(&self, key: Keycode) -> bool {
+        self.key_pressed_mod.contains(&Mod::LCTRLMOD) && self.key_pressed.contains(&key)
     }
 
     pub fn down(&self, key: Keycode) -> bool {

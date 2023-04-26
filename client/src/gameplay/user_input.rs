@@ -1,6 +1,6 @@
 use crate::engine::Frame;
 use crate::gameplay::{rendering_position_of, Gameplay, InputMethod, TILE_SIZE};
-use game::api::FarmerBound;
+use game::api::{Cheat, FarmerBound};
 use game::math::{test_collisions, VectorMath};
 use game::model::Activity;
 use game::physics::generate_holes;
@@ -28,6 +28,13 @@ impl Gameplay {
         }
 
         let targets = self.get_targets_at(tile);
+
+        if input.ctrl_pressed(Keycode::G) {
+            self.send_cheat(Cheat::GrowthUpCrops {
+                growth: 2.5,
+                radius: 3.0,
+            });
+        }
 
         // if input.pressed(Keycode::E) {
         //     if let Target::Crop(crop) = target {

@@ -18,7 +18,7 @@ impl Game {
         let crop_kind = self.known.crops.get(crop.key)?;
 
         // TODO: transactional
-        self.physics.destroy_barrier(crop.barrier)?();
+        let destroy_plant_barrier = self.physics.destroy_barrier(crop.barrier)?();
         self.physics.destroy_sensor(crop.sensor)?();
 
         let (residue, destroy_plant) = self.planting.destroy_plant(crop.plant)?;
@@ -43,6 +43,7 @@ impl Game {
             .add_container(container, &container_kind, items)?;
 
         let events = occur![
+            destroy_plant_barrier,
             destroy_plant(),
             self.universe.vanish_crop(crop),
             create_barrier(),

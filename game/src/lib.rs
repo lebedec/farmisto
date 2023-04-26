@@ -7,7 +7,7 @@ pub use rules::*;
 pub use update::*;
 
 use crate::api::ActionError::{PlayerFarmerNotFound, Timing};
-use crate::api::{Action, ActionError, ActionResponse, Event, FarmerBound};
+use crate::api::{Action, ActionError, ActionResponse, Cheat, Event, FarmerBound};
 use crate::assembling::{AssemblingDomain, PlacementId};
 use crate::building::{BuildingDomain, Structure, SurveyorId};
 use crate::inventory::{ContainerId, FunctionsQuery, InventoryDomain, InventoryError, ItemId};
@@ -38,6 +38,7 @@ pub mod math;
 pub mod model;
 mod rules;
 mod update;
+mod cheats;
 
 #[macro_export]
 macro_rules! occur {
@@ -124,6 +125,27 @@ impl Game {
                 destination,
             } => self.move_creature(creature, destination)?,
             Action::TakeNap { creature } => self.take_nap(creature)?,
+            Action::Cheat { action } => {
+                let player = self
+                    .players
+                    .iter()
+                    .find(|player| &player.name == player_name)
+                    .unwrap()
+                    .id;
+                let farmer = *self
+                    .universe
+                    .farmers
+                    .iter()
+                    .find(|farmer| farmer.player == player)
+                    .ok_or(PlayerFarmerNotFound(player_name.to_string()))?;
+                let farmland = self.universe.farmlands[0];
+                
+                match action {
+                    Cheat::GrowthUpCrops { growth, radius } => {
+                        self.cheat_growth_up_crops(farmer, farmland, growth, radius)?
+                    }
+                }
+            }
             Action::Farmer { action } => {
                 let player = self
                     .players

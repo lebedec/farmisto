@@ -76,6 +76,14 @@ pub enum Action {
     Farmer {
         action: FarmerBound,
     },
+    Cheat {
+        action: Cheat,
+    },
+}
+
+#[derive(Debug, bincode::Encode, bincode::Decode)]
+pub enum Cheat {
+    GrowthUpCrops { radius: f32, growth: f32 },
 }
 
 #[derive(Debug, Clone, bincode::Encode, bincode::Decode)]
