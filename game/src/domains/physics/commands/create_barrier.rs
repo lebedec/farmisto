@@ -21,8 +21,9 @@ impl PhysicsDomain {
             space,
             active,
         };
+        let i: usize = space.into();
         if !overlapping {
-            for barrier in &self.barriers[space.0] {
+            for barrier in &self.barriers[i] {
                 if barrier.position.to_tile() == position.to_tile() {
                     return Err(PhysicsError::BarrierCreationOverlaps { other: barrier.id });
                 }
@@ -37,7 +38,7 @@ impl PhysicsDomain {
                 active: barrier.active,
             }];
             self.barriers_sequence += 1;
-            self.barriers[space.0].push(barrier);
+            self.barriers[i].push(barrier);
             events
         };
         Ok((id, operation))

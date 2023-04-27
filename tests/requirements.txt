@@ -1,1 +1,2 @@
 behave==1.2.6
+pyhamcrest==2.0.4

@@ -44,6 +44,18 @@ pub struct SpaceKind {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
 pub struct SpaceId(pub usize);
 
+impl From<usize> for SpaceId {
+    fn from(value: usize) -> Self {
+        Self(value)
+    }
+}
+
+impl Into<usize> for SpaceId {
+    fn into(self) -> usize {
+        self.0
+    }
+}
+
 pub struct Space {
     pub id: SpaceId,
     pub kind: Shared<SpaceKind>,
