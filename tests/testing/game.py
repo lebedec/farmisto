@@ -17,16 +17,17 @@ class GameTestScenario:
     def dispose(self):
         self._lib.dispose(self._scenario)
 
-    def change_data(self, data: str):
-        self._lib.change_data(self._scenario, data.encode('utf-8'))
-
     # game
 
-    def take_events(self) -> str:
+    def perform_action(self, action: Dict):
+        action = json.dumps(action)
+        self._lib.perform_action(self._scenario, action.encode('utf-8'))
+
+    def take_events(self) -> Dict:
         self._lib.take_events.restype = ctypes.c_void_p
         ptr = self._lib.take_events(self._scenario)
         data = ctypes.cast(ptr, ctypes.c_char_p).value.decode('utf-8')
-        return data
+        return json.loads(data)
 
     # physics
 

@@ -1,8 +1,21 @@
+use serde::{Deserialize, Serialize};
 use std::fmt::{Debug, Formatter};
 
 use crate::collections::Shared;
 
-#[derive(Clone, Copy, PartialEq, Eq, Hash, Default, Debug, bincode::Encode, bincode::Decode)]
+#[derive(
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Hash,
+    Default,
+    Debug,
+    Serialize,
+    Deserialize,
+    bincode::Encode,
+    bincode::Decode,
+)]
 pub struct Material(pub u8);
 
 impl Material {
@@ -27,7 +40,7 @@ impl Material {
     }
 }
 
-#[derive(Clone, Copy, Default, Debug, bincode::Encode, bincode::Decode)]
+#[derive(Clone, Copy, Default, Debug, Serialize, Deserialize, bincode::Encode, bincode::Decode)]
 pub struct Cell {
     pub wall: bool,
     pub door: bool,
@@ -43,10 +56,10 @@ pub struct GridKind {
     pub name: String,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct GridId(pub usize);
 
-#[derive(Default, Clone, bincode::Encode, bincode::Decode)]
+#[derive(Default, Clone, Serialize, Deserialize)]
 pub struct Room {
     pub id: usize,
     pub contour: bool,
@@ -107,15 +120,13 @@ impl Grid {
     pub fn get_cell(&self, cell: [usize; 2]) -> Result<&Cell, BuildingError> {
         let [x, y] = cell;
         if y >= self.cells.len() || x >= self.cells[0].len() {
-            return Err(BuildingError::CellOutOfBounds { cell })
+            return Err(BuildingError::CellOutOfBounds { cell });
         }
         Ok(&self.cells[cell[1]][cell[0]])
     }
 }
 
-#[derive(
-    Clone, Copy, Debug, bincode::Encode, serde::Deserialize, bincode::Decode, PartialEq, Eq, Hash,
-)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum Structure {
     Wall,
     Window,
@@ -123,16 +134,14 @@ pub enum Structure {
     Fence,
 }
 
-#[derive(
-    Clone, Copy, Debug, bincode::Encode, serde::Deserialize, bincode::Decode, PartialEq, Eq, Hash,
-)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum Marker {
     Construction(Structure),
     Reconstruction(Structure),
     Deconstruction,
 }
 
-#[derive(Clone, Copy, Debug, bincode::Encode, bincode::Decode)]
+#[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub struct Stake {
     pub marker: Marker,
     pub cell: [usize; 2],
@@ -146,7 +155,7 @@ pub struct SurveyorKind {
     pub name: String,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct SurveyorId(pub usize);
 
 pub struct Surveyor {
@@ -156,7 +165,7 @@ pub struct Surveyor {
     pub kind: Shared<SurveyorKind>,
 }
 
-#[derive(bincode::Encode, bincode::Decode)]
+#[derive(Serialize, Deserialize)]
 pub enum Building {
     GridChanged {
         grid: GridId,
@@ -183,7 +192,7 @@ impl Debug for Building {
     }
 }
 
-#[derive(Debug, bincode::Encode, bincode::Decode)]
+#[derive(Debug, Serialize, Deserialize)]
 pub enum BuildingError {
     GridNotFound { id: GridId },
     CellOutOfBounds { cell: [usize; 2] },

@@ -1,6 +1,7 @@
 use crate::collections::Shared;
 use rand::prelude::StdRng;
 use rand::{Rng, SeedableRng};
+use serde::{Deserialize, Serialize};
 
 #[derive(Default)]
 pub struct RaisingDomain {
@@ -10,7 +11,7 @@ pub struct RaisingDomain {
     pub animals: Vec<Animal>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct HerdId(pub(crate) usize);
 
 pub struct Herd {
@@ -26,7 +27,7 @@ pub struct AnimalKind {
     pub name: String,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct AnimalId(pub usize);
 
 impl AnimalId {
@@ -61,7 +62,7 @@ pub struct Animal {
     pub stress: f32,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct HerdsmanId(pub(crate) usize);
 
 pub struct Herdsman {
@@ -69,14 +70,14 @@ pub struct Herdsman {
     pub leadership: f32,
 }
 
-#[derive(Debug, bincode::Encode, bincode::Decode)]
+#[derive(Debug, Serialize, Deserialize)]
 pub enum Raising {
     AnimalChanged { id: AnimalId, hunger: f32 },
     LeadershipChanged { id: HerdsmanId, leadership: f32 },
     HerdsmanChanged { herd: HerdId, herdsman: HerdsmanId },
 }
 
-#[derive(Debug, bincode::Encode, bincode::Decode)]
+#[derive(Debug, Serialize, Deserialize)]
 pub enum RaisingError {
     AnimalNotFound { id: AnimalId },
     HerdsmanNotFound { id: HerdsmanId },

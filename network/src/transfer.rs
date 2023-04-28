@@ -12,7 +12,7 @@ pub struct SyncReceiver {
 const HEADER_LENGTH: usize = 4;
 
 impl SyncReceiver {
-    pub fn receive<T: Decode>(&mut self) -> Option<(usize, T)> {
+    pub fn receive<T: serde::de::DeserializeOwned>(&mut self) -> Option<(usize, T)> {
         let mut buffer = [0_u8; HEADER_LENGTH];
         if let Err(error) = self.reader.read_exact(&mut buffer) {
             error!("Unable to receive because of header read, {}", error);
@@ -72,7 +72,7 @@ impl SyncSender {
         }
     }
 
-    pub fn send<T: Encode>(&mut self, value: &T) -> Option<usize> {
+    pub fn send<T: serde::Serialize>(&mut self, value: &T) -> Option<usize> {
         match encode(value) {
             Ok(body) => self.send_body(body),
             Err(error) => {
@@ -84,14 +84,15 @@ impl SyncSender {
 }
 
 #[inline]
-pub fn decode<T: Decode>(data: &[u8]) -> Result<T, DecodeError> {
+pub fn decode<T: serde::de::DeserializeOwned>(data: &[u8]) -> Result<T, DecodeError> {
     let config = bincode::config::standard();
-    let (response, _) = bincode::decode_from_slice(data, config)?;
+    let (response, _) = bincode::serde::decode_from_slice(data, config)?;
     Ok(response)
 }
 
 #[inline]
-pub fn encode<T: Encode>(value: &T) -> Result<Vec<u8>, EncodeError> {
+pub fn encode<T: serde::Serialize>(value: &T) -> Result<Vec<u8>, EncodeError> {
     let config = bincode::config::standard();
-    bincode::encode_to_vec(value, config)
+    // bincode::encode_to_vec(value, config)
+    bincode::serde::encode_to_vec(value, config)
 }

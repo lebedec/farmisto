@@ -1,3 +1,4 @@
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 use crate::collections::{Sequence, Shared};
@@ -13,7 +14,7 @@ pub struct ContainerKind {
     pub filter: Vec<Function>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct ContainerId(pub usize);
 
 pub struct Container {
@@ -44,7 +45,7 @@ pub enum Function {
     Residue,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct ItemKey(pub usize);
 
 pub struct ItemKind {
@@ -55,7 +56,7 @@ pub struct ItemKind {
     pub max_quantity: u8,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct ItemId(pub usize);
 
 pub struct Item {
@@ -65,7 +66,7 @@ pub struct Item {
     pub quantity: u8,
 }
 
-#[derive(Debug, bincode::Encode, bincode::Decode)]
+#[derive(Debug, Serialize, Deserialize)]
 pub enum Inventory {
     ContainerCreated {
         id: ContainerId,
@@ -90,7 +91,7 @@ pub enum Inventory {
     },
 }
 
-#[derive(Debug, bincode::Encode, bincode::Decode)]
+#[derive(Debug, Serialize, Deserialize)]
 pub enum InventoryError {
     ContainersNotFound,
     ContainerNotFound {

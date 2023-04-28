@@ -18,7 +18,7 @@ use crate::working::{DeviceId, Working, WorkingError};
 
 pub const API_VERSION: &str = "0.1.2";
 
-#[derive(Debug, bincode::Encode, bincode::Decode)]
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub enum PlayerRequest {
     Heartbeat,
     Trip {
@@ -35,7 +35,7 @@ pub enum PlayerRequest {
     },
 }
 
-#[derive(bincode::Encode, bincode::Decode)]
+#[derive(serde::Serialize, serde::Deserialize)]
 pub enum GameResponse {
     Heartbeat,
     Trip {
@@ -53,14 +53,14 @@ pub enum GameResponse {
     },
 }
 
-#[derive(Debug, bincode::Encode, bincode::Decode, PartialEq)]
+#[derive(Debug, serde::Serialize, serde::Deserialize, PartialEq)]
 pub enum LoginResult {
     Success,
     VersionMismatch,
     InvalidPassword,
 }
 
-#[derive(Debug, bincode::Encode, bincode::Decode)]
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub enum Action {
     EatCrop {
         creature: Creature,
@@ -81,12 +81,12 @@ pub enum Action {
     },
 }
 
-#[derive(Debug, bincode::Encode, bincode::Decode)]
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub enum Cheat {
     GrowthUpCrops { radius: f32, growth: f32 },
 }
 
-#[derive(Debug, Clone, bincode::Encode, bincode::Decode)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub enum FarmerBound {
     Move {
         destination: [f32; 2],
@@ -210,14 +210,14 @@ pub enum FarmerBound {
     },
 }
 
-#[derive(Debug, bincode::Encode, bincode::Decode)]
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub struct ActionResponse {
     pub error: ActionError,
     pub farmer: Farmer,
     pub correction: Activity,
 }
 
-#[derive(Debug, bincode::Encode, bincode::Decode)]
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub enum ActionError {
     Timing(TimingError),
     Building(BuildingError),
@@ -310,7 +310,7 @@ impl From<LandscapingError> for ActionError {
     }
 }
 
-#[derive(Debug, bincode::Encode, bincode::Decode)]
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub enum Event {
     TimingStream(Vec<Timing>),
     UniverseStream(Vec<Universe>),

@@ -1,5 +1,6 @@
 use crate::collections::Shared;
 use crate::math::Rect;
+use serde::{Deserialize, Serialize};
 
 pub const MAX_SOILS: usize = 128;
 
@@ -31,7 +32,7 @@ pub struct SoilKind {
     pub height: usize,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct SoilId(pub usize);
 
 pub struct Soil {
@@ -52,7 +53,7 @@ pub struct PlantKind {
     pub max_fruits: f32,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct PlantId(pub(crate) usize);
 
 #[derive(Clone)]
@@ -68,7 +69,7 @@ pub struct Plant {
     pub fruits: f32,
 }
 
-#[derive(Debug, bincode::Encode, bincode::Decode)]
+#[derive(Debug, Serialize, Deserialize)]
 pub enum Planting {
     PlantUpdated {
         id: PlantId,
@@ -92,7 +93,7 @@ pub enum Planting {
     },
 }
 
-#[derive(Debug, bincode::Encode, bincode::Decode)]
+#[derive(Debug, Serialize, Deserialize)]
 pub enum PlantingError {
     PlantNotFound { id: PlantId },
     NotReadyToHarvest { id: PlantId },

@@ -1,4 +1,5 @@
 use core::fmt::{Debug, Formatter};
+use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 
 use crate::collections::Shared;
@@ -41,7 +42,7 @@ pub struct SpaceKind {
     pub bounds: [f32; 2],
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct SpaceId(pub usize);
 
 impl From<usize> for SpaceId {
@@ -72,7 +73,7 @@ pub struct BodyKind {
     pub radius: f32,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct BodyId(pub usize);
 
 #[derive(Clone)]
@@ -84,7 +85,7 @@ pub struct Body {
     pub space: SpaceId,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct BarrierKey(pub usize);
 
 pub struct BarrierKind {
@@ -93,7 +94,7 @@ pub struct BarrierKind {
     pub bounds: [f32; 2],
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct BarrierId(pub usize);
 
 #[derive(Clone)]
@@ -105,7 +106,7 @@ pub struct Barrier {
     pub active: bool,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct SensorKey(pub usize);
 
 pub struct SensorKind {
@@ -114,7 +115,7 @@ pub struct SensorKind {
     pub radius: f32,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct SensorId(pub usize);
 
 #[derive(Clone)]
@@ -127,7 +128,7 @@ pub struct Sensor {
     pub registered: HashSet<BodyId>,
 }
 
-#[derive(bincode::Encode, bincode::Decode)]
+#[derive(Serialize, Deserialize)]
 pub enum Physics {
     BodyPositionChanged {
         id: BodyId,
@@ -169,7 +170,7 @@ impl Debug for Physics {
     }
 }
 
-#[derive(Debug, bincode::Encode, bincode::Decode)]
+#[derive(Debug, Serialize, Deserialize)]
 pub enum PhysicsError {
     SpaceNotFound { space: SpaceId },
     BodyNotFound { id: BodyId },

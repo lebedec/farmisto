@@ -1,4 +1,5 @@
 pub use crate::collections::{Sequence, Shared};
+use serde::{Deserialize, Serialize};
 
 pub struct TimingDomain {
     pub real_seconds_per_mgm: f32,
@@ -23,7 +24,7 @@ impl Default for TimingDomain {
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct CalendarKey(pub usize);
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Deserialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Deserialize)]
 pub struct MinGameMinute(pub u8);
 
 impl MinGameMinute {
@@ -45,7 +46,7 @@ pub struct CalendarKind {
     pub seasons: Vec<Season>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct CalendarId(pub usize);
 
 pub struct Calendar {
@@ -56,7 +57,7 @@ pub struct Calendar {
     pub times_of_day: f32,
 }
 
-#[derive(Debug, bincode::Encode, bincode::Decode)]
+#[derive(Debug, Serialize, Deserialize)]
 pub enum Timing {
     TimeUpdated {
         colonization_date: f32,
@@ -70,7 +71,7 @@ pub enum Timing {
     },
 }
 
-#[derive(Debug, bincode::Encode, bincode::Decode)]
+#[derive(Debug, Serialize, Deserialize)]
 pub enum TimingError {
     CalendarNotFound { id: CalendarId },
 }

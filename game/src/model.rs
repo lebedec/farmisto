@@ -85,7 +85,7 @@ pub struct UniverseDomain {
     pub composters_id: usize,
 }
 
-#[derive(Debug, bincode::Encode, bincode::Decode)]
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub enum Universe {
     ActivityChanged {
         farmer: Farmer,
@@ -210,7 +210,7 @@ pub enum Universe {
     ComposterVanished(Composter),
 }
 
-#[derive(Debug, bincode::Encode, bincode::Decode)]
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub enum UniverseError {
     FarmlandBySpaceNotFound {
         space: SpaceId,
@@ -483,7 +483,7 @@ impl UniverseSnapshot {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub struct PlayerId(pub usize);
 
 pub struct Player {
@@ -491,7 +491,7 @@ pub struct Player {
     pub name: String,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub struct FarmerKey(pub usize);
 
 pub struct FarmerKind {
@@ -500,7 +500,7 @@ pub struct FarmerKind {
     pub body: BodyKey,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum Activity {
     Idle,
     Usage,
@@ -525,7 +525,7 @@ impl Activity {
     }
 }
 
-#[derive(Debug, bincode::Encode, bincode::Decode)]
+#[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub struct ItemData {
     pub id: ItemId,
     pub kind: ItemKey,
@@ -533,7 +533,7 @@ pub struct ItemData {
     pub quantity: u8,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub struct Farmer {
     pub id: usize,
     pub kind: FarmerKey,
@@ -543,7 +543,7 @@ pub struct Farmer {
     pub backpack: ContainerId,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub struct TreeKey(pub usize);
 
 pub struct TreeKind {
@@ -553,7 +553,7 @@ pub struct TreeKind {
     pub plant: Shared<PlantKind>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub struct Tree {
     pub id: usize,
     pub kind: TreeKey,
@@ -561,7 +561,7 @@ pub struct Tree {
     pub barrier: BarrierId,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub struct FarmlandKey(pub usize);
 
 pub struct FarmlandKind {
@@ -574,7 +574,7 @@ pub struct FarmlandKind {
     pub calendar: Shared<CalendarKind>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub struct Farmland {
     pub id: usize,
     pub kind: FarmlandKey,
@@ -585,7 +585,7 @@ pub struct Farmland {
     pub calendar: CalendarId,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub struct Construction {
     pub id: usize,
     pub container: ContainerId,
@@ -595,14 +595,14 @@ pub struct Construction {
     pub cell: [usize; 2],
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub struct Deconstruction {
     pub id: usize,
     pub grid: GridId,
     pub cell: [usize; 2],
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub struct EquipmentKey(pub usize);
 
 pub enum PurposeDescription {
@@ -618,13 +618,13 @@ pub struct EquipmentKind {
     pub item: Shared<ItemKind>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum Purpose {
     Surveying { surveyor: SurveyorId },
     Moisture { sensor: usize },
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub struct Equipment {
     pub id: usize,
     pub key: EquipmentKey,
@@ -632,14 +632,14 @@ pub struct Equipment {
     pub barrier: BarrierId,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub struct Stack {
     pub id: usize,
     pub container: ContainerId,
     pub barrier: BarrierId,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub struct CropKey(pub usize);
 
 pub struct CropKind {
@@ -652,7 +652,7 @@ pub struct CropKind {
     pub residue: Shared<ItemKind>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub struct Crop {
     pub id: usize,
     pub key: CropKey,
@@ -661,7 +661,7 @@ pub struct Crop {
     pub sensor: SensorId,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub struct CreatureKey(pub usize);
 
 pub struct CreatureKind {
@@ -671,7 +671,7 @@ pub struct CreatureKind {
     pub animal: Shared<AnimalKind>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub struct Creature {
     pub id: usize,
     pub key: CreatureKey,
@@ -679,7 +679,7 @@ pub struct Creature {
     pub animal: AnimalId,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub struct AssemblyKey(pub usize);
 
 pub enum AssemblyTarget {
@@ -695,14 +695,14 @@ pub struct AssemblyKind {
     pub target: AssemblyTarget,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub struct Assembly {
     pub id: usize,
     pub key: AssemblyKey,
     pub placement: PlacementId,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub struct DoorKey(pub usize);
 
 pub struct DoorKind {
@@ -712,7 +712,7 @@ pub struct DoorKind {
     pub kit: Shared<ItemKind>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub struct Door {
     pub id: usize,
     pub key: DoorKey,
@@ -720,7 +720,7 @@ pub struct Door {
     pub placement: PlacementId,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub struct RestKey(pub usize);
 
 pub struct RestKind {
@@ -731,7 +731,7 @@ pub struct RestKind {
     pub kit: Shared<ItemKind>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub struct Rest {
     pub id: usize,
     pub key: RestKey,
@@ -739,7 +739,7 @@ pub struct Rest {
     pub placement: PlacementId,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub struct CementerKey(pub usize);
 
 pub struct CementerKind {
@@ -755,7 +755,7 @@ pub struct CementerKind {
     pub cement: Shared<ItemKind>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub struct Cementer {
     pub id: usize,
     pub key: CementerKey,
@@ -766,7 +766,7 @@ pub struct Cementer {
     pub placement: PlacementId,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub struct ComposterKey(pub usize);
 
 pub struct ComposterKind {
@@ -782,7 +782,7 @@ pub struct ComposterKind {
     pub compost: Shared<ItemKind>,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub struct Composter {
     pub id: usize,
     pub key: ComposterKey,

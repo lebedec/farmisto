@@ -1,3 +1,4 @@
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 use crate::collections::{Sequence, Shared};
@@ -40,7 +41,7 @@ pub struct LandKind {
     pub height: usize,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct LandId(pub usize);
 
 pub struct Land {
@@ -51,8 +52,7 @@ pub struct Land {
     pub surface: Vec<u8>,
 }
 
-
-#[derive(Debug, bincode::Encode, bincode::Decode)]
+#[derive(Debug, Serialize, Deserialize)]
 pub enum Landscaping {
     MoistureInspected {
         land: LandId,
@@ -87,7 +87,7 @@ pub enum Landscaping {
        // },
 }
 
-#[derive(Debug, bincode::Encode, bincode::Decode)]
+#[derive(Debug, Serialize, Deserialize)]
 pub enum LandscapingError {
     LandNotFound {
         id: LandId,

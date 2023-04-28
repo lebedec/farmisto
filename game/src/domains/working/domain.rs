@@ -1,4 +1,5 @@
 use crate::collections::{Sequence, Shared};
+use serde::{Deserialize, Serialize};
 
 #[derive(Default)]
 pub struct WorkingDomain {
@@ -16,7 +17,7 @@ pub struct DeviceKind {
     pub durability: f32,
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct DeviceId(pub usize);
 
 pub struct Device {
@@ -30,7 +31,7 @@ pub struct Device {
     pub deprecation: f32,
 }
 
-#[derive(Debug, bincode::Encode, bincode::Decode)]
+#[derive(Debug, Serialize, Deserialize)]
 pub enum Working {
     DeviceUpdated {
         device: DeviceId,
@@ -43,7 +44,7 @@ pub enum Working {
     },
 }
 
-#[derive(Debug, bincode::Encode, bincode::Decode)]
+#[derive(Debug, Serialize, Deserialize)]
 pub enum WorkingError {
     DeviceNotFound { id: DeviceId },
 }

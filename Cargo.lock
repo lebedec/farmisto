@@ -828,6 +828,7 @@ dependencies = [
  "lazy_static",
  "log",
  "prometheus",
+ "serde",
  "snap",
 ]
 

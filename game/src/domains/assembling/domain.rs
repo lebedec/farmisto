@@ -1,3 +1,4 @@
+use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 
 #[derive(Default)]
@@ -6,7 +7,7 @@ pub struct AssemblingDomain {
     pub placements: HashMap<PlacementId, Placement>,
 }
 
-#[derive(Debug, bincode::Encode, bincode::Decode)]
+#[derive(Debug, Serialize, Deserialize)]
 pub enum Assembling {
     PlacementUpdated {
         placement: PlacementId,
@@ -16,15 +17,13 @@ pub enum Assembling {
     },
 }
 
-#[derive(Debug, bincode::Encode, bincode::Decode)]
+#[derive(Debug, Serialize, Deserialize)]
 pub enum AssemblingError {
     PlacementNotFound { id: PlacementId },
     PlacementInvalid { id: PlacementId },
 }
 
-#[derive(
-    Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode, serde::Deserialize,
-)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum Rotation {
     A000,
     A090,
@@ -72,7 +71,7 @@ impl Rotation {
     }
 }
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, bincode::Encode, bincode::Decode)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct PlacementId(pub usize);
 
 #[derive(Debug, Clone)]

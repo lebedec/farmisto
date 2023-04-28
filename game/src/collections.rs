@@ -1,11 +1,11 @@
 use crate::data::DataError;
-use alloc::rc::Weak;
 use std::cell::{RefCell, RefMut};
 use std::collections::HashMap;
 use std::fmt::{Debug, Formatter};
 use std::hash::Hash;
 use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
+use serde::{Serialize, Deserialize};
 
 pub struct Shared<T> {
     inner: Rc<RefCell<T>>,
@@ -60,7 +60,7 @@ impl<K, T> Default for Dictionary<K, T> {
     }
 }
 
-#[derive(Debug, bincode::Encode, bincode::Decode)]
+#[derive(Debug, Serialize, Deserialize)]
 pub enum DictionaryError {
     KeyNotFound { key: String },
     NameNotFound { name: String },
