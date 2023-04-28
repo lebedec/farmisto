@@ -28,8 +28,18 @@ pub unsafe extern "C" fn perform_action(scenario: &mut Scenario, data: PyString)
 
 #[no_mangle]
 pub unsafe extern "C" fn create(database: PyString) -> *mut Scenario {
-    println!("befor load");
+    println!("LS ./");
     let paths = fs::read_dir("./").unwrap();
+    for path in paths {
+        println!("Name: {}", path.unwrap().path().display())
+    }
+    println!("LS ../");
+    let paths = fs::read_dir("../").unwrap();
+    for path in paths {
+        println!("Name: {}", path.unwrap().path().display())
+    }
+    println!("LS ../assets");
+    let paths = fs::read_dir("../assets").unwrap();
     for path in paths {
         println!("Name: {}", path.unwrap().path().display())
     }
