@@ -117,7 +117,7 @@ fn spawn_loader(
             loop {
                 let request = { requests.write().unwrap().pop() };
                 if let Some(request) = request {
-                    info!(
+                    debug!(
                         "[loader-{}] Load {:?} {:?}",
                         loader,
                         request.kind,
@@ -132,7 +132,6 @@ fn spawn_loader(
                                 queue.clone(),
                                 path.as_os_str().to_str().unwrap(),
                             );
-                            info!("Send texture {:?}", path);
                             result.send(AssetPayload::Texture { path, data }).unwrap();
                         }
                         AssetKind::Shader => {

@@ -3,6 +3,7 @@ extern crate core;
 
 use datamap::Storage;
 pub use domains::*;
+use log::info;
 pub use rules::*;
 pub use update::*;
 
@@ -15,7 +16,7 @@ use crate::landscaping::LandscapingDomain;
 use crate::model::Activity::Idle;
 use crate::model::{
     Activity, Assembly, AssemblyKey, Cementer, CementerKey, Creature, CreatureKey, Crop, CropKey,
-    Door, DoorKey, Stack,
+    Door, DoorKey, FarmerKey, PlayerId, Stack,
 };
 use crate::model::{Composter, ComposterKey, Knowledge};
 use crate::model::{Equipment, Rest, RestKey};
@@ -30,6 +31,7 @@ use crate::working::{DeviceId, WorkingDomain};
 
 mod actions;
 pub mod api;
+mod cheats;
 pub mod collections;
 mod data;
 mod domains;
@@ -38,7 +40,6 @@ pub mod math;
 pub mod model;
 mod rules;
 mod update;
-mod cheats;
 
 #[macro_export]
 macro_rules! occur {
@@ -61,6 +62,7 @@ pub struct Game {
     pub assembling: AssemblingDomain,
     pub working: WorkingDomain,
     storage: Storage,
+    pub players_id: usize,
     pub players: Vec<Player>,
 }
 
@@ -79,7 +81,55 @@ impl Game {
             assembling: AssemblingDomain::default(),
             working: WorkingDomain::default(),
             storage,
+            players_id: 0,
             players: vec![],
+        }
+    }
+
+    pub fn accept_player(&mut self, player_name: &str) -> Result<Vec<Event>, ActionError> {
+        if !self.players.iter().any(|player| player.name == player_name) {
+            if player_name == "<AI>" {
+                info!("Accepts <AI> player");
+                return Ok(vec![]);
+            }
+
+            info!("Accepts new player {player_name}");
+            self.players_id += 1;
+            let player = PlayerId(self.players_id);
+            self.players.push(Player {
+                id: player,
+                name: player_name.to_string(),
+            });
+            let farmer_kind = self.known.farmers.find("farmer")?;
+
+            // TODO: define player spawn place
+            let spawn = [10.5, 10.5];
+            let farmland = &self.universe.farmlands[0];
+
+            let body = self.physics.bodies_sequence.introduce().one(BodyId);
+            let body_kind = self.known.bodies.find("farmer")?;
+            let create_body = self
+                .physics
+                .create_body(body, farmland.space, body_kind, spawn)?;
+
+            let [hands, backpack] = self.inventory.containers_id.introduce().many(ContainerId);
+            let hands_kind = self.known.containers.find("<hands>")?;
+            let backpack_kind = self.known.containers.find("<backpack>")?;
+            let create_hands = self.inventory.add_empty_container(hands, &hands_kind)?;
+            let create_backpack = self
+                .inventory
+                .add_empty_container(backpack, &backpack_kind)?;
+
+            let events = occur![
+                create_body(),
+                create_hands(),
+                create_backpack(),
+                self.appear_farmer(farmer_kind.id, player, body, hands, backpack)?,
+            ];
+            Ok(events)
+        } else {
+            info!("Accepts exist player, reconnect");
+            Ok(vec![])
         }
     }
 
@@ -139,7 +189,7 @@ impl Game {
                     .find(|farmer| farmer.player == player)
                     .ok_or(PlayerFarmerNotFound(player_name.to_string()))?;
                 let farmland = self.universe.farmlands[0];
-                
+
                 match action {
                     Cheat::GrowthUpCrops { growth, radius } => {
                         self.cheat_growth_up_crops(farmer, farmland, growth, radius)?
@@ -322,6 +372,30 @@ impl Game {
         };
         self.universe.crops.push(entity);
         self.inspect_crop(entity)
+    }
+
+    pub fn appear_farmer(
+        &mut self,
+        kind: FarmerKey,
+        player: PlayerId,
+        body: BodyId,
+        hands: ContainerId,
+        backpack: ContainerId,
+    ) -> Result<Universe, ActionError> {
+        self.universe.farmers_id += 1;
+        let entity = Farmer {
+            id: self.universe.farmers_id,
+            kind,
+            player,
+            body,
+            hands,
+            backpack,
+        };
+        self.universe
+            .farmers_activity
+            .insert(entity, Activity::Idle);
+        self.universe.farmers.push(entity);
+        self.inspect_farmer(entity)
     }
 
     pub fn appear_creature(

@@ -337,10 +337,6 @@ def prototype_raising(destination_path: str, template_path: str):
         ),
         fertility_data=generate_feature_map(lambda tile: 1.0 if 24 <= tile[0] < 32 and 5 < tile[1] < 14 else 0.0),
         objects={
-            'A': lambda tile, farmland: editor.add_farmer('farmer', 'Alice', farmland, tile),
-            'B': lambda tile, farmland: editor.add_farmer('farmer', 'Boris', farmland, tile),
-            'C': lambda tile, farmland: editor.add_farmer('farmer', 'Carol', farmland, tile),
-            'D': lambda tile, farmland: editor.add_farmer('farmer', 'David', farmland, tile),
             's': lambda tile, farmland: editor.add_stack(farmland, tile, ['shovel'], 1),
             'r': lambda tile, farmland: editor.add_rest(farmland, tile, 'bed'),
             'e': lambda tile, farmland: editor.add_stack(farmland, tile, ['seeds'], 10),
@@ -373,9 +369,9 @@ def prototype_raising(destination_path: str, template_path: str):
         . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
         . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
         . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-        . . . . . . . . . . . . . . . . . B C D . . . . . . . . . . . . . # # | # - # # . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+        . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . # # | # - # # . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
         . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . # . . . r . # . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-        . . . . . . . . . . . . . . . . . . A . . . w e . . . . . . . . . # . . . . . - . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+        . . . . . . . . . . . . . . . . . . . . . . w e . . . . . . . . . # . . . . . - . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
         . . . . . . . . . . . . . . . . . . . . . . w e . . . . . . . . . | . . . r . # . . . . . . . . . . . . . . . . . . . s . . . . . . . . . . . . . . . . . . . .
         . . . . . . . . . . . . . . . . . . . . . . w e . . . . . . . . . # . . . . . - . . . . . . . . . . . . . . . . . . . s s s . . . . . . . . . . . . . . . . . .
         . . . . . . . . . . . . . . . . . . . . . . w e . . . . . . . . . # . . . r . # . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 9 . . . . . . .
@@ -427,10 +423,6 @@ def prototype_planting(destination_path: str, template_path: str):
         ),
         fertility_data=generate_feature_map(lambda tile: 1.0 if 24 <= tile[0] < 32 and 5 < tile[1] < 14 else 0.0),
         objects={
-            'A': lambda tile, farmland: editor.add_farmer('farmer', 'Alice', farmland, tile),
-            'B': lambda tile, farmland: editor.add_farmer('farmer', 'Boris', farmland, tile),
-            'C': lambda tile, farmland: editor.add_farmer('farmer', 'Carol', farmland, tile),
-            'D': lambda tile, farmland: editor.add_farmer('farmer', 'David', farmland, tile),
             's': lambda tile, farmland: editor.add_stack(farmland, tile, ['shovel'], 1),
             'r': lambda tile, farmland: editor.add_rest(farmland, tile, 'bed'),
             'e': lambda tile, farmland: editor.add_stack(farmland, tile, ['seeds'], 10),
@@ -463,9 +455,9 @@ def prototype_planting(destination_path: str, template_path: str):
         . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
         . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
         . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-        . . . . . . . . . . . . . . . . . B C D . . . . . . . . . . . . . # # | # - # # . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+        . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . # # | # - # # . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
         . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . # . . . r . # . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-        . . . . . . . . . . . . . . . . . . A . . . w e . . . . . . . . . # . . . . . - . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+        . . . . . . . . . . . . . . . . . . . . . . w e . . . . . . . . . # . . . . . - . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
         . . . . . . . . . . . . . . . . . . . . . . w e . . . . . . . . . | . . . r . # . . . . . . . . . . . . . . . . . . . s . . . . . . . . . . . . . . . . . . . .
         . . . . . . . . . . . . . . . . . . . . . . w e . . . . . . . . . # . . . . . - . . . . . . . . . . . . . . . . . . . s s s . . . . . . . . . . . . . . . . . .
         . . . . . . . . . . . . . . . . . . . . . . w e . . . . . . . . . # . . . r . # . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . 9 . . . . . . .
@@ -515,10 +507,6 @@ def prototype_assembling(destination_path: str, template_path: str):
         moisture_capacity_data=moisture_capacity_from_image("../bin/data/noise.png"),
         fertility_data=generate_feature_map(lambda _: 0.0),
         objects={
-            'A': lambda tile, farmland: editor.add_farmer('farmer', 'Alice', farmland, tile),
-            'B': lambda tile, farmland: editor.add_farmer('farmer', 'Boris', farmland, tile),
-            'C': lambda tile, farmland: editor.add_farmer('farmer', 'Carol', farmland, tile),
-            'D': lambda tile, farmland: editor.add_farmer('farmer', 'David', farmland, tile),
             'c': lambda tile, farmland: editor.add_stack(farmland, tile, ['concrete-material'] * 5, 1),
             'w': lambda tile, farmland: editor.add_stack(farmland, tile, ['wood-material'] * 5, 1),
             'p': lambda tile, farmland: editor.add_stack(farmland, tile, ['planks-material'] * 5, 1),
@@ -560,8 +548,8 @@ def prototype_assembling(destination_path: str, template_path: str):
         . . . . . . # . . . . . # . . . . . . . . . . . . . . . . . . . . # . k . . . . . . . . . | . . . . . . . . . . . . . . . . .
         . . . . . . # | # - # | # . . . . . . . . . . . . . . . . . . . . # # # # | | # . . . . . | . . . . . . . . . . . . . . . . .
         . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . # . z . . . # . . . . . # . . . . . . . . . . . . . . . . .
-        . . . . . . . . . . d d . . B C D . . . . . . . . . . . . . . . . # . . . . . # . . . . k # . . . . . . . . . . . . . . . . .
-        . . . . . . . . . . . . . . . A . . . . . . . . . . . . . . . . . | . . . . . | . . . . . # . . . . . . . . . . . . . . . . .
+        . . . . . . . . . . d d . . . . . . . . . . . . . . . . . . . . . # . . . . . # . . . . k # . . . . . . . . . . . . . . . . .
+        . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . | . . . . . | . . . . . # . . . . . . . . . . . . . . . . .
         . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . r # . . . . . # . . . . . # . . . . . . . . . . . . . . . . .
         . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . # # - - - # # # | | | # # . . . . . . . . . . . . . . . . .
         . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . d b . . . . . . . . . . . . . . . . . . . . . . . . . .
@@ -582,10 +570,6 @@ def prototype_building(destination_path: str, template_path: str):
         moisture_capacity_data=moisture_capacity_from_image("../bin/data/noise.png"),
         fertility_data=generate_feature_map(lambda _: 0.0),
         objects={
-            'A': lambda tile, farmland: editor.add_farmer('farmer', 'Alice', farmland, tile),
-            'B': lambda tile, farmland: editor.add_farmer('farmer', 'Boris', farmland, tile),
-            'C': lambda tile, farmland: editor.add_farmer('farmer', 'Carol', farmland, tile),
-            'D': lambda tile, farmland: editor.add_farmer('farmer', 'David', farmland, tile),
             'c': lambda tile, farmland: editor.add_stack(farmland, tile, ['concrete-material'] * 5, 1),
             'w': lambda tile, farmland: editor.add_stack(farmland, tile, ['wood-material'] * 5, 1),
             'p': lambda tile, farmland: editor.add_stack(farmland, tile, ['planks-material'] * 5, 1),
@@ -610,9 +594,9 @@ def prototype_building(destination_path: str, template_path: str):
         . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
         . . . . . . . . . . . . . . c . . . . . . . . . . . . . c . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
         . . . . . . . . . . . . . . c c . . . . . c c . . . . . . c . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-        . . B C D . . . . . . . . . c c . . . . c c c . . . . c c c . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+        . . . . . . . . . . . . . . c c . . . . c c c . . . . c c c . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
         . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-        . . . A . . . . . . . . . . n h . . . . . n h . . . . . n h . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+        . . . . . . . . . . . . . . n h . . . . . n h . . . . . n h . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
         . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
         . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
         . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .

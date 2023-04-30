@@ -119,7 +119,7 @@ pub fn startup<A: App>(title: String) {
             time = Instant::now();
             // info!("et: {}", input.time);
             for event in event_pump.poll_iter() {
-                input.handle(event);
+                input.handle(event, &video);
             }
 
             if input.terminating {

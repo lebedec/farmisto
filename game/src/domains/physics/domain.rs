@@ -2,7 +2,7 @@ use core::fmt::{Debug, Formatter};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 
-use crate::collections::Shared;
+use crate::collections::{Sequence, Shared};
 use crate::math::Collider;
 
 pub const MAX_SPACES: usize = 128;
@@ -11,7 +11,7 @@ pub struct PhysicsDomain {
     pub spaces: Vec<Space>,
     pub spaces_sequence: usize,
     pub bodies: Vec<Vec<Body>>,
-    pub bodies_sequence: usize,
+    pub bodies_sequence: Sequence,
     pub barriers: Vec<Vec<Barrier>>,
     pub barriers_sequence: usize,
     pub sensors: Vec<Vec<Sensor>>,
@@ -24,7 +24,7 @@ impl Default for PhysicsDomain {
             spaces: vec![],
             spaces_sequence: 0,
             bodies: vec![vec![]; MAX_SPACES],
-            bodies_sequence: 0,
+            bodies_sequence: Sequence::default(),
             barriers: vec![vec![]; MAX_SPACES],
             barriers_sequence: 0,
             sensors: vec![vec![]; MAX_SPACES],
@@ -182,34 +182,6 @@ pub enum PhysicsError {
     HoleNotFound { hole: [usize; 2] },
     HoleAlreadyExists { hole: [usize; 2] },
     HoleCreationContainsBody { hole: [usize; 2] },
-}
-
-impl PhysicsDomain {
-    pub fn load_spaces(&mut self, spaces: Vec<Space>, sequence: usize) {
-        self.spaces_sequence = sequence;
-        self.spaces.extend(spaces);
-    }
-
-    pub fn load_bodies(&mut self, bodies: Vec<Body>, sequence: usize) {
-        self.bodies_sequence = sequence;
-        for body in bodies {
-            self.bodies[body.space.0].push(body);
-        }
-    }
-
-    pub fn load_barriers(&mut self, barriers: Vec<Barrier>, sequence: usize) {
-        self.barriers_sequence = sequence;
-        for barrier in barriers {
-            self.barriers[barrier.space.0].push(barrier);
-        }
-    }
-
-    pub fn load_sensors(&mut self, sensors: Vec<Sensor>, sequence: usize) {
-        self.sensors_sequence = sequence;
-        for sensor in sensors {
-            self.sensors[sensor.space.0].push(sensor);
-        }
-    }
 }
 
 pub struct Hole {

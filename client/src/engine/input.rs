@@ -1,7 +1,9 @@
 use game::math::VectorMath;
+use log::{error, info};
 use sdl2::event::Event;
 use sdl2::keyboard::{Keycode, Mod};
 use sdl2::mouse::MouseButton;
+use sdl2::VideoSubsystem;
 use std::collections::HashSet;
 
 #[derive(Clone)]
@@ -18,6 +20,7 @@ pub struct Input {
     pub terminating: bool,
     pub window: [f32; 2],
     pub zoom: f32,
+    pub text: Option<String>,
 }
 
 #[derive(Clone, Copy, Default)]
@@ -43,10 +46,11 @@ impl Input {
             window: window.map(|value| value as f32),
             zoom: 1.0,
             previous_mouse_position: [0.0, 0.0],
+            text: None,
         }
     }
 
-    pub fn handle(&mut self, event: Event) {
+    pub fn handle(&mut self, event: Event, video: &VideoSubsystem) {
         match event {
             Event::Quit { .. } => {
                 self.terminating = true;
@@ -59,7 +63,20 @@ impl Input {
             Event::AppDidEnterForeground { .. } => {}
             Event::Display { .. } => {}
             Event::Window { .. } => {}
-            Event::KeyDown { keycode, .. } => {
+            Event::KeyDown {
+                keycode, keymod, ..
+            } => {
+                if keycode == Some(Keycode::V) && keymod.contains(Mod::LCTRLMOD) {
+                    match video.clipboard().clipboard_text() {
+                        Ok(text) => {
+                            self.text = Some(text);
+                            return;
+                        }
+                        Err(error) => {
+                            error!("Unable to paste clipboard text, {error}")
+                        }
+                    }
+                }
                 if let Some(keycode) = keycode {
                     self.key_down.insert(keycode);
                 }
@@ -74,7 +91,9 @@ impl Input {
                 }
             }
             Event::TextEditing { .. } => {}
-            Event::TextInput { .. } => {}
+            Event::TextInput { text, .. } => {
+                self.text = Some(text);
+            }
             Event::MouseMotion { x, y, .. } => {
                 let x = x as f32 * self.zoom;
                 let y = y as f32 * self.zoom;
@@ -129,6 +148,7 @@ impl Input {
     }
 
     pub fn reset(&mut self) {
+        self.text = None;
         self.mouse_left_button_click = false;
         self.mouse_right_button_click = false;
         self.key_pressed.clear();

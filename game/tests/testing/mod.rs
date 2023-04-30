@@ -212,7 +212,7 @@ impl GameTestScenario {
             destination: [0.0, 0.0],
             space: farmland.space,
         };
-        self.game.physics.load_bodies(vec![body_component], body.0);
+        self.game.physics.load_bodies(vec![body_component]);
 
         let id = self.game.universe.farmers_id + 1;
         let farmer = Farmer {

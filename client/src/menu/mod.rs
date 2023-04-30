@@ -2,7 +2,7 @@ use glam::vec3;
 use log::info;
 use sdl2::keyboard::Keycode;
 
-use crate::engine::rendering::{ButtonController, TextController};
+use crate::engine::rendering::{ButtonController, InputController, TextController};
 use ai::AiThread;
 use network::{ClientMetrics, Configuration, TcpClient};
 use server::LocalServerThread;
@@ -15,10 +15,9 @@ use crate::Mode;
 pub struct Menu {
     host: Option<String>,
     join: Option<String>,
+    name_input: InputController,
     serve_button: ButtonController,
-    join_button_boris: ButtonController,
-    join_button_carol: ButtonController,
-    join_button_david: ButtonController,
+    join_button: ButtonController,
 }
 
 impl Menu {
@@ -26,8 +25,19 @@ impl Menu {
         Box::new(Self {
             join: None,
             host: None,
-            serve_button: frame.scene.instantiate_button(
+            name_input: frame.scene.instantiate_input(
                 128,
+                128,
+                512,
+                128,
+                String::from("Host"),
+                frame.assets.fonts_default.share(),
+                frame.assets.sampler("default"),
+                frame.assets.texture_white().share(),
+                12,
+            ),
+            serve_button: frame.scene.instantiate_button(
+                128 + 128 + 64,
                 128,
                 512,
                 128,
@@ -36,32 +46,12 @@ impl Menu {
                 frame.assets.sampler("default"),
                 frame.assets.texture_white().share(),
             ),
-            join_button_boris: frame.scene.instantiate_button(
-                128 + 128 + 64,
-                128,
-                512,
-                128,
-                frame.translator.say("Button_join_boris"),
-                frame.assets.fonts_default.share(),
-                frame.assets.sampler("default"),
-                frame.assets.texture_white().share(),
-            ),
-            join_button_carol: frame.scene.instantiate_button(
+            join_button: frame.scene.instantiate_button(
                 128 + 128 + 128 + 128,
                 128,
                 512,
                 128,
-                frame.translator.say("Button_join_carol"),
-                frame.assets.fonts_default.share(),
-                frame.assets.sampler("default"),
-                frame.assets.texture_white().share(),
-            ),
-            join_button_david: frame.scene.instantiate_button(
-                128 + 128 + 128 + 128 + 128 + 64,
-                128,
-                512,
-                128,
-                frame.translator.say("Button_join_david"),
+                frame.translator.say("Button_join"),
                 frame.assets.fonts_default.share(),
                 frame.assets.sampler("default"),
                 frame.assets.texture_white().share(),
@@ -72,10 +62,9 @@ impl Menu {
     fn render(&mut self, frame: &mut Frame) {
         frame.scene.look_at(vec3(0.0, 0.0, 0.0));
 
+        frame.scene.render_input(&self.name_input);
         frame.scene.render_button(&self.serve_button);
-        frame.scene.render_button(&self.join_button_boris);
-        frame.scene.render_button(&self.join_button_carol);
-        frame.scene.render_button(&self.join_button_david);
+        frame.scene.render_button(&self.join_button);
     }
 }
 
@@ -92,33 +81,24 @@ impl Mode for Menu {
                 .texture("assets/texture/building-deconstruction.png");
         }
 
+        self.name_input.update(&frame.input);
         self.serve_button
             .udpate(frame.input.mouse_position_raw(), frame.input.left_click());
-        self.join_button_boris
+        self.join_button
             .udpate(frame.input.mouse_position_raw(), frame.input.left_click());
-        self.join_button_carol
-            .udpate(frame.input.mouse_position_raw(), frame.input.left_click());
-        self.join_button_david
-            .udpate(frame.input.mouse_position_raw(), frame.input.left_click());
+
+        let player = self.name_input.get_value();
 
         if self.serve_button.clicked {
-            info!("Host as Alice");
-            self.host = Some("Alice".to_string());
+            info!("Host as {player}");
+            self.host = Some(player.clone());
         }
 
-        if self.join_button_boris.clicked {
-            info!("Join as Boris");
-            self.join = Some("Boris".to_string())
-        }
-
-        if self.join_button_carol.clicked {
-            info!("Join as Carol");
-            self.join = Some("Carol".to_string())
-        }
-
-        if self.join_button_david.clicked {
-            info!("Join as David");
-            self.join = Some("David".to_string())
+        if self.join_button.clicked {
+            if player != String::from("Host") {
+                info!("Join as {player}");
+                self.join = Some(player.clone())
+            }
         }
 
         self.render(frame);

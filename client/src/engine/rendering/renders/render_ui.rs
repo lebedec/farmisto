@@ -10,11 +10,83 @@ use fontdue::layout::{CoordinateSystem, Layout, LayoutSettings, TextStyle};
 use fontdue::{Font, FontSettings};
 use image::{DynamicImage, Rgba, RgbaImage};
 use log::{error, info};
+use sdl2::keyboard::Keycode;
 
 use crate::assets::{FontAsset, SamplerAsset, TextureAsset, TextureAssetData};
 use crate::engine::base::{MyQueue, ShaderData};
 use crate::engine::rendering::{ElementPushConstants, ElementRenderObject, Scene, SceneMetrics};
+use crate::engine::Input;
 use crate::monitoring::Timer;
+
+pub struct InputController {
+    width: u32,
+    height: u32,
+    top: u32,
+    left: u32,
+    pub text: TextController,
+    hover: bool,
+    pub focused: bool,
+    bg: TextureAsset,
+    color_bg: [f32; 4],
+    color_fg: [f32; 4],
+    color_focused: [f32; 4],
+    color_hover: [f32; 4],
+    max_length: usize,
+}
+
+impl InputController {
+    pub fn get_value(&self) -> String {
+        self.text.get_text().to_string()
+    }
+
+    pub fn update(&mut self, input: &Input) {
+        let mouse = input.mouse_position_raw();
+        let mx = mouse[0] as u32;
+        let my = mouse[1] as u32;
+        if mx >= self.left
+            && mx <= self.left + self.width
+            && my >= self.top
+            && my <= self.top + self.height
+        {
+            self.hover = true;
+        } else {
+            self.hover = false;
+        }
+
+        if input.left_click() {
+            if self.hover {
+                self.focused = true;
+            } else {
+                self.focused = false;
+            }
+        }
+
+        if self.focused && input.pressed(Keycode::Escape) || input.pressed(Keycode::Return) {
+            self.focused = false;
+        }
+
+        if self.focused {
+            if input.pressed(Keycode::Backspace) {
+                let current = self.text.get_text().to_string();
+                if current.len() > 0 {
+                    let text = current[0..current.len() - 1].to_string();
+                    self.text.set_text(text);
+                }
+            }
+
+            if let Some(text) = input.text.clone() {
+                let current = self.text.get_text().to_string();
+                let updated = format!("{current}{text}");
+                let text = if updated.len() > self.max_length {
+                    updated[0..self.max_length].to_string()
+                } else {
+                    updated
+                };
+                self.text.set_text(text);
+            }
+        }
+    }
+}
 
 pub struct ButtonController {
     width: u32,
@@ -63,6 +135,10 @@ pub struct TextController {
 }
 
 impl TextController {
+    pub fn get_text(&self) -> &String {
+        &self.text
+    }
+
     pub fn set_text(&mut self, text: String) {
         if self.text != text {
             self.text = text;
@@ -241,6 +317,59 @@ impl Scene {
         }
     }
 
+    pub fn instantiate_input(
+        &mut self,
+        top: u32,
+        left: u32,
+        max_width: u32,
+        max_height: u32,
+        label: String,
+        font: FontAsset,
+        sampler: SamplerAsset,
+        bg: TextureAsset,
+        max_length: usize,
+    ) -> InputController {
+        let image_data_len = (max_height * max_height * 4) as usize;
+        let image_data = vec![0; image_data_len];
+        let data = TextureAssetData::read_image_data(
+            format!("ui:text:{max_width}x{max_height}"),
+            &self.device,
+            self.command_pool,
+            self.queue.clone(),
+            max_width,
+            max_height,
+            image_data.as_ptr(),
+            image_data_len,
+        );
+        let image = TextureAsset::from(data);
+        let mut text = TextController {
+            max_width,
+            max_height,
+            text: "".to_string(),
+            font_size: 48.0,
+            font,
+            image,
+            sampler,
+            rasterizer: self.rasterizer.clone(),
+        };
+        text.set_text(label);
+        InputController {
+            width: max_width,
+            height: max_height,
+            top,
+            left,
+            text,
+            hover: false,
+            focused: false,
+            bg,
+            color_bg: [0.0, 0.0, 0.0, 0.25],
+            color_fg: [1.0, 1.0, 1.0, 1.0],
+            color_focused: [0.0, 0.0, 0.25, 0.25],
+            color_hover: [0.0, 0.0, 0.0, 0.5],
+            max_length,
+        }
+    }
+
     pub fn render_texture(
         &mut self,
         texture: TextureAsset,
@@ -304,6 +433,28 @@ impl Scene {
             [button.top as i32, button.left as i32],
             [button.width as f32, button.height as f32],
             button.color_fg,
+        )
+    }
+
+    pub fn render_input(&mut self, input: &InputController) {
+        let bg_color = if input.focused {
+            input.color_focused
+        } else if input.hover {
+            input.color_hover
+        } else {
+            input.color_bg
+        };
+        self.render_texture(
+            input.bg.share(),
+            [input.top as i32, input.left as i32],
+            [input.width as f32, input.height as f32],
+            bg_color,
+        );
+        self.render_texture(
+            input.text.image.share(),
+            [input.top as i32, input.left as i32],
+            [input.width as f32, input.height as f32],
+            input.color_fg,
         )
     }
 }

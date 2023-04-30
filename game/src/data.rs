@@ -153,8 +153,8 @@ impl Game {
         // physics
         let (spaces, sequence) = storage.get_sequence(|row| self.load_space(row))?;
         self.physics.load_spaces(spaces, sequence);
-        let (bodies, sequence) = storage.get_sequence(|row| self.load_body(row))?;
-        self.physics.load_bodies(bodies, sequence);
+        let (bodies, _) = storage.get_sequence(|row| self.load_body(row))?;
+        self.physics.load_bodies(bodies);
         let (barriers, sequence) = storage.get_sequence(|row| self.load_barrier(row))?;
         self.physics.load_barriers(barriers, sequence);
         let (sensors, sequence) = storage.get_sequence(|row| self.load_sensor(row))?;

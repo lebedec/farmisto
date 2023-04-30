@@ -4,13 +4,13 @@ use std::sync::Arc;
 use std::thread;
 use std::time::{Duration, Instant};
 
+use lazy_static::lazy_static;
 use log::{error, info};
 
 use datamap::Storage;
 use game::api::{ActionError, Event, GameResponse, PlayerRequest};
 use game::model::UniverseSnapshot;
 use game::Game;
-use lazy_static::lazy_static;
 use network::{Configuration, TcpServer};
 
 lazy_static! {
@@ -52,8 +52,11 @@ impl LocalServerThread {
                     // game.hot_reload();
                     for player in server.accept_players() {
                         info!("Add player '{}' to game", player);
+                        let events = game.accept_player(&player).unwrap();
+                        server.broadcast(GameResponse::Events { events });
+
                         let events = game.look_around(UniverseSnapshot::whole());
-                        server.send(player, GameResponse::Events { events })
+                        server.send(player, GameResponse::Events { events });
                     }
                     for player in server.lost_players() {
                         info!("Remove player '{}' from game", player);

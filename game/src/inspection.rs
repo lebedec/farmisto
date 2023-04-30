@@ -173,6 +173,20 @@ impl Game {
             position: barrier.position,
         }
     }
+    
+    pub fn inspect_farmer(&self, farmer: Farmer) -> Result<Universe, ActionError> {
+        let body = self.physics.get_body(farmer.body)?;
+        let player = self
+            .players
+            .iter()
+            .find(|player| player.id == farmer.player)
+            .unwrap();
+        Ok(Universe::FarmerAppeared {
+            farmer,
+            player: player.name.clone(),
+            position: body.position,
+        })
+    }
 
     pub fn look_around(&self, snapshot: UniverseSnapshot) -> Vec<Event> {
         let mut stream = vec![];
@@ -199,19 +213,7 @@ impl Game {
         }
 
         for farmer in self.universe.farmers.iter() {
-            if snapshot.whole || snapshot.farmers.contains(&farmer.id) {
-                let body = self.physics.get_body(farmer.body).unwrap();
-                let player = self
-                    .players
-                    .iter()
-                    .find(|player| player.id == farmer.player)
-                    .unwrap();
-                stream.push(Universe::FarmerAppeared {
-                    farmer: *farmer,
-                    player: player.name.clone(),
-                    position: body.position,
-                })
-            }
+            stream.push(self.inspect_farmer(*farmer).unwrap());
         }
 
         for stack in &self.universe.stacks {
