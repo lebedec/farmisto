@@ -14,15 +14,8 @@ env_logger = { version = "0.9", default-features = false, features = ["humantime
 bytemuck = { version = "1.9", features = ["derive"] }
 glam = "0.20"
 ash = "0.37"
-image = { version = "0.24", default-features = false, features = ["png"] }
-png = { version = "0.17" }
-
-lodepng = "3.4"
-rgb = "0.8"
-
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
-flate2 = "1.0"
 datamap = { path = "../datamap" }
 rusqlite = { version = "0.27", default-features = false, features = ["serde_json", "bundled"] }
 libfmod = { version = "2.2.601" }
@@ -31,9 +24,9 @@ prometheus = { version = "0.13.3", features = ["process", "push"] }
 lazy_static = "1.4.0"
 rand = "0.8.5"
 fontdue = "0.7.3"
-fluent = "0.16"
 bincode = "2.0.0-rc.2"
 
 [dependencies.sdl2]
 version = "0.35"
 default-features = false
+features = ["image"]

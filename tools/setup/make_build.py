@@ -45,6 +45,7 @@ def build(rebuild=True):
         ['target/release/deps/fmod.dll', 'fmod.dll'],
         ['target/release/deps/fmodstudio.dll', 'fmodstudio.dll'],
         ['target/release/deps/SDL2.dll', 'SDL2.dll'],
+        ['target/release/deps/SDL2_image.dll', 'SDL2_image.dll'],
         ['assets/ai', 'assets/ai'],
         ['assets/audio', 'assets/audio'],
         ['assets/fallback', 'assets/fallback'],

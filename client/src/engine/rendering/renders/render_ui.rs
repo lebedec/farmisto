@@ -1,14 +1,11 @@
-use std::cell::RefCell;
 use std::rc::Rc;
-use std::sync::mpsc::{channel, SendError, Sender};
+use std::sync::mpsc::{channel, Sender};
 use std::sync::{Arc, RwLock};
-use std::time::Instant;
 use std::{fmt, thread};
 
 use ash::vk;
 use fontdue::layout::{CoordinateSystem, Layout, LayoutSettings, TextStyle};
 use fontdue::{Font, FontSettings};
-use image::{DynamicImage, Rgba, RgbaImage};
 use log::{error, info};
 use sdl2::keyboard::Keycode;
 
@@ -684,27 +681,6 @@ impl Paragraph {
             }
         }
         buf
-    }
-
-    pub fn draw(&self, fonts: FontCollectionRef) -> RgbaImage {
-        let mut image = RgbaImage::from_pixel(self.width, self.height, Rgba([255, 255, 255, 0]));
-        for glyph in self.layout.glyphs() {
-            let (m, data) = fonts
-                .get_font_record(glyph.font_index)
-                .font
-                .rasterize(glyph.parent, glyph.key.px);
-
-            if glyph.width == 0 || glyph.height == 0 {
-                continue;
-            }
-
-            for (i, s) in data.iter().enumerate() {
-                let y = glyph.y as usize + i / glyph.width;
-                let x = glyph.x as usize + i % glyph.width;
-                image.put_pixel(x as u32, y as u32, Rgba([255, 255, 255, *s]));
-            }
-        }
-        image
     }
 
     pub fn layout(&mut self, max_width: u32, max_height: u32, fonts: FontCollectionRef) {

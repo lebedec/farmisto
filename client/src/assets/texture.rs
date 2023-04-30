@@ -6,7 +6,8 @@ use ash::vk::Handle;
 use ash::{vk, Device};
 use lazy_static::lazy_static;
 use log::{debug, error, info};
-use rgb::ComponentBytes;
+use sdl2::image::ImageRWops;
+use sdl2::rwops::RWops;
 
 use crate::assets::Asset;
 use crate::engine::base::{create_buffer, index_memory_type, MyQueue};
@@ -136,15 +137,35 @@ impl TextureAssetData {
         // info!("{path} L{image_data_len} {image_width}x{image_height} {c:?} PNG");
 
         // crate: image
-        let data = fs::read(&path).unwrap();
-        let image_object = image::load_from_memory(&data).unwrap();
-        let image_object = image_object.flipv();
-        let c = image_object.color();
-        let (image_width, image_height) = (image_object.width(), image_object.height());
-        let image_data = image_object.to_rgba8();
-        let image_data_len = image_data.len();
+        // let data = fs::read(&path).unwrap();
+        // let image_object = image::load_from_memory(&data).unwrap();
+        // let image_object = image_object.flipv();
+        // let c = image_object.color();
+        // let (image_width, image_height) = (image_object.width(), image_object.height());
+        // let image_data = image_object.to_rgba8();
+        // let image_data_len = image_data.len();
+        // let image_data = image_data.as_ptr();
+        // debug!("{path} L{image_data_len} {image_width}x{image_height} {c:?}");
+
+        let mut file = RWops::from_file(path, "rb").unwrap();
+        let surface = file.load_png().unwrap();
+        let image_width = surface.width() as usize;
+        let image_height = surface.height() as usize;
+        let image_data_len = image_width * image_height * 4;
+
+        // flipv
+        let mut image_data = vec![0u8; image_data_len];
+        let surf = surface.without_lock().unwrap();
+        let line = image_width as usize * 4;
+        for y in 0..image_height {
+            let src = (image_height - y - 1) * image_width * 4;
+            let dst = y * image_width * 4;
+            image_data[dst..dst + line].copy_from_slice(&surf[src..src + line]);
+        }
+
+        let image_width = image_width as u32;
+        let image_height = image_height as u32;
         let image_data = image_data.as_ptr();
-        debug!("{path} L{image_data_len} {image_width}x{image_height} {c:?}");
 
         // crate: lodepng
         // let image = lodepng::decode32_file(path).unwrap();
@@ -153,6 +174,18 @@ impl TextureAssetData {
         // let image_data_len = image.width * image.height * 4;
         // let image_data = image.buffer.as_bytes();
         // let image_data = image_data.as_ptr();
+
+        // png-decoder
+        // let data = fs::read(&path).unwrap();
+        // let (image, data) = png_decoder::decode(&data).unwrap();
+        // let image_width = image.width;
+        // let image_height = image.height;
+        // let image_data_len = (image.width * image.height * 4) as usize;
+        // let image_data = data.as_ptr();
+        // debug!(
+        //     "{path} L{image_data_len} {image_width}x{image_height} {:?}",
+        //     image.color_type
+        // );
 
         Self::read_image_data(
             String::from(path),

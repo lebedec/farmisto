@@ -13,6 +13,7 @@ use crate::assets::Assets;
 use crate::monitoring::{spawn_prometheus_metrics_pusher, spawn_prometheus_metrics_server};
 use crate::translation::Translator;
 use prometheus::Registry;
+use sdl2::image::{InitFlag, LoadTexture};
 use sdl2::keyboard::Keycode;
 use sdl2::video::FullscreenType;
 
@@ -35,6 +36,7 @@ pub fn startup<A: App>(title: String) {
     let config = AppConfig::load();
     let system = sdl2::init().unwrap();
     let video = system.video().unwrap();
+    sdl2::image::init(InitFlag::PNG).unwrap();
 
     let mut windowed = true;
     let mut window = video.window(&title, config.resolution[0], config.resolution[1]);
