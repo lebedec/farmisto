@@ -1,5 +1,8 @@
 use log::{error, info};
+use prometheus::proto::MetricFamily;
 use prometheus::{labels, Encoder, GaugeVec, HistogramVec, Registry, TextEncoder};
+use std::collections::HashMap;
+use std::hash::BuildHasher;
 use std::io::Write;
 use std::net::TcpListener;
 use std::thread;
@@ -101,13 +104,20 @@ pub fn spawn_prometheus_metrics_pusher(gateway: String, registry: Registry) {
             encoder.encode(&metrics, &mut buffer).unwrap();
 
             if let Some(player) = unsafe { MONITORING_CONTEXT.as_ref() } {
-                let auth = None;
-                let result = prometheus::push_metrics(
+                // let auth = None;
+                // let result = prometheus::push_metrics(
+                //     "push",
+                //     labels! {"player".to_owned() => player.to_owned(),},
+                //     &gateway,
+                //     metrics,
+                //     auth,
+                // );
+
+                let result = push_metrics(
                     "push",
                     labels! {"player".to_owned() => player.to_owned(),},
                     &gateway,
                     metrics,
-                    auth,
                 );
 
                 if let Err(error) = result {
@@ -117,4 +127,87 @@ pub fn spawn_prometheus_metrics_pusher(gateway: String, registry: Registry) {
             }
         })
         .unwrap();
+}
+
+fn push_metrics<S: BuildHasher>(
+    job: &str,
+    grouping: HashMap<String, String, S>,
+    url: &str,
+    mfs: Vec<MetricFamily>,
+) -> Result<(), prometheus::Error> {
+    // Suppress clippy warning needless_pass_by_value.
+    let grouping = grouping;
+
+    let mut push_url = if url.contains("://") {
+        url.to_owned()
+    } else {
+        format!("http://{}", url)
+    };
+
+    if push_url.ends_with('/') {
+        push_url.pop();
+    }
+
+    let mut url_components = Vec::new();
+    if job.contains('/') {
+        return Err(prometheus::Error::Msg(format!("job contains '/': {}", job)));
+    }
+
+    // TODO: escape job
+    url_components.push(job.to_owned());
+
+    for (ln, lv) in &grouping {
+        // TODO: check label name
+        if lv.contains('/') {
+            return Err(prometheus::Error::Msg(format!(
+                "value of grouping label {} contains '/': {}",
+                ln, lv
+            )));
+        }
+        url_components.push(ln.to_owned());
+        url_components.push(lv.to_owned());
+    }
+
+    push_url = format!("{}/metrics/job/{}", push_url, url_components.join("/"));
+
+    let encoder = prometheus::ProtobufEncoder::new();
+    let mut buf = Vec::new();
+
+    for mf in mfs {
+        // Check for pre-existing grouping labels:
+        for m in mf.get_metric() {
+            for lp in m.get_label() {
+                if lp.get_name() == "job" {
+                    return Err(prometheus::Error::Msg(format!(
+                        "pushed metric {} already contains a \
+                         job label",
+                        mf.get_name()
+                    )));
+                }
+                if grouping.contains_key(lp.get_name()) {
+                    return Err(prometheus::Error::Msg(format!(
+                        "pushed metric {} already contains \
+                         grouping label {}",
+                        mf.get_name(),
+                        lp.get_name()
+                    )));
+                }
+            }
+        }
+        // Ignore error, `no metrics` and `no name`.
+        let _ = encoder.encode(&[mf], &mut buf);
+    }
+
+    let sending = ureq::put(&push_url)
+        .set("content-type", encoder.format_type())
+        .send_bytes(&buf);
+
+    match sending {
+        Ok(response) => {}
+        Err(error) => {
+            error!("Unable to push metrics {error}")
+        }
+    }
+
+    Ok(())
 }

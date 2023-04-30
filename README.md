@@ -94,9 +94,11 @@ Here is table, showing dependencies reduction (about):
 
 | Aspect       | Popular Solution | Alternative | Dependencies |
 |--------------|------------------|-------------|--------------|
-| Windowing    | winint           | rust-sdl2   | -81          |
-| 3D Rendering | vulkano          | ash         | -32          |
-| File Changes | notify           | OS Shell    | -20          | 
+| Windowing    | winint           | rust-sdl2   | ~80          |
+| HTTP client  | reqwest          | ureq        | ~50          |
+| 3D Rendering | vulkano          | ash         | ~30          |
+| File Changes | notify           | OS Shell    | ~20          | 
+git 
 
 ### Marcos as Lesser Evil
 
