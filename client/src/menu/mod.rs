@@ -1,6 +1,8 @@
+use glam::vec3;
 use log::info;
 use sdl2::keyboard::Keycode;
 
+use crate::engine::rendering::{ButtonController, TextController};
 use ai::AiThread;
 use network::{ClientMetrics, Configuration, TcpClient};
 use server::LocalServerThread;
@@ -13,14 +15,67 @@ use crate::Mode;
 pub struct Menu {
     host: Option<String>,
     join: Option<String>,
+    serve_button: ButtonController,
+    join_button_boris: ButtonController,
+    join_button_carol: ButtonController,
+    join_button_david: ButtonController,
 }
 
 impl Menu {
-    pub fn new() -> Box<Self> {
+    pub fn new(frame: &mut Frame) -> Box<Self> {
         Box::new(Self {
             join: None,
             host: None,
+            serve_button: frame.scene.instantiate_button(
+                128,
+                128,
+                512,
+                128,
+                frame.translator.say("Button_serve"),
+                frame.assets.fonts_default.share(),
+                frame.assets.sampler("default"),
+                frame.assets.texture_white().share(),
+            ),
+            join_button_boris: frame.scene.instantiate_button(
+                128 + 128 + 64,
+                128,
+                512,
+                128,
+                frame.translator.say("Button_join_boris"),
+                frame.assets.fonts_default.share(),
+                frame.assets.sampler("default"),
+                frame.assets.texture_white().share(),
+            ),
+            join_button_carol: frame.scene.instantiate_button(
+                128 + 128 + 128 + 128,
+                128,
+                512,
+                128,
+                frame.translator.say("Button_join_carol"),
+                frame.assets.fonts_default.share(),
+                frame.assets.sampler("default"),
+                frame.assets.texture_white().share(),
+            ),
+            join_button_david: frame.scene.instantiate_button(
+                128 + 128 + 128 + 128 + 128 + 64,
+                128,
+                512,
+                128,
+                frame.translator.say("Button_join_david"),
+                frame.assets.fonts_default.share(),
+                frame.assets.sampler("default"),
+                frame.assets.texture_white().share(),
+            ),
         })
+    }
+
+    fn render(&mut self, frame: &mut Frame) {
+        frame.scene.look_at(vec3(0.0, 0.0, 0.0));
+
+        frame.scene.render_button(&self.serve_button);
+        frame.scene.render_button(&self.join_button_boris);
+        frame.scene.render_button(&self.join_button_carol);
+        frame.scene.render_button(&self.join_button_david);
     }
 }
 
@@ -28,29 +83,45 @@ impl Mode for Menu {
     fn update(&mut self, frame: &mut Frame) {
         let input = &frame.input;
 
-        if input.pressed(Keycode::E) {
-            info!("Run editor mode")
+        if input.pressed(Keycode::P) {
+            frame
+                .assets
+                .texture("assets/texture/building-construction.png");
+            frame
+                .assets
+                .texture("assets/texture/building-deconstruction.png");
         }
 
-        if input.pressed(Keycode::S) {
+        self.serve_button
+            .udpate(frame.input.mouse_position_raw(), frame.input.left_click());
+        self.join_button_boris
+            .udpate(frame.input.mouse_position_raw(), frame.input.left_click());
+        self.join_button_carol
+            .udpate(frame.input.mouse_position_raw(), frame.input.left_click());
+        self.join_button_david
+            .udpate(frame.input.mouse_position_raw(), frame.input.left_click());
+
+        if self.serve_button.clicked {
             info!("Host as Alice");
             self.host = Some("Alice".to_string());
         }
 
-        if input.pressed(Keycode::Num1) {
+        if self.join_button_boris.clicked {
             info!("Join as Boris");
             self.join = Some("Boris".to_string())
         }
 
-        if input.pressed(Keycode::Num2) {
+        if self.join_button_carol.clicked {
             info!("Join as Carol");
             self.join = Some("Carol".to_string())
         }
 
-        if input.pressed(Keycode::Num3) {
+        if self.join_button_david.clicked {
             info!("Join as David");
             self.join = Some("David".to_string())
         }
+
+        self.render(frame);
     }
 
     fn transition(&self, frame: &mut Frame) -> Option<Box<dyn Mode>> {

@@ -126,18 +126,18 @@ pub fn startup<A: App>(title: String) {
                 break;
             }
 
-            if input.pressed(Keycode::Return) {
-                let [w, h] = config.resolution.clone();
-                if windowed {
-                    window.set_size(w * 2, h * 2).unwrap();
-                    window.set_fullscreen(FullscreenType::Desktop).unwrap();
-                    windowed = false;
-                } else {
-                    window.set_size(w, h).unwrap();
-                    window.set_fullscreen(FullscreenType::Off).unwrap();
-                    windowed = true;
-                }
-            }
+            // if input.pressed(Keycode::Return) {
+            //     let [w, h] = config.resolution.clone();
+            //     if windowed {
+            //         window.set_size(w * 2, h * 2).unwrap();
+            //         window.set_fullscreen(FullscreenType::Desktop).unwrap();
+            //         windowed = false;
+            //     } else {
+            //         window.set_size(w, h).unwrap();
+            //         window.set_fullscreen(FullscreenType::Off).unwrap();
+            //         windowed = true;
+            //     }
+            // }
 
             if input.pressed(Keycode::Z) {
                 scene.zoom += 0.1;
@@ -181,6 +181,7 @@ pub fn startup<A: App>(title: String) {
 
             scene.present_index = present_index as usize;
 
+            let t1 = Instant::now();
             app.update(&mut Frame {
                 config: &config,
                 input: input.clone(),
@@ -190,6 +191,10 @@ pub fn startup<A: App>(title: String) {
                 translator: &translator,
                 metrics_registry: &metrics_registry,
             });
+            let t1 = t1.elapsed().as_secs_f32();
+            // if t1 > 0.0002 {
+            //     println!("t1: {}", t1);
+            // }
 
             let clear_values = [
                 vk::ClearValue {

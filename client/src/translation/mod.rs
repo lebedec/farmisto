@@ -102,7 +102,7 @@ impl Translator {
         params: &[String],
     ) -> String {
         let fallback = Translation {
-            messages: vec![message.to_string()],
+            messages: vec![format!(":{message}!")],
         };
         let data = self.data.borrow();
         let translation = match data.translations.get(message) {

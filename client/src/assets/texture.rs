@@ -6,6 +6,7 @@ use ash::vk::Handle;
 use ash::{vk, Device};
 use lazy_static::lazy_static;
 use log::{debug, error, info};
+use rgb::ComponentBytes;
 
 use crate::assets::Asset;
 use crate::engine::base::{create_buffer, index_memory_type, MyQueue};
@@ -40,7 +41,7 @@ pub struct TextureAssetData {
     pub name: String,
     pub width: u32,
     pub height: u32,
-    image: vk::Image,
+    pub image: vk::Image,
     pub view: vk::ImageView,
     pub sampler: vk::Sampler,
     device: Device,
@@ -95,7 +96,7 @@ impl Drop for TextureAssetData {
             return;
         }
         VULKAN_IMAGES_TOTAL.dec();
-        debug!(
+        info!(
             "Destroys image {} {}x{}",
             self.name, self.width, self.height
         );
@@ -120,9 +121,9 @@ impl TextureAssetData {
         queue: Arc<MyQueue>,
         path: &str,
     ) -> Self {
-        let data = fs::read(&path).unwrap();
         // timer.record2(path, "io", &METRIC_LOADING_SECONDS);
 
+        // crate: png
         // let png_decoder = png::Decoder::new(File::open(path).unwrap());
         // let mut png_reader = png_decoder.read_info().unwrap();
         // let mut buf = vec![0; png_reader.output_buffer_size()];
@@ -134,6 +135,8 @@ impl TextureAssetData {
         // let image_data = &buf[..info.buffer_size()];
         // info!("{path} L{image_data_len} {image_width}x{image_height} {c:?} PNG");
 
+        // crate: image
+        let data = fs::read(&path).unwrap();
         let image_object = image::load_from_memory(&data).unwrap();
         let image_object = image_object.flipv();
         let c = image_object.color();
@@ -142,6 +145,14 @@ impl TextureAssetData {
         let image_data_len = image_data.len();
         let image_data = image_data.as_ptr();
         debug!("{path} L{image_data_len} {image_width}x{image_height} {c:?}");
+
+        // crate: lodepng
+        // let image = lodepng::decode32_file(path).unwrap();
+        // let image_width = image.width as u32;
+        // let image_height = image.height as u32;
+        // let image_data_len = image.width * image.height * 4;
+        // let image_data = image.buffer.as_bytes();
+        // let image_data = image_data.as_ptr();
 
         Self::read_image_data(
             String::from(path),
@@ -156,16 +167,15 @@ impl TextureAssetData {
     }
 
     pub fn write_image_data(
-        &mut self,
+        image: vk::Image,
         queue: Arc<MyQueue>,
         pool: vk::CommandPool,
+        image_width: u32,
+        image_height: u32,
         image_data: *const u8,
         image_data_len: usize,
     ) {
-        let image_width = self.width;
-        let image_height = self.height;
-        let device = &self.device;
-
+        let device = &queue.device;
         let image_size =
             (std::mem::size_of::<u8>() as u32 * image_width * image_height * 4) as vk::DeviceSize;
         let (staging_buffer, staging_buffer_memory, _size) = create_buffer(
@@ -184,15 +194,11 @@ impl TextureAssetData {
                     vk::MemoryMapFlags::empty(),
                 )
                 .expect("Failed to Map Memory") as *mut u8;
-
             data_ptr.copy_from_nonoverlapping(image_data, image_data_len);
             device.unmap_memory(staging_buffer_memory);
         }
-
-        let transition = {
-            let queue = queue.handle.lock().unwrap();
-            ImageLayoutTransition::new(device, pool, *queue, self.image)
-        };
+        let queue = queue.handle.lock().unwrap();
+        let transition = ImageLayoutTransition::new(device, pool, *queue, image);
         transition.specify_layout(
             vk::ImageLayout::UNDEFINED,
             vk::ImageLayout::TRANSFER_DST_OPTIMAL,

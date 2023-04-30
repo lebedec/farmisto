@@ -1,31 +1,157 @@
-use std::fmt;
+use std::cell::RefCell;
 use std::rc::Rc;
+use std::sync::mpsc::{channel, SendError, Sender};
+use std::sync::{Arc, RwLock};
+use std::time::Instant;
+use std::{fmt, thread};
 
 use ash::vk;
 use fontdue::layout::{CoordinateSystem, Layout, LayoutSettings, TextStyle};
 use fontdue::{Font, FontSettings};
 use image::{DynamicImage, Rgba, RgbaImage};
-use log::info;
+use log::{error, info};
 
 use crate::assets::{FontAsset, SamplerAsset, TextureAsset, TextureAssetData};
-use crate::engine::base::ShaderData;
-use crate::engine::rendering::{ElementPushConstants, ElementRenderObject, Scene};
+use crate::engine::base::{MyQueue, ShaderData};
+use crate::engine::rendering::{ElementPushConstants, ElementRenderObject, Scene, SceneMetrics};
+use crate::monitoring::Timer;
+
+pub struct ButtonController {
+    width: u32,
+    height: u32,
+    top: u32,
+    left: u32,
+    text: TextController,
+    hover: bool,
+    pub clicked: bool,
+    bg: TextureAsset,
+    color_bg: [f32; 4],
+    color_fg: [f32; 4],
+    color_active: [f32; 4],
+    color_hover: [f32; 4],
+}
+
+impl ButtonController {
+    pub fn udpate(&mut self, mouse: [f32; 2], clicked: bool) {
+        let mx = mouse[0] as u32;
+        let my = mouse[1] as u32;
+        if mx >= self.left
+            && mx <= self.left + self.width
+            && my >= self.top
+            && my <= self.top + self.height
+        {
+            self.hover = true;
+        } else {
+            self.hover = false;
+        }
+        self.clicked = false;
+        if self.hover {
+            self.clicked = clicked;
+        }
+    }
+}
 
 pub struct TextController {
     max_width: u32,
     max_height: u32,
     text: String,
+    font_size: f32,
     font: FontAsset,
-    image: Option<TextureAsset>,
-    need_update: bool,
+    image: TextureAsset,
     sampler: SamplerAsset,
+    rasterizer: Arc<RwLock<TextRenderThread>>,
 }
 
 impl TextController {
     pub fn set_text(&mut self, text: String) {
         if self.text != text {
-            self.need_update = true;
             self.text = text;
+            self.rasterizer.write().unwrap().request(
+                self.image.share(),
+                self.text.clone(),
+                self.font_size,
+            );
+        }
+    }
+}
+
+pub struct TextRenderRequest {
+    text: String,
+    font_size: f32,
+    max_width: u32,
+    max_height: u32,
+    canvas: vk::Image,
+}
+
+pub struct TextRenderThread {
+    font: FontAsset,
+    request: Sender<TextRenderRequest>,
+}
+
+impl TextRenderThread {
+    pub fn spawn(
+        font: FontAsset,
+        queue: Arc<MyQueue>,
+        pool: vk::CommandPool,
+        metrics: Arc<Box<SceneMetrics>>,
+    ) -> Self {
+        let (request, requests) = channel::<TextRenderRequest>();
+        let font_type = font.font_type.clone();
+        thread::spawn(move || {
+            for mut request in requests {
+                let mut timer = Timer::now();
+                let fonts = FontCollection::from(font_type.clone());
+
+                let mut paragraph = Paragraph {
+                    layout: Layout::new(CoordinateSystem::PositiveYDown),
+                    spans: vec![Span {
+                        text: request.text.clone(),
+                        font_size: request.font_size,
+                        font_index: 0,
+                    }],
+                    width: 0,
+                    height: 0,
+                };
+                paragraph.layout(request.max_width, request.max_height, fonts.clone());
+
+                let image_width = request.max_width as usize;
+                let image_height = request.max_height as usize;
+                let image_data = paragraph.draw_to_vec(fonts, image_width, image_height);
+                let image_data_len = image_data.len();
+                let image_data = image_data.as_ptr();
+
+                // let image = DynamicImage::from(paragraph.draw(fonts));
+                // let image = image.flipv().to_rgba8();
+                // let (image_width, image_height) = image.dimensions();
+                // let image_data_len = image.len();
+                // let image_data = image.as_ptr();
+
+                TextureAssetData::write_image_data(
+                    request.canvas,
+                    queue.clone(),
+                    pool,
+                    image_width as u32,
+                    image_height as u32,
+                    image_data,
+                    image_data_len,
+                );
+                timer.gauge(&request.text.len().to_string(), &metrics.text);
+            }
+            info!("Terminates text rasterizer thread");
+        });
+        TextRenderThread { font, request }
+    }
+
+    pub fn request(&mut self, canvas: TextureAsset, text: String, font_size: f32) {
+        let request = TextRenderRequest {
+            text,
+            font_size,
+            max_width: canvas.width,
+            max_height: canvas.height,
+            canvas: canvas.image,
+        };
+        if self.request.send(request).is_err() {
+            error!("Unable to rasterize text, rasterizer thread terminated")
         }
     }
 }
@@ -39,14 +165,79 @@ impl Scene {
         font: FontAsset,
         sampler: SamplerAsset,
     ) -> TextController {
+        let image_data_len = (max_height * max_height * 4) as usize;
+        let image_data = vec![0; image_data_len];
+        let data = TextureAssetData::read_image_data(
+            format!("ui:text:{max_width}x{max_height}"),
+            &self.device,
+            self.command_pool,
+            self.queue.clone(),
+            max_width,
+            max_height,
+            image_data.as_ptr(),
+            image_data_len,
+        );
+        let image = TextureAsset::from(data);
         TextController {
             max_width,
             max_height,
             text,
+            font_size: 32.0,
             font,
-            image: None,
-            need_update: true,
+            image,
             sampler,
+            rasterizer: self.rasterizer.clone(),
+        }
+    }
+
+    pub fn instantiate_button(
+        &mut self,
+        top: u32,
+        left: u32,
+        max_width: u32,
+        max_height: u32,
+        label: String,
+        font: FontAsset,
+        sampler: SamplerAsset,
+        bg: TextureAsset,
+    ) -> ButtonController {
+        let image_data_len = (max_height * max_height * 4) as usize;
+        let image_data = vec![0; image_data_len];
+        let data = TextureAssetData::read_image_data(
+            format!("ui:text:{max_width}x{max_height}"),
+            &self.device,
+            self.command_pool,
+            self.queue.clone(),
+            max_width,
+            max_height,
+            image_data.as_ptr(),
+            image_data_len,
+        );
+        let image = TextureAsset::from(data);
+        let mut text = TextController {
+            max_width,
+            max_height,
+            text: "".to_string(),
+            font_size: 48.0,
+            font,
+            image,
+            sampler,
+            rasterizer: self.rasterizer.clone(),
+        };
+        text.set_text(label);
+        ButtonController {
+            width: max_width,
+            height: max_height,
+            top,
+            left,
+            text,
+            hover: false,
+            clicked: false,
+            bg,
+            color_bg: [0.0, 0.0, 0.0, 0.25],
+            color_fg: [1.0, 1.0, 1.0, 1.0],
+            color_active: [0.0, 0.0, 0.0, 0.25],
+            color_hover: [0.0, 0.0, 0.0, 0.5],
         }
     }
 
@@ -67,7 +258,7 @@ impl Scene {
         let h = sprite_h / image_h;
         let object = ElementRenderObject {
             constants: ElementPushConstants {
-                position: [top_left[0] as f32, top_left[1] as f32],
+                position: [top_left[1] as f32, top_left[0] as f32],
                 size,
                 coords: [x, y, w, h],
                 pivot: [0.0, 0.0],
@@ -86,79 +277,34 @@ impl Scene {
     }
 
     pub fn render_text(&mut self, text: &mut TextController, top_left: [i32; 2]) {
-        if text.need_update {
-            let fonts = FontCollection::from(&text.font);
+        self.render_texture(
+            text.image.share(),
+            top_left,
+            [text.max_width as f32, text.max_height as f32],
+            [1.0; 4],
+        )
+    }
 
-            let mut paragraph = Paragraph {
-                layout: Layout::new(CoordinateSystem::PositiveYDown),
-                spans: vec![Span {
-                    text: text.text.clone(),
-                    font_size: 32.0,
-                    font_index: 0,
-                }],
-                width: 0,
-                height: 0,
-            };
-            paragraph.layout(text.max_width, text.max_height, fonts.clone());
-            let image = DynamicImage::from(paragraph.draw(fonts));
-
-            let image = image.flipv().to_rgba8();
-            let (image_width, image_height) = image.dimensions();
-            let image_data_len = image.len();
-            let image_data = image.as_ptr();
-
-            if let Some(texture) = text.image.as_mut() {
-                texture.write_image_data(
-                    self.queue.clone(),
-                    self.command_pool,
-                    image_data,
-                    image_data_len,
-                );
-            } else {
-                let data = TextureAssetData::read_image_data(
-                    format!("ui:{}", text.text),
-                    &self.device,
-                    self.command_pool,
-                    self.queue.clone(),
-                    image_width,
-                    image_height,
-                    image_data,
-                    image_data_len,
-                );
-                let texture = TextureAsset::from(data);
-                text.image = Some(texture);
-            }
-            text.need_update = false;
-        }
-
-        if let Some(texture) = &text.image {
-            let image_w = texture.width as f32;
-            let image_h = texture.height as f32;
-            let [sprite_x, sprite_y] = [0.0, 0.0];
-            let [sprite_w, sprite_h] = [image_w, image_h];
-            let x = sprite_x / image_w;
-            let y = sprite_y / image_h;
-            let w = sprite_w / image_w;
-            let h = sprite_h / image_h;
-            let object = ElementRenderObject {
-                constants: ElementPushConstants {
-                    position: [top_left[0] as f32, top_left[1] as f32],
-                    size: [image_w, image_h],
-                    coords: [x, y, w, h],
-                    pivot: [0.0, 0.0],
-                    color: [1.0; 4],
-                },
-                texture: self
-                    .sprite_pipeline
-                    .material
-                    .describe(vec![[ShaderData::Texture(vk::DescriptorImageInfo {
-                        sampler: text.sampler.handle,
-                        image_view: texture.view,
-                        image_layout: vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
-                    })]])[0],
-            };
-            self.ui_elements.push(object);
-        }
+    pub fn render_button(&mut self, button: &ButtonController) {
+        let bg_color = if button.clicked {
+            button.color_active
+        } else if button.hover {
+            button.color_hover
+        } else {
+            button.color_bg
+        };
+        self.render_texture(
+            button.bg.share(),
+            [button.top as i32, button.left as i32],
+            [button.width as f32, button.height as f32],
+            bg_color,
+        );
+        self.render_texture(
+            button.text.image.share(),
+            [button.top as i32, button.left as i32],
+            [button.width as f32, button.height as f32],
+            button.color_fg,
+        )
     }
 }
 
@@ -224,10 +370,10 @@ impl FontCollection {
         Self { records: vec![] }
     }
 
-    pub fn from(asset: &FontAsset) -> FontCollectionRef {
+    pub fn from(font: Font) -> FontCollectionRef {
         let collection = FontCollection {
             records: vec![FontRecord {
-                font: asset.font_type.clone(),
+                font,
                 family: "".to_string(),
                 weight: Weight::Normal,
                 width: Width::Normal,
@@ -357,6 +503,36 @@ impl Paragraph {
             .map(|span| span.text.clone())
             .collect::<Vec<_>>()
             .join(" ")
+    }
+
+    pub fn draw_to_vec(&self, fonts: FontCollectionRef, width: usize, height: usize) -> Vec<u8> {
+        let mut buf = vec![0; width * height * 4];
+        for glyph in self.layout.glyphs() {
+            let (_m, data) = fonts
+                .get_font_record(glyph.font_index)
+                .font
+                .rasterize(glyph.parent, glyph.key.px);
+
+            if glyph.width == 0 || glyph.height == 0 {
+                continue;
+            }
+
+            for (i, s) in data.iter().enumerate() {
+                let y = glyph.y as usize + i / glyph.width;
+                let x = glyph.x as usize + i % glyph.width;
+                if y > height {
+                    // height overflow
+                    continue;
+                }
+                let y = height - y; // flip v
+                let offset = (y * width * 4) + x * 4;
+                buf[offset + 0] = 255;
+                buf[offset + 1] = 255;
+                buf[offset + 2] = 255;
+                buf[offset + 3] = *s;
+            }
+        }
+        buf
     }
 
     pub fn draw(&self, fonts: FontCollectionRef) -> RgbaImage {

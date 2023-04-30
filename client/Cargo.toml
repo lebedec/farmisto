@@ -16,6 +16,10 @@ glam = "0.20"
 ash = "0.37"
 image = { version = "0.24", default-features = false, features = ["png"] }
 png = { version = "0.17" }
+
+lodepng = "3.4"
+rgb = "0.8"
+
 serde = { version = "1.0", features = ["derive"] }
 serde_json = "1.0"
 flate2 = "1.0"

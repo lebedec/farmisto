@@ -150,6 +150,10 @@ impl Input {
         }
     }
 
+    pub fn mouse_position_raw(&self) -> [f32; 2] {
+        self.mouse_position
+    }
+
     pub fn left_click(&self) -> bool {
         self.mouse_left_button_click
     }

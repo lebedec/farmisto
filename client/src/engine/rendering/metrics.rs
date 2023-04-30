@@ -6,6 +6,7 @@ use prometheus::{
 
 pub struct SceneMetrics {
     pub draw: GaugeVec,
+    pub text: GaugeVec,
     pub draw_calls: IntGaugeVec,
     pub frames: IntCounter,
 }
@@ -18,6 +19,12 @@ impl SceneMetrics {
             &["pipeline"],
             registry
         )?;
+        let text = register_gauge_vec_with_registry!(
+            "scene_text_seconds",
+            "scene_text_seconds",
+            &["length"],
+            registry
+        )?;
         let draw_calls = register_int_gauge_vec_with_registry!(
             "scene_draw_calls_total",
             "scene_draw_calls_total",
@@ -27,6 +34,7 @@ impl SceneMetrics {
         let frames = register_int_counter_with_registry!("scene_frames", "scene_frames", registry)?;
         let metrics = Self {
             draw,
+            text,
             draw_calls,
             frames,
         };

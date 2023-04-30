@@ -4,10 +4,11 @@ use lazy_static::lazy_static;
 use log::info;
 use prometheus::{register_histogram_vec_with_registry, HistogramVec, Registry};
 use sdl2::libc::pipe;
+use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::mem;
 use std::mem::take;
-use std::sync::Arc;
+use std::sync::{Arc, RwLock};
 use std::time::Instant;
 
 use crate::assets::SamplerAsset;
@@ -15,7 +16,6 @@ use crate::engine::base::Screen;
 use crate::engine::base::ShaderData;
 use crate::engine::base::{MyPipeline, MyQueue};
 use crate::engine::buffers::{CameraUniform, LightUniform, UniformBuffer};
-use crate::engine::rendering::SpriteRenderObject;
 use crate::engine::rendering::TilemapPushConstants;
 use crate::engine::rendering::TilemapRenderObject;
 use crate::engine::rendering::GROUND_VERTICES;
@@ -25,6 +25,7 @@ use crate::engine::rendering::{ElementPushConstants, ElementRenderObject, PlantR
 use crate::engine::rendering::{GroundPushConstants, GroundUniform, Light};
 use crate::engine::rendering::{PlantPushConstants, RenderingLine};
 use crate::engine::rendering::{SceneMetrics, SpritePushConstants};
+use crate::engine::rendering::{SpriteRenderObject, TextRenderThread};
 use crate::engine::VertexBuffer;
 use crate::monitoring::Timer;
 use crate::Assets;
@@ -70,7 +71,9 @@ pub struct Scene {
 
     pub swapchain: usize,
 
-    metrics: SceneMetrics,
+    metrics: Arc<Box<SceneMetrics>>,
+
+    pub rasterizer: Arc<RwLock<TextRenderThread>>,
 }
 
 impl Scene {
@@ -138,6 +141,16 @@ impl Scene {
             VertexBuffer::create(device, device_memory, SPRITE_VERTICES.to_vec());
         let ui_element_sampler = assets.sampler("default");
 
+        let metrics = Arc::new(Box::new(metrics));
+
+        let rasterizer = TextRenderThread::spawn(
+            assets.fonts_default.share(),
+            queue.clone(),
+            command_pool,
+            metrics.clone(),
+        );
+        let rasterizer = Arc::new(RwLock::new(rasterizer));
+
         Self {
             device: device.clone(),
             device_memory: device_memory.clone(),
@@ -169,6 +182,7 @@ impl Scene {
             ui_element_vertex_buffer,
             ui_elements: vec![],
             metrics,
+            rasterizer,
         }
     }
 

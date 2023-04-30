@@ -117,7 +117,7 @@ fn spawn_loader(
             loop {
                 let request = { requests.write().unwrap().pop() };
                 if let Some(request) = request {
-                    debug!(
+                    info!(
                         "[loader-{}] Load {:?} {:?}",
                         loader,
                         request.kind,
@@ -132,6 +132,7 @@ fn spawn_loader(
                                 queue.clone(),
                                 path.as_os_str().to_str().unwrap(),
                             );
+                            info!("Send texture {:?}", path);
                             result.send(AssetPayload::Texture { path, data }).unwrap();
                         }
                         AssetKind::Shader => {
@@ -289,6 +290,7 @@ impl Assets {
     }
 
     pub fn texture<P: AsRef<Path>>(&mut self, path: P) -> TextureAsset {
+        info!("Begin image {:?}", path.as_ref().to_str());
         ASSET_REQUESTS_TOTAL.with_label_values(&["texture"]).inc();
         let path = fs::canonicalize(path).unwrap();
         if let Some(texture) = self.textures.get(&path) {

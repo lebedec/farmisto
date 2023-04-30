@@ -46,6 +46,10 @@ impl Timer {
         gauge.with_label_values(&[label]).set(self.time());
     }
 
+    pub fn gauge_with_labels(&mut self, labels: &[&str], gauge: &GaugeVec) {
+        gauge.with_label_values(labels).set(self.time());
+    }
+
     pub fn record2(&mut self, label1: &str, label2: &str, histogram: &HistogramVec) {
         histogram
             .with_label_values(&[label1, label2])

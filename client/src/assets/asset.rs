@@ -1,4 +1,4 @@
-use std::cell::RefCell;
+use std::cell::{Ref, RefCell};
 use std::collections::HashMap;
 use std::ops::{Deref, DerefMut};
 use std::sync::Arc;
@@ -72,5 +72,9 @@ impl<T: Sized> Asset<T> {
         Self {
             data: self.data.clone(),
         }
+    }
+
+    pub fn data(&self) -> Ref<T> {
+        self.data.borrow()
     }
 }

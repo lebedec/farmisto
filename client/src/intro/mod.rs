@@ -11,7 +11,7 @@ impl Intro {
 }
 
 impl Mode for Intro {
-    fn transition(&self, _frame: &mut Frame) -> Option<Box<dyn Mode>> {
-        Some(Menu::new())
+    fn transition(&self, frame: &mut Frame) -> Option<Box<dyn Mode>> {
+        Some(Menu::new(frame))
     }
 }
