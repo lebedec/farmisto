@@ -64,10 +64,10 @@ impl InputController {
 
         if self.focused {
             if input.pressed(Keycode::Backspace) {
-                let current = self.text.get_text().to_string();
+                let mut current = self.text.get_text().trim().to_string();
                 if current.len() > 0 {
-                    let text = current[0..current.len() - 1].to_string();
-                    self.text.set_text(text);
+                    current.pop();
+                    self.text.set_text(current);
                 }
             }
 
@@ -75,7 +75,7 @@ impl InputController {
                 let current = self.text.get_text().to_string();
                 let updated = format!("{current}{text}");
                 let text = if updated.len() > self.max_length {
-                    updated[0..self.max_length].to_string()
+                    updated.chars().take(self.max_length).collect()
                 } else {
                     updated
                 };
