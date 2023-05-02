@@ -97,8 +97,7 @@ Here is table, showing dependencies reduction (about):
 | Windowing    | winint           | rust-sdl2   | ~80          |
 | HTTP client  | reqwest          | ureq        | ~50          |
 | 3D Rendering | vulkano          | ash         | ~30          |
-| File Changes | notify           | OS Shell    | ~20          | 
-git 
+| File Changes | notify           | OS Shell    | ~20          |
 
 ### Marcos as Lesser Evil
 
