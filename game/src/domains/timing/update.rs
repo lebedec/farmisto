@@ -1,8 +1,11 @@
 use crate::timing::{Timing, TimingDomain};
 
 impl TimingDomain {
-    pub fn update(&mut self, real_seconds: f32, speed: f32) -> Vec<Timing> {
-        let colonization_date_delta = (real_seconds * speed) / self.real_seconds_per_mgm;
+    pub fn get_colonization_date(&self, real_seconds: f32, speed: f32) -> f32 {
+        (real_seconds * speed) / self.real_seconds_per_mgm
+    }
+
+    pub fn update(&mut self, colonization_date_delta: f32, speed: f32) -> Vec<Timing> {
         self.colonization_date += colonization_date_delta;
         let mut events = vec![Timing::TimeUpdated {
             colonization_date: self.colonization_date,

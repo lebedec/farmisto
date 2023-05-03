@@ -1,9 +1,62 @@
-use crate::raising::{Raising, RaisingDomain};
+use crate::math::Random;
+use crate::raising::Raising::{AnimalChanged, AnimalDamaged};
+use crate::raising::{Animal, Raising, RaisingDomain};
+use log::{error, info};
+use std::collections::HashSet;
+use std::mem::take;
 
 impl RaisingDomain {
-    pub fn update(&mut self, _time: f32) -> Vec<Raising> {
-        let events = vec![];
-        for _animal in self.animals.iter_mut() {}
+    pub fn take_dead_animals(&mut self) -> Vec<Animal> {
+        take(&mut self.dead_animals)
+    }
+
+    pub fn update(&mut self, time: f32, random: &mut Random) -> Vec<Raising> {
+        let mut events = vec![];
+        let mut dead_animals = vec![];
+        for animal in self.animals.iter_mut() {
+            let kind = &animal.kind;
+            let extra_hunger = random.max(animal.voracity) * time;
+            animal.hunger = (animal.hunger + kind.hunger_speed * time + extra_hunger).min(1.0);
+            animal.thirst = (animal.thirst + kind.thirst_speed * time).min(1.0);
+            events.push(AnimalChanged {
+                id: animal.id,
+                hunger: animal.hunger,
+                thirst: animal.thirst,
+            });
+
+            let mut damage = 0.0;
+            damage += animal.thirst * kind.thirst_damage * time;
+            damage += animal.hunger * kind.hunger_damage * time;
+            if animal.health < kind.death_threshold {
+                damage += time * 0.2;
+            }
+            if damage > 0.0 {
+                animal.health = (animal.health - damage).max(0.0);
+                events.push(AnimalDamaged {
+                    id: animal.id,
+                    health: animal.health,
+                })
+            }
+            if animal.health <= 0.0 {
+                dead_animals.push(animal.id);
+            }
+
+            info!(
+                "Animal h{}+{extra_hunger} t{} health={}",
+                animal.hunger, animal.thirst, animal.health
+            );
+        }
+        for id in dead_animals {
+            let index = match self.animals.iter().position(|animal| animal.id == id) {
+                Some(index) => index,
+                None => {
+                    error!("Unable to remove dead animal {id:?}, not found");
+                    continue;
+                }
+            };
+            let animal = self.animals.remove(index);
+            self.dead_animals.push(animal);
+        }
         events
     }
 }

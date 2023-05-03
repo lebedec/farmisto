@@ -17,7 +17,11 @@ use game::timing::Timing;
 use game::working::Working;
 
 use crate::engine::Frame;
-use crate::gameplay::representation::{AssemblyRep, AssemblyTargetAsset, BuildingRep, CementerRep, ComposterRep, ConstructionRep, CreatureRep, CropRep, DoorRep, EquipmentRep, FarmerRep, FarmlandRep, ItemRep, RestRep, StackRep, TreeRep};
+use crate::gameplay::representation::{
+    AssemblyRep, AssemblyTargetAsset, BuildingRep, CementerRep, ComposterRep, ConstructionRep,
+    CreatureRep, CropRep, DoorRep, EquipmentRep, FarmerRep, FarmlandRep, ItemRep, RestRep,
+    StackRep, TreeRep,
+};
 use crate::gameplay::Gameplay;
 
 impl Gameplay {
@@ -270,6 +274,7 @@ impl Gameplay {
     pub fn handle_raising_event(&mut self, _frame: &mut Frame, event: Raising) {
         match event {
             Raising::AnimalChanged { .. } => {}
+            Raising::AnimalDamaged { .. } => {}
             Raising::LeadershipChanged { .. } => {}
             Raising::HerdsmanChanged { .. } => {}
         }
@@ -828,7 +833,6 @@ impl Gameplay {
                         let rest = assets.rest(&rest.name);
                         AssemblyTargetAsset::Rest { rest }
                     }
-                    
                 };
                 let representation = AssemblyRep {
                     entity,

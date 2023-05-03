@@ -3,7 +3,7 @@ use rand::thread_rng;
 
 use crate::api::Event;
 use crate::inventory::ItemId;
-use crate::math::{TileMath, VectorMath};
+use crate::math::{Random, TileMath, VectorMath};
 use crate::model::Activity;
 use crate::{occur, Game};
 
@@ -19,11 +19,12 @@ impl Game {
             };
             boosts.push(boost);
         }
-        let speed = boosts.iter().max().cloned().unwrap_or(1) as f32;
-        let time = real_seconds * speed;
+        let game_speed = boosts.iter().max().cloned().unwrap_or(1) as f32;
+        let physics_time = real_seconds * game_speed;
+        let time = self.timing.get_colonization_date(real_seconds, game_speed);
 
-        let timing_events = self.timing.update(real_seconds, speed);
-        let physics_events = self.physics.update(time);
+        let timing_events = self.timing.update(time, game_speed);
+        let physics_events = self.physics.update(physics_time);
 
         // Change farmer activity after item usage
         // HACK: to eliminate boilerplate code from actions before new activity system will created
@@ -74,7 +75,7 @@ impl Game {
             }
             impact = impact.normalize().neg();
 
-            let consumption = plant_transpiration * time;
+            let consumption = plant_transpiration * physics_time;
             let consumed = self
                 .landscaping
                 .request_consumption(farmland.land, place, consumption)
@@ -84,7 +85,7 @@ impl Game {
                 .integrate_thirst(crop.plant, lack, consumption)
                 .unwrap();
 
-            let consumption = (1.0 / (360.0 * 3.0)) * time;
+            let consumption = (1.0 / (360.0 * 3.0)) * physics_time;
             let consumed = self
                 .planting
                 .request_fertility_consumption(farmland.soil, place, consumption)
@@ -171,20 +172,32 @@ impl Game {
             }
         }
 
-        let mut random = thread_rng();
-        let working_events = self.working.update(time, random.clone());
+        let mut deprecated_random = thread_rng();
+        let working_events = self.working.update(physics_time, deprecated_random.clone());
+        let mut random = &mut Random::new();
+
+        let raising_events = self.raising.update(time, random);
+        let dead_animals = self.raising.take_dead_animals();
+        let mut dead_animals_events = vec![];
+        for animal in dead_animals {
+            let creature = self.universe.get_creature_by_animal(animal.id).unwrap();
+            let events = self.universe.vanish_creature(creature);
+            dead_animals_events.push(events.into());
+        }
 
         let mut events = occur![
             timing_events,
             activity_events,
             physics_events,
-            self.planting.update(time),
-            self.landscaping.update(time, random),
+            self.planting.update(physics_time),
+            raising_events,
+            self.landscaping.update(physics_time, deprecated_random),
             working_events,
         ];
         events.extend(cementer_events);
         events.extend(composter_events);
         events.extend(destroy_empty_stacks);
+        events.extend(dead_animals_events);
         events
     }
 }

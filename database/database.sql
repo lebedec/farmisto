@@ -161,19 +161,26 @@ create table Land
 
 create table AnimalKind
 (
-    id   integer primary key,
-    name text not null unique
+    id              integer primary key,
+    name            text not null unique,
+    hunger_speed    real not null,
+    thirst_speed    real not null,
+    hunger_damage   real not null,
+    thirst_damage   real not null,
+    death_threshold real not null,
+    voracity        real not null
 );
 
 create table Animal
 (
-    id     integer primary key,
-    kind   integer not null references AnimalKind (id),
-    age    real    not null,
-    thirst real    not null,
-    hunger real    not null,
-    health real    not null,
-    stress real    not null
+    id       integer primary key,
+    kind     integer not null references AnimalKind (id),
+    age      real    not null,
+    thirst   real    not null,
+    hunger   real    not null,
+    health   real    not null,
+    stress   real    not null,
+    voracity real    not null
 );
 
 -- Building

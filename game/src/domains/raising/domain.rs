@@ -1,14 +1,16 @@
-use crate::collections::Shared;
 use rand::prelude::StdRng;
 use rand::{Rng, SeedableRng};
 use serde::{Deserialize, Serialize};
+
+use crate::collections::Shared;
 
 #[derive(Default)]
 pub struct RaisingDomain {
     pub herds: Vec<Herd>,
     pub herdsmans: Vec<Herdsman>,
-    pub animals_sequence: usize,
+    pub animals_id: usize,
     pub animals: Vec<Animal>,
+    pub dead_animals: Vec<Animal>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -19,36 +21,27 @@ pub struct Herd {
     pub herdsman: HerdsmanId,
 }
 
+pub enum Sex {
+    Male,
+    Female,
+}
+
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 pub struct AnimalKey(pub(crate) usize);
 
 pub struct AnimalKind {
     pub id: AnimalKey,
     pub name: String,
+    pub hunger_speed: f32,
+    pub thirst_speed: f32,
+    pub hunger_damage: f32,
+    pub thirst_damage: f32,
+    pub death_threshold: f32,
+    pub voracity: f32,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct AnimalId(pub usize);
-
-impl AnimalId {
-    pub fn variant<const F: usize>(&self, features: [usize; F]) -> [usize; F] {
-        let mut variants = features[0];
-        for i in 1..F {
-            variants *= features[i];
-        }
-        let seed = self.0 % variants;
-        let mut random = StdRng::seed_from_u64(seed as u64);
-        features.map(|size| {
-            let range = random.gen_range(0..size);
-            range
-        })
-    }
-}
-
-pub enum Sex {
-    Male,
-    Female,
-}
 
 pub struct Animal {
     pub id: AnimalId,
@@ -58,6 +51,8 @@ pub struct Animal {
     // pub sex: Sex,
     pub thirst: f32,
     pub hunger: f32,
+    pub voracity: f32,
+
     pub health: f32,
     pub stress: f32,
 }
@@ -72,9 +67,23 @@ pub struct Herdsman {
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum Raising {
-    AnimalChanged { id: AnimalId, hunger: f32 },
-    LeadershipChanged { id: HerdsmanId, leadership: f32 },
-    HerdsmanChanged { herd: HerdId, herdsman: HerdsmanId },
+    AnimalChanged {
+        id: AnimalId,
+        hunger: f32,
+        thirst: f32,
+    },
+    AnimalDamaged {
+        id: AnimalId,
+        health: f32,
+    },
+    LeadershipChanged {
+        id: HerdsmanId,
+        leadership: f32,
+    },
+    HerdsmanChanged {
+        herd: HerdId,
+        herdsman: HerdsmanId,
+    },
 }
 
 #[derive(Debug, Serialize, Deserialize)]
@@ -85,23 +94,9 @@ pub enum RaisingError {
 
 impl RaisingDomain {
     pub fn load_animals(&mut self, animals: Vec<Animal>, sequence: usize) {
-        self.animals_sequence = sequence;
+        self.animals_id = sequence;
         for animal in animals {
             self.animals.push(animal);
         }
-    }
-
-    pub fn get_animal_mut(&mut self, id: AnimalId) -> Result<&mut Animal, RaisingError> {
-        self.animals
-            .iter_mut()
-            .find(|animal| animal.id == id)
-            .ok_or(RaisingError::AnimalNotFound { id })
-    }
-
-    pub fn get_animal(&self, id: AnimalId) -> Result<&Animal, RaisingError> {
-        self.animals
-            .iter()
-            .find(|animal| animal.id == id)
-            .ok_or(RaisingError::AnimalNotFound { id })
     }
 }

@@ -886,6 +886,12 @@ impl Game {
         let data = AnimalKind {
             id: AnimalKey(row.get("id")?),
             name: row.get("name")?,
+            hunger_speed: row.get("hunger_speed")?,
+            thirst_speed: row.get("thirst_speed")?,
+            hunger_damage: row.get("hunger_damage")?,
+            thirst_damage: row.get("thirst_damage")?,
+            death_threshold: row.get("death_threshold")?,
+            voracity: row.get("voracity")?,
         };
         Ok(data)
     }
@@ -897,6 +903,7 @@ impl Game {
             age: row.get("age")?,
             thirst: row.get("thirst")?,
             hunger: row.get("hunger")?,
+            voracity: row.get("voracity")?,
             health: row.get("health")?,
             stress: row.get("stress")?,
         };

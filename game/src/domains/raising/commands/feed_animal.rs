@@ -13,6 +13,7 @@ impl RaisingDomain {
             vec![AnimalChanged {
                 id,
                 hunger: animal.hunger,
+                thirst: animal.thirst,
             }]
         };
         Ok(operation)

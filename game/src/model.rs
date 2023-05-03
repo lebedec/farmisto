@@ -212,6 +212,9 @@ pub enum Universe {
 
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub enum UniverseError {
+    CreatureByAnimalNotFound {
+        animal: AnimalId,
+    },
     FarmlandBySpaceNotFound {
         space: SpaceId,
     },
@@ -251,6 +254,14 @@ impl UniverseDomain {
             .find(|farmland| farmland.space == space)
             .cloned()
             .ok_or(UniverseError::FarmlandBySpaceNotFound { space })
+    }
+
+    pub fn get_creature_by_animal(&self, animal: AnimalId) -> Result<Creature, UniverseError> {
+        self.creatures
+            .iter()
+            .find(|creature| creature.animal == animal)
+            .cloned()
+            .ok_or(UniverseError::CreatureByAnimalNotFound { animal })
     }
 
     pub fn load_farmers(&mut self, farmers: Vec<Farmer>, farmers_id: usize) {
@@ -370,6 +381,15 @@ impl UniverseDomain {
         if let Some(index) = self.doors.iter().position(|door| door == &id) {
             self.doors.remove(index);
             vec![Universe::DoorVanished(id)]
+        } else {
+            vec![]
+        }
+    }
+
+    pub(crate) fn vanish_creature(&mut self, id: Creature) -> Vec<Universe> {
+        if let Some(index) = self.creatures.iter().position(|creature| creature == &id) {
+            self.creatures.remove(index);
+            vec![Universe::CreatureVanished(id)]
         } else {
             vec![]
         }
