@@ -18,8 +18,8 @@ use crate::assets::prefabs::{TreeAsset, TreeAssetData};
 use crate::assets::tileset::{TilesetAsset, TilesetAssetData, TilesetItem};
 use crate::assets::{
     AssetMap, BehavioursAsset, BuildingMaterialAsset, BuildingMaterialAssetData, CementerAsset,
-    CementerAssetData, ComposterAsset, ComposterAssetData, DoorAsset, DoorAssetData, FontAsset,
-    FontAssetData, RestAsset, RestAssetData,
+    CementerAssetData, ComposterAsset, ComposterAssetData, CorpseAsset, CorpseAssetData, DoorAsset,
+    DoorAssetData, FontAsset, FontAssetData, RestAsset, RestAssetData,
 };
 use crate::assets::{
     CreatureAsset, CreatureAssetData, CropAsset, CropAssetData, FarmerAsset, FarmerAssetData,
@@ -70,6 +70,7 @@ pub struct Assets {
     items: HashMap<String, ItemAsset>,
     crops: HashMap<String, CropAsset>,
     creatures: HashMap<String, CreatureAsset>,
+    corpses: HashMap<String, CorpseAsset>,
     buildings: HashMap<String, BuildingMaterialAsset>,
     doors: HashMap<String, DoorAsset>,
     rests: HashMap<String, RestAsset>,
@@ -257,6 +258,7 @@ impl Assets {
             cementers: Default::default(),
             fonts_default,
             composters: Default::default(),
+            corpses: Default::default(),
         }
     }
 
@@ -473,6 +475,17 @@ impl Assets {
         }
     }
 
+    pub fn corpse(&mut self, name: &str) -> CorpseAsset {
+        ASSET_REQUESTS_TOTAL.with_label_values(&["corpse"]).inc();
+        match self.corpses.get(name) {
+            Some(asset) => asset.share(),
+            None => {
+                let data = self.load_corpse_data(name).unwrap();
+                self.corpses.publish(name, data)
+            }
+        }
+    }
+
     pub fn building(&mut self, name: &str) -> BuildingMaterialAsset {
         ASSET_REQUESTS_TOTAL.with_label_values(&["building"]).inc();
         match self.buildings.get(name) {
@@ -593,6 +606,15 @@ impl Assets {
         let data = CreatureAssetData {
             spine: self.spine(&spine),
             coloration: self.texture(coloration),
+        };
+        Ok(data)
+    }
+
+    pub fn load_corpse_data(&mut self, id: &str) -> Result<CorpseAssetData, serde_json::Error> {
+        let entry = self.storage.fetch_one::<CorpseAssetData>(id);
+        let sprite: String = entry.get("sprite")?;
+        let data = CorpseAssetData {
+            sprite: self.sprite(&sprite),
         };
         Ok(data)
     }

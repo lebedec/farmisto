@@ -20,10 +20,11 @@ impl Game {
         let create_container = self
             .inventory
             .add_empty_container(container, &container_kind)?;
-        let appearance =
-            self.universe
-                .appear_construction(container, farmland.grid, surveyor, marker, cell);
-        let events = occur![survey(), create_container(), appearance,];
+        let events = occur![
+            survey(),
+            create_container(),
+            self.appear_construction(container, farmland.grid, surveyor, marker, cell),
+        ];
         Ok(events)
     }
 }

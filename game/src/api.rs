@@ -7,8 +7,8 @@ use crate::inventory::{ContainerId, Inventory, InventoryError};
 use crate::landscaping::{Landscaping, LandscapingError};
 use crate::math::Tile;
 use crate::model::{
-    Activity, Cementer, Composter, Construction, Creature, Crop, Door, Equipment, Farmer, Rest,
-    Stack, Universe, UniverseError,
+    Activity, Cementer, Composter, Construction, Corpse, Creature, Crop, Door, Equipment, Farmer,
+    Rest, Stack, Universe, UniverseError,
 };
 use crate::physics::{Physics, PhysicsError};
 use crate::planting::{Planting, PlantingError};
@@ -84,6 +84,7 @@ pub enum Action {
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub enum Cheat {
     GrowthUpCrops { radius: f32, growth: f32 },
+    SetCreaturesHealth { radius: f32, health: f32 },
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -207,6 +208,9 @@ pub enum FarmerBound {
     },
     Relax {
         rest: Rest,
+    },
+    CollectCorpse {
+        corpse: Corpse,
     },
 }
 

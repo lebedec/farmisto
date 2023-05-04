@@ -1,5 +1,6 @@
 use log::info;
 use rand::thread_rng;
+use std::thread::current;
 
 use crate::api::Event;
 use crate::inventory::ItemId;
@@ -181,8 +182,22 @@ impl Game {
         let mut dead_animals_events = vec![];
         for animal in dead_animals {
             let creature = self.universe.get_creature_by_animal(animal.id).unwrap();
+            let creature_kind = self.known.creatures.get(creature.key).unwrap();
+            let body = self.physics.get_body(creature.body).unwrap();
+            let position = body.position;
+            let space = body.space;
             let events = self.universe.vanish_creature(creature);
             dead_animals_events.push(events.into());
+
+            let corpse_kind = &creature_kind.corpse;
+            let (barrier, create_barrier) = self
+                .physics
+                .create_barrier(space, corpse_kind.barrier.clone(), position, true, false)
+                .unwrap();
+            dead_animals_events.extend(occur![
+                create_barrier(),
+                self.appear_corpse(corpse_kind.id, barrier).unwrap(),
+            ]);
         }
 
         let mut events = occur![

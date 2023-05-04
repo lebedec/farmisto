@@ -20,4 +20,21 @@ impl Game {
         }
         Ok(vec![])
     }
+
+    pub(crate) fn cheat_set_creatures_health(
+        &mut self,
+        farmer: Farmer,
+        farmland: Farmland,
+        health: f32,
+        radius: f32,
+    ) -> Result<Vec<Event>, ActionError> {
+        let center = self.physics.get_body(farmer.body)?.position;
+        for creature in self.universe.creatures.iter() {
+            let position = self.physics.get_body(creature.body)?.position;
+            if center.distance(position) < radius {
+                self.raising.get_animal_mut(creature.animal).unwrap().health = health;
+            }
+        }
+        Ok(vec![])
+    }
 }

@@ -2,8 +2,8 @@ use crate::api::{ActionError, Event};
 use crate::landscaping::Landscaping;
 use crate::math::{Array2D, VectorMath};
 use crate::model::{
-    Assembly, Cementer, Composter, Creature, Crop, Door, Equipment, Farmer, ItemData, PlayerId,
-    Rest, Stack, Universe, UniverseSnapshot,
+    Assembly, Cementer, Composter, Corpse, Creature, Crop, Door, Equipment, Farmer, ItemData,
+    PlayerId, Rest, Stack, Universe, UniverseSnapshot,
 };
 use crate::physics::Physics;
 use crate::planting::Planting;
@@ -83,19 +83,29 @@ impl Game {
         Ok(event)
     }
 
-    pub fn look_at_creature(&self, entity: Creature) -> Universe {
-        let animal = self.raising.get_animal(entity.animal).unwrap();
-        let body = self.physics.get_body(entity.body).unwrap();
-        Universe::CreatureAppeared {
+    pub fn inspect_creature(&self, entity: Creature) -> Result<Universe, ActionError> {
+        let animal = self.raising.get_animal(entity.animal)?;
+        let body = self.physics.get_body(entity.body)?;
+        let event = Universe::CreatureAppeared {
             entity,
             space: body.space,
             health: animal.health,
             hunger: animal.hunger,
             position: body.position,
-        }
+        };
+        Ok(event)
     }
 
-    pub fn look_at_assembly(&self, entity: Assembly) -> Universe {
+    pub fn inspect_corpse(&self, entity: Corpse) -> Result<Universe, ActionError> {
+        let barrier = self.physics.get_barrier(entity.barrier)?;
+        let event = Universe::CorpseAppeared {
+            entity,
+            position: barrier.position,
+        };
+        Ok(event)
+    }
+
+    pub fn inspect_assembly(&self, entity: Assembly) -> Universe {
         let placement = self.assembling.get_placement(entity.placement).unwrap();
         Universe::AssemblyAppeared {
             entity,
@@ -173,7 +183,7 @@ impl Game {
             position: barrier.position,
         }
     }
-    
+
     pub fn inspect_farmer(&self, farmer: Farmer) -> Result<Universe, ActionError> {
         let body = self.physics.get_body(farmer.body)?;
         let player = self
@@ -232,7 +242,11 @@ impl Game {
         }
 
         for creature in &self.universe.creatures {
-            stream.push(self.look_at_creature(*creature));
+            stream.push(self.inspect_creature(*creature).unwrap());
+        }
+
+        for corpse in &self.universe.corpses {
+            stream.push(self.inspect_corpse(*corpse).unwrap());
         }
 
         for equipment in &self.universe.equipments {
@@ -240,7 +254,7 @@ impl Game {
         }
 
         for assembly in &self.universe.assembly {
-            stream.push(self.look_at_assembly(*assembly));
+            stream.push(self.inspect_assembly(*assembly));
         }
 
         for door in &self.universe.doors {

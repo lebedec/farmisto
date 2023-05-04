@@ -1,5 +1,6 @@
 pub use build::*;
 pub use cancel_assembly::*;
+pub use collect_corpse::*;
 pub use dig_place::*;
 pub use dig_up_crop::*;
 pub use disassemble::*;
@@ -27,6 +28,7 @@ pub use use_equipment::*;
 
 mod build;
 mod cancel_assembly;
+mod collect_corpse;
 mod dig_place;
 mod dig_up_crop;
 mod disassemble;

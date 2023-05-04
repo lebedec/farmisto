@@ -270,6 +270,8 @@ impl Nature {
                             Universe::RestVanished(_) => {}
                             Universe::ComposterInspected { .. } => {}
                             Universe::ComposterVanished(_) => {}
+                            Universe::CorpseAppeared { .. } => {}
+                            Universe::CorpseVanished(_) => {}
                         }
                     }
                 }

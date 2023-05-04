@@ -89,3 +89,9 @@ pub type ComposterAsset = Asset<ComposterAssetData>;
 pub struct ComposterAssetData {
     pub sprites: TilesetAsset,
 }
+
+pub type CorpseAsset = Asset<CorpseAssetData>;
+
+pub struct CorpseAssetData {
+    pub sprite: SpriteAsset,
+}

@@ -38,11 +38,11 @@ It is the bounds within which certain game processes are implemented
 and certain rules/actions are applied. In fact, each domain is unique game mechanic.
 Domains are independent Rust modules.
 
-*   [Universe](src/model.rs) 
+*   [Universe](src/universe) 
 
     A game world is an artificial universe. In the context of the domain driven development,
     this is root domain which contains aggregates — clusters of domain objects that can be treated as a single 
-    game object. 
+    game entity. 
 
 *   [Physics](src/domains/physics)
 

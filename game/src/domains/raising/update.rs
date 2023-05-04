@@ -24,11 +24,15 @@ impl RaisingDomain {
                 thirst: animal.thirst,
             });
 
+            if animal.hunger > 0.0 && animal.thirst > 0.0 && animal.health < 1.0 {
+                animal.health = (animal.health + 0.2 * time).min(1.0);
+            }
+
             let mut damage = 0.0;
             damage += animal.thirst * kind.thirst_damage * time;
             damage += animal.hunger * kind.hunger_damage * time;
             if animal.health < kind.death_threshold {
-                damage += time * 0.2;
+                damage += 0.2 * time;
             }
             if damage > 0.0 {
                 animal.health = (animal.health - damage).max(0.0);
@@ -41,10 +45,10 @@ impl RaisingDomain {
                 dead_animals.push(animal.id);
             }
 
-            info!(
-                "Animal h{}+{extra_hunger} t{} health={}",
-                animal.hunger, animal.thirst, animal.health
-            );
+            // info!(
+            //     "Animal h{}+{extra_hunger} t{} health={}",
+            //     animal.hunger, animal.thirst, animal.health
+            // );
         }
         for id in dead_animals {
             let index = match self.animals.iter().position(|animal| animal.id == id) {

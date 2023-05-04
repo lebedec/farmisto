@@ -7,10 +7,16 @@ use game::building::{Cell, Room};
 use game::collections::Shared;
 use game::inventory::{ContainerId, ItemId, ItemKind};
 use game::math::{Collider, Tile, VectorMath};
-use game::model::{Activity, Assembly, Cementer, CementerKind, Composter, ComposterKind, Construction, Creature, CreatureKind, Crop, Door, Equipment, Farmer, FarmerKind, Farmland, FarmlandKind, Rest, Stack, Tree, TreeKind};
+use game::model::{
+    Activity, Assembly, Cementer, CementerKind, Composter, ComposterKind, Construction, Corpse,
+    Creature, CreatureKind, Crop, Door, Equipment, Farmer, FarmerKind, Farmland, FarmlandKind,
+    Rest, Stack, Tree, TreeKind,
+};
 use game::physics::BodyKind;
 
-use crate::assets::{BuildingMaterialAsset, ComposterAsset, CreatureAsset, SpriteAsset};
+use crate::assets::{
+    BuildingMaterialAsset, ComposterAsset, CorpseAsset, CreatureAsset, SpriteAsset,
+};
 use crate::assets::{CementerAsset, FarmerAsset};
 use crate::assets::{CropAsset, DoorAsset};
 use crate::assets::{FarmlandAsset, ItemAsset};
@@ -340,4 +346,10 @@ impl CreatureRep {
         self.rendering_position = estimated_position;
         self.velocity = direction.mul(translation);
     }
+}
+
+pub struct CorpseRep {
+    pub entity: Corpse,
+    pub asset: CorpseAsset,
+    pub position: [f32; 2],
 }

@@ -452,6 +452,11 @@ impl Gameplay {
             scene.render_sprite(sprite, xy(rendering_position))
         }
 
+        for corpse in self.corpses.values() {
+            let rendering_position = rendering_position_of(corpse.position);
+            scene.render_sprite(&corpse.asset.sprite, xy(rendering_position));
+        }
+
         for cementer in self.cementers.values() {
             render_cementer(
                 cementer.position.to_tile(),

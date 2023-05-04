@@ -19,8 +19,8 @@ use game::working::Working;
 use crate::engine::Frame;
 use crate::gameplay::representation::{
     AssemblyRep, AssemblyTargetAsset, BuildingRep, CementerRep, ComposterRep, ConstructionRep,
-    CreatureRep, CropRep, DoorRep, EquipmentRep, FarmerRep, FarmlandRep, ItemRep, RestRep,
-    StackRep, TreeRep,
+    CorpseRep, CreatureRep, CropRep, DoorRep, EquipmentRep, FarmerRep, FarmlandRep, ItemRep,
+    RestRep, StackRep, TreeRep,
 };
 use crate::gameplay::Gameplay;
 
@@ -636,6 +636,19 @@ impl Gameplay {
             }
             Universe::ActivityChanged { farmer, activity } => {
                 self.farmers.get_mut(&farmer).unwrap().activity = activity;
+            }
+            Universe::CorpseAppeared { position, entity } => {
+                let kind = self.known.corpses.get(entity.key).unwrap();
+                let asset = assets.corpse(&kind.name);
+                let representation = CorpseRep {
+                    entity,
+                    asset,
+                    position,
+                };
+                self.corpses.insert(entity, representation);
+            }
+            Universe::CorpseVanished(corpse) => {
+                self.corpses.remove(&corpse);
             }
             Universe::CreatureAppeared {
                 entity,

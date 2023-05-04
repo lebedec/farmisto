@@ -387,12 +387,29 @@ create table Crop
     sensor  integer not null references Sensor (id)
 );
 
+
+create table CorpseKind
+(
+    id      integer primary key,
+    name    text not null unique,
+    barrier text not null references BarrierKind (name),
+    item    text not null references ItemKind (name)
+);
+
+create table Corpse
+(
+    id      integer primary key,
+    key     integer not null references CorpseKind (id),
+    barrier integer not null references Barrier (id)
+);
+
 create table CreatureKind
 (
     id     integer primary key,
     name   text not null unique,
     animal text not null references AnimalKind (name),
-    body   text not null references BodyKind (name)
+    body   text not null references BodyKind (name),
+    corpse text not null references CorpseKind (name)
 );
 
 create table Creature
@@ -402,6 +419,7 @@ create table Creature
     animal integer not null references Animal (id),
     body   integer not null references Body (id)
 );
+
 
 create table DoorKind
 (

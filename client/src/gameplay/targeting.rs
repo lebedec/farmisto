@@ -3,7 +3,10 @@ use sdl2::keyboard::Keycode;
 use game::inventory::ContainerId;
 use game::landscaping::Surface;
 use game::math::{Tile, TileMath, VectorMath};
-use game::model::{Assembly, Cementer, Composter, Construction, Creature, Crop, Door, Equipment, Rest, Stack};
+use game::model::{
+    Assembly, Cementer, Composter, Construction, Corpse, Creature, Crop, Door, Equipment, Rest,
+    Stack,
+};
 use game::working::DeviceId;
 
 use crate::engine::{Cursor, Input};
@@ -34,6 +37,7 @@ pub enum Target {
     Composter(Composter),
     ComposterContainer(Composter, ContainerId),
     Creature(Creature),
+    Corpse(Corpse),
     Device(DeviceId),
     Waterbody(Tile),
 }
@@ -95,6 +99,12 @@ impl Gameplay {
         for creature in self.creatures.values() {
             if creature.estimated_position.to_tile() == tile {
                 return vec![Target::Creature(creature.entity)];
+            }
+        }
+
+        for corpse in self.corpses.values() {
+            if corpse.position.to_tile() == tile {
+                return vec![Target::Corpse(corpse.entity)];
             }
         }
 

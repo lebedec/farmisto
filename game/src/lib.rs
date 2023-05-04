@@ -10,13 +10,13 @@ pub use update::*;
 use crate::api::ActionError::{PlayerFarmerNotFound, Timing};
 use crate::api::{Action, ActionError, ActionResponse, Cheat, Event, FarmerBound};
 use crate::assembling::{AssemblingDomain, PlacementId};
-use crate::building::{BuildingDomain, Structure, SurveyorId};
+use crate::building::{BuildingDomain, GridId, Marker, Structure, SurveyorId};
 use crate::inventory::{ContainerId, FunctionsQuery, InventoryDomain, InventoryError, ItemId};
 use crate::landscaping::LandscapingDomain;
 use crate::model::Activity::Idle;
 use crate::model::{
-    Activity, Assembly, AssemblyKey, Cementer, CementerKey, Creature, CreatureKey, Crop, CropKey,
-    Door, DoorKey, FarmerKey, PlayerId, Stack,
+    Activity, Assembly, AssemblyKey, Cementer, CementerKey, Construction, Corpse, CorpseKey,
+    Creature, CreatureKey, Crop, CropKey, Door, DoorKey, FarmerKey, PlayerId, Stack,
 };
 use crate::model::{Composter, ComposterKey, Knowledge};
 use crate::model::{Equipment, Rest, RestKey};
@@ -194,6 +194,9 @@ impl Game {
                     Cheat::GrowthUpCrops { growth, radius } => {
                         self.cheat_growth_up_crops(farmer, farmland, growth, radius)?
                     }
+                    Cheat::SetCreaturesHealth { health, radius } => {
+                        self.cheat_set_creatures_health(farmer, farmland, health, radius)?
+                    }
                 }
             }
             Action::Farmer { action } => {
@@ -302,6 +305,9 @@ impl Game {
                     FarmerBound::PourWater { place } => self.pour_water(farmer, farmland, place)?,
                     FarmerBound::Fertilize { tile } => self.fertilize(farmer, farmland, tile)?,
                     FarmerBound::Relax { rest } => self.relax(farmer, farmland, rest)?,
+                    FarmerBound::CollectCorpse { corpse } => {
+                        self.collect_corpse(farmer, farmland, corpse)?
+                    }
                 }
             }
         };
@@ -398,12 +404,36 @@ impl Game {
         self.inspect_farmer(entity)
     }
 
+    pub(crate) fn appear_construction(
+        &mut self,
+        container: ContainerId,
+        grid: GridId,
+        surveyor: SurveyorId,
+        marker: Marker,
+        cell: [usize; 2],
+    ) -> Vec<Universe> {
+        self.universe.constructions_id += 1;
+        let construction = Construction {
+            id: self.universe.constructions_id,
+            container,
+            grid,
+            surveyor,
+            marker,
+            cell,
+        };
+        self.universe.constructions.push(construction);
+        vec![Universe::ConstructionAppeared {
+            id: construction,
+            cell,
+        }]
+    }
+
     pub fn appear_creature(
         &mut self,
         key: CreatureKey,
         body: BodyId,
         animal: AnimalId,
-    ) -> Universe {
+    ) -> Result<Universe, ActionError> {
         self.universe.creatures_id += 1;
         let entity = Creature {
             id: self.universe.creatures_id,
@@ -412,7 +442,22 @@ impl Game {
             animal,
         };
         self.universe.creatures.push(entity);
-        self.look_at_creature(entity)
+        self.inspect_creature(entity)
+    }
+
+    pub fn appear_corpse(
+        &mut self,
+        key: CorpseKey,
+        barrier: BarrierId,
+    ) -> Result<Universe, ActionError> {
+        self.universe.corpses_id += 1;
+        let entity = Corpse {
+            id: self.universe.corpses_id,
+            key,
+            barrier,
+        };
+        self.universe.corpses.push(entity);
+        self.inspect_corpse(entity)
     }
 
     pub fn appear_assembling_activity(
@@ -428,7 +473,7 @@ impl Game {
             placement,
         };
         self.universe.assembly.push(assembly);
-        let look_event = self.look_at_assembly(assembly);
+        let look_event = self.inspect_assembly(assembly);
         let activity = Activity::Assembling { assembly };
         let events = self.universe.change_activity(farmer, activity);
         let mut stream = vec![look_event];

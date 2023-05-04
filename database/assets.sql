@@ -121,6 +121,12 @@ create table CreatureAssetData
     spine text not null
 );
 
+create table CorpseAssetData
+(
+    id     text primary key unique,
+    sprite text not null references SpriteAssetData
+);
+
 create table BuildingMaterialAssetData
 (
     id                 text primary key unique,

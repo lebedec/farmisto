@@ -11,7 +11,6 @@ use datamap::Storage;
 use game::api::{Action, Cheat, FarmerBound, GameResponse, PlayerRequest};
 use game::inventory::{ContainerId, ItemId};
 use game::math::{test_collisions, VectorMath};
-use game::model::Equipment;
 use game::model::Farmer;
 use game::model::Farmland;
 use game::model::Knowledge;
@@ -20,6 +19,7 @@ use game::model::Tree;
 use game::model::{Activity, Assembly, Door};
 use game::model::{Cementer, Construction};
 use game::model::{Composter, Crop};
+use game::model::{Corpse, Equipment};
 use game::model::{Creature, Rest};
 use game::physics::{generate_holes, Barrier};
 use game::Game;
@@ -31,8 +31,8 @@ use crate::engine::rendering::TextController;
 use crate::engine::Input;
 use crate::gameplay::camera::Camera;
 use crate::gameplay::representation::{
-    AssemblyRep, CementerRep, ComposterRep, ConstructionRep, CreatureRep, CropRep, DoorRep,
-    EquipmentRep, FarmerRep, FarmlandRep, ItemRep, RestRep, StackRep, TreeRep,
+    AssemblyRep, CementerRep, ComposterRep, ConstructionRep, CorpseRep, CreatureRep, CropRep,
+    DoorRep, EquipmentRep, FarmerRep, FarmlandRep, ItemRep, RestRep, StackRep, TreeRep,
 };
 use crate::gameplay::{GameplayMetrics, InputMethod, Target};
 use crate::monitoring::{Timer, TimerIntegration};
@@ -76,6 +76,7 @@ pub struct Gameplay {
     pub constructions: HashMap<Construction, ConstructionRep>,
     pub crops: HashMap<Crop, CropRep>,
     pub creatures: HashMap<Creature, CreatureRep>,
+    pub corpses: HashMap<Corpse, CorpseRep>,
     pub items: HashMap<ContainerId, HashMap<ItemId, ItemRep>>,
     pub camera: Camera,
     pub cursor: SpriteAsset,
@@ -146,6 +147,7 @@ impl Gameplay {
             constructions: Default::default(),
             crops: Default::default(),
             creatures: Default::default(),
+            corpses: Default::default(),
             items: Default::default(),
             camera,
             cursor,
@@ -219,10 +221,10 @@ impl Gameplay {
         self.action_id += 1;
         self.client.send(PlayerRequest::Perform {
             action: Action::Cheat { action },
-            action_id: self.action_id
+            action_id: self.action_id,
         })
     }
-    
+
     pub fn send_action_as_ai(&mut self, action: Action) -> usize {
         self.action_id += 1;
         info!("Client sends as AI id={} {:?}", self.action_id, action);

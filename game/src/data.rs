@@ -12,13 +12,7 @@ use crate::inventory::{
     Container, ContainerId, ContainerKey, ContainerKind, Item, ItemId, ItemKey, ItemKind,
 };
 use crate::landscaping::{Land, LandId, LandKey, LandKind};
-use crate::model::{
-    Assembly, AssemblyKey, AssemblyKind, AssemblyTarget, Cementer, CementerKey, CementerKind,
-    Composter, ComposterKey, ComposterKind, Construction, Creature, CreatureKey, CreatureKind,
-    Crop, CropKey, CropKind, Door, DoorKey, DoorKind, Equipment, EquipmentKey, EquipmentKind,
-    Farmer, FarmerKey, FarmerKind, Farmland, FarmlandKey, FarmlandKind, Player, PlayerId, Purpose,
-    PurposeDescription, Rest, RestKey, RestKind, Stack, Tree, TreeKey, TreeKind,
-};
+use crate::model::{Assembly, AssemblyKey, AssemblyKind, AssemblyTarget, Cementer, CementerKey, CementerKind, Composter, ComposterKey, ComposterKind, Construction, Corpse, CorpseKey, CorpseKind, Creature, CreatureKey, CreatureKind, Crop, CropKey, CropKind, Door, DoorKey, DoorKind, Equipment, EquipmentKey, EquipmentKind, Farmer, FarmerKey, FarmerKind, Farmland, FarmlandKey, FarmlandKind, Player, PlayerId, Purpose, PurposeDescription, Rest, RestKey, RestKind, Stack, Tree, TreeKey, TreeKind};
 use crate::physics::{
     Barrier, BarrierId, BarrierKey, BarrierKind, Body, BodyId, BodyKey, BodyKind, Sensor, SensorId,
     SensorKey, SensorKind, Space, SpaceId, SpaceKey, SpaceKind,
@@ -108,6 +102,12 @@ impl Game {
         }
         for kind in storage.find_all(|row| self.load_crop_kind(row))? {
             self.known.crops.insert(kind.id, kind.name.clone(), kind);
+        }
+        // creature references:
+        for kind in storage.find_all(|row| self.load_corpse_kind(row))? {
+            self.known
+                .corpses
+                .insert(kind.id, kind.name.clone(), kind);
         }
         for kind in storage.find_all(|row| self.load_creature_kind(row))? {
             self.known
@@ -209,6 +209,8 @@ impl Game {
         self.universe.load_equipments(equipments, id);
         let (crops, id) = storage.get_sequence(|row| self.load_crop(row))?;
         self.universe.load_crops(crops, id);
+        let (corpses, id) = storage.get_sequence(|row| self.load_corpse(row))?;
+        self.universe.load_corpses(corpses, id);
         let (creatures, id) = storage.get_sequence(|row| self.load_creature(row))?;
         self.universe.load_creatures(creatures, id);
         // assembly references:
@@ -366,6 +368,7 @@ impl Game {
             name: row.get("name")?,
             body: self.known.bodies.find_by(row, "body")?,
             animal: self.known.animals.find_by(row, "animal")?,
+            corpse: self.known.corpses.find_by(row, "corpse")?
         };
         Ok(data)
     }
@@ -376,6 +379,28 @@ impl Game {
             key: CreatureKey(row.get("kind")?),
             body: BodyId(row.get("body")?),
             animal: AnimalId(row.get("animal")?),
+        };
+        Ok(data)
+    }
+
+    pub(crate) fn load_corpse_kind(
+        &mut self,
+        row: &rusqlite::Row,
+    ) -> Result<CorpseKind, DataError> {
+        let data = CorpseKind {
+            id: CorpseKey(row.get("id")?),
+            name: row.get("name")?,
+            barrier: self.known.barriers.find_by(row, "barrier")?,
+            item: self.known.items.find_by(row, "item")?,
+        };
+        Ok(data)
+    }
+
+    pub(crate) fn load_corpse(&mut self, row: &rusqlite::Row) -> Result<Corpse, DataError> {
+        let data = Corpse {
+            id: row.get("id")?,
+            key: CorpseKey(row.get("key")?),
+            barrier: BarrierId(row.get("barrier")?),
         };
         Ok(data)
     }

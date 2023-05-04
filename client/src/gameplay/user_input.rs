@@ -35,6 +35,12 @@ impl Gameplay {
                 radius: 3.0,
             });
         }
+        if input.ctrl_pressed(Keycode::H) {
+            self.send_cheat(Cheat::SetCreaturesHealth {
+                health: 0.0,
+                radius: 3.0,
+            });
+        }
 
         // if input.pressed(Keycode::E) {
         //     if let Target::Crop(crop) = target {

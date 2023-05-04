@@ -11,10 +11,7 @@ use game::model::{Activity, CropKey, Purpose};
 
 use crate::gameplay::representation::FarmerRep;
 use crate::gameplay::Intention::{Aim, Move, Put, QuickSwap, Swap, Use};
-use crate::gameplay::Target::{
-    Cementer, CementerContainer, Composter, ComposterContainer, Construction, Creature, Crop,
-    Device, Door, Equipment, Ground, Rest, Stack, Wall, Waterbody,
-};
+use crate::gameplay::Target::{Cementer, CementerContainer, Composter, ComposterContainer, Construction, Corpse, Creature, Crop, Device, Door, Equipment, Ground, Rest, Stack, Wall, Waterbody};
 use crate::gameplay::{Gameplay, Intention, Target};
 
 impl Gameplay {
@@ -72,8 +69,11 @@ impl Gameplay {
                         self.send_action(FarmerBound::Relax { rest });
                     }
                     Creature(_) => {}
+                    Corpse(corpse) => {
+                       self.send_action(FarmerBound::CollectCorpse { corpse });
+                    }
                     Device(_) => {}
-                    Target::Waterbody(_) => {}
+                    Waterbody(_) => {}
                 },
                 Put => match target {
                     Equipment(equipment) => {

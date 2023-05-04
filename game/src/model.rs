@@ -25,6 +25,7 @@ pub struct Knowledge {
     pub assembly: Dictionary<AssemblyKey, AssemblyKind>,
     pub crops: Dictionary<CropKey, CropKind>,
     pub creatures: Dictionary<CreatureKey, CreatureKind>,
+    pub corpses: Dictionary<CorpseKey, CorpseKind>,
     pub doors: Dictionary<DoorKey, DoorKind>,
     pub cementers: Dictionary<CementerKey, CementerKind>,
     pub composters: Dictionary<ComposterKey, ComposterKind>,
@@ -73,6 +74,8 @@ pub struct UniverseDomain {
     pub crops_id: usize,
     pub creatures: Vec<Creature>,
     pub creatures_id: usize,
+    pub corpses: Vec<Corpse>,
+    pub corpses_id: usize,
     pub assembly: Vec<Assembly>,
     pub assembly_id: usize,
     pub doors: Vec<Door>,
@@ -142,6 +145,11 @@ pub enum Universe {
         entity: Creature,
     },
     CreatureVanished(Creature),
+    CorpseAppeared {
+        entity: Corpse,
+        position: [f32; 2],
+    },
+    CorpseVanished(Corpse),
     ConstructionAppeared {
         id: Construction,
         cell: [usize; 2],
@@ -301,6 +309,11 @@ impl UniverseDomain {
         self.crops.extend(crops);
     }
 
+    pub fn load_corpses(&mut self, corpses: Vec<Corpse>, corpses_id: usize) {
+        self.corpses_id = corpses_id;
+        self.corpses.extend(corpses);
+    }
+
     pub fn load_creatures(&mut self, creatures: Vec<Creature>, creatures_id: usize) {
         self.creatures_id = creatures_id;
         self.creatures.extend(creatures);
@@ -329,30 +342,6 @@ impl UniverseDomain {
     pub fn load_composters(&mut self, composters: Vec<Composter>, composters_id: usize) {
         self.composters_id = composters_id;
         self.composters.extend(composters);
-    }
-
-    pub(crate) fn appear_construction(
-        &mut self,
-        container: ContainerId,
-        grid: GridId,
-        surveyor: SurveyorId,
-        marker: Marker,
-        cell: [usize; 2],
-    ) -> Vec<Universe> {
-        self.constructions_id += 1;
-        let construction = Construction {
-            id: self.constructions_id,
-            container,
-            grid,
-            surveyor,
-            marker,
-            cell,
-        };
-        self.constructions.push(construction);
-        vec![Universe::ConstructionAppeared {
-            id: construction,
-            cell,
-        }]
     }
 
     pub(crate) fn vanish_construction(&mut self, id: Construction) -> Vec<Universe> {
@@ -390,6 +379,15 @@ impl UniverseDomain {
         if let Some(index) = self.creatures.iter().position(|creature| creature == &id) {
             self.creatures.remove(index);
             vec![Universe::CreatureVanished(id)]
+        } else {
+            vec![]
+        }
+    }
+
+    pub(crate) fn vanish_corpse(&mut self, id: Corpse) -> Vec<Universe> {
+        if let Some(index) = self.corpses.iter().position(|corpse| corpse == &id) {
+            self.corpses.remove(index);
+            vec![Universe::CorpseVanished(id)]
         } else {
             vec![]
         }
@@ -689,6 +687,7 @@ pub struct CreatureKind {
     pub name: String,
     pub body: Shared<BodyKind>,
     pub animal: Shared<AnimalKind>,
+    pub corpse: Shared<CorpseKind>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
@@ -697,6 +696,23 @@ pub struct Creature {
     pub key: CreatureKey,
     pub body: BodyId,
     pub animal: AnimalId,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+pub struct CorpseKey(pub usize);
+
+pub struct CorpseKind {
+    pub id: CorpseKey,
+    pub name: String,
+    pub barrier: Shared<BarrierKind>,
+    pub item: Shared<ItemKind>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+pub struct Corpse {
+    pub id: usize,
+    pub key: CorpseKey,
+    pub barrier: BarrierId,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
