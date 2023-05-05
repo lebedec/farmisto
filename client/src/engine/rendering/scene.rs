@@ -16,8 +16,6 @@ use crate::engine::base::Screen;
 use crate::engine::base::ShaderData;
 use crate::engine::base::{MyPipeline, MyQueue};
 use crate::engine::buffers::{CameraUniform, LightUniform, UniformBuffer};
-use crate::engine::rendering::TilemapPushConstants;
-use crate::engine::rendering::TilemapRenderObject;
 use crate::engine::rendering::GROUND_VERTICES;
 use crate::engine::rendering::SPRITE_VERTICES;
 use crate::engine::rendering::{AnimalPushConstants, AnimalRenderObject, GroundRenderObject};
@@ -25,7 +23,9 @@ use crate::engine::rendering::{ElementPushConstants, ElementRenderObject, PlantR
 use crate::engine::rendering::{GroundPushConstants, GroundUniform, Light};
 use crate::engine::rendering::{PlantPushConstants, RenderingLine};
 use crate::engine::rendering::{SceneMetrics, SpritePushConstants};
+use crate::engine::rendering::{SpineVertex, TilemapPushConstants};
 use crate::engine::rendering::{SpriteRenderObject, TextRenderThread};
+use crate::engine::rendering::{SpriteVertex, TilemapRenderObject};
 use crate::engine::VertexBuffer;
 use crate::monitoring::Timer;
 use crate::Assets;
@@ -102,7 +102,12 @@ impl Scene {
                 vk::DescriptorType::COMBINED_IMAGE_SAMPLER,
             ])
             .data([vk::DescriptorType::UNIFORM_BUFFER])
-            .build(device, &screen);
+            .build(
+                device,
+                &screen,
+                SpineVertex::BINDINGS.to_vec(),
+                SpineVertex::ATTRIBUTES.to_vec(),
+            );
 
         let animals_pipeline = MyPipeline::build(assets.pipeline("spine:animals"), pass)
             .material([
@@ -110,7 +115,12 @@ impl Scene {
                 vk::DescriptorType::COMBINED_IMAGE_SAMPLER,
             ])
             .data([vk::DescriptorType::UNIFORM_BUFFER])
-            .build(device, &screen);
+            .build(
+                device,
+                &screen,
+                SpineVertex::BINDINGS.to_vec(),
+                SpineVertex::ATTRIBUTES.to_vec(),
+            );
 
         let ground_buffer = UniformBuffer::create(device.clone(), device_memory, swapchain);
         let ground_pipeline = MyPipeline::build(assets.pipeline("ground"), pass)
@@ -119,24 +129,44 @@ impl Scene {
                 vk::DescriptorType::UNIFORM_BUFFER,
                 vk::DescriptorType::UNIFORM_BUFFER,
             ])
-            .build(device, &screen);
+            .build(
+                device,
+                &screen,
+                SpriteVertex::BINDINGS.to_vec(),
+                SpriteVertex::ATTRIBUTES.to_vec(),
+            );
         let ground_vertex_buffer =
             VertexBuffer::create(device, device_memory, GROUND_VERTICES.to_vec());
 
         let sprite_pipeline = MyPipeline::build(assets.pipeline("sprites"), pass)
             .material([vk::DescriptorType::COMBINED_IMAGE_SAMPLER])
             .data([vk::DescriptorType::UNIFORM_BUFFER])
-            .build(device, &screen);
+            .build(
+                device,
+                &screen,
+                SpriteVertex::BINDINGS.to_vec(),
+                SpriteVertex::ATTRIBUTES.to_vec(),
+            );
 
         let tilemap_pipeline = MyPipeline::build(assets.pipeline("tilemap"), pass)
             .material([vk::DescriptorType::COMBINED_IMAGE_SAMPLER])
             .data([vk::DescriptorType::UNIFORM_BUFFER])
-            .build(device, &screen);
+            .build(
+                device,
+                &screen,
+                SpriteVertex::BINDINGS.to_vec(),
+                SpriteVertex::ATTRIBUTES.to_vec(),
+            );
 
         let ui_pipeline = MyPipeline::build(assets.pipeline("ui:element"), pass)
             .material([vk::DescriptorType::COMBINED_IMAGE_SAMPLER])
             .data([vk::DescriptorType::UNIFORM_BUFFER])
-            .build(device, &screen);
+            .build(
+                device,
+                &screen,
+                SpriteVertex::BINDINGS.to_vec(),
+                SpriteVertex::ATTRIBUTES.to_vec(),
+            );
         let ui_element_vertex_buffer =
             VertexBuffer::create(device, device_memory, SPRITE_VERTICES.to_vec());
         let ui_element_sampler = assets.sampler("default");

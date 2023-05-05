@@ -5,7 +5,7 @@ use crate::assets::{SpineAsset, TextureAsset};
 use crate::engine::base::ShaderData;
 use crate::engine::rendering::{
     PlantPushConstants, PlantRenderObject, RenderingLine, Scene, SpineRenderController,
-    SpineUniform, SpriteVertex,
+    SpineUniform, SpineVertex, SpriteVertex,
 };
 use crate::engine::{IndexBuffer, UniformBuffer, VertexBuffer};
 
@@ -16,7 +16,7 @@ impl Scene {
         colors: [[f32; 4]; 4],
     ) -> SpineRenderController {
         let skeleton = SkeletonController::new(spine.skeleton.clone(), spine.animation.clone());
-        let mut vertices: Vec<SpriteVertex> = vec![];
+        let mut vertices: Vec<SpineVertex> = vec![];
         let mut indices: Vec<u32> = vec![];
         let mut meshes: Vec<usize> = vec![];
         let mut index_offset = 0;

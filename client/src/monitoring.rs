@@ -134,7 +134,7 @@ fn push_metrics<S: BuildHasher>(
     grouping: HashMap<String, String, S>,
     url: &str,
     mfs: Vec<MetricFamily>,
-) -> Result<(), prometheus::Error> {
+) -> Result<ureq::Response, prometheus::Error> {
     // Suppress clippy warning needless_pass_by_value.
     let grouping = grouping;
 
@@ -198,16 +198,8 @@ fn push_metrics<S: BuildHasher>(
         let _ = encoder.encode(&[mf], &mut buf);
     }
 
-    let sending = ureq::put(&push_url)
+    ureq::put(&push_url)
         .set("content-type", encoder.format_type())
-        .send_bytes(&buf);
-
-    match sending {
-        Ok(response) => {}
-        Err(error) => {
-            error!("Unable to push metrics {error}")
-        }
-    }
-
-    Ok(())
+        .send_bytes(&buf)
+        .map_err(|error| prometheus::Error::Msg(error.to_string()))
 }

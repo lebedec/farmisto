@@ -152,6 +152,9 @@ pub struct MyPipeline<const M: usize, C, const D: usize> {
     pub material: ShaderDataSet<M>,
     pub data: Option<ShaderDataSet<D>>,
     _constants: PhantomData<C>,
+
+    pub vertex_bindings: Vec<vk::VertexInputBindingDescription>,
+    pub vertex_attributes: Vec<vk::VertexInputAttributeDescription>,
 }
 
 impl<const M: usize, C, const D: usize> MyPipeline<M, C, D>
@@ -252,8 +255,8 @@ where
                 &device,
                 &screen.scissors,
                 &screen.viewports,
-                &SpriteVertex::ATTRIBUTES,
-                &SpriteVertex::BINDINGS,
+                &self.vertex_attributes,
+                &self.vertex_bindings,
             );
         match building {
             Ok(handle) => {
@@ -298,7 +301,13 @@ impl<const M: usize, C: NoUninit, const D: usize> MyPipelineBuilder<M, C, D> {
         self
     }
 
-    pub fn build(self, device: &Device, screen: &Screen) -> MyPipeline<M, C, D> {
+    pub fn build(
+        self,
+        device: &Device,
+        screen: &Screen,
+        vertex_bindings: Vec<vk::VertexInputBindingDescription>,
+        vertex_attributes: Vec<vk::VertexInputAttributeDescription>,
+    ) -> MyPipeline<M, C, D> {
         let camera =
             ShaderDataSet::create(device.clone(), 3, vk::ShaderStageFlags::VERTEX, self.camera);
         let material = ShaderDataSet::create(
@@ -341,6 +350,8 @@ impl<const M: usize, C: NoUninit, const D: usize> MyPipelineBuilder<M, C, D> {
             material,
             data,
             _constants: Default::default(),
+            vertex_bindings,
+            vertex_attributes,
         };
         pipeline.rebuild(device, screen);
         pipeline

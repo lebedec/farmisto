@@ -657,15 +657,42 @@ impl Gameplay {
                 ..
             } => {
                 let kind = self.known.creatures.get(entity.key).unwrap();
-                let features = entity.animal.variant([4, 3, 3, 3, 3]);
-                let [head, tail, c0, c1, c2] = features;
+                let asset = assets.creature(&kind.name);
+                // TODO: move to asset creation
+                let mut head_skins = vec![];
+                let mut tail_skins = vec![];
+                let mut ear_left_skins = vec![];
+                let mut ear_right_skins = vec![];
+                for skin in asset.spine.skeleton.skins() {
+                    let name = skin.name().to_string();
+                    if name.starts_with("ear-left/") {
+                        ear_left_skins.push(name);
+                    } else if name.starts_with("ear-right/") {
+                        ear_right_skins.push(name);
+                    } else if name.starts_with("female/head/") {
+                        head_skins.push(name);
+                    } else if name.starts_with("tail/") {
+                        tail_skins.push(name);
+                    }
+                }
+
+                let features = entity.animal.variant([
+                    head_skins.len(),
+                    ear_left_skins.len(),
+                    ear_right_skins.len(),
+                    tail_skins.len(),
+                    3,
+                    3,
+                    3,
+                ]);
+                let [head, ear_l, ear_r, tail, c0, c1, c2] = features;
                 info!(
                     "Appear {} {:?} at {:?} f{:?}",
                     &kind.name, entity, position, features
                 );
-                let asset = assets.creature(&kind.name);
+
                 let palette = [
-                    [1.0, 1.0, 1.0, 1.0],
+                    [1.0, 0.94, 0.9, 1.0],
                     [0.43, 0.36, 0.31, 1.0],
                     [0.78, 0.47, 0.25, 1.0],
                     [1.0, 1.0, 1.0, 1.0],
@@ -686,17 +713,21 @@ impl Gameplay {
 
                 // animal variants
                 let mut skin = Skin::new("lama-dynamic-848");
-                let head = asset
+                let head = asset.spine.skeleton.find_skin(&head_skins[head]).unwrap();
+                let ear_l = asset
                     .spine
                     .skeleton
-                    .find_skin(&format!("head/head-{}", head))
+                    .find_skin(&ear_left_skins[ear_l])
                     .unwrap();
-                let tail = asset
+                let ear_r = asset
                     .spine
                     .skeleton
-                    .find_skin(&format!("tail/tail-{}", tail))
+                    .find_skin(&ear_right_skins[ear_r])
                     .unwrap();
+                let tail = asset.spine.skeleton.find_skin(&tail_skins[tail]).unwrap();
                 skin.add_skin(&head);
+                skin.add_skin(&ear_l);
+                skin.add_skin(&ear_r);
                 skin.add_skin(&tail);
                 spine.skeleton.skeleton.set_skin(&skin);
 

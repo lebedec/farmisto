@@ -1,10 +1,10 @@
 use crate::assets::TextureAsset;
-use ash::Device;
-use log::error;
+use ash::{vk, Device};
+use log::{error, info};
 use rusty_spine::controller::SkeletonController;
 use rusty_spine::{AnimationState, Attachment, AttachmentType, Slot};
 
-use crate::engine::rendering::{SpineUniform, SpriteVertex};
+use crate::engine::rendering::SpineUniform;
 use crate::engine::{IndexBuffer, UniformBuffer, VertexBuffer};
 
 pub struct SpineRenderController {
@@ -53,8 +53,16 @@ impl SpineRenderController {
         index_offset: &mut u32,
         meshes: &mut Vec<usize>,
         mega_indices: &mut Vec<u32>,
-        mega_vertices: &mut Vec<SpriteVertex>,
+        mega_vertices: &mut Vec<SpineVertex>,
     ) {
+        let mut mask = 0;
+        if slot.data().name().contains("(damage)") {
+            mask += 1;
+        }
+        if slot.data().name().contains("(color)") {
+            mask += 10;
+        }
+
         match attachment.attachment_type() {
             AttachmentType::Region => {
                 let region = attachment.as_region().unwrap();
@@ -65,9 +73,10 @@ impl SpineRenderController {
 
                 let spine_uvs = region.uvs();
                 for i in 0..4 {
-                    mega_vertices.push(SpriteVertex {
+                    mega_vertices.push(SpineVertex {
                         position: [spine_vertices[i * 2], -spine_vertices[i * 2 + 1]],
                         uv: [spine_uvs[i * 2], 1.0 - spine_uvs[i * 2 + 1]], // inverse
+                        mask,
                     })
                 }
                 let indices = [0, 1, 2, 2, 3, 0].map(|index| index + *index_offset);
@@ -95,9 +104,10 @@ impl SpineRenderController {
                 let spine_uvs: Vec<f32> = uvs_slice.to_vec();
                 let mut vertices = vec![];
                 for i in 0..(spine_vertices_count / stride) {
-                    vertices.push(SpriteVertex {
+                    vertices.push(SpineVertex {
                         position: [spine_vertices[i * stride], -spine_vertices[i * stride + 1]],
                         uv: [spine_uvs[i * 2], 1.0 - spine_uvs[i * 2 + 1]], // inverse
+                        mask,
                     })
                 }
                 let indices_count = mesh.triangles_count() as usize;
@@ -121,4 +131,42 @@ impl SpineRenderController {
             }
         }
     }
+}
+
+#[derive(Default, Clone, Debug, Copy, bytemuck::Pod, bytemuck::Zeroable, serde::Deserialize)]
+#[repr(C)]
+pub struct SpineVertex {
+    pub position: [f32; 2],
+    pub uv: [f32; 2],
+    pub mask: u32,
+}
+
+impl SpineVertex {
+    pub const BINDINGS: [vk::VertexInputBindingDescription; 1] =
+        [vk::VertexInputBindingDescription {
+            binding: 0,
+            stride: std::mem::size_of::<SpineVertex>() as u32,
+            input_rate: vk::VertexInputRate::VERTEX,
+        }];
+
+    pub const ATTRIBUTES: [vk::VertexInputAttributeDescription; 3] = [
+        vk::VertexInputAttributeDescription {
+            location: 0,
+            binding: 0,
+            format: vk::Format::R32G32_SFLOAT,
+            offset: 0,
+        },
+        vk::VertexInputAttributeDescription {
+            location: 1,
+            binding: 0,
+            format: vk::Format::R32G32_SFLOAT,
+            offset: 8,
+        },
+        vk::VertexInputAttributeDescription {
+            location: 2,
+            binding: 0,
+            format: vk::Format::R32_UINT,
+            offset: 16,
+        },
+    ];
 }
