@@ -37,6 +37,7 @@ impl Gameplay {
                 .track_at_index_mut(CreatureRep::ANIMATION_TRACK_WALK as usize)
                 .unwrap();
             walk.set_alpha(alpha);
+
             let mut idle = creature
                 .spine
                 .skeleton
@@ -44,6 +45,19 @@ impl Gameplay {
                 .track_at_index_mut(CreatureRep::ANIMATION_TRACK_IDLE as usize)
                 .unwrap();
             idle.set_alpha(1.0 - alpha);
+
+            let mut age = creature
+                .spine
+                .skeleton
+                .animation_state
+                .track_at_index_mut(CreatureRep::ANIMATION_TRACK_AGE as usize)
+                .unwrap();
+            age.set_alpha(1.0);
+            age.set_timescale(1.0);
+            // let f = 100.0 * (1.0 / 30.0);
+            let creature_age = 0.5;
+            age.set_animation_start(creature_age);
+            age.set_animation_end(creature_age);
         }
         for creature in self.creatures.values_mut() {
             creature

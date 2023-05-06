@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 use std::fmt::Debug;
-use std::sync::{Arc, RwLock};
+use std::sync::{Arc, LockResult, RwLock};
 use std::thread;
 use std::time::{Duration, Instant};
 
@@ -20,6 +20,8 @@ use crate::decision_making::{
 
 mod api;
 mod decision_making;
+mod fauna;
+mod machine;
 
 pub struct AiThread {}
 
@@ -39,10 +41,23 @@ impl AiThread {
             loop {
                 let t = Instant::now();
                 {
-                    let mut nature = nature_lock.write().unwrap();
+                    let mut nature = match nature_lock.write() {
+                        Ok(nature) => nature,
+                        Err(_) => {
+                            error!("Unable to write AI state, AI ws thread terminated");
+                            break;
+                        }
+                    };
                     let events = handle_server_responses(&mut client);
                     nature.perceive(events);
-                    for action in nature.react(&behaviours.read().unwrap()) {
+                    let behaviours = match behaviours.read() {
+                        Ok(behaviours) => behaviours,
+                        Err(_) => {
+                            error!("Unable to read AI behaviours, assets thread terminated");
+                            break;
+                        }
+                    };
+                    for action in nature.react(&behaviours) {
                         info!("AI sends id={} {:?}", action_id, action);
                         client.send(PlayerRequest::Perform { action, action_id });
                         action_id += 1;
@@ -289,7 +304,7 @@ impl Nature {
                             Physics::BarrierCreated {
                                 space, position, ..
                             } => {
-                                let tiles = self.tiles.get_mut(&space).unwrap();
+                                let tiles = self.tiles.get_mut(&space).expect("tiles");
                                 let [x, y] = position.to_tile();
                                 // TODO: barrier bounds
                                 tiles[y][x].has_barrier = true;
@@ -298,13 +313,13 @@ impl Nature {
                             Physics::BarrierDestroyed {
                                 position, space, ..
                             } => {
-                                let tiles = self.tiles.get_mut(&space).unwrap();
+                                let tiles = self.tiles.get_mut(&space).expect("tiles");
                                 let [x, y] = position.to_tile();
                                 // TODO: multiple barriers on same tile
                                 tiles[y][x].has_barrier = false;
                             }
                             Physics::SpaceUpdated { id, holes } => {
-                                let tiles = self.tiles.get_mut(&id).unwrap();
+                                let tiles = self.tiles.get_mut(&id).expect("tiles");
                                 for y in 0..holes.len() {
                                     for x in 0..holes.len() {
                                         tiles[y][x].has_hole = holes[y][x] == 1;
@@ -378,6 +393,10 @@ impl Nature {
                 &behaviours.creatures,
                 |set_index, set, thinking| match set {
                     CreatureBehaviourSet::Crop { behaviours, .. } => {
+                        if self.crops.is_empty() {
+                            return None;
+                        }
+
                         let (b, t, d, scores) = consider(
                             set_index,
                             &behaviours,
@@ -400,17 +419,24 @@ impl Nature {
                                 creature: agent.creature,
                             }
                             .into(),
-                            CreatureCropAction::Nothing => Choice::Nothing,
+                            CreatureCropAction::Nothing => Action::EatCrop {
+                                crop,
+                                creature: agent.creature,
+                            }
+                            .into(),
                         };
-                        (scores, b, d, choice)
+                        Some((scores, b, d, choice))
                     }
                     CreatureBehaviourSet::Ground { behaviours, .. } => {
-                        let game_tiles = self.tiles.get(&agent.space).unwrap();
+                        let game_tiles = self.tiles.get(&agent.space).expect("tiles");
                         let targets = Self::get_empty_tiles(
                             game_tiles,
                             agent.position.to_tile(),
                             agent.radius,
                         );
+                        if targets.is_empty() || behaviours.is_empty() {
+                            return None;
+                        }
                         let (b, t, d, scores) = consider(
                             set_index,
                             &behaviours,
@@ -442,10 +468,10 @@ impl Nature {
                             }
                             .into(),
                             CreatureGroundAction::Delay { .. } => {
-                                Tuning::Delay { behaviour: b }.into()
+                                Choice::Tuning(Tuning::Delay { behaviour: b })
                             }
                         };
-                        (scores, b, d, choice)
+                        Some((scores, b, d, choice))
                     }
                 },
             );
@@ -453,8 +479,12 @@ impl Nature {
             agent.thinking = thinking;
             agent.history.insert(decision, Instant::now());
 
+            let choice = match choice {
+                Some(choice) => choice,
+                None => continue,
+            };
+
             match choice {
-                Choice::Nothing => {}
                 Choice::Action(action) => {
                     actions.push(action);
                 }

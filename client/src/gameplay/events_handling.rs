@@ -711,6 +711,12 @@ impl Gameplay {
                     .set_animation_by_name(CreatureRep::ANIMATION_TRACK_WALK, "move", true)
                     .unwrap();
 
+                spine
+                    .skeleton
+                    .animation_state
+                    .set_animation_by_name(CreatureRep::ANIMATION_TRACK_AGE, "age", false)
+                    .unwrap();
+
                 // animal variants
                 let mut skin = Skin::new("lama-dynamic-848");
                 let head = asset.spine.skeleton.find_skin(&head_skins[head]).unwrap();

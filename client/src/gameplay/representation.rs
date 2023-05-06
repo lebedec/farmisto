@@ -298,6 +298,7 @@ impl CreatureRep {
     pub const ANIMATION_TRACK_IDLE: i32 = 0;
     pub const ANIMATION_TRACK_WALK: i32 = 1;
     pub const ANIMATION_TRACK_EAT: i32 = 2;
+    pub const ANIMATION_TRACK_AGE: i32 = 3;
 
     pub fn play_eat(&mut self) {
         self.spine

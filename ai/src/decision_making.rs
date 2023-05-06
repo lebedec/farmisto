@@ -46,7 +46,6 @@ impl Thinking {
 }
 
 pub enum Choice<A, T> {
-    Nothing,
     Action(A),
     Tuning(T),
 }
@@ -56,25 +55,26 @@ pub type DecisionRef = [usize; 3];
 pub fn make_decision<S, C, A, T>(
     behaviour_sets: &Vec<S>,
     consider: C,
-) -> (Choice<A, T>, DecisionRef, Thinking)
+) -> (Option<Choice<A, T>>, DecisionRef, Thinking)
 where
-    C: Fn(usize, &S, &mut Thinking) -> (f32, usize, usize, Choice<A, T>),
+    C: Fn(usize, &S, &mut Thinking) -> Option<(f32, usize, usize, Choice<A, T>)>,
 {
     let mut thinking = Thinking::default();
-    let mut best_action = Choice::Nothing;
+    let mut best_action = None;
     let mut best_action_scores = 0.0;
     let mut best_set = 0;
     let mut best_behaviour = 0;
     let mut best_decision = 0;
     for (set_index, set) in behaviour_sets.iter().enumerate() {
-        let (scores, behaviour_index, decision_index, action) =
-            consider(set_index, set, &mut thinking);
-        if scores > best_action_scores {
-            best_action = action;
-            best_action_scores = scores;
-            best_set = set_index;
-            best_behaviour = behaviour_index;
-            best_decision = decision_index;
+        if let Some(consideration) = consider(set_index, set, &mut thinking) {
+            let (scores, behaviour_index, decision_index, action) = consideration;
+            if scores > best_action_scores {
+                best_action = Some(action);
+                best_action_scores = scores;
+                best_set = set_index;
+                best_behaviour = behaviour_index;
+                best_decision = decision_index;
+            }
         }
     }
     let decision_ref = [best_set, best_behaviour, best_decision];
