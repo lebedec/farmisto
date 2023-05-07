@@ -291,7 +291,6 @@ impl Assets {
     }
 
     pub fn texture<P: AsRef<Path>>(&mut self, path: P) -> TextureAsset {
-        info!("Begin image {:?}", path.as_ref().to_str());
         ASSET_REQUESTS_TOTAL.with_label_values(&["texture"]).inc();
         let path = fs::canonicalize(path).unwrap();
         if let Some(texture) = self.textures.get(&path) {

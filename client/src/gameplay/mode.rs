@@ -2,11 +2,11 @@ use std::collections::HashMap;
 use std::fmt::format;
 use std::time::Instant;
 
+use ai::AiThread;
 use glam::vec3;
 use log::{error, info};
 use sdl2::keyboard::Keycode;
 
-use ai::AiThread;
 use datamap::Storage;
 use game::api::{Action, Cheat, FarmerBound, GameResponse, PlayerRequest};
 use game::inventory::{ContainerId, ItemId};

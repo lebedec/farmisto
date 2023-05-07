@@ -45,58 +45,83 @@ impl Thinking {
     }
 }
 
-pub enum Choice<A, T> {
+pub enum Reaction<A, T> {
     Action(A),
     Tuning(T),
 }
 
-pub type DecisionRef = [usize; 3];
-
 pub fn make_decision<S, C, A, T>(
     behaviour_sets: &Vec<S>,
     consider: C,
-) -> (Option<Choice<A, T>>, DecisionRef, Thinking)
+) -> (Option<Reaction<A, T>>, Thinking)
 where
-    C: Fn(usize, &S, &mut Thinking) -> Option<(f32, usize, usize, Choice<A, T>)>,
+    C: Fn(usize, &S, &mut Thinking) -> Option<(f32, Reaction<A, T>)>,
 {
     let mut thinking = Thinking::default();
     let mut best_action = None;
     let mut best_action_scores = 0.0;
-    let mut best_set = 0;
-    let mut best_behaviour = 0;
-    let mut best_decision = 0;
     for (set_index, set) in behaviour_sets.iter().enumerate() {
         if let Some(consideration) = consider(set_index, set, &mut thinking) {
-            let (scores, behaviour_index, decision_index, action) = consideration;
+            let (scores, action) = consideration;
             if scores > best_action_scores {
                 best_action = Some(action);
                 best_action_scores = scores;
-                best_set = set_index;
-                best_behaviour = behaviour_index;
-                best_decision = decision_index;
             }
         }
     }
-    let decision_ref = [best_set, best_behaviour, best_decision];
-    (best_action, decision_ref, thinking)
+    (best_action, thinking)
 }
 
-pub fn consider<I, T, F, A>(
-    set_index: usize,
+#[derive(Default, Copy, Clone)]
+pub struct Best {
+    pub behaviour: usize,
+    pub decision: usize,
+    pub target: usize,
+    pub scores: f32,
+}
+
+pub fn react<'t, I, T, E, F, A, Action, Tuning, Agent>(
+    agent: &Agent,
     behaviours: &Vec<Behaviour<Decision<I, A>>>,
-    targets: &Vec<T>,
+    targets: &'t Vec<T>,
     input: F,
+    interact: E,
     thinking: &mut Thinking,
-) -> (usize, usize, usize, f32)
+) -> Option<(f32, Reaction<Action, Tuning>)>
 where
     A: Copy + Sized + Debug + Serialize,
     I: Copy + Sized + Serialize,
-    F: Fn(DecisionRef, I, &T) -> f32,
+    F: Fn(&Agent, I, &T) -> f32,
+    E: Fn(&Agent, A, &T) -> Reaction<Action, Tuning>,
 {
-    let mut best_behaviour = 0;
-    let mut best_behaviour_decision = 0;
-    let mut best_behaviour_target = 0;
-    let mut best_behaviour_scores = 0.0;
+    match consider(
+        &behaviours,
+        targets,
+        |inp, target| input(agent, inp, target),
+        thinking,
+    ) {
+        None => None,
+        Some(best) => {
+            let action = behaviours[best.behaviour].decisions[best.decision].action;
+            let target = &targets[best.target];
+            let action = interact(agent, action, target);
+            Some((best.scores, action))
+        }
+    }
+}
+
+pub fn consider<'t, I, T, F, A>(
+    behaviours: &Vec<Behaviour<Decision<I, A>>>,
+    targets: &'t Vec<T>,
+    input: F,
+    thinking: &mut Thinking,
+) -> Option<Best>
+where
+    A: Copy + Sized + Debug + Serialize,
+    I: Copy + Sized + Serialize,
+    F: Fn(I, &T) -> f32,
+{
+    let mut best: Option<Best> = None;
     for (behaviour_index, behaviour) in behaviours.iter().enumerate() {
         let mut best_target = 0;
         let mut best_target_decision = 0;
@@ -107,15 +132,13 @@ where
             for (decision_index, decision) in behaviour.decisions.iter().enumerate() {
                 let mut scores = 1.0;
                 for (index, consideration) in decision.considerations.iter().enumerate() {
-                    let decision_ref = [set_index, behaviour_index, decision_index];
-                    let x = input(decision_ref, consideration.input, target);
+                    let x = input(consideration.input, target);
                     let x = x.clamp(0.0, 1.0);
                     let score = consideration.curve.respond(x);
                     {
                         // TODO: exclude from release build
-                        let key = format!(
-                            "{set_index}:{behaviour_index}:{target_index}:{decision_index}:{index}"
-                        );
+                        let key =
+                            format!("{behaviour_index}:{target_index}:{decision_index}:{index}");
                         thinking.reason(key, x);
                     }
                     scores *= score;
@@ -146,24 +169,21 @@ where
                 break;
             }
         }
-        if best_target_scores > best_behaviour_scores {
-            best_behaviour = behaviour_index;
-            best_behaviour_decision = best_target_decision;
-            best_behaviour_target = best_target;
-            best_behaviour_scores = best_target_scores;
+        if best_target_scores > best.unwrap_or_default().scores {
+            best = Some(Best {
+                behaviour: behaviour_index,
+                decision: best_target_decision,
+                target: best_target,
+                scores: best_target_scores,
+            });
         }
-        if best_behaviour_scores > 0.95 {
+        if best.unwrap_or_default().scores > 0.95 {
             // optimization:
             // not need to consider every behaviour if we found one appropriate enough
             break;
         }
     }
-    (
-        best_behaviour,
-        best_behaviour_target,
-        best_behaviour_decision,
-        best_behaviour_scores,
-    )
+    best
 }
 
 #[derive(serde::Serialize, serde::Deserialize)]

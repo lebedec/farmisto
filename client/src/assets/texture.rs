@@ -75,7 +75,7 @@ impl TextureAssetData {
         let sampler = Self::create_texture_sampler(device);
         VULKAN_IMAGES_TOTAL.inc();
         let n = VULKAN_IMAGES_TOTAL.get();
-        info!("Create image {} {}x{} N{n}", name, width, height);
+        debug!("Create image {} {}x{} N{n}", name, width, height);
         Self {
             name,
             width,
