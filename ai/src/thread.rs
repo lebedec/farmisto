@@ -1,3 +1,4 @@
+use std::cell::RefCell;
 use std::sync::{Arc, RwLock};
 use std::thread;
 use std::time::{Duration, Instant};
@@ -5,6 +6,7 @@ use std::time::{Duration, Instant};
 use log::{error, info};
 
 use game::api::{Event, GameResponse, PlayerRequest};
+use game::Game;
 use network::TcpClient;
 
 use crate::api::serve_web_socket;
@@ -13,18 +15,25 @@ use crate::{Behaviours, Nature};
 pub struct AiThread {}
 
 impl AiThread {
-    pub fn spawn(mut client: TcpClient, behaviours: Arc<RwLock<Behaviours>>) -> Self {
+    pub fn spawn(
+        mut client: TcpClient,
+        behaviours: Arc<RwLock<Behaviours>>,
+        knowledge: String,
+    ) -> Self {
         let nature = Nature {
             crops: vec![],
             creatures: vec![],
             creature_agents: vec![],
             tiles: Default::default(),
+            containers: Default::default(),
+            foods: Default::default(),
         };
         let nature_lock = Arc::new(RwLock::new(nature));
         let nature_read_access = nature_lock.clone();
         thread::spawn(move || serve_web_socket(nature_read_access));
         thread::spawn(move || {
             let mut action_id = 0;
+            let known = Game::load_knowledge(&knowledge);
             loop {
                 let t = Instant::now();
                 {
@@ -36,7 +45,7 @@ impl AiThread {
                         }
                     };
                     let events = handle_server_responses(&mut client);
-                    nature.perceive(events);
+                    nature.perceive(events, &known);
                     let behaviours = match behaviours.read() {
                         Ok(behaviours) => behaviours,
                         Err(_) => {
@@ -44,6 +53,7 @@ impl AiThread {
                             break;
                         }
                     };
+                    nature.update();
                     for action in nature.react(&behaviours) {
                         info!("AI sends id={} {:?}", action_id, action);
                         client.send(PlayerRequest::Perform { action, action_id });

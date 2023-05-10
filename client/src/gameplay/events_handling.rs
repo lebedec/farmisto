@@ -102,29 +102,24 @@ impl Gameplay {
             Inventory::ContainerDestroyed { id } => {
                 self.items.remove(&id);
             }
-            Inventory::ItemAdded {
-                id,
-                kind,
-                container,
-                quantity,
-            } => {
-                info!("item added {:?} to {:?}", id, container);
-                let items = self.items.entry(container).or_insert(HashMap::new());
-                let kind = self.known.items.get(kind).unwrap();
-                let asset = frame.assets.item(&kind.name);
-                items.insert(
-                    id,
-                    ItemRep {
-                        id,
-                        kind,
-                        asset,
-                        container,
-                        quantity,
-                    },
-                );
+            Inventory::ItemsAdded { items } => {
+                for item in items {
+                    let container = self.items.entry(item.container).or_insert(HashMap::new());
+                    let kind = self.known.items.get(item.key).unwrap();
+                    let asset = frame.assets.item(&kind.name);
+                    container.insert(
+                        item.id,
+                        ItemRep {
+                            id: item.id,
+                            kind,
+                            asset,
+                            container: item.container,
+                            quantity: item.quantity,
+                        },
+                    );
+                }
             }
             Inventory::ItemRemoved { item, container } => {
-                info!("item removed {:?} from {:?}", item, container);
                 self.items.entry(container).and_modify(|items| {
                     items.remove(&item);
                 });
@@ -608,23 +603,6 @@ impl Gameplay {
             }
             Universe::ConstructionVanished { id } => {
                 self.constructions.remove(&id);
-            }
-            Universe::ItemsAppeared { items } => {
-                for item in items {
-                    let container = self.items.entry(item.container).or_insert(HashMap::new());
-                    let kind = self.known.items.get(item.kind).unwrap();
-                    let asset = frame.assets.item(&kind.name);
-                    container.insert(
-                        item.id,
-                        ItemRep {
-                            id: item.id,
-                            kind,
-                            asset,
-                            container: item.container,
-                            quantity: item.quantity,
-                        },
-                    );
-                }
             }
             Universe::EquipmentAppeared { entity, position } => {
                 info!("Appear {:?} at {:?}", entity, position);

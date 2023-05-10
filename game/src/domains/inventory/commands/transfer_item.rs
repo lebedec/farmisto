@@ -1,9 +1,9 @@
-use crate::inventory::Inventory::{ContainerDestroyed, ItemAdded, ItemRemoved};
+use crate::inventory::Inventory::{ContainerDestroyed, ItemRemoved, ItemsAdded};
 
-use crate::inventory::Inventory;
 use crate::inventory::InventoryDomain;
 use crate::inventory::InventoryError;
 use crate::inventory::{ContainerId, Function};
+use crate::inventory::{Inventory, ItemData};
 use crate::math::{Position, VectorMath};
 use crate::physics::SpaceId;
 
@@ -95,11 +95,13 @@ impl InventoryDomain {
             };
             let destination = self.containers.get_mut(&destination_id).unwrap();
             item.container = destination.id;
-            events.push(ItemAdded {
-                id: item.id,
-                kind: item.kind.id,
-                container: item.container,
-                quantity: item.quantity,
+            events.push(ItemsAdded {
+                items: vec![ItemData {
+                    id: item.id,
+                    key: item.kind.id,
+                    container: item.container,
+                    quantity: item.quantity,
+                }],
             });
             destination.items.push(item);
             events

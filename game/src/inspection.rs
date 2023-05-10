@@ -1,9 +1,10 @@
 use crate::api::{ActionError, Event};
+use crate::inventory::{Inventory, ItemData};
 use crate::landscaping::Landscaping;
 use crate::math::{Array2D, VectorMath};
 use crate::model::{
-    Assembly, Cementer, Composter, Corpse, Creature, Crop, Door, Equipment, Farmer, ItemData,
-    PlayerId, Rest, Stack, Universe, UniverseSnapshot,
+    Assembly, Cementer, Composter, Corpse, Creature, Crop, Door, Equipment, Farmer, PlayerId, Rest,
+    Stack, Universe, UniverseSnapshot,
 };
 use crate::physics::Physics;
 use crate::planting::Planting;
@@ -210,8 +211,6 @@ impl Game {
                 let calendar = self.timing.get_calendar(farmland.calendar).unwrap();
                 stream.push(Universe::FarmlandAppeared {
                     farmland: *farmland,
-                    // moisture: land.moisture,
-                    // moisture_capacity: land.moisture_capacity,
                     cells: grid.cells.clone(),
                     rooms: grid.rooms.clone(),
                     holes: space.holes.clone(),
@@ -273,20 +272,19 @@ impl Game {
             stream.push(self.inspect_composter(*composter));
         }
 
-        let mut items_appearance = vec![];
+        let mut items = vec![];
         for container in self.inventory.containers.values() {
             for item in &container.items {
-                items_appearance.push(ItemData {
+                items.push(ItemData {
                     id: item.id,
-                    kind: item.kind.id,
+                    key: item.kind.id,
                     container: item.container,
                     quantity: item.quantity,
                 })
             }
         }
-        stream.push(Universe::ItemsAppeared {
-            items: items_appearance,
-        });
+        // TODO: scoped info about items
+        let all_game_items = vec![Inventory::ItemsAdded { items }];
 
         // client uses barrier hints to simulate physics locally to smooth network lag
         // so, send information about all barriers like it just created
@@ -301,20 +299,10 @@ impl Game {
             })
             .collect();
 
-        // let surfaces = self
-        //     .landscaping
-        //     .lands
-        //     .values()
-        //     .map(|land| Landscaping::SurfaceUpdate {
-        //         land: land.id,
-        //         surface: land.surface,
-        //     })
-        //     .collect();
-
         vec![
             Event::UniverseStream(stream),
             Event::PhysicsStream(barriers_hint),
-            // Event::LandscapingStream(surfaces),
+            Event::InventoryStream(all_game_items),
         ]
     }
 }

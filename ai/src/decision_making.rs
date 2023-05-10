@@ -1,3 +1,4 @@
+use log::info;
 use serde::Serialize;
 use std::collections::HashMap;
 use std::fmt::Debug;
@@ -33,15 +34,15 @@ where
 /// Represents a decision making report via last update.
 #[derive(Default, Clone, serde::Serialize)]
 pub struct Thinking {
-    pub reasons: HashMap<String, f32>,
-    pub best_set: usize,
-    pub best_behaviour: usize,
-    pub best_decision: usize,
+    pub reasons: HashMap<String, (f32, f32)>,
+    pub best: Option<Best>,
+    // TODO: refactor, used as context variable
+    pub set: usize,
 }
 
 impl Thinking {
-    pub fn reason(&mut self, key: String, score: f32) {
-        self.reasons.insert(key, score);
+    pub fn reason(&mut self, key: String, x: f32, score: f32) {
+        self.reasons.insert(key, (x, score));
     }
 }
 
@@ -55,25 +56,28 @@ pub fn make_decision<S, C, A, T>(
     consider: C,
 ) -> (Option<Reaction<A, T>>, Thinking)
 where
-    C: Fn(usize, &S, &mut Thinking) -> Option<(f32, Reaction<A, T>)>,
+    C: Fn(usize, &S, &mut Thinking) -> Option<(Best, Reaction<A, T>)>,
 {
     let mut thinking = Thinking::default();
     let mut best_action = None;
     let mut best_action_scores = 0.0;
-    for (set_index, set) in behaviour_sets.iter().enumerate() {
-        if let Some(consideration) = consider(set_index, set, &mut thinking) {
-            let (scores, action) = consideration;
-            if scores > best_action_scores {
+    for (index, set) in behaviour_sets.iter().enumerate() {
+        thinking.set = index;
+        if let Some(consideration) = consider(index, set, &mut thinking) {
+            let (best, action) = consideration;
+            if best.scores > best_action_scores {
                 best_action = Some(action);
-                best_action_scores = scores;
+                best_action_scores = best.scores;
+                thinking.best = Some(best);
             }
         }
     }
     (best_action, thinking)
 }
 
-#[derive(Default, Copy, Clone)]
+#[derive(Debug, Default, Copy, Clone, serde::Serialize)]
 pub struct Best {
+    pub set: usize,
     pub behaviour: usize,
     pub decision: usize,
     pub target: usize,
@@ -87,7 +91,7 @@ pub fn react<'t, I, T, E, F, A, Action, Tuning, Agent>(
     input: F,
     interact: E,
     thinking: &mut Thinking,
-) -> Option<(f32, Reaction<Action, Tuning>)>
+) -> Option<(Best, Reaction<Action, Tuning>)>
 where
     A: Copy + Sized + Debug + Serialize,
     I: Copy + Sized + Serialize,
@@ -100,13 +104,13 @@ where
         |inp, target| input(agent, inp, target),
         thinking,
     ) {
-        None => None,
         Some(best) => {
             let action = behaviours[best.behaviour].decisions[best.decision].action;
             let target = &targets[best.target];
             let action = interact(agent, action, target);
-            Some((best.scores, action))
+            Some((best, action))
         }
+        None => None,
     }
 }
 
@@ -137,9 +141,11 @@ where
                     let score = consideration.curve.respond(x);
                     {
                         // TODO: exclude from release build
-                        let key =
-                            format!("{behaviour_index}:{target_index}:{decision_index}:{index}");
-                        thinking.reason(key, x);
+                        let key = format!(
+                            "{}:{behaviour_index}:{target_index}:{decision_index}:{index}",
+                            thinking.set
+                        );
+                        thinking.reason(key, x, score);
                     }
                     scores *= score;
                     if scores == 0.0 {
@@ -171,6 +177,7 @@ where
         }
         if best_target_scores > best.unwrap_or_default().scores {
             best = Some(Best {
+                set: thinking.set,
                 behaviour: behaviour_index,
                 decision: best_target_decision,
                 target: best_target,

@@ -1,7 +1,7 @@
 use crate::collections::Shared;
-use crate::inventory::Inventory::ItemAdded;
+use crate::inventory::Inventory::ItemsAdded;
 use crate::inventory::{
-    ContainerId, Inventory, InventoryDomain, InventoryError, Item, ItemId, ItemKind,
+    ContainerId, Inventory, InventoryDomain, InventoryError, Item, ItemData, ItemId, ItemKind,
 };
 
 impl InventoryDomain {
@@ -20,11 +20,13 @@ impl InventoryDomain {
             quantity,
         };
         let operation = move || {
-            let events = vec![ItemAdded {
-                id: item.id,
-                kind: item.kind.id,
-                container,
-                quantity: item.quantity,
+            let events = vec![ItemsAdded {
+                items: vec![ItemData {
+                    id: item.id,
+                    key: item.kind.id,
+                    container,
+                    quantity: item.quantity,
+                }],
             }];
             self.items_id.register(item.id.0);
             let container = self.get_mut_container(container).unwrap();

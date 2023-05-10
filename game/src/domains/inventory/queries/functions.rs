@@ -3,6 +3,7 @@ use crate::inventory::{Function, InventoryError, Nozzle};
 pub type Constructor<T> = fn(usize) -> T;
 
 pub trait FunctionsQuery {
+    fn as_food(&self) -> Result<(), InventoryError>;
     fn as_seeds<T>(&self, constructor: Constructor<T>) -> Result<T, InventoryError>;
     fn as_hammer(&self) -> Result<(), InventoryError>;
     fn as_shovel(&self) -> Result<(), InventoryError>;
@@ -16,6 +17,15 @@ pub trait FunctionsQuery {
 }
 
 impl FunctionsQuery for Vec<Function> {
+    fn as_food(&self) -> Result<(), InventoryError> {
+        for function in self {
+            if let Function::Food = function {
+                return Ok(());
+            }
+        }
+        Err(InventoryError::ItemFunctionNotFound)
+    }
+
     fn as_seeds<T>(&self, constructor: fn(usize) -> T) -> Result<T, InventoryError> {
         for function in self {
             if let Function::Seeding(kind) = function {

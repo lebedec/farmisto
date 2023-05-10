@@ -1,7 +1,7 @@
 use crate::collections::Shared;
-use crate::inventory::Inventory::{ContainerCreated, ItemAdded, ItemRemoved};
+use crate::inventory::Inventory::{ContainerCreated, ItemRemoved, ItemsAdded};
 use crate::inventory::{
-    Container, ContainerId, ContainerKind, Inventory, InventoryDomain, InventoryError,
+    Container, ContainerId, ContainerKind, Inventory, InventoryDomain, InventoryError, ItemData,
 };
 
 impl InventoryDomain {
@@ -29,11 +29,13 @@ impl InventoryDomain {
                     container: source.id,
                 },
                 ContainerCreated { id: container.id },
-                ItemAdded {
-                    id: item.id,
-                    kind: item.kind.id,
-                    container: item.container,
-                    quantity: item.quantity,
+                ItemsAdded {
+                    items: vec![ItemData {
+                        id: item.id,
+                        key: item.kind.id,
+                        container: item.container,
+                        quantity: item.quantity,
+                    }],
                 },
             ];
             container.items.push(item);

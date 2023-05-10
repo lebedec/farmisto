@@ -3,7 +3,7 @@ use std::fmt::Debug;
 use crate::assembling::{Assembling, AssemblingError, Rotation};
 use crate::building::{Building, BuildingError, Marker, SurveyorId};
 use crate::collections::DictionaryError;
-use crate::inventory::{ContainerId, Inventory, InventoryError};
+use crate::inventory::{ContainerId, Inventory, InventoryError, ItemId};
 use crate::landscaping::{Landscaping, LandscapingError};
 use crate::math::Tile;
 use crate::model::{
@@ -62,6 +62,10 @@ pub enum LoginResult {
 
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub enum Action {
+    EatFood {
+        creature: Creature,
+        item: ItemId,
+    },
     EatCrop {
         creature: Creature,
         crop: Crop,

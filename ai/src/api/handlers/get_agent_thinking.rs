@@ -7,7 +7,7 @@ pub fn get_agent_thinking(nature: &Nature, id: usize) -> Result<ProcedureResult>
     let creature = nature
         .creature_agents
         .iter()
-        .find(|agent| agent.creature.id == id)
+        .find(|agent| agent.entity.id == id)
         .unwrap();
     let result = ProcedureResult::GetAgentThinking {
         thinking: creature.thinking.clone(),

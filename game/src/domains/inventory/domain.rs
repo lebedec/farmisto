@@ -43,6 +43,7 @@ pub enum Function {
     Moistener(Nozzle),
     Fertilizer(f32),
     Residue,
+    Food,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -67,6 +68,14 @@ pub struct Item {
 }
 
 #[derive(Debug, Serialize, Deserialize)]
+pub struct ItemData {
+    pub id: ItemId,
+    pub key: ItemKey,
+    pub container: ContainerId,
+    pub quantity: u8,
+}
+
+#[derive(Debug, Serialize, Deserialize)]
 pub enum Inventory {
     ContainerCreated {
         id: ContainerId,
@@ -74,11 +83,8 @@ pub enum Inventory {
     ContainerDestroyed {
         id: ContainerId,
     },
-    ItemAdded {
-        id: ItemId,
-        kind: ItemKey,
-        container: ContainerId,
-        quantity: u8,
+    ItemsAdded {
+        items: Vec<ItemData>,
     },
     ItemRemoved {
         item: ItemId,

@@ -1,7 +1,8 @@
 use crate::collections::{Shared, TemporaryRef};
-use crate::inventory::Inventory::{ContainerCreated, ItemAdded};
+use crate::inventory::Inventory::{ContainerCreated, ItemsAdded};
 use crate::inventory::{
     Container, ContainerId, ContainerKind, Inventory, InventoryDomain, InventoryError, Item,
+    ItemData,
 };
 
 impl InventoryDomain {
@@ -9,7 +10,7 @@ impl InventoryDomain {
         &mut self,
         id: ContainerId,
         kind: &Shared<ContainerKind>,
-        items: Vec<Item>,
+        container_items: Vec<Item>,
     ) -> Result<impl FnOnce() -> Vec<Inventory>, InventoryError> {
         let mut container = Container {
             id,
@@ -18,17 +19,18 @@ impl InventoryDomain {
         };
         let mut domain = TemporaryRef::from(self);
         let command = move || {
-            let mut events = vec![ContainerCreated { id }];
-            for item in items {
-                events.push(ItemAdded {
+            let mut items = Vec::with_capacity(container_items.len());
+            for item in container_items {
+                items.push(ItemData {
                     id: item.id,
-                    kind: item.kind.id,
+                    key: item.kind.id,
                     container: item.container,
                     quantity: item.quantity,
                 });
                 domain.items_id.register(item.id.0);
                 container.items.push(item);
             }
+            let events = vec![ContainerCreated { id }, ItemsAdded { items }];
             domain.containers_id.register(id.0);
             domain.containers.insert(id, container);
             events

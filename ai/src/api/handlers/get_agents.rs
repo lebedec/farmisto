@@ -7,10 +7,8 @@ pub fn get_agents(nature: &Nature) -> Result<ProcedureResult> {
     let creatures: Vec<usize> = nature
         .creature_agents
         .iter()
-        .map(|agent| agent.creature.id)
+        .map(|agent| agent.entity.id)
         .collect();
-    let result = ProcedureResult::GetAgents { 
-        creatures
-    };
+    let result = ProcedureResult::GetAgents { creatures };
     Ok(result)
 }

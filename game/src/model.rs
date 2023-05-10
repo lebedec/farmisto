@@ -162,9 +162,6 @@ pub enum Universe {
         position: [f32; 2],
     },
     EquipmentVanished(Equipment),
-    ItemsAppeared {
-        items: Vec<ItemData>,
-    },
     AssemblyAppeared {
         entity: Assembly,
         rotation: Rotation,
@@ -541,14 +538,6 @@ impl Activity {
             _ => Err(UniverseError::ActivityMismatch),
         }
     }
-}
-
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
-pub struct ItemData {
-    pub id: ItemId,
-    pub kind: ItemKey,
-    pub container: ContainerId,
-    pub quantity: u8,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]

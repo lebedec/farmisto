@@ -16,11 +16,16 @@ pub enum Procedure {
 pub enum ProcedureResult {
     GetAgentInfo {
         thinking: Thinking,
+        idle: f32,
         crops: Vec<usize>,
         tiles: Vec<[usize; 2]>,
+        foods: Vec<usize>,
+        me: Vec<usize>,
         position: [f32; 2],
-        radius: usize,
-        history: HashMap<String, u64>,
+        radius: f32,
+        health: f32,
+        thirst: f32,
+        hunger: f32,
     },
     GetAgentThinking {
         thinking: Thinking,

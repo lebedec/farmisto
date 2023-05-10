@@ -352,7 +352,7 @@ def prototype_raising(destination_path: str, template_path: str):
         objects={
             'L': lambda tile, farmland: editor.add_creature('lama', farmland, tile),
             's': lambda tile, farmland: editor.add_stack(farmland, tile, ['shovel'], 1),
-            'r': lambda tile, farmland: editor.add_rest(farmland, tile, 'bed'),
+            'b': lambda tile, farmland: editor.add_rest(farmland, tile, 'bed'),
             'e': lambda tile, farmland: editor.add_stack(farmland, tile, ['seeds'], 10),
             'w': lambda tile, farmland: editor.add_stack(farmland, tile, ['watering-can'], 1),
             'f': lambda tile, farmland: editor.add_stack(farmland, tile, ['fertilizer'], 10),
@@ -364,6 +364,7 @@ def prototype_raising(destination_path: str, template_path: str):
             '9': lambda tile, f: editor.add_crop(f, tile, 'corn', 1.9, health=0.5, hunger=1.0, thirst=0.5),
             'k': lambda tile, farmland: editor.add_composter(farmland, tile, 'composter'),
             'd': lambda tile, farmland: editor.add_stack(farmland, tile, ['door-x3'] * 5, 1),
+            'r': lambda tile, farmland: editor.add_stack(farmland, tile, ['residue'] * 1, 10),
         },
         buildings={
             #?': (w, d, window, material)
@@ -391,9 +392,9 @@ def prototype_raising(destination_path: str, template_path: str):
         . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
         . . . . . . . . . . . . . . . . + + + = = = + + + . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
         . . . . . . . . . . . . . . . . + . . . . . . . + . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-        . . . . . . . . . . . . . . . . + . . . . . . . + . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-        . . . . . . . . . . . . . . . . + . L . . . L . + . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-        . . . . . . . . . . . . . . . . + . . . . . . . + . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+        . . . . . . . . . . . . . . . . + r . . . . . . + . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+        . . . . . . . . . . . . . . . . + r L . . . L . + . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+        . . . . . . . . . . . . . . . . + r . . . . . . + . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
         . . . . . . . . . . . . . . . . + + + + + + + + + . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
         . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
         . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .

@@ -122,7 +122,11 @@ impl Mode for Menu {
             let ai_client =
                 TcpClient::connect(&server.address, "<AI>".to_string(), None, metrics).unwrap();
             let ai_behaviours = frame.assets.behaviours("./assets/ai/nature.json");
-            let ai = AiThread::spawn(ai_client, ai_behaviours.share_data());
+            let ai = AiThread::spawn(
+                ai_client,
+                ai_behaviours.share_data(),
+                frame.config.save_file.clone(),
+            );
 
             let metrics = GameplayMetrics::new(frame.metrics_registry).unwrap();
             let host = Host { server, ai };

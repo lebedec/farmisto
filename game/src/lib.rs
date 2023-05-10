@@ -170,6 +170,7 @@ impl Game {
     ) -> Result<Vec<Event>, ActionError> {
         let events = match action {
             Action::EatCrop { creature, crop } => self.eat_crop(creature, crop)?,
+            Action::EatFood { creature, item } => self.eat_food(creature, item)?,
             Action::MoveCreature {
                 creature,
                 destination,
@@ -324,6 +325,12 @@ impl Game {
             feed_animal(),
             Universe::CreatureEats { entity: creature },
         ];
+        Ok(events)
+    }
+
+    fn eat_food(&mut self, creature: Creature, food: ItemId) -> Result<Vec<Event>, ActionError> {
+        let feed_animal = self.raising.feed_animal(creature.animal, 0.1)?;
+        let events = occur![feed_animal(), Universe::CreatureEats { entity: creature },];
         Ok(events)
     }
 

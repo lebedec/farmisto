@@ -20,7 +20,13 @@ pub fn serve_web_socket(nature: Arc<RwLock<Nature>>) {
         let mut websocket = tungstenite::accept(stream.unwrap()).unwrap();
         while let Ok(msg) = websocket.read_message() {
             if let Message::Text(data) = msg {
-                let procedure: Procedure = serde_json::from_str(&data).unwrap();
+                let procedure: Procedure = match serde_json::from_str(&data) {
+                    Ok(procedure) => procedure,
+                    Err(error) => {
+                        error!("Unable to receive procedure call, {error}");
+                        continue;
+                    }
+                };
                 let nature = &nature.read().unwrap();
                 let result = match procedure {
                     GetAgentInfo { id } => handlers::get_agent_info(nature, id),
