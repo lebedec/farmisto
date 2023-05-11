@@ -172,7 +172,16 @@ impl Game {
     ) -> Result<Vec<Event>, ActionError> {
         let events = match action {
             Action::EatCrop { creature, crop } => self.eat_crop(creature, crop)?,
-            Action::EatFood { creature, item } => self.eat_food(creature, item)?,
+            Action::EatFoodFromStack {
+                creature,
+                stack,
+                item,
+            } => self.eat_food_from_stack(creature, stack, item)?,
+            Action::EatFoodFromHands {
+                creature,
+                farmer,
+                item,
+            } => self.eat_food_from_hands(creature, farmer, item)?,
             Action::MoveCreature {
                 creature,
                 destination,

@@ -62,8 +62,14 @@ pub enum LoginResult {
 
 #[derive(Debug, serde::Serialize, serde::Deserialize)]
 pub enum Action {
-    EatFood {
+    EatFoodFromStack {
         creature: Creature,
+        stack: Stack,
+        item: ItemId
+    },
+    EatFoodFromHands {
+        creature: Creature,
+        farmer: Farmer,
         item: ItemId,
     },
     EatCrop {

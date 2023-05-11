@@ -1,5 +1,5 @@
 use crate::decision_making::{Decision, Thinking};
-use crate::perception::{CreatureView, FoodView};
+use crate::perception::{CreatureView, FoodContainer, FoodView};
 use crate::{decision_making, CropView};
 use game::api::Action;
 use game::math::{TileMath, VectorMath};
@@ -152,9 +152,17 @@ impl CreatureAgent {
 
     pub fn react_food(&self, action: FoodAction, food: &FoodView) -> Reaction {
         let action = match action {
-            FoodAction::Eat => Action::EatFood {
-                creature: self.entity,
-                item: food.item,
+            FoodAction::Eat => match food.container_entity {
+                FoodContainer::Stack(stack) => Action::EatFoodFromStack {
+                    creature: self.entity,
+                    item: food.item,
+                    stack,
+                },
+                FoodContainer::Hands(farmer) => Action::EatFoodFromHands {
+                    creature: self.entity,
+                    item: food.item,
+                    farmer,
+                },
             },
         };
         Reaction::Action(action)
@@ -182,10 +190,7 @@ impl CreatureAgent {
 
 impl CreatureAgent {
     fn duration(&self, behaviour: Behaviour) -> f32 {
-        let timestamp = *self
-            .timestamps
-            .get(&behaviour)
-            .unwrap_or(&self.colonization_date);
+        let timestamp = *self.timestamps.get(&behaviour).unwrap_or(&0.0);
         self.colonization_date - timestamp
     }
 }

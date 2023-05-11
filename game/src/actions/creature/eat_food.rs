@@ -1,23 +1,35 @@
 use crate::api::{ActionError, Event};
 use crate::inventory::ItemId;
-use crate::model::Creature;
+use crate::model::{Creature, Farmer, Stack};
 use crate::raising::Behaviour;
 use crate::{occur, Game};
 
 impl Game {
-    pub(crate) fn eat_food(
+    pub fn eat_food_from_stack(
         &mut self,
         creature: Creature,
-        food: ItemId,
+        stack: Stack,
+        item: ItemId,
     ) -> Result<Vec<Event>, ActionError> {
-        // TODO: transactional
-        let feed_events = self.raising.feed_animal(creature.animal, 0.1)?();
-        let trigger_behaviour =
-            self.raising
-                .trigger_behaviour(creature.animal, Behaviour::Eating, Behaviour::Idle)?;
-        // self.ensure_target_reachable(creature.body, )
-        // let eat_food = self.inventory.decrease_container_item()
-        let events = occur![feed_events, trigger_behaviour(),];
+        let position = self.physics.get_barrier(stack.barrier)?.position;
+        self.ensure_target_reachable(creature.body, position)?;
+        let decrease_item = self.inventory.decrease_container_item(stack.container)?;
+        let feed_animal = self.raising.feed_animal(creature.animal, 0.1)?;
+        let events = occur![decrease_item(), feed_animal(),];
+        Ok(events)
+    }
+
+    pub(crate) fn eat_food_from_hands(
+        &mut self,
+        creature: Creature,
+        farmer: Farmer,
+        item: ItemId,
+    ) -> Result<Vec<Event>, ActionError> {
+        let position = self.physics.get_body(farmer.body)?.position;
+        self.ensure_target_reachable(creature.body, position)?;
+        let decrease_item = self.inventory.decrease_container_item(farmer.hands)?;
+        let feed_animal = self.raising.feed_animal(creature.animal, 0.1)?;
+        let events = occur![decrease_item(), feed_animal(),];
         Ok(events)
     }
 }

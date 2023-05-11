@@ -1,16 +1,20 @@
-use game::api::Event;
-use game::collections::Shared;
-use game::inventory::{ContainerId, FunctionsQuery, Inventory, ItemId, ItemKey, ItemKind};
-use game::math::{Position, VectorMath};
-use game::model::{Creature, Crop, Knowledge, Universe};
-use game::physics::Physics;
-use game::raising::{Behaviour, Raising};
-use game::timing::Timing;
-use log::{error, info};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 use std::time::Instant;
+
+use log::{error, info};
+
+use game::api::Event;
+use game::collections::Shared;
+use game::inventory::{
+    Container, ContainerId, FunctionsQuery, Inventory, ItemId, ItemKey, ItemKind,
+};
+use game::math::{Position, VectorMath};
+use game::model::{Creature, Crop, Farmer, Knowledge, Stack, Universe};
+use game::physics::Physics;
+use game::raising::{Behaviour, Raising};
+use game::timing::Timing;
 
 use crate::decision_making::Thinking;
 use crate::fauna::CreatureAgent;
@@ -38,9 +42,16 @@ pub struct InvaserView {
     _threat: f32,
 }
 
+#[derive(Clone)]
+pub enum FoodContainer {
+    Stack(Stack),
+    Hands(Farmer),
+}
+
 pub struct ContainerView {
     pub id: ContainerId,
     pub position: Position,
+    pub entity: FoodContainer,
 }
 
 #[derive(Clone)]
@@ -50,6 +61,7 @@ pub struct FoodView {
     pub quantity: u8,
     pub max_quantity: u8,
     pub position: Position,
+    pub container_entity: FoodContainer,
 }
 
 impl Nature {
@@ -70,12 +82,22 @@ impl Nature {
                 self.tiles.insert(farmland.space, tiles);
             }
             Universe::FarmlandVanished(_) => {}
-            Universe::FarmerAppeared { .. } => {}
+            Universe::FarmerAppeared {
+                farmer, position, ..
+            } => {
+                let view = ContainerView {
+                    id: farmer.hands,
+                    position,
+                    entity: FoodContainer::Hands(farmer),
+                };
+                self.containers.insert(farmer.hands, view);
+            }
             Universe::FarmerVanished(_) => {}
             Universe::StackAppeared { stack, position } => {
                 let view = ContainerView {
                     id: stack.container,
                     position,
+                    entity: FoodContainer::Stack(stack),
                 };
                 self.containers.insert(stack.container, view);
             }
@@ -189,10 +211,18 @@ impl Nature {
     pub fn perceive_physics(&mut self, event: Physics) {
         match event {
             Physics::BodyPositionChanged { id, position, .. } => {
+                for container in self.containers.values_mut() {
+                    if let FoodContainer::Hands(farmer) = container.entity {
+                        if farmer.body == id {
+                            container.position = position;
+                            return;
+                        }
+                    }
+                }
                 for agent in self.creature_agents.iter_mut() {
                     if agent.entity.body == id {
                         agent.position = position;
-                        break;
+                        return;
                     }
                 }
             }
@@ -296,6 +326,7 @@ impl Nature {
                                 quantity: item.quantity,
                                 max_quantity: kind.max_quantity,
                                 position: container.position,
+                                container_entity: container.entity.clone(),
                             },
                         );
                     }
