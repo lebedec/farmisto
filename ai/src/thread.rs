@@ -27,6 +27,7 @@ impl AiThread {
             tiles: Default::default(),
             containers: Default::default(),
             foods: Default::default(),
+            colonization_date: 0.0,
         };
         let nature_lock = Arc::new(RwLock::new(nature));
         let nature_read_access = nature_lock.clone();

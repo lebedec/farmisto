@@ -25,7 +25,7 @@ use crate::model::{Farmer, Universe};
 use crate::model::{Player, Purpose};
 use crate::physics::{BarrierId, BodyId, PhysicsDomain, SensorId};
 use crate::planting::{PlantId, PlantingDomain};
-use crate::raising::{AnimalId, RaisingDomain};
+use crate::raising::{AnimalId, Behaviour, RaisingDomain};
 use crate::timing::TimingDomain;
 use crate::working::{DeviceId, WorkingDomain};
 
@@ -319,18 +319,21 @@ impl Game {
     fn eat_crop(&mut self, creature: Creature, crop: Crop) -> Result<Vec<Event>, ActionError> {
         let bite = 0.3;
         let damage_plant = self.planting.damage_plant(crop.plant, bite)?;
-        let feed_animal = self.raising.feed_animal(creature.animal, bite)?;
-        let events = occur![
-            damage_plant(),
-            feed_animal(),
-            Universe::CreatureEats { entity: creature },
-        ];
+        let feed_events = self.raising.feed_animal(creature.animal, bite)?();
+        let trigger_behaviour =
+            self.raising
+                .trigger_behaviour(creature.animal, Behaviour::Eating, Behaviour::Idle)?;
+        let events = occur![damage_plant(), feed_events, trigger_behaviour(),];
         Ok(events)
     }
 
     fn eat_food(&mut self, creature: Creature, food: ItemId) -> Result<Vec<Event>, ActionError> {
-        let feed_animal = self.raising.feed_animal(creature.animal, 0.1)?;
-        let events = occur![feed_animal(), Universe::CreatureEats { entity: creature },];
+        // TODO: transactional
+        let feed_events = self.raising.feed_animal(creature.animal, 0.1)?();
+        let trigger_behaviour =
+            self.raising
+                .trigger_behaviour(creature.animal, Behaviour::Eating, Behaviour::Idle)?;
+        let events = occur![feed_events, trigger_behaviour(),];
         Ok(events)
     }
 
@@ -343,8 +346,11 @@ impl Game {
         Ok(vec![])
     }
 
-    fn take_nap(&mut self, _creature: Creature) -> Result<Vec<Event>, ActionError> {
-        let events = vec![];
+    fn take_nap(&mut self, creature: Creature) -> Result<Vec<Event>, ActionError> {
+        let change_behavior = self
+            .raising
+            .change_behaviour(creature.animal, Behaviour::Sleeping)?;
+        let events = occur![change_behavior(),];
         Ok(events)
     }
 

@@ -1,3 +1,4 @@
+use game::raising::Behaviour;
 use std::collections::HashMap;
 
 use crate::{Behaviours, Thinking};
@@ -16,7 +17,6 @@ pub enum Procedure {
 pub enum ProcedureResult {
     GetAgentInfo {
         thinking: Thinking,
-        idle: f32,
         crops: Vec<usize>,
         tiles: Vec<[usize; 2]>,
         foods: Vec<usize>,
@@ -26,6 +26,7 @@ pub enum ProcedureResult {
         health: f32,
         thirst: f32,
         hunger: f32,
+        timestamps: HashMap<Behaviour, f32>,
     },
     GetAgentThinking {
         thinking: Thinking,

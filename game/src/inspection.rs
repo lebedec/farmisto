@@ -87,12 +87,14 @@ impl Game {
     pub fn inspect_creature(&self, entity: Creature) -> Result<Universe, ActionError> {
         let animal = self.raising.get_animal(entity.animal)?;
         let body = self.physics.get_body(entity.body)?;
+        let farmland = self.universe.get_farmland_by_space(body.space)?;
         let event = Universe::CreatureAppeared {
             entity,
-            space: body.space,
+            farmland,
             health: animal.health,
             hunger: animal.hunger,
             position: body.position,
+            behaviour: animal.behaviour,
         };
         Ok(event)
     }

@@ -41,6 +41,13 @@ pub struct AnimalKind {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub enum Behaviour {
+    Idle,
+    Eating,
+    Sleeping,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct AnimalId(pub usize);
 
 pub struct Animal {
@@ -55,6 +62,8 @@ pub struct Animal {
 
     pub health: f32,
     pub stress: f32,
+    
+    pub behaviour: Behaviour,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -84,6 +93,15 @@ pub enum Raising {
         herd: HerdId,
         herdsman: HerdsmanId,
     },
+    BehaviourChanged {
+        id: AnimalId,
+        behaviour: Behaviour,
+    },
+    BehaviourTriggered {
+        id: AnimalId,
+        trigger: Behaviour,
+        behaviour: Behaviour,
+    }
 }
 
 #[derive(Debug, Serialize, Deserialize)]

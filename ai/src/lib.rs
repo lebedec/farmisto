@@ -66,6 +66,7 @@ pub struct Nature {
     foods: HashMap<ItemId, FoodView>,
     // agents
     creature_agents: Vec<CreatureAgent>,
+    colonization_date: f32,
 }
 
 impl Nature {
@@ -81,8 +82,11 @@ impl Nature {
         for index in 0..self.creature_agents.len() {
             let agent = &self.creature_agents[index];
             let sets = &behaviours.creatures;
-            let tiles =
-                self.get_tiles_around(agent.space, agent.position.to_tile(), agent.radius as usize);
+            let tiles = self.get_tiles_around(
+                agent.farmland.space,
+                agent.position.to_tile(),
+                agent.radius as usize,
+            );
             // TODO: gather targets in radius
             // TODO: common borrowing structure
             let foods: Vec<FoodView> = self.foods.values().map(|v| v.clone()).collect();
@@ -127,10 +131,7 @@ impl Nature {
             agent.thinking = thinking;
 
             match reaction {
-                Some(Reaction::Action(action)) => {
-                    actions.push(action);
-                    agent.last_action = Instant::now();
-                }
+                Some(Reaction::Action(action)) => actions.push(action),
                 Some(Reaction::Tuning(tuning)) => agent.tune(tuning),
                 None => {}
             }

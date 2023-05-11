@@ -13,6 +13,7 @@ use game::model::{
     Rest, Stack, Tree, TreeKind,
 };
 use game::physics::BodyKind;
+use game::raising::Behaviour;
 
 use crate::assets::{
     BuildingMaterialAsset, ComposterAsset, CorpseAsset, CreatureAsset, SpriteAsset,
@@ -292,28 +293,52 @@ pub struct CreatureRep {
     pub spine: SpineRenderController,
     pub direction: [f32; 2],
     pub velocity: [f32; 2],
+    pub behaviour: Behaviour,
+}
+
+pub fn anim(behaviour: Behaviour) -> &'static str {
+    match behaviour {
+        Behaviour::Idle => "idle",
+        Behaviour::Eating => "eat",
+        Behaviour::Sleeping => "sleep",
+    }
 }
 
 impl CreatureRep {
-    pub const ANIMATION_TRACK_IDLE: i32 = 0;
+    pub const ANIMATION_BASE: i32 = 0;
     pub const ANIMATION_TRACK_WALK: i32 = 1;
     pub const ANIMATION_TRACK_EAT: i32 = 2;
     pub const ANIMATION_TRACK_AGE: i32 = 3;
 
-    pub fn play_eat(&mut self) {
+    pub fn play(&mut self, trigger: Behaviour, behaviour: Behaviour) {
+        self.behaviour = behaviour;
+        if trigger != behaviour {
+            self.once(Self::ANIMATION_BASE, anim(trigger), anim(behaviour));
+        } else {
+            self.repeat(Self::ANIMATION_BASE, anim(behaviour));
+        }
+    }
+
+    fn repeat(&mut self, track: i32, animation: &str) {
+        self.spine.skeleton.animation_state.clear_track(track);
         self.spine
             .skeleton
             .animation_state
-            .clear_track(CreatureRep::ANIMATION_TRACK_IDLE);
+            .add_animation_by_name(track, animation, true, 0.0)
+            .unwrap();
+    }
+
+    fn once(&mut self, track: i32, trigger: &str, continuation: &str) {
+        self.spine.skeleton.animation_state.clear_track(track);
         self.spine
             .skeleton
             .animation_state
-            .add_animation_by_name(CreatureRep::ANIMATION_TRACK_IDLE, "eat", false, 0.0)
+            .add_animation_by_name(track, trigger, false, 0.0)
             .unwrap();
         self.spine
             .skeleton
             .animation_state
-            .add_animation_by_name(CreatureRep::ANIMATION_TRACK_IDLE, "idle", true, 0.0)
+            .add_animation_by_name(track, continuation, true, 0.0)
             .unwrap();
     }
 

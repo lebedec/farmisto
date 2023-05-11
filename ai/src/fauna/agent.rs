@@ -3,22 +3,25 @@ use crate::perception::{CreatureView, FoodView};
 use crate::{decision_making, CropView};
 use game::api::Action;
 use game::math::{TileMath, VectorMath};
-use game::model::Creature;
-use game::physics::SpaceId;
-use log::info;
+use game::model::{Creature, Farmland};
+use game::raising::Behaviour;
 use rand::{thread_rng, Rng};
+use std::collections::HashMap;
 use std::time::Instant;
 
 pub struct CreatureAgent {
     pub entity: Creature,
-    pub last_action: Instant,
-    pub space: SpaceId,
+    pub farmland: Farmland,
     pub thinking: Thinking,
     pub position: [f32; 2],
     pub radius: f32,
     pub hunger: f32,
     pub health: f32,
     pub thirst: f32,
+    pub colonization_date: f32,
+    pub daytime: f32,
+    pub behaviour: Behaviour,
+    pub timestamps: HashMap<Behaviour, f32>,
 }
 
 #[derive(Debug, Copy, Clone, serde::Serialize, serde::Deserialize)]
@@ -29,9 +32,11 @@ pub enum MyAction {
 
 #[derive(Debug, Copy, Clone, serde::Serialize, serde::Deserialize)]
 pub enum My {
-    Idle,
+    Constant,
+    Delay(Behaviour, f32),
     Hunger,
     Thirst,
+    Daytime,
 }
 
 #[derive(Debug, Copy, Clone, serde::Serialize, serde::Deserialize)]
@@ -72,10 +77,10 @@ pub enum Ground {
     Random,
     Cooldown(f32, f32),
     Distance,
-    Idle,
 }
 
 pub enum Tuning {
+    Nothing,
     Delay,
 }
 
@@ -90,22 +95,23 @@ impl CreatureAgent {
     pub fn tune(&mut self, tuning: Tuning) {
         match tuning {
             Tuning::Delay => {}
+            Tuning::Nothing => {}
         }
     }
 
     pub fn me(&self, input: My, me: &CreatureView) -> f32 {
         match input {
+            My::Constant => 1.0,
             My::Hunger => self.hunger,
             My::Thirst => self.thirst,
-            My::Idle => 1.0,
+            My::Delay(behaviour, delay) => self.duration(behaviour) / delay,
+            My::Daytime => self.daytime,
         }
     }
 
     pub fn react_me(&self, action: MyAction, me: &CreatureView) -> Reaction {
         let action = match action {
-            MyAction::Nothing => Action::TakeNap {
-                creature: self.entity,
-            },
+            MyAction::Nothing => return Reaction::Tuning(Tuning::Nothing),
             MyAction::Relax => Action::TakeNap {
                 creature: self.entity,
             },
@@ -160,7 +166,6 @@ impl CreatureAgent {
             Ground::Random => thread_rng().gen_range(0.0..=1.0),
             Ground::Cooldown(start, end) => 1.0,
             Ground::Distance => self.position.distance(tile.position()) / self.radius,
-            Ground::Idle => self.last_action.elapsed().as_secs_f32() / 3.0,
         }
     }
 
@@ -172,5 +177,15 @@ impl CreatureAgent {
             }),
             GroundAction::Delay { .. } => Reaction::Tuning(Tuning::Delay),
         }
+    }
+}
+
+impl CreatureAgent {
+    fn duration(&self, behaviour: Behaviour) -> f32 {
+        let timestamp = *self
+            .timestamps
+            .get(&behaviour)
+            .unwrap_or(&self.colonization_date);
+        self.colonization_date - timestamp
     }
 }

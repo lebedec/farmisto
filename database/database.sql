@@ -173,14 +173,15 @@ create table AnimalKind
 
 create table Animal
 (
-    id       integer primary key,
-    kind     integer not null references AnimalKind (id),
-    age      real    not null,
-    thirst   real    not null,
-    hunger   real    not null,
-    health   real    not null,
-    stress   real    not null,
-    voracity real    not null
+    id        integer primary key,
+    kind      integer not null references AnimalKind (id),
+    age       real    not null,
+    thirst    real    not null,
+    hunger    real    not null,
+    health    real    not null,
+    stress    real    not null,
+    voracity  real    not null,
+    behaviour json    not null
 );
 
 -- Building

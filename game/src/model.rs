@@ -12,7 +12,7 @@ use crate::physics::{
     SpaceId, SpaceKey, SpaceKind,
 };
 use crate::planting::{PlantId, PlantKey, PlantKind, SoilId, SoilKey, SoilKind};
-use crate::raising::{AnimalId, AnimalKey, AnimalKind};
+use crate::raising::{AnimalId, AnimalKey, AnimalKind, Behaviour};
 use crate::timing::{CalendarId, CalendarKey, CalendarKind, Sequence};
 use crate::working::{DeviceId, DeviceKey, DeviceKind};
 
@@ -136,13 +136,11 @@ pub enum Universe {
     CropVanished(Crop),
     CreatureAppeared {
         entity: Creature,
-        space: SpaceId,
+        farmland: Farmland,
         health: f32,
         hunger: f32,
         position: [f32; 2],
-    },
-    CreatureEats {
-        entity: Creature,
+        behaviour: Behaviour
     },
     CreatureVanished(Creature),
     CorpseAppeared {

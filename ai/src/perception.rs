@@ -4,9 +4,11 @@ use game::inventory::{ContainerId, FunctionsQuery, Inventory, ItemId, ItemKey, I
 use game::math::{Position, VectorMath};
 use game::model::{Creature, Crop, Knowledge, Universe};
 use game::physics::Physics;
-use game::raising::Raising;
-use log::error;
+use game::raising::{Behaviour, Raising};
+use game::timing::Timing;
+use log::{error, info};
 use std::cell::RefCell;
+use std::collections::HashMap;
 use std::sync::{Arc, RwLock};
 use std::time::Instant;
 
@@ -100,22 +102,25 @@ impl Nature {
                 health,
                 position,
                 hunger,
-                space,
+                farmland,
+                behaviour,
             } => {
                 self.creatures.push(CreatureView { _entity: entity });
                 self.creature_agents.push(CreatureAgent {
-                    entity: entity,
-                    last_action: Instant::now(),
-                    space,
+                    entity,
+                    farmland,
                     hunger,
                     health,
                     thinking: Thinking::default(),
                     position,
                     radius: 5.0,
                     thirst: 0.0,
-                })
+                    colonization_date: 0.0,
+                    daytime: 0.0,
+                    behaviour,
+                    timestamps: HashMap::new(),
+                });
             }
-            Universe::CreatureEats { .. } => {}
             Universe::CreatureVanished(creature) => {
                 match self
                     .creature_agents
@@ -156,6 +161,28 @@ impl Nature {
             Universe::ComposterVanished(_) => {}
             Universe::CorpseAppeared { .. } => {}
             Universe::CorpseVanished(_) => {}
+        }
+    }
+
+    pub fn perceive_timing(&mut self, event: Timing) {
+        match event {
+            Timing::TimeUpdated {
+                colonization_date, ..
+            } => {
+                self.colonization_date = colonization_date;
+                for creature in self.creature_agents.iter_mut() {
+                    creature.colonization_date = colonization_date;
+                }
+            }
+            Timing::CalendarUpdated {
+                times_of_day, id, ..
+            } => {
+                for creature in self.creature_agents.iter_mut() {
+                    if creature.farmland.calendar == id {
+                        creature.daytime = times_of_day;
+                    }
+                }
+            }
         }
     }
 
@@ -222,6 +249,33 @@ impl Nature {
             }
             Raising::LeadershipChanged { .. } => {}
             Raising::HerdsmanChanged { .. } => {}
+            Raising::BehaviourChanged { id, behaviour } => {
+                for creature in self.creature_agents.iter_mut() {
+                    if creature.entity.animal == id {
+                        creature.behaviour = behaviour;
+                        creature
+                            .timestamps
+                            .insert(behaviour, self.colonization_date);
+                        break;
+                    }
+                }
+            }
+            Raising::BehaviourTriggered {
+                id,
+                behaviour,
+                trigger,
+            } => {
+                for creature in self.creature_agents.iter_mut() {
+                    if creature.entity.animal == id {
+                        creature.behaviour = behaviour;
+                        creature
+                            .timestamps
+                            .insert(behaviour, self.colonization_date);
+                        creature.timestamps.insert(trigger, self.colonization_date);
+                        break;
+                    }
+                }
+            }
         }
     }
 
@@ -286,7 +340,11 @@ impl Nature {
                 Event::AssemblingStream(_) => {}
                 Event::WorkingStream(_) => {}
                 Event::LandscapingStream(_) => {}
-                Event::TimingStream(_) => {}
+                Event::TimingStream(events) => {
+                    for event in events {
+                        self.perceive_timing(event);
+                    }
+                }
             }
         }
     }

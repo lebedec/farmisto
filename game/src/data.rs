@@ -944,6 +944,7 @@ impl Game {
             voracity: row.get("voracity")?,
             health: row.get("health")?,
             stress: row.get("stress")?,
+            behaviour: row.get_json("behaviour")?,
         };
         Ok(data)
     }

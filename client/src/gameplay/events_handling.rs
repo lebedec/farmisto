@@ -272,6 +272,26 @@ impl Gameplay {
             Raising::AnimalDamaged { .. } => {}
             Raising::LeadershipChanged { .. } => {}
             Raising::HerdsmanChanged { .. } => {}
+            Raising::BehaviourChanged { id, behaviour } => {
+                for creature in self.creatures.values_mut() {
+                    if creature.entity.animal == id {
+                        creature.play(behaviour, behaviour);
+                        break;
+                    }
+                }
+            }
+            Raising::BehaviourTriggered {
+                id,
+                behaviour,
+                trigger,
+            } => {
+                for creature in self.creatures.values_mut() {
+                    if creature.entity.animal == id {
+                        creature.play(trigger, behaviour);
+                        break;
+                    }
+                }
+            }
         }
     }
 
@@ -632,6 +652,7 @@ impl Gameplay {
                 entity,
                 health,
                 position,
+                behaviour,
                 ..
             } => {
                 let kind = self.known.creatures.get(entity.key).unwrap();
@@ -680,7 +701,7 @@ impl Gameplay {
                 spine
                     .skeleton
                     .animation_state
-                    .set_animation_by_name(CreatureRep::ANIMATION_TRACK_IDLE, "idle", true)
+                    .set_animation_by_name(CreatureRep::ANIMATION_BASE, "idle", true)
                     .unwrap();
 
                 spine
@@ -714,26 +735,21 @@ impl Gameplay {
                 skin.add_skin(&ear_r);
                 skin.add_skin(&tail);
                 spine.skeleton.skeleton.set_skin(&skin);
-
-                self.creatures.insert(
+                let mut representation = CreatureRep {
                     entity,
-                    CreatureRep {
-                        entity,
-                        asset,
-                        kind,
-                        health,
-                        estimated_position: position,
-                        rendering_position: position,
-                        last_sync_position: position,
-                        spine,
-                        direction: [1.0, 0.0],
-                        velocity: [0.0, 0.0],
-                    },
-                );
-            }
-            Universe::CreatureEats { entity } => {
-                let creature = self.creatures.get_mut(&entity).unwrap();
-                creature.play_eat();
+                    asset,
+                    kind,
+                    health,
+                    estimated_position: position,
+                    rendering_position: position,
+                    last_sync_position: position,
+                    spine,
+                    direction: [1.0, 0.0],
+                    velocity: [0.0, 0.0],
+                    behaviour,
+                };
+                representation.play(behaviour, behaviour);
+                self.creatures.insert(entity, representation);
             }
             Universe::CreatureVanished(creature) => {
                 self.creatures.remove(&creature);

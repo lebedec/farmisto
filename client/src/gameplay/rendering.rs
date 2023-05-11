@@ -42,7 +42,7 @@ impl Gameplay {
                 .spine
                 .skeleton
                 .animation_state
-                .track_at_index_mut(CreatureRep::ANIMATION_TRACK_IDLE as usize)
+                .track_at_index_mut(CreatureRep::ANIMATION_BASE as usize)
                 .unwrap();
             idle.set_alpha(1.0 - alpha);
 
