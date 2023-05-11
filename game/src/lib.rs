@@ -1,9 +1,10 @@
 extern crate alloc;
 extern crate core;
 
+use log::info;
+
 use datamap::Storage;
 pub use domains::*;
-use log::info;
 pub use rules::*;
 pub use update::*;
 
@@ -23,11 +24,11 @@ use crate::model::{Equipment, Rest, RestKey};
 use crate::model::{EquipmentKey, UniverseDomain};
 use crate::model::{Farmer, Universe};
 use crate::model::{Player, Purpose};
-use crate::physics::{BarrierId, BodyId, PhysicsDomain, SensorId};
-use crate::planting::{PlantId, PlantingDomain};
-use crate::raising::{AnimalId, Behaviour, RaisingDomain};
+use crate::physics::{BodyId, PhysicsDomain, SensorId};
+use crate::planting::PlantingDomain;
+use crate::raising::{Behaviour, RaisingDomain};
 use crate::timing::TimingDomain;
-use crate::working::{DeviceId, WorkingDomain};
+use crate::working::WorkingDomain;
 
 mod actions;
 pub mod api;
@@ -36,6 +37,7 @@ pub mod collections;
 mod data;
 mod domains;
 mod inspection;
+mod instantiation;
 pub mod math;
 pub mod model;
 mod rules;
@@ -316,299 +318,13 @@ impl Game {
         Ok(events)
     }
 
-    fn eat_crop(&mut self, creature: Creature, crop: Crop) -> Result<Vec<Event>, ActionError> {
-        let bite = 0.3;
-        let damage_plant = self.planting.damage_plant(crop.plant, bite)?;
-        let feed_events = self.raising.feed_animal(creature.animal, bite)?();
-        let trigger_behaviour =
-            self.raising
-                .trigger_behaviour(creature.animal, Behaviour::Eating, Behaviour::Idle)?;
-        let events = occur![damage_plant(), feed_events, trigger_behaviour(),];
-        Ok(events)
-    }
-
-    fn eat_food(&mut self, creature: Creature, food: ItemId) -> Result<Vec<Event>, ActionError> {
-        // TODO: transactional
-        let feed_events = self.raising.feed_animal(creature.animal, 0.1)?();
-        let trigger_behaviour =
-            self.raising
-                .trigger_behaviour(creature.animal, Behaviour::Eating, Behaviour::Idle)?;
-        let events = occur![feed_events, trigger_behaviour(),];
-        Ok(events)
-    }
-
-    fn move_creature(
-        &mut self,
-        creature: Creature,
-        destination: [f32; 2],
-    ) -> Result<Vec<Event>, ActionError> {
-        self.physics.move_body2(creature.body, destination)?;
-        Ok(vec![])
-    }
-
-    fn take_nap(&mut self, creature: Creature) -> Result<Vec<Event>, ActionError> {
-        let change_behavior = self
-            .raising
-            .change_behaviour(creature.animal, Behaviour::Sleeping)?;
-        let events = occur![change_behavior(),];
-        Ok(events)
-    }
-
-    fn water_crop(&mut self, _farmer: Farmer, crop: Crop) -> Result<Vec<Event>, ActionError> {
-        let water_plant = self.planting.water_plant(crop.plant, 0.5)?;
-        let events = occur![water_plant(),];
-        Ok(events)
-    }
-
-    fn move_farmer(
-        &mut self,
-        farmer: Farmer,
-        destination: [f32; 2],
-    ) -> Result<Vec<Event>, ActionError> {
-        self.physics.move_body2(farmer.body, destination)?;
-        Ok(vec![])
-    }
-
     fn cancel_activity(&mut self, farmer: Farmer) -> Result<Vec<Event>, ActionError> {
         let events = self.universe.change_activity(farmer, Idle);
         Ok(occur![events,])
-    }
-
-    pub fn appear_crop(
-        &mut self,
-        key: CropKey,
-        barrier: BarrierId,
-        sensor: SensorId,
-        plant: PlantId,
-    ) -> Result<Universe, ActionError> {
-        self.universe.crops_id += 1;
-        let entity = Crop {
-            id: self.universe.crops_id,
-            key,
-            plant,
-            barrier,
-            sensor,
-        };
-        self.universe.crops.push(entity);
-        self.inspect_crop(entity)
-    }
-
-    pub fn appear_farmer(
-        &mut self,
-        kind: FarmerKey,
-        player: PlayerId,
-        body: BodyId,
-        hands: ContainerId,
-        backpack: ContainerId,
-    ) -> Result<Universe, ActionError> {
-        self.universe.farmers_id += 1;
-        let entity = Farmer {
-            id: self.universe.farmers_id,
-            kind,
-            player,
-            body,
-            hands,
-            backpack,
-        };
-        self.universe
-            .farmers_activity
-            .insert(entity, Activity::Idle);
-        self.universe.farmers.push(entity);
-        self.inspect_farmer(entity)
-    }
-
-    pub(crate) fn appear_construction(
-        &mut self,
-        container: ContainerId,
-        grid: GridId,
-        surveyor: SurveyorId,
-        marker: Marker,
-        cell: [usize; 2],
-    ) -> Vec<Universe> {
-        self.universe.constructions_id += 1;
-        let construction = Construction {
-            id: self.universe.constructions_id,
-            container,
-            grid,
-            surveyor,
-            marker,
-            cell,
-        };
-        self.universe.constructions.push(construction);
-        vec![Universe::ConstructionAppeared {
-            id: construction,
-            cell,
-        }]
-    }
-
-    pub fn appear_creature(
-        &mut self,
-        key: CreatureKey,
-        body: BodyId,
-        animal: AnimalId,
-    ) -> Result<Universe, ActionError> {
-        self.universe.creatures_id += 1;
-        let entity = Creature {
-            id: self.universe.creatures_id,
-            key,
-            body,
-            animal,
-        };
-        self.universe.creatures.push(entity);
-        self.inspect_creature(entity)
-    }
-
-    pub fn appear_corpse(
-        &mut self,
-        key: CorpseKey,
-        barrier: BarrierId,
-    ) -> Result<Universe, ActionError> {
-        self.universe.corpses_id += 1;
-        let entity = Corpse {
-            id: self.universe.corpses_id,
-            key,
-            barrier,
-        };
-        self.universe.corpses.push(entity);
-        self.inspect_corpse(entity)
-    }
-
-    pub fn appear_assembling_activity(
-        &mut self,
-        farmer: Farmer,
-        key: AssemblyKey,
-        placement: PlacementId,
-    ) -> Vec<Universe> {
-        self.universe.assembly_id += 1;
-        let assembly = Assembly {
-            id: self.universe.creatures_id,
-            key,
-            placement,
-        };
-        self.universe.assembly.push(assembly);
-        let look_event = self.inspect_assembly(assembly);
-        let activity = Activity::Assembling { assembly };
-        let events = self.universe.change_activity(farmer, activity);
-        let mut stream = vec![look_event];
-        stream.push(events);
-        stream
-    }
-
-    pub fn appear_door(
-        &mut self,
-        key: DoorKey,
-        barrier: BarrierId,
-        placement: PlacementId,
-    ) -> Universe {
-        self.universe.doors_id += 1;
-        let entity = Door {
-            id: self.universe.doors_id,
-            key,
-            barrier,
-            placement,
-        };
-        self.universe.doors.push(entity);
-        self.look_at_door(entity)
-    }
-
-    pub fn appear_rest(
-        &mut self,
-        key: RestKey,
-        barrier: BarrierId,
-        placement: PlacementId,
-    ) -> Universe {
-        self.universe.rests_id += 1;
-        let entity = Rest {
-            id: self.universe.doors_id,
-            key,
-            barrier,
-            placement,
-        };
-        self.universe.rests.push(entity);
-        self.look_at_rest(entity)
-    }
-
-    pub fn appear_cementer(
-        &mut self,
-        key: CementerKey,
-        barrier: BarrierId,
-        placement: PlacementId,
-        input: ContainerId,
-        device: DeviceId,
-        output: ContainerId,
-    ) -> Universe {
-        self.universe.cementers_id += 1;
-        let entity = Cementer {
-            id: self.universe.cementers_id,
-            key,
-            input,
-            device,
-            output,
-            barrier,
-            placement,
-        };
-        self.universe.cementers.push(entity);
-        self.inspect_cementer(entity)
-    }
-
-    pub fn appear_composter(
-        &mut self,
-        key: ComposterKey,
-        barrier: BarrierId,
-        placement: PlacementId,
-        input: ContainerId,
-        device: DeviceId,
-        output: ContainerId,
-    ) -> Universe {
-        self.universe.composters_id += 1;
-        let entity = Composter {
-            id: self.universe.composters_id,
-            key,
-            input,
-            device,
-            output,
-            barrier,
-            placement,
-        };
-        self.universe.composters.push(entity);
-        self.inspect_composter(entity)
-    }
-
-    pub fn appear_stack(&mut self, container: ContainerId, barrier: BarrierId) -> Universe {
-        self.universe.stacks_id += 1;
-        let stack = Stack {
-            id: self.universe.stacks_id,
-            container,
-            barrier,
-        };
-        self.universe.stacks.push(stack);
-        self.look_at_stack(stack)
-    }
-
-    pub fn appear_equipment(
-        &mut self,
-        kind: EquipmentKey,
-        purpose: Purpose,
-        barrier: BarrierId,
-    ) -> Universe {
-        self.universe.equipments_id += 1;
-        let equipment = Equipment {
-            id: self.universe.equipments_id,
-            key: kind,
-            purpose,
-            barrier,
-        };
-        self.universe.equipments.push(equipment);
-        self.look_at_equipment(equipment)
     }
 
     pub fn load_game_full(&mut self) {
         self.load_game_knowledge().unwrap();
         self.load_game_state().unwrap();
     }
-}
-
-#[inline]
-fn position_of(tile: [usize; 2]) -> [f32; 2] {
-    [tile[0] as f32 + 0.5, tile[1] as f32 + 0.5]
 }

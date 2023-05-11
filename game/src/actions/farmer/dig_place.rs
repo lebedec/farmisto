@@ -11,7 +11,7 @@ impl Game {
         farmland: Farmland,
         place: Tile,
     ) -> Result<Vec<Event>, ActionError> {
-        self.ensure_target_reachable(farmland.space, farmer, place.position())?;
+        self.ensure_target_reachable(farmer.body, place.position())?;
         let quality = 0.05;
         let land = self.landscaping.get_land(farmland.land)?;
         let capacity = land.get_moisture_capacity(place)?;

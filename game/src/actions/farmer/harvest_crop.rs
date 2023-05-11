@@ -11,7 +11,7 @@ impl Game {
         crop: Crop,
     ) -> Result<Vec<Event>, ActionError> {
         let destination = self.physics.get_barrier(crop.barrier)?.position;
-        self.ensure_target_reachable(farmland.space, farmer, destination)?;
+        self.ensure_target_reachable(farmer.body, destination)?;
         let crop_kind = self.known.crops.get(crop.key).unwrap();
         let item_kind = &crop_kind.fruits;
         let (new_harvest, capacity) = match self.inventory.get_container_item(farmer.hands) {

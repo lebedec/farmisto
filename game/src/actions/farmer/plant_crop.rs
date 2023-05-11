@@ -1,8 +1,8 @@
 use crate::api::{ActionError, Event};
 use crate::inventory::FunctionsQuery;
-use crate::model::{Activity, CropKey, Farmer, Farmland};
-use crate::{occur, position_of, Game};
 use crate::math::TileMath;
+use crate::model::{Activity, CropKey, Farmer, Farmland};
+use crate::{occur, Game};
 
 impl Game {
     pub(crate) fn plant_crop(
@@ -13,12 +13,12 @@ impl Game {
     ) -> Result<Vec<Event>, ActionError> {
         self.universe.ensure_activity(farmer, Activity::Usage)?;
         let destination = tile.position();
-        self.ensure_target_reachable(farmland.space, farmer, destination)?;
+        self.ensure_target_reachable(farmer.body, destination)?;
         let item = self.inventory.get_container_item(farmer.hands)?;
         let key = item.kind.functions.as_seeds(CropKey)?;
         let kind = self.known.crops.get(key)?;
-        let position = position_of(tile);
-        let decrease_item = self.inventory.decrease_item(farmer.hands)?;
+        let position = tile.position();
+        let decrease_item = self.inventory.decrease_container_item(farmer.hands)?;
         let (barrier, sensor, create_barrier_sensor) = self.physics.create_barrier_sensor(
             farmland.space,
             &kind.barrier,

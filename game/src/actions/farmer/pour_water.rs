@@ -7,19 +7,25 @@ use crate::model::{Activity, Farmer, Farmland, Purpose, PurposeDescription};
 use crate::{occur, Game};
 
 impl Game {
-    pub(crate) fn fertilize(
+    pub(crate) fn pour_water(
         &mut self,
         farmer: Farmer,
         farmland: Farmland,
-        tile: Tile,
+        place: Tile,
     ) -> Result<Vec<Event>, ActionError> {
         self.universe.ensure_activity(farmer, Activity::Usage)?;
-        self.ensure_target_reachable(farmland.space, farmer, tile.position())?;
+        self.ensure_target_reachable(farmer.body, place.position())?;
         let item = self.inventory.get_container_item(farmer.hands)?;
-        let quality = item.kind.functions.as_fertilizer()?;
-        let decrease_item = self.inventory.decrease_item(farmer.hands)?;
-        let fertilize = self.planting.fertilize(farmland.soil, tile, quality)?;
-        let events = occur![decrease_item(), fertilize(),];
+        let nozzle = item.kind.functions.as_moistener()?;
+        let random = thread_rng();
+        let pour_water = self.landscaping.pour_water(
+            farmland.land,
+            place,
+            nozzle.pressure,
+            nozzle.spread,
+            random,
+        )?;
+        let events = occur![pour_water(),];
         Ok(events)
     }
 }

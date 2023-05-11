@@ -1,19 +1,18 @@
 use crate::api::ActionError;
 use crate::math::{Position, VectorMath};
 use crate::model::Farmer;
-use crate::physics::SpaceId;
+use crate::physics::{Body, BodyId, SpaceId};
 use crate::Game;
 
 impl Game {
     pub fn ensure_target_reachable(
         &self,
-        space: SpaceId,
-        farmer: Farmer,
+        body: BodyId,
         target: Position,
     ) -> Result<(), ActionError> {
-        let body = self.physics.get_body(farmer.body)?;
+        let body = self.physics.get_body(body)?;
         let actor = body.position;
-        if self.is_target_reachable(space, actor, target)? {
+        if self.is_target_reachable(body.space, actor, target)? {
             Ok(())
         } else {
             Err(ActionError::TargetUnreachable)

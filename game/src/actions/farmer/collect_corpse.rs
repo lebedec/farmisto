@@ -14,7 +14,7 @@ impl Game {
     ) -> Result<Vec<Event>, ActionError> {
         self.universe.ensure_activity(farmer, Activity::Idle)?;
         let position = self.physics.get_barrier(corpse.barrier)?.position;
-        self.ensure_target_reachable(farmland.space, farmer, position)?;
+        self.ensure_target_reachable(farmer.body, position)?;
 
         let corpse_kind = self.known.corpses.get(corpse.key)?;
         let destroy_barrier = self.physics.destroy_barrier(corpse.barrier)?;

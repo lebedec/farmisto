@@ -11,7 +11,7 @@ impl Game {
     ) -> Result<Vec<Event>, ActionError> {
         self.universe.ensure_activity(farmer, Activity::Idle)?;
         let destination = self.physics.get_barrier(rest.barrier)?.position;
-        self.ensure_target_reachable(farmland.space, farmer, destination)?;
+        self.ensure_target_reachable(farmer.body, destination)?;
         let rest_kind = self.known.rests.get(rest.key)?;
         let events = self.universe.change_activity(
             farmer,

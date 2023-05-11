@@ -12,7 +12,7 @@ impl Game {
         farmland: Farmland,
         place: Tile,
     ) -> Result<Vec<Event>, ActionError> {
-        // self.ensure_target_reachable(farmland.space, farmer, place.to_position())?;
+        // self.ensure_target_reachable(farmer.body, place.to_position())?;
         let item = self.inventory.get_container_item(farmer.hands)?;
         item.kind.functions.as_stone()?;
         let land = self.landscaping.get_land(farmland.land)?;

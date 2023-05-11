@@ -3,7 +3,7 @@ use crate::inventory::ContainerId;
 use crate::math::{TileMath, VectorMath};
 use crate::model::{Activity, AssemblyTarget, Farmer, Farmland};
 use crate::working::DeviceId;
-use crate::{occur, position_of, Game};
+use crate::{occur, Game};
 
 impl Game {
     pub(crate) fn finish_assembly(
@@ -18,14 +18,14 @@ impl Game {
             .get_placement(assembly.placement)?
             .pivot
             .position();
-        self.ensure_target_reachable(farmland.space, farmer, destination)?;
+        self.ensure_target_reachable(farmer.body, destination)?;
         self.ensure_tile_empty(farmland, destination.to_tile())?;
         let key = assembly.key;
         let (placement, finish_placement) = self.assembling.finish_placement(assembly.placement)?;
         let assembly_kind = self.known.assembly.get(key)?;
         let events = match &assembly_kind.target {
             AssemblyTarget::Door { door } => {
-                let position = position_of(placement.pivot);
+                let position = placement.pivot.position();
                 let closed = true;
                 let (barrier, create_barrier) = self.physics.create_barrier(
                     farmland.space,
@@ -51,7 +51,7 @@ impl Game {
                     .inventory
                     .add_empty_container(output, &cementer.output)?;
                 let use_assembly_kit = self.inventory.use_items_from(farmer.hands)?;
-                let position = position_of(placement.pivot);
+                let position = placement.pivot.position();
                 let (barrier, create_barrier) = self.physics.create_barrier(
                     farmland.space,
                     cementer.barrier.clone(),
@@ -89,7 +89,7 @@ impl Game {
                     .inventory
                     .add_empty_container(output, &composter.output)?;
                 let use_assembly_kit = self.inventory.use_items_from(farmer.hands)?;
-                let position = position_of(placement.pivot);
+                let position = placement.pivot.position();
                 let (barrier, create_barrier) = self.physics.create_barrier(
                     farmland.space,
                     composter.barrier.clone(),
@@ -119,7 +119,7 @@ impl Game {
                 ]
             }
             AssemblyTarget::Rest { rest } => {
-                let position = position_of(placement.pivot);
+                let position = placement.pivot.position();
                 let (barrier, create_barrier) = self.physics.create_barrier(
                     farmland.space,
                     rest.barrier.clone(),

@@ -1,9 +1,9 @@
 use crate::inventory::domain::InventoryDomain;
 use crate::inventory::Inventory::{ItemQuantityChanged, ItemRemoved};
-use crate::inventory::{ContainerId, Inventory, InventoryError};
+use crate::inventory::{ContainerId, Inventory, InventoryError, ItemId};
 
 impl InventoryDomain {
-    pub fn decrease_item(
+    pub fn decrease_container_item(
         &mut self,
         container: ContainerId,
     ) -> Result<impl FnOnce() -> Vec<Inventory> + '_, InventoryError> {

@@ -14,7 +14,7 @@ impl Game {
         let item = self.inventory.get_container_item(farmer.hands)?;
         item.kind.functions.as_shovel()?;
         let position = self.physics.get_barrier(crop.barrier)?.position;
-        self.ensure_target_reachable(farmland.space, farmer, position)?;
+        self.ensure_target_reachable(farmer.body, position)?;
         let crop_kind = self.known.crops.get(crop.key)?;
 
         // TODO: transactional

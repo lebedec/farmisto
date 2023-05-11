@@ -1,7 +1,8 @@
 use crate::api::{ActionError, Event};
 use crate::inventory::FunctionsQuery;
+use crate::math::TileMath;
 use crate::model::{Activity, EquipmentKey, Farmer, Farmland, Purpose, PurposeDescription};
-use crate::{occur, position_of, Game};
+use crate::{occur, Game};
 
 impl Game {
     pub(crate) fn install_equipment(
@@ -17,7 +18,7 @@ impl Game {
         let equipment_kind = self.known.equipments.get(key)?;
         match equipment_kind.purpose {
             PurposeDescription::Surveying { surveyor } => {
-                let position = position_of(tile);
+                let position = tile.position();
                 let use_item = self.inventory.use_items_from(farmer.hands)?;
                 let kind = self.known.surveyors.get(surveyor).unwrap();
                 let (surveyor, create_surveyor) =

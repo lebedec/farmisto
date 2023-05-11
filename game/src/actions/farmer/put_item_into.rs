@@ -5,29 +5,29 @@ use crate::model::{Activity, Cementer, Composter, Construction, Farmer, Farmland
 use crate::{occur, Game};
 
 impl Game {
-    pub(crate) fn take_item_from_stack(
+    pub(crate) fn put_item_into_stack(
         &mut self,
         farmer: Farmer,
         farmland: Farmland,
         stack: Stack,
     ) -> Result<Vec<Event>, ActionError> {
         let destination = self.physics.get_barrier(stack.barrier)?.position;
-        self.ensure_target_reachable(farmland.space, farmer, destination)?;
-        self.take_item_from_container(farmer, stack.container)
+        self.ensure_target_reachable(farmer.body, destination)?;
+        self.put_item_into_container(farmer, stack.container)
     }
 
-    pub(crate) fn take_item_from_construction(
+    pub(crate) fn put_item_into_construction(
         &mut self,
         farmer: Farmer,
         farmland: Farmland,
         construction: Construction,
     ) -> Result<Vec<Event>, ActionError> {
         let destination = construction.cell.position();
-        self.ensure_target_reachable(farmland.space, farmer, destination)?;
-        self.take_item_from_container(farmer, construction.container)
+        self.ensure_target_reachable(farmer.body, destination)?;
+        self.put_item_into_container(farmer, construction.container)
     }
 
-    pub(crate) fn take_item_from_cementer(
+    pub(crate) fn put_item_into_cementer(
         &mut self,
         farmer: Farmer,
         farmland: Farmland,
@@ -39,17 +39,17 @@ impl Game {
         if container == cementer.input {
             let offset = placement.rotation.apply_i8(cementer_kind.input_offset);
             let destination = placement.pivot.add_offset(offset).position();
-            self.ensure_target_reachable(farmland.space, farmer, destination)?;
-            self.take_item_from_container(farmer, cementer.input)
+            self.ensure_target_reachable(farmer.body, destination)?;
+            self.put_item_into_container(farmer, cementer.input)
         } else {
             let offset = placement.rotation.apply_i8(cementer_kind.output_offset);
             let destination = placement.pivot.add_offset(offset).position();
-            self.ensure_target_reachable(farmland.space, farmer, destination)?;
-            self.take_item_from_container(farmer, cementer.output)
+            self.ensure_target_reachable(farmer.body, destination)?;
+            self.put_item_into_container(farmer, cementer.output)
         }
     }
 
-    pub(crate) fn take_item_from_composter(
+    pub(crate) fn put_item_into_composter(
         &mut self,
         farmer: Farmer,
         farmland: Farmland,
@@ -61,27 +61,24 @@ impl Game {
         if container == composter.input {
             let offset = placement.rotation.apply_i8(composter_kind.input_offset);
             let destination = placement.pivot.add_offset(offset).position();
-            self.ensure_target_reachable(farmland.space, farmer, destination)?;
-            self.take_item_from_container(farmer, composter.input)
+            self.ensure_target_reachable(farmer.body, destination)?;
+            self.put_item_into_container(farmer, composter.input)
         } else {
             let offset = placement.rotation.apply_i8(composter_kind.output_offset);
             let destination = placement.pivot.add_offset(offset).position();
-            self.ensure_target_reachable(farmland.space, farmer, destination)?;
-            self.take_item_from_container(farmer, composter.output)
+            self.ensure_target_reachable(farmer.body, destination)?;
+            self.put_item_into_container(farmer, composter.output)
         }
     }
 
-    pub(crate) fn take_item_from_container(
+    pub(crate) fn put_item_into_container(
         &mut self,
         farmer: Farmer,
         container: ContainerId,
     ) -> Result<Vec<Event>, ActionError> {
-        let pop_item = self.inventory.pop_item(container, farmer.hands)?;
+        let transfer = self.inventory.pop_item(farmer.hands, container)?;
         // TODO: quantity merge
-        let events = occur![
-            pop_item(),
-            self.universe.change_activity(farmer, Activity::Usage),
-        ];
+        let events = occur![transfer(),];
         Ok(events)
     }
 }
