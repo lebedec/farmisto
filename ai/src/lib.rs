@@ -7,7 +7,7 @@ use std::time::Instant;
 
 use game::api::Action;
 use game::inventory::{ContainerId, ItemId};
-use game::math::VectorMath;
+use game::math::{cast_ray, VectorMath};
 use game::model::Knowledge;
 use game::physics::SpaceId;
 pub use thread::*;
@@ -15,7 +15,7 @@ pub use thread::*;
 use crate::decision_making::{make_decision, react, Behaviour, Reaction, Thinking};
 use crate::fauna::{
     CreatureAgent, CreatureCropDecision, CreatureDecision, CreatureFoodDecision,
-    CreatureGroundDecision,
+    CreatureGroundDecision, Targeting,
 };
 use crate::perception::{ContainerView, CreatureView, CropView, FoodView, TileView};
 
@@ -79,6 +79,22 @@ impl Nature {
 
     pub fn react(&mut self, behaviours: &Behaviours) -> Vec<Action> {
         let mut actions = vec![];
+
+        let mut holes = HashMap::new();
+        for (space, view) in &self.tiles {
+            let mut data = vec![vec![0u8; 128]; 128];
+            for y in 0..128 {
+                for x in 0..128 {
+                    data[y][x] = if view[y][x].has_hole || view[y][x].has_barrier {
+                        1
+                    } else {
+                        0
+                    }
+                }
+            }
+            holes.insert(*space, data);
+        }
+
         for index in 0..self.creature_agents.len() {
             let agent = &self.creature_agents[index];
             let sets = &behaviours.creatures;
@@ -87,12 +103,45 @@ impl Nature {
                 agent.position.to_tile(),
                 agent.radius as usize,
             );
-            // TODO: gather targets in radius
-            // TODO: common borrowing structure
-            let foods: Vec<FoodView> = self.foods.values().map(|v| v.clone()).collect();
+
+            let mut foods = vec![];
+            for food in self.foods.values() {
+                if food.position.distance(agent.position) > agent.radius {
+                    continue;
+                }
+                let holes = holes.get(&agent.farmland.space).unwrap();
+                let contacts = cast_ray(agent.position, food.position, holes);
+                let is_food_reachable = contacts.is_empty();
+                if is_food_reachable {
+                    // TODO: common borrowing structure
+                    foods.push(food.clone());
+                }
+            }
+            let mut crops = vec![];
+            for crop in &self.crops {
+                if crop.position.distance(agent.position) > agent.radius {
+                    continue;
+                }
+                let holes = holes.get(&agent.farmland.space).unwrap();
+                let contacts = cast_ray(agent.position, crop.position, holes);
+                let is_food_reachable = contacts.is_empty();
+                if is_food_reachable {
+                    // TODO: common borrowing structure
+                    crops.push(crop.clone());
+                }
+            }
+
             let me = vec![CreatureView {
                 _entity: agent.entity,
             }];
+
+            let targeting = Targeting {
+                crops: crops.iter().map(|crop| crop.entity.id).collect(),
+                tiles: tiles.clone(),
+                foods: foods.iter().map(|food| food.item.0).collect(),
+                me: vec![agent.entity.id],
+            };
+
             let (reaction, thinking) = make_decision(sets, |_, set, thinking| match set {
                 CreatureBehaviourSet::Me { behaviours, .. } => react(
                     agent,
@@ -105,7 +154,7 @@ impl Nature {
                 CreatureBehaviourSet::Crop { behaviours, .. } => react(
                     agent,
                     &behaviours,
-                    &self.crops,
+                    &crops,
                     CreatureAgent::crop,
                     CreatureAgent::react_crop,
                     thinking,
@@ -129,6 +178,7 @@ impl Nature {
             });
             let agent = &mut self.creature_agents[index];
             agent.thinking = thinking;
+            agent.targeting = targeting;
 
             match reaction {
                 Some(Reaction::Action(action)) => actions.push(action),

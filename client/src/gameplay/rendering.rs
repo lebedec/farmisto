@@ -19,7 +19,7 @@ use crate::gameplay::{position_of, rendering_position_of, Gameplay, TILE_SIZE};
 
 impl Gameplay {
     pub fn animate(&mut self, frame: &mut Frame) {
-        let time = frame.input.time;
+        let time = frame.input.time * self.game_speed;
         for farmer in self.farmers.values_mut() {
             farmer.animate_position(time);
         }
@@ -34,9 +34,10 @@ impl Gameplay {
                 .spine
                 .skeleton
                 .animation_state
-                .track_at_index_mut(CreatureRep::ANIMATION_TRACK_WALK as usize)
+                .track_at_index_mut(CreatureRep::ANIMATION_WALK as usize)
                 .unwrap();
             walk.set_alpha(alpha);
+            walk.set_timescale(self.game_speed);
 
             let mut idle = creature
                 .spine
@@ -45,12 +46,13 @@ impl Gameplay {
                 .track_at_index_mut(CreatureRep::ANIMATION_BASE as usize)
                 .unwrap();
             idle.set_alpha(1.0 - alpha);
+            idle.set_timescale(self.game_speed);
 
             let mut age = creature
                 .spine
                 .skeleton
                 .animation_state
-                .track_at_index_mut(CreatureRep::ANIMATION_TRACK_AGE as usize)
+                .track_at_index_mut(CreatureRep::ANIMATION_AGE as usize)
                 .unwrap();
             age.set_alpha(1.0);
             age.set_timescale(1.0);

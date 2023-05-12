@@ -218,7 +218,7 @@ impl Game {
             barrier,
         };
         self.universe.stacks.push(stack);
-        self.look_at_stack(stack)
+        self.inspect_stack(stack)
     }
 
     pub fn appear_equipment(

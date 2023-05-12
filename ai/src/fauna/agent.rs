@@ -1,18 +1,21 @@
-use crate::decision_making::{Decision, Thinking};
-use crate::perception::{CreatureView, FoodContainer, FoodView};
-use crate::{decision_making, CropView};
+use std::collections::HashMap;
+
+use rand::{thread_rng, Rng};
+
 use game::api::Action;
 use game::math::{TileMath, VectorMath};
 use game::model::{Creature, Farmland};
 use game::raising::Behaviour;
-use rand::{thread_rng, Rng};
-use std::collections::HashMap;
-use std::time::Instant;
+
+use crate::decision_making::{Decision, Thinking};
+use crate::perception::{CreatureView, FoodContainer, FoodView};
+use crate::{decision_making, CropView};
 
 pub struct CreatureAgent {
     pub entity: Creature,
     pub farmland: Farmland,
     pub thinking: Thinking,
+    pub targeting: Targeting,
     pub position: [f32; 2],
     pub radius: f32,
     pub hunger: f32,
@@ -22,6 +25,14 @@ pub struct CreatureAgent {
     pub daytime: f32,
     pub behaviour: Behaviour,
     pub timestamps: HashMap<Behaviour, f32>,
+}
+
+#[derive(Default, Clone, serde::Serialize)]
+pub struct Targeting {
+    pub crops: Vec<usize>,
+    pub tiles: Vec<[usize; 2]>,
+    pub foods: Vec<usize>,
+    pub me: Vec<usize>,
 }
 
 #[derive(Debug, Copy, Clone, serde::Serialize, serde::Deserialize)]

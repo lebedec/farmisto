@@ -7,7 +7,7 @@ use tungstenite::Message;
 use crate::api::handlers;
 use crate::api::rpc::Procedure;
 use crate::api::rpc::Procedure::{
-    GetAgentInfo, GetAgentThinking, GetAgents, GetBehaviours, GetViews, SaveBehaviours,
+    GetAgentInfo, GetAgentThinking, GetAgents, GetBehaviours, SaveBehaviours,
 };
 use crate::Nature;
 
@@ -33,7 +33,6 @@ pub fn serve_web_socket(nature: Arc<RwLock<Nature>>) {
                     GetAgentThinking { id } => handlers::get_agent_thinking(nature, id),
                     GetAgents { .. } => handlers::get_agents(nature),
                     GetBehaviours { .. } => handlers::get_behaviours(),
-                    GetViews { id } => handlers::get_views(id, nature),
                     SaveBehaviours { behaviours } => handlers::save_behaviours(behaviours),
                 };
                 let message = match result {

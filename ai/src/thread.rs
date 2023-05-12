@@ -85,11 +85,8 @@ fn handle_server_responses(client: &mut TcpClient) -> Vec<Event> {
             GameResponse::Login { result } => {
                 error!("Unexpected game login response result={:?}", result);
             }
-            GameResponse::ActionError {
-                action_id,
-                response,
-            } => {
-                error!("Action {} error response {:?}", action_id, response);
+            GameResponse::ActionError { action_id, error } => {
+                error!("Action {} error response {:?}", action_id, error);
             }
             GameResponse::Trip { id } => client.send(PlayerRequest::Trip { id }),
         }

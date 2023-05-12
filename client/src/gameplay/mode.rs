@@ -90,7 +90,7 @@ pub struct Gameplay {
     pub gui_controls: SpriteAsset,
     pub watch_display: TextController,
     pub colonization_date: f32,
-    pub speed: f32,
+    pub game_speed: f32,
     pub default_sampler: SamplerAsset,
     pub metrics: GameplayMetrics,
 }
@@ -161,7 +161,7 @@ impl Gameplay {
             gui_controls: assets.sprite("gui-controls"),
             watch_display: test_text,
             colonization_date: 0.0,
-            speed: 0.0,
+            game_speed: 1.0,
             default_sampler: assets.sampler("default"),
             metrics,
         }
@@ -180,16 +180,12 @@ impl Gameplay {
                 GameResponse::Login { result } => {
                     error!("Unexpected game login response result={:?}", result);
                 }
-                GameResponse::ActionError {
-                    action_id,
-                    response,
-                } => {
+                GameResponse::ActionError { action_id, error } => {
                     let action = match self.sent_actions.get(&action_id) {
                         Some(action) => format!("{action:?}"),
                         None => format!("id={action_id}"),
                     };
-                    error!("Action {action} error {response:?}");
-                    self.farmers.get_mut(&response.farmer).unwrap().activity = response.correction;
+                    error!("Action {action} error {error:?}");
                 }
                 GameResponse::Trip { id } => self.client.send(PlayerRequest::Trip { id }),
             }

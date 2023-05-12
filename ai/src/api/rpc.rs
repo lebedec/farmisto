@@ -1,6 +1,7 @@
 use game::raising::Behaviour;
 use std::collections::HashMap;
 
+use crate::fauna::Targeting;
 use crate::{Behaviours, Thinking};
 
 #[derive(serde::Deserialize)]
@@ -9,7 +10,6 @@ pub enum Procedure {
     GetAgentThinking { id: usize },
     GetAgents {},
     GetBehaviours {},
-    GetViews { id: usize },
     SaveBehaviours { behaviours: Behaviours },
 }
 
@@ -17,15 +17,13 @@ pub enum Procedure {
 pub enum ProcedureResult {
     GetAgentInfo {
         thinking: Thinking,
-        crops: Vec<usize>,
-        tiles: Vec<[usize; 2]>,
-        foods: Vec<usize>,
-        me: Vec<usize>,
+        targeting: Targeting,
         position: [f32; 2],
         radius: f32,
         health: f32,
         thirst: f32,
         hunger: f32,
+        daytime: f32,
         timestamps: HashMap<Behaviour, f32>,
     },
     GetAgentThinking {

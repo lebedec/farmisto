@@ -46,7 +46,7 @@ pub enum GameResponse {
     },
     ActionError {
         action_id: usize,
-        response: ActionResponse,
+        error: ActionError,
     },
     Login {
         result: LoginResult,
@@ -65,7 +65,7 @@ pub enum Action {
     EatFoodFromStack {
         creature: Creature,
         stack: Stack,
-        item: ItemId
+        item: ItemId,
     },
     EatFoodFromHands {
         creature: Creature,
@@ -222,13 +222,6 @@ pub enum FarmerBound {
     CollectCorpse {
         corpse: Corpse,
     },
-}
-
-#[derive(Debug, serde::Serialize, serde::Deserialize)]
-pub struct ActionResponse {
-    pub error: ActionError,
-    pub farmer: Farmer,
-    pub correction: Activity,
 }
 
 #[derive(Debug, serde::Serialize, serde::Deserialize)]

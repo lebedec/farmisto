@@ -7,7 +7,8 @@ values (null,
         0.0, -- hunger
         1.0, -- health
         0.0, -- stress
-        0.0 -- voracity
+        0.0, -- voracity
+        '"Idle"'
        );
 insert into Body
 values (null,

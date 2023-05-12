@@ -17,9 +17,10 @@ use game::raising::{Behaviour, Raising};
 use game::timing::Timing;
 
 use crate::decision_making::Thinking;
-use crate::fauna::CreatureAgent;
+use crate::fauna::{CreatureAgent, Targeting};
 use crate::Nature;
 
+#[derive(Clone, Copy)]
 pub struct CropView {
     pub entity: Crop,
     pub growth: f32,
@@ -134,6 +135,7 @@ impl Nature {
                     hunger,
                     health,
                     thinking: Thinking::default(),
+                    targeting: Targeting::default(),
                     position,
                     radius: 5.0,
                     thirst: 0.0,

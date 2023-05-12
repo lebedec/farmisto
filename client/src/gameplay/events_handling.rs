@@ -412,10 +412,10 @@ impl Gameplay {
                 speed,
                 colonization_date,
             } => {
-                if speed != self.speed {
+                if speed != self.game_speed {
                     info!("Set local time speed to {speed}");
                 }
-                self.speed = speed;
+                self.game_speed = speed;
                 self.colonization_date = colonization_date;
             }
             Timing::CalendarUpdated {
@@ -707,13 +707,13 @@ impl Gameplay {
                 spine
                     .skeleton
                     .animation_state
-                    .set_animation_by_name(CreatureRep::ANIMATION_TRACK_WALK, "move", true)
+                    .set_animation_by_name(CreatureRep::ANIMATION_WALK, "move", true)
                     .unwrap();
 
                 spine
                     .skeleton
                     .animation_state
-                    .set_animation_by_name(CreatureRep::ANIMATION_TRACK_AGE, "age", false)
+                    .set_animation_by_name(CreatureRep::ANIMATION_AGE, "age", false)
                     .unwrap();
 
                 // animal variants

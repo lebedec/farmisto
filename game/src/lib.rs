@@ -1,32 +1,32 @@
 extern crate alloc;
 extern crate core;
 
-use log::info;
+use log::{error, info};
 
 use datamap::Storage;
 pub use domains::*;
 pub use rules::*;
 pub use update::*;
 
-use crate::api::ActionError::{PlayerFarmerNotFound, Timing};
-use crate::api::{Action, ActionError, ActionResponse, Cheat, Event, FarmerBound};
-use crate::assembling::{AssemblingDomain, PlacementId};
-use crate::building::{BuildingDomain, GridId, Marker, Structure, SurveyorId};
-use crate::inventory::{ContainerId, FunctionsQuery, InventoryDomain, InventoryError, ItemId};
+use crate::api::ActionError::PlayerFarmerNotFound;
+use crate::api::{Action, ActionError, Cheat, Event, FarmerBound};
+use crate::assembling::AssemblingDomain;
+use crate::building::{BuildingDomain, Marker, Structure, SurveyorId};
+use crate::inventory::{ContainerId, InventoryDomain, InventoryError, ItemId};
 use crate::landscaping::LandscapingDomain;
 use crate::model::Activity::Idle;
+use crate::model::Player;
+use crate::model::UniverseDomain;
 use crate::model::{
-    Activity, Assembly, AssemblyKey, Cementer, CementerKey, Construction, Corpse, CorpseKey,
-    Creature, CreatureKey, Crop, CropKey, Door, DoorKey, FarmerKey, PlayerId, Stack,
+    Assembly, AssemblyKey, Cementer, CementerKey, Construction, Corpse, CorpseKey, Creature,
+    CreatureKey, Crop, CropKey, Door, DoorKey, FarmerKey, PlayerId, Stack,
 };
-use crate::model::{Composter, ComposterKey, Knowledge};
-use crate::model::{Equipment, Rest, RestKey};
-use crate::model::{EquipmentKey, UniverseDomain};
+use crate::model::{ComposterKey, Knowledge};
 use crate::model::{Farmer, Universe};
-use crate::model::{Player, Purpose};
-use crate::physics::{BodyId, PhysicsDomain, SensorId};
+use crate::model::{Rest, RestKey};
+use crate::physics::{BodyId, PhysicsDomain};
 use crate::planting::PlantingDomain;
-use crate::raising::{Behaviour, RaisingDomain};
+use crate::raising::RaisingDomain;
 use crate::timing::TimingDomain;
 use crate::working::WorkingDomain;
 
@@ -139,28 +139,13 @@ impl Game {
         &mut self,
         player_name: &str,
         action: Action,
-    ) -> Result<Vec<Event>, ActionResponse> {
+    ) -> Result<Vec<Event>, ActionError> {
+        let action_debug = format!("{action:?}");
         match self.perform_action_internal(player_name, action) {
             Ok(events) => Ok(events),
             Err(error) => {
-                let player = self
-                    .players
-                    .iter()
-                    .find(|player| &player.name == player_name)
-                    .unwrap()
-                    .id;
-                let farmer = self
-                    .universe
-                    .farmers
-                    .iter()
-                    .find(|farmer| farmer.player == player)
-                    .unwrap();
-
-                Err(ActionResponse {
-                    error,
-                    farmer: *farmer,
-                    correction: self.universe.get_farmer_activity(*farmer).unwrap(),
-                })
+                error!("Player {player_name} action {action_debug} error {error:?}");
+                Err(error)
             }
         }
     }

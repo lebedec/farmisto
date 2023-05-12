@@ -306,9 +306,8 @@ pub fn anim(behaviour: Behaviour) -> &'static str {
 
 impl CreatureRep {
     pub const ANIMATION_BASE: i32 = 0;
-    pub const ANIMATION_TRACK_WALK: i32 = 1;
-    pub const ANIMATION_TRACK_EAT: i32 = 2;
-    pub const ANIMATION_TRACK_AGE: i32 = 3;
+    pub const ANIMATION_WALK: i32 = 1;
+    pub const ANIMATION_AGE: i32 = 3;
 
     pub fn play(&mut self, trigger: Behaviour, behaviour: Behaviour) {
         self.behaviour = behaviour;
@@ -320,15 +319,16 @@ impl CreatureRep {
     }
 
     fn repeat(&mut self, track: i32, animation: &str) {
-        self.spine.skeleton.animation_state.clear_track(track);
+        info!("repeat {animation}");
         self.spine
             .skeleton
             .animation_state
-            .add_animation_by_name(track, animation, true, 0.0)
+            .set_animation_by_name(track, animation, true)
             .unwrap();
     }
 
     fn once(&mut self, track: i32, trigger: &str, continuation: &str) {
+        info!("once {trigger} {continuation}");
         self.spine.skeleton.animation_state.clear_track(track);
         self.spine
             .skeleton

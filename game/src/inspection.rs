@@ -171,7 +171,7 @@ impl Game {
         }
     }
 
-    pub fn look_at_stack(&self, stack: Stack) -> Universe {
+    pub fn inspect_stack(&self, stack: Stack) -> Universe {
         let barrier = self.physics.get_barrier(stack.barrier).unwrap();
         Universe::StackAppeared {
             stack,
@@ -228,7 +228,7 @@ impl Game {
         }
 
         for stack in &self.universe.stacks {
-            stream.push(self.look_at_stack(*stack));
+            stream.push(self.inspect_stack(*stack));
         }
 
         for construction in &self.universe.constructions {
