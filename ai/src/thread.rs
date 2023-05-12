@@ -26,8 +26,9 @@ impl AiThread {
             creature_agents: vec![],
             tiles: Default::default(),
             containers: Default::default(),
-            foods: Default::default(),
+            items: Default::default(),
             colonization_date: 0.0,
+            farmers: Default::default(),
         };
         let nature_lock = Arc::new(RwLock::new(nature));
         let nature_read_access = nature_lock.clone();

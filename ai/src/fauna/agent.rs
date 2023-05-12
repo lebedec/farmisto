@@ -8,7 +8,7 @@ use game::model::{Creature, Farmland};
 use game::raising::Behaviour;
 
 use crate::decision_making::{Decision, Thinking};
-use crate::perception::{CreatureView, FoodContainer, FoodView};
+use crate::perception::{CreatureView, FoodView, Owner};
 use crate::{decision_making, CropView};
 
 pub struct CreatureAgent {
@@ -163,16 +163,16 @@ impl CreatureAgent {
 
     pub fn react_food(&self, action: FoodAction, food: &FoodView) -> Reaction {
         let action = match action {
-            FoodAction::Eat => match food.container_entity {
-                FoodContainer::Stack(stack) => Action::EatFoodFromStack {
+            FoodAction::Eat => match food.owner {
+                Owner::Stack(stack) => Action::EatFoodFromStack {
                     creature: self.entity,
-                    item: food.item,
                     stack,
-                },
-                FoodContainer::Hands(farmer) => Action::EatFoodFromHands {
-                    creature: self.entity,
                     item: food.item,
+                },
+                Owner::Hands(farmer) => Action::EatFoodFromHands {
+                    creature: self.entity,
                     farmer,
+                    item: food.item,
                 },
             },
         };

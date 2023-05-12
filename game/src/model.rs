@@ -140,7 +140,7 @@ pub enum Universe {
         health: f32,
         hunger: f32,
         position: [f32; 2],
-        behaviour: Behaviour
+        behaviour: Behaviour,
     },
     CreatureVanished(Creature),
     CorpseAppeared {
@@ -235,12 +235,34 @@ pub enum UniverseError {
     ModeInvalidEnumeration {
         value: u8,
     },
+    StackNotFound {
+        container: ContainerId,
+    },
+    FarmerNotFound {
+        container: ContainerId,
+    },
 }
 
 impl UniverseDomain {
     pub fn load_farmlands(&mut self, farmlands: Vec<Farmland>, farmlands_id: usize) {
         self.farmlands_id = farmlands_id;
         self.farmlands.extend(farmlands);
+    }
+
+    pub fn get_stack_by(&self, container: ContainerId) -> Result<Stack, UniverseError> {
+        self.stacks
+            .iter()
+            .find(|stack| stack.container == container)
+            .cloned()
+            .ok_or(UniverseError::StackNotFound { container })
+    }
+
+    pub fn get_farmer_by_hands(&self, container: ContainerId) -> Result<Farmer, UniverseError> {
+        self.farmers
+            .iter()
+            .find(|farmer| farmer.hands == container)
+            .cloned()
+            .ok_or(UniverseError::FarmerNotFound { container })
     }
 
     pub fn get_player_farmer(&self, player: PlayerId) -> Result<Farmer, UniverseError> {

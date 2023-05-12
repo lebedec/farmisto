@@ -1,4 +1,4 @@
-use log::info;
+use log::{error, info};
 use std::cell::RefCell;
 use std::collections::HashMap;
 use std::fmt::Debug;
@@ -8,7 +8,7 @@ use std::time::Instant;
 use game::api::Action;
 use game::inventory::{ContainerId, ItemId};
 use game::math::{cast_ray, VectorMath};
-use game::model::Knowledge;
+use game::model::{Farmer, Knowledge};
 use game::physics::SpaceId;
 pub use thread::*;
 
@@ -17,7 +17,9 @@ use crate::fauna::{
     CreatureAgent, CreatureCropDecision, CreatureDecision, CreatureFoodDecision,
     CreatureGroundDecision, Targeting,
 };
-use crate::perception::{ContainerView, CreatureView, CropView, FoodView, TileView};
+use crate::perception::{
+    ContainerView, CreatureView, CropView, FarmerView, FoodView, ItemView, TileView,
+};
 
 mod api;
 mod decision_making;
@@ -63,19 +65,15 @@ pub struct Nature {
     creatures: Vec<CreatureView>,
     tiles: HashMap<SpaceId, Vec<Vec<TileView>>>,
     containers: HashMap<ContainerId, ContainerView>,
-    foods: HashMap<ItemId, FoodView>,
+    items: HashMap<ContainerId, HashMap<ItemId, ItemView>>,
+    farmers: HashMap<Farmer, FarmerView>,
     // agents
     creature_agents: Vec<CreatureAgent>,
     colonization_date: f32,
 }
 
 impl Nature {
-    pub fn update(&mut self) {
-        for food in self.foods.values_mut() {
-            let container = self.containers.get(&food.container).unwrap();
-            food.position = container.position;
-        }
-    }
+    pub fn update(&mut self) {}
 
     pub fn react(&mut self, behaviours: &Behaviours) -> Vec<Action> {
         let mut actions = vec![];
@@ -105,16 +103,31 @@ impl Nature {
             );
 
             let mut foods = vec![];
-            for food in self.foods.values() {
-                if food.position.distance(agent.position) > agent.radius {
+            for (container, items) in &self.items {
+                let container = match self.containers.get(container) {
+                    Some(container) => container,
+                    None => {
+                        error!("Unable to get {container:?}, not registered");
+                        continue;
+                    }
+                };
+                if container.position.distance(agent.position) > agent.radius {
                     continue;
                 }
                 let holes = holes.get(&agent.farmland.space).unwrap();
-                let contacts = cast_ray(agent.position, food.position, holes);
+                let contacts = cast_ray(agent.position, container.position, holes);
                 let is_food_reachable = contacts.is_empty();
                 if is_food_reachable {
-                    // TODO: common borrowing structure
-                    foods.push(food.clone());
+                    for item in items.values() {
+                        // TODO: common borrowing structure
+                        foods.push(FoodView {
+                            item: item.item,
+                            owner: container.owner.clone(),
+                            quantity: item.quantity,
+                            max_quantity: item.max_quantity,
+                            position: container.position,
+                        });
+                    }
                 }
             }
             let mut crops = vec![];

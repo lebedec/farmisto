@@ -51,6 +51,12 @@ macro_rules! occur {
     ($($x:expr,)*) => (vec![$($x.into()),*])
 }
 
+#[macro_export]
+macro_rules! emit {
+    () => (Ok(vec![]));
+    ($($x:expr),+ $(,)?) => (Ok(vec![$($x.into()),*]))
+}
+
 pub struct Game {
     pub known: Knowledge,
     pub timing: TimingDomain,

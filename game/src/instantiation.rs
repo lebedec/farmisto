@@ -210,7 +210,7 @@ impl Game {
         self.inspect_composter(entity)
     }
 
-    pub fn appear_stack(&mut self, container: ContainerId, barrier: BarrierId) -> Universe {
+    pub fn create_stack(&mut self, container: ContainerId, barrier: BarrierId) -> Universe {
         self.universe.stacks_id += 1;
         let stack = Stack {
             id: self.universe.stacks_id,

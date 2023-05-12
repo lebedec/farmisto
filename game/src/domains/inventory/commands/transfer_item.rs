@@ -4,18 +4,9 @@ use crate::inventory::InventoryDomain;
 use crate::inventory::InventoryError;
 use crate::inventory::{ContainerId, Function};
 use crate::inventory::{Inventory, ItemData};
-use crate::math::{Position, VectorMath};
-use crate::physics::SpaceId;
+use crate::math::VectorMath;
 
 impl InventoryDomain {
-    pub fn pop_item_and_destroy<'operation>(
-        &'operation mut self,
-        source: ContainerId,
-        destination: ContainerId,
-    ) -> Result<impl FnOnce() -> Vec<Inventory> + 'operation, InventoryError> {
-        self.transfer_item(source, -1, destination, false)
-    }
-
     pub fn pop_item<'operation>(
         &'operation mut self,
         source: ContainerId,

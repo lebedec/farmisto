@@ -48,7 +48,7 @@ impl Game {
             self.universe.vanish_crop(crop),
             create_barrier(),
             create_residue(),
-            self.appear_stack(container, barrier),
+            self.create_stack(container, barrier),
         ];
 
         Ok(events)

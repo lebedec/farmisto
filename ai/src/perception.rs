@@ -1,19 +1,14 @@
-use std::cell::RefCell;
 use std::collections::HashMap;
-use std::sync::{Arc, RwLock};
-use std::time::Instant;
+use std::sync::RwLock;
 
-use log::{error, info};
+use log::error;
 
 use game::api::Event;
-use game::collections::Shared;
-use game::inventory::{
-    Container, ContainerId, FunctionsQuery, Inventory, ItemId, ItemKey, ItemKind,
-};
+use game::inventory::{ContainerId, FunctionsQuery, Inventory, ItemId, ItemKey, ItemKind};
 use game::math::{Position, VectorMath};
 use game::model::{Creature, Crop, Farmer, Knowledge, Stack, Universe};
 use game::physics::Physics;
-use game::raising::{Behaviour, Raising};
+use game::raising::Raising;
 use game::timing::Timing;
 
 use crate::decision_making::Thinking;
@@ -27,7 +22,10 @@ pub struct CropView {
     pub position: [f32; 2],
 }
 
-pub struct FarmerView {}
+pub struct FarmerView {
+    pub entity: Farmer,
+    pub position: [f32; 2],
+}
 
 pub struct CreatureView {
     pub _entity: Creature,
@@ -43,26 +41,33 @@ pub struct InvaserView {
     _threat: f32,
 }
 
+pub struct ContainerView {
+    pub id: ContainerId,
+    pub position: Position,
+    pub owner: Owner,
+}
+
 #[derive(Clone)]
-pub enum FoodContainer {
+pub enum Owner {
     Stack(Stack),
     Hands(Farmer),
 }
 
-pub struct ContainerView {
-    pub id: ContainerId,
-    pub position: Position,
-    pub entity: FoodContainer,
+#[derive(Clone)]
+pub struct ItemView {
+    pub item: ItemId,
+    pub container: ContainerId,
+    pub quantity: u8,
+    pub max_quantity: u8,
 }
 
 #[derive(Clone)]
 pub struct FoodView {
     pub item: ItemId,
-    pub container: ContainerId,
+    pub owner: Owner,
     pub quantity: u8,
     pub max_quantity: u8,
-    pub position: Position,
-    pub container_entity: FoodContainer,
+    pub position: [f32; 2],
 }
 
 impl Nature {
@@ -86,21 +91,34 @@ impl Nature {
             Universe::FarmerAppeared {
                 farmer, position, ..
             } => {
-                let view = ContainerView {
-                    id: farmer.hands,
-                    position,
-                    entity: FoodContainer::Hands(farmer),
-                };
-                self.containers.insert(farmer.hands, view);
+                self.farmers.insert(
+                    farmer,
+                    FarmerView {
+                        entity: farmer,
+                        position,
+                    },
+                );
+                self.containers.insert(
+                    farmer.hands,
+                    ContainerView {
+                        id: farmer.hands,
+                        position,
+                        owner: Owner::Hands(farmer),
+                    },
+                );
             }
-            Universe::FarmerVanished(_) => {}
+            Universe::FarmerVanished(farmer) => {
+                self.farmers.remove(&farmer);
+            }
             Universe::StackAppeared { stack, position } => {
-                let view = ContainerView {
-                    id: stack.container,
-                    position,
-                    entity: FoodContainer::Stack(stack),
-                };
-                self.containers.insert(stack.container, view);
+                self.containers.insert(
+                    stack.container,
+                    ContainerView {
+                        id: stack.container,
+                        position,
+                        owner: Owner::Stack(stack),
+                    },
+                );
             }
             Universe::StackVanished(stack) => {
                 self.containers.remove(&stack.container);
@@ -213,12 +231,15 @@ impl Nature {
     pub fn perceive_physics(&mut self, event: Physics) {
         match event {
             Physics::BodyPositionChanged { id, position, .. } => {
-                for container in self.containers.values_mut() {
-                    if let FoodContainer::Hands(farmer) = container.entity {
-                        if farmer.body == id {
-                            container.position = position;
-                            return;
+                for farmer in self.farmers.values_mut() {
+                    if farmer.entity.body == id {
+                        farmer.position = position;
+                        for container in self.containers.values_mut() {
+                            if container.id == farmer.entity.hands {
+                                container.position = position;
+                            }
                         }
+                        return;
                     }
                 }
                 for agent in self.creature_agents.iter_mut() {
@@ -314,33 +335,37 @@ impl Nature {
     pub fn perceive_inventory(&mut self, event: Inventory, known: &Knowledge) {
         match event {
             Inventory::ContainerCreated { .. } => {}
-            Inventory::ContainerDestroyed { .. } => {}
+            Inventory::ContainerDestroyed { id } => {
+                self.items.remove(&id);
+            }
             Inventory::ItemsAdded { items } => {
                 for item in items {
+                    let container = self.items.entry(item.container).or_insert(HashMap::new());
                     let kind = known.items.get(item.key).unwrap();
-                    let container = self.containers.get(&item.container).unwrap();
-                    if kind.functions.as_food().is_ok() {
-                        self.foods.insert(
-                            item.id,
-                            FoodView {
-                                item: item.id,
-                                container: item.container,
-                                quantity: item.quantity,
-                                max_quantity: kind.max_quantity,
-                                position: container.position,
-                                container_entity: container.entity.clone(),
-                            },
-                        );
-                    }
+                    container.insert(
+                        item.id,
+                        ItemView {
+                            item: item.id,
+                            container: item.container,
+                            quantity: item.quantity,
+                            max_quantity: kind.max_quantity,
+                        },
+                    );
                 }
             }
-            Inventory::ItemRemoved { item, .. } => {
-                self.foods.remove(&item);
+            Inventory::ItemRemoved { item, container } => {
+                self.items.entry(container).and_modify(|items| {
+                    items.remove(&item);
+                });
             }
-            Inventory::ItemQuantityChanged { quantity, id, .. } => {
-                self.foods
-                    .entry(id)
-                    .and_modify(|food| food.quantity = quantity);
+            Inventory::ItemQuantityChanged {
+                id,
+                container,
+                quantity,
+            } => {
+                self.items.entry(container).and_modify(|items| {
+                    items.entry(id).and_modify(|item| item.quantity = quantity);
+                });
             }
         }
     }
