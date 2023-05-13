@@ -1,4 +1,5 @@
 use std::cell::RefCell;
+use std::sync::mpsc::channel;
 use std::sync::{Arc, RwLock};
 use std::thread;
 use std::time::{Duration, Instant};
@@ -9,7 +10,10 @@ use game::api::{Event, GameResponse, PlayerRequest};
 use game::Game;
 use network::TcpClient;
 
-use crate::api::serve_web_socket;
+use crate::api::rpc::Procedure::{
+    GetAgentInfo, GetAgentThinking, GetAgents, GetBehaviours, SaveBehaviours,
+};
+use crate::api::{handle_rpc, serve_web_socket};
 use crate::{Behaviours, Nature};
 
 pub struct AiThread {}
@@ -20,32 +24,26 @@ impl AiThread {
         behaviours: Arc<RwLock<Behaviours>>,
         knowledge: String,
     ) -> Self {
-        let nature = Nature {
-            crops: vec![],
-            creatures: vec![],
-            creature_agents: vec![],
-            tiles: Default::default(),
-            containers: Default::default(),
-            items: Default::default(),
-            colonization_date: 0.0,
-            farmers: Default::default(),
-        };
-        let nature_lock = Arc::new(RwLock::new(nature));
-        let nature_read_access = nature_lock.clone();
-        thread::spawn(move || serve_web_socket(nature_read_access));
+        let (call, mut calls) = channel();
+        let (result, results) = channel();
+        thread::spawn(move || serve_web_socket(call, results));
         thread::spawn(move || {
             let mut action_id = 0;
             let known = Game::load_knowledge(&knowledge);
+            let mut nature = Nature {
+                crops: vec![],
+                creatures: vec![],
+                creature_agents: vec![],
+                tiles: Default::default(),
+                containers: Default::default(),
+                items: Default::default(),
+                colonization_date: 0.0,
+                farmers: Default::default(),
+                feeding_map: vec![],
+            };
             loop {
                 let t = Instant::now();
                 {
-                    let mut nature = match nature_lock.write() {
-                        Ok(nature) => nature,
-                        Err(_) => {
-                            error!("Unable to write AI state, AI ws thread terminated");
-                            break;
-                        }
-                    };
                     let events = handle_server_responses(&mut client);
                     nature.perceive(events, &known);
                     let behaviours = match behaviours.read() {
@@ -62,6 +60,13 @@ impl AiThread {
                         action_id += 1;
                     }
                 }
+                calls = match handle_rpc(&nature, calls, &result) {
+                    Ok(calls) => calls,
+                    Err(error) => {
+                        error!("Unable to handle AI RPC, {error:?}");
+                        return;
+                    }
+                };
                 let elapsed = t.elapsed().as_secs_f32();
 
                 // delay to simulate human reaction

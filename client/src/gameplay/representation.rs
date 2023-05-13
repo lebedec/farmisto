@@ -301,6 +301,7 @@ pub fn anim(behaviour: Behaviour) -> &'static str {
         Behaviour::Idle => "idle",
         Behaviour::Eating => "eat",
         Behaviour::Sleeping => "sleep",
+        Behaviour::Walking => "idle",
     }
 }
 

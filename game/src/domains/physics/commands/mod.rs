@@ -7,6 +7,7 @@ pub use destroy_barrier::*;
 pub use destroy_hole::*;
 pub use destroy_sensor::*;
 pub use move_body::*;
+pub use stop_body::*;
 
 mod change_barrier;
 mod create_barrier;
@@ -17,3 +18,4 @@ mod destroy_barrier;
 mod destroy_hole;
 mod destroy_sensor;
 mod move_body;
+mod stop_body;

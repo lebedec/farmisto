@@ -64,6 +64,7 @@ pub trait VectorMath {
     fn length_squared(self) -> f32;
     fn normalize(self) -> Self;
     fn to_tile(self) -> [usize; 2];
+    fn to_offset(self) -> [isize; 2];
     fn is_zero(self) -> bool;
 }
 
@@ -149,6 +150,11 @@ impl VectorMath for [f32; 2] {
     #[inline]
     fn to_tile(self) -> [usize; 2] {
         [self[0] as usize, self[1] as usize]
+    }
+
+    #[inline]
+    fn to_offset(self) -> [isize; 2] {
+        [self[0] as isize, self[1] as isize]
     }
 
     #[inline]

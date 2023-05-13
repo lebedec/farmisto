@@ -1,7 +1,5 @@
-use crate::collections::{Shared, TemporaryRef};
-use crate::working::{
-    Device, DeviceId, DeviceKind, Working, WorkingDomain, WorkingError,
-};
+use crate::collections::{Shared, TrustedRef};
+use crate::working::{Device, DeviceId, DeviceKind, Working, WorkingDomain, WorkingError};
 
 impl WorkingDomain {
     pub fn create_device(
@@ -19,7 +17,7 @@ impl WorkingDomain {
             output: false,
             deprecation: 0.0,
         };
-        let mut domain = TemporaryRef::from(self);
+        let mut domain = TrustedRef::from(self);
         let command = move || {
             domain.devices_id.register(id.0);
             domain.devices.push(device);

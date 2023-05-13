@@ -1,4 +1,4 @@
-use crate::collections::{Shared, TemporaryRef};
+use crate::collections::{trust, Shared};
 use crate::inventory::Inventory::{ContainerCreated, ItemsAdded};
 use crate::inventory::{
     Container, ContainerId, ContainerKind, Inventory, InventoryDomain, InventoryError, Item,
@@ -17,7 +17,7 @@ impl InventoryDomain {
             kind: kind.clone(),
             items: vec![],
         };
-        let mut domain = TemporaryRef::from(self);
+        let mut domain = trust(self);
         let command = move || {
             let mut items = Vec::with_capacity(container_items.len());
             for item in container_items {

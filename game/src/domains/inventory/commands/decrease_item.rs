@@ -7,7 +7,7 @@ impl InventoryDomain {
         &mut self,
         container: ContainerId,
     ) -> Result<impl FnOnce() -> Vec<Inventory> + '_, InventoryError> {
-        let container = self.get_mut_container(container)?;
+        let container = self.mut_container(container)?;
         let index = container.ensure_item_at(-1)?;
         let operation = move || {
             let mut events = vec![];

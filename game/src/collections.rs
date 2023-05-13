@@ -1,11 +1,11 @@
 use crate::data::DataError;
+use serde::{Deserialize, Serialize};
 use std::cell::{RefCell, RefMut};
 use std::collections::HashMap;
 use std::fmt::{Debug, Formatter};
 use std::hash::Hash;
 use std::ops::{Deref, DerefMut};
 use std::rc::Rc;
-use serde::{Serialize, Deserialize};
 
 pub struct Shared<T> {
     inner: Rc<RefCell<T>>,
@@ -174,11 +174,15 @@ impl Sequence {
     }
 }
 
-pub struct TemporaryRef<T> {
+pub fn trust<T>(value: &mut T) -> TrustedRef<T> {
+    TrustedRef::from(value)
+}
+
+pub struct TrustedRef<T> {
     ptr: *mut T,
 }
 
-impl<T> TemporaryRef<T> {
+impl<T> TrustedRef<T> {
     pub fn from(value: &mut T) -> Self {
         Self {
             ptr: value as *mut _,
@@ -194,7 +198,7 @@ impl<T> TemporaryRef<T> {
     }
 }
 
-impl<T> Deref for TemporaryRef<T> {
+impl<T> Deref for TrustedRef<T> {
     type Target = T;
 
     fn deref(&self) -> &Self::Target {
@@ -202,7 +206,7 @@ impl<T> Deref for TemporaryRef<T> {
     }
 }
 
-impl<T> DerefMut for TemporaryRef<T> {
+impl<T> DerefMut for TrustedRef<T> {
     fn deref_mut(&mut self) -> &mut Self::Target {
         self.get_mut_unsafe()
     }

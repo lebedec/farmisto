@@ -1,15 +1,13 @@
 use std::collections::HashMap;
 
-use rand::{thread_rng, Rng};
-
 use game::api::Action;
-use game::math::{TileMath, VectorMath};
+use game::math::{Random, TileMath, VectorMath};
 use game::model::{Creature, Farmland};
 use game::raising::Behaviour;
 
 use crate::decision_making::{Decision, Thinking};
 use crate::perception::{CreatureView, FoodView, Owner};
-use crate::{decision_making, CropView};
+use crate::{decision_making, CropView, Nature};
 
 pub struct CreatureAgent {
     pub entity: Creature,
@@ -17,6 +15,7 @@ pub struct CreatureAgent {
     pub thinking: Thinking,
     pub targeting: Targeting,
     pub position: [f32; 2],
+    pub interaction: f32,
     pub radius: f32,
     pub hunger: f32,
     pub health: f32,
@@ -25,6 +24,7 @@ pub struct CreatureAgent {
     pub daytime: f32,
     pub behaviour: Behaviour,
     pub timestamps: HashMap<Behaviour, f32>,
+    pub cooldowns: HashMap<String, f32>,
 }
 
 #[derive(Default, Clone, serde::Serialize)]
@@ -52,7 +52,6 @@ pub enum My {
 
 #[derive(Debug, Copy, Clone, serde::Serialize, serde::Deserialize)]
 pub enum CropAction {
-    Nothing,
     Eat,
 }
 
@@ -62,6 +61,7 @@ pub enum Crop {
     Hunger,
     Distance,
     Nutrition,
+    Delay(Behaviour, f32),
 }
 
 #[derive(Debug, Copy, Clone, serde::Serialize, serde::Deserialize)]
@@ -74,6 +74,7 @@ pub enum Food {
     Hunger,
     Distance,
     Nutrition,
+    Delay(Behaviour, f32),
 }
 
 #[derive(Debug, Copy, Clone, serde::Serialize, serde::Deserialize)]
@@ -82,12 +83,15 @@ pub enum GroundAction {
     Delay { min: f32, max: f32 },
 }
 
-#[derive(Debug, Copy, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub enum Ground {
     Constant,
     Random,
-    Cooldown(f32, f32),
+    Delay(Behaviour, f32),
+    Cooldown(String, f32),
     Distance,
+    Daytime,
+    Feeding,
 }
 
 pub enum Tuning {
@@ -110,12 +114,12 @@ impl CreatureAgent {
         }
     }
 
-    pub fn me(&self, input: My, me: &CreatureView) -> f32 {
+    pub fn me(&self, input: &My, me: &CreatureView, context: &Nature) -> f32 {
         match input {
             My::Constant => 1.0,
             My::Hunger => self.hunger,
             My::Thirst => self.thirst,
-            My::Delay(behaviour, delay) => self.duration(behaviour) / delay,
+            My::Delay(behaviour, delay) => self.duration(*behaviour) / delay,
             My::Daytime => self.daytime,
         }
     }
@@ -130,12 +134,13 @@ impl CreatureAgent {
         Reaction::Action(action)
     }
 
-    pub fn crop(&self, input: Crop, crop: &CropView) -> f32 {
+    pub fn crop(&self, input: &Crop, crop: &CropView, context: &Nature) -> f32 {
         match input {
             Crop::Hunger => self.hunger,
-            Crop::Distance => crop.position.distance(self.position) / 10.0,
+            Crop::Distance => crop.position.distance(self.position) / self.interaction,
             Crop::Nutrition => crop.growth / 5.0,
             Crop::Constant => 1.0,
+            Crop::Delay(behaviour, delay) => self.duration(*behaviour) / delay,
         }
     }
 
@@ -145,19 +150,16 @@ impl CreatureAgent {
                 crop: crop.entity,
                 creature: self.entity,
             },
-            CropAction::Nothing => Action::EatCrop {
-                crop: crop.entity,
-                creature: self.entity,
-            },
         };
         Reaction::Action(action)
     }
 
-    pub fn food(&self, input: Food, food: &FoodView) -> f32 {
+    pub fn food(&self, input: &Food, food: &FoodView, context: &Nature) -> f32 {
         match input {
             Food::Hunger => self.hunger,
-            Food::Distance => self.position.distance(food.position) / self.radius,
+            Food::Distance => self.position.distance(food.position) / self.interaction,
             Food::Nutrition => food.quantity as f32 / food.max_quantity as f32,
+            Food::Delay(behaviour, delay) => self.duration(*behaviour) / delay,
         }
     }
 
@@ -179,12 +181,15 @@ impl CreatureAgent {
         Reaction::Action(action)
     }
 
-    pub fn ground(&self, input: Ground, tile: &[usize; 2]) -> f32 {
+    pub fn ground(&self, input: &Ground, tile: &[usize; 2], context: &Nature) -> f32 {
         match input {
             Ground::Constant => 1.0,
-            Ground::Random => thread_rng().gen_range(0.0..=1.0),
-            Ground::Cooldown(start, end) => 1.0,
+            Ground::Random => Random::new().generate(),
+            Ground::Delay(behaviour, delay) => self.duration(*behaviour) / delay,
             Ground::Distance => self.position.distance(tile.position()) / self.radius,
+            Ground::Daytime => self.daytime,
+            Ground::Cooldown(tag, cooldown) => self.cooldown(tag) / cooldown,
+            Ground::Feeding => context.feeding_map[tile.fit(128)],
         }
     }
 
@@ -202,6 +207,11 @@ impl CreatureAgent {
 impl CreatureAgent {
     fn duration(&self, behaviour: Behaviour) -> f32 {
         let timestamp = *self.timestamps.get(&behaviour).unwrap_or(&0.0);
+        self.colonization_date - timestamp
+    }
+
+    fn cooldown(&self, tag: &str) -> f32 {
+        let timestamp = *self.cooldowns.get(tag).unwrap_or(&0.0);
         self.colonization_date - timestamp
     }
 }

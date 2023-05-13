@@ -45,6 +45,7 @@ pub enum Behaviour {
     Idle,
     Eating,
     Sleeping,
+    Walking,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -62,7 +63,7 @@ pub struct Animal {
 
     pub health: f32,
     pub stress: f32,
-    
+
     pub behaviour: Behaviour,
 }
 
@@ -101,7 +102,7 @@ pub enum Raising {
         id: AnimalId,
         trigger: Behaviour,
         behaviour: Behaviour,
-    }
+    },
 }
 
 #[derive(Debug, Serialize, Deserialize)]

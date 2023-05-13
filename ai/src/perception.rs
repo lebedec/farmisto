@@ -4,6 +4,7 @@ use std::sync::RwLock;
 use log::error;
 
 use game::api::Event;
+use game::collections::Shared;
 use game::inventory::{ContainerId, FunctionsQuery, Inventory, ItemId, ItemKey, ItemKind};
 use game::math::{Position, VectorMath};
 use game::model::{Creature, Crop, Farmer, Knowledge, Stack, Universe};
@@ -57,8 +58,8 @@ pub enum Owner {
 pub struct ItemView {
     pub item: ItemId,
     pub container: ContainerId,
+    pub kind: Shared<ItemKind>,
     pub quantity: u8,
-    pub max_quantity: u8,
 }
 
 #[derive(Clone)]
@@ -155,12 +156,14 @@ impl Nature {
                     thinking: Thinking::default(),
                     targeting: Targeting::default(),
                     position,
+                    interaction: 2.0,
                     radius: 5.0,
                     thirst: 0.0,
                     colonization_date: 0.0,
                     daytime: 0.0,
                     behaviour,
                     timestamps: HashMap::new(),
+                    cooldowns: HashMap::new(),
                 });
             }
             Universe::CreatureVanished(creature) => {
@@ -347,8 +350,8 @@ impl Nature {
                         ItemView {
                             item: item.id,
                             container: item.container,
+                            kind,
                             quantity: item.quantity,
-                            max_quantity: kind.max_quantity,
                         },
                     );
                 }

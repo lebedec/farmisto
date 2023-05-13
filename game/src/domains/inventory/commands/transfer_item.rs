@@ -41,7 +41,7 @@ impl InventoryDomain {
         let item_functions = item.kind.functions.clone();
         let item_id = item.id;
         let keep_container = keep_container || source_container.items.len() > 1;
-        let destination = self.get_mut_container(destination_id)?;
+        let destination = self.mut_container(destination_id)?;
 
         // validations:
         if let Some(item_on_top) = destination.items.last() {

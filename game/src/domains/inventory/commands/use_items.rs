@@ -6,7 +6,7 @@ impl InventoryDomain {
         &mut self,
         container: ContainerId,
     ) -> Result<impl FnOnce() -> Vec<Inventory> + '_, InventoryError> {
-        let container = self.get_mut_container(container)?;
+        let container = self.mut_container(container)?;
         let operation = move || {
             let mut events = vec![];
             let item = container.items.remove(0);
@@ -23,7 +23,7 @@ impl InventoryDomain {
         &mut self,
         container: ContainerId,
     ) -> Result<impl FnOnce() -> Vec<Inventory> + '_, InventoryError> {
-        let container = self.get_mut_container(container)?;
+        let container = self.mut_container(container)?;
         let operation = move || {
             let mut events = vec![];
             for item in &container.items {

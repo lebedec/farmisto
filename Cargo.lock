@@ -32,7 +32,6 @@ dependencies = [
  "game",
  "log",
  "network",
- "rand",
  "serde",
  "serde_json",
  "tungstenite",

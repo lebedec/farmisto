@@ -79,7 +79,7 @@ impl PhysicsDomain {
                     body.position = position;
                     events.push(Physics::BodyPositionChanged {
                         id: body.id.into(),
-                        space: body.space.into(),
+                        space: body.space,
                         position: body.position,
                         destination: body.destination,
                     });

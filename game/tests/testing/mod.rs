@@ -740,7 +740,7 @@ impl PhysicsTestScenario {
 
     pub fn when_move_body(mut self, body: &str, direction: [f32; 2]) -> Self {
         let body = self.body(body);
-        match self.domain.move_body2(body, direction) {
+        match self.domain.move_body__deprecated(body, direction) {
             Ok(_) => {
                 self.current_error = None;
                 self.current_events = Some(vec![]);

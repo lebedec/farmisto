@@ -9,7 +9,7 @@ impl InventoryDomain {
         container: ContainerId,
         increment: u8,
     ) -> Result<impl FnOnce() -> Vec<Inventory> + 'operation, InventoryError> {
-        let container = self.get_mut_container(container)?;
+        let container = self.mut_container(container)?;
         let index = container.ensure_item_at(-1)?;
         if container.items[index].quantity > u8::MAX - increment {
             return Err(ItemQuantityOverflow {

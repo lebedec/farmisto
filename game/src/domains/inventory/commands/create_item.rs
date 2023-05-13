@@ -29,7 +29,7 @@ impl InventoryDomain {
                 }],
             }];
             self.items_id.register(item.id.0);
-            let container = self.get_mut_container(container).unwrap();
+            let container = self.mut_container(container).unwrap();
             container.items.push(item);
             events
         };

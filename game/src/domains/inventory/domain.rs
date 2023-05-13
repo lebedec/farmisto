@@ -182,7 +182,7 @@ impl InventoryDomain {
             })
     }
 
-    pub fn get_mut_container(&mut self, id: ContainerId) -> Result<&mut Container, InventoryError> {
+    pub fn mut_container(&mut self, id: ContainerId) -> Result<&mut Container, InventoryError> {
         self.containers.get_mut(&id).ok_or(ContainerNotFound { id })
     }
 

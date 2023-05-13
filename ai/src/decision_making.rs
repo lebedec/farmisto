@@ -19,6 +19,7 @@ where
     I: Sized + Serialize,
 {
     pub action: A,
+    pub tags: Option<Vec<String>>,
     pub considerations: Vec<Consideration<I>>,
 }
 
@@ -75,16 +76,18 @@ where
     (best_action, thinking)
 }
 
-#[derive(Debug, Default, Copy, Clone, serde::Serialize)]
+#[derive(Debug, Default, Clone, serde::Serialize)]
 pub struct Best {
     pub set: usize,
     pub behaviour: usize,
     pub decision: usize,
+    pub decision_tags: Option<Vec<String>>,
     pub target: usize,
     pub scores: f32,
 }
 
-pub fn react<'t, I, T, E, F, A, Action, Tuning, Agent>(
+pub fn react<'t, I, T, E, F, A, Action, Tuning, Agent, Context>(
+    context: &Context,
     agent: &Agent,
     behaviours: &Vec<Behaviour<Decision<I, A>>>,
     targets: &'t Vec<T>,
@@ -94,14 +97,14 @@ pub fn react<'t, I, T, E, F, A, Action, Tuning, Agent>(
 ) -> Option<(Best, Reaction<Action, Tuning>)>
 where
     A: Copy + Sized + Debug + Serialize,
-    I: Copy + Sized + Serialize,
-    F: Fn(&Agent, I, &T) -> f32,
+    I: Sized + Serialize,
+    F: Fn(&Agent, &I, &T, &Context) -> f32,
     E: Fn(&Agent, A, &T) -> Reaction<Action, Tuning>,
 {
     match consider(
         &behaviours,
         targets,
-        |inp, target| input(agent, inp, target),
+        |inp, target| input(agent, &inp, target, context),
         thinking,
     ) {
         Some(best) => {
@@ -122,10 +125,11 @@ pub fn consider<'t, I, T, F, A>(
 ) -> Option<Best>
 where
     A: Copy + Sized + Debug + Serialize,
-    I: Copy + Sized + Serialize,
-    F: Fn(I, &T) -> f32,
+    I: Sized + Serialize,
+    F: Fn(&I, &T) -> f32,
 {
     let mut best: Option<Best> = None;
+    let best_default = Best::default();
     for (behaviour_index, behaviour) in behaviours.iter().enumerate() {
         let mut best_target = 0;
         let mut best_target_decision = 0;
@@ -136,7 +140,7 @@ where
             for (decision_index, decision) in behaviour.decisions.iter().enumerate() {
                 let mut scores = 1.0;
                 for (index, consideration) in decision.considerations.iter().enumerate() {
-                    let x = input(consideration.input, target);
+                    let x = input(&consideration.input, target);
                     let x = x.clamp(0.0, 1.0);
                     let score = consideration.curve.respond(x);
                     {
@@ -175,16 +179,17 @@ where
                 break;
             }
         }
-        if best_target_scores > best.unwrap_or_default().scores {
+        if best_target_scores > best.as_ref().unwrap_or(&best_default).scores {
             best = Some(Best {
                 set: thinking.set,
                 behaviour: behaviour_index,
                 decision: best_target_decision,
+                decision_tags: behaviour.decisions[best_target_decision].tags.clone(),
                 target: best_target,
                 scores: best_target_scores,
             });
         }
-        if best.unwrap_or_default().scores > 0.95 {
+        if best.as_ref().unwrap_or(&best_default).scores > 0.95 {
             // optimization:
             // not need to consider every behaviour if we found one appropriate enough
             break;

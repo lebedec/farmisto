@@ -19,12 +19,14 @@ pub fn get_agent_info(nature: &Nature, id: usize) -> Result<ProcedureResult> {
         thinking: creature.thinking.clone(),
         targeting: creature.targeting.clone(),
         position: agent.position,
+        interaction: agent.interaction,
         radius: agent.radius,
         health: agent.health,
         thirst: agent.thirst,
         hunger: agent.hunger,
         daytime: agent.daytime,
         timestamps: agent.timestamps.clone(),
+        cooldowns: agent.cooldowns.clone(),
     };
     Ok(result)
 }

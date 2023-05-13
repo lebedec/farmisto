@@ -1,4 +1,4 @@
-use crate::collections::{Shared, TemporaryRef};
+use crate::collections::{Shared, TrustedRef};
 use crate::physics::{
     BarrierId, BarrierKind, Body, BodyId, BodyKind, Physics, PhysicsDomain, PhysicsError, SpaceId,
 };
@@ -18,7 +18,7 @@ impl PhysicsDomain {
             destination: position,
             space,
         };
-        let mut domain = TemporaryRef::from(self);
+        let mut domain = TrustedRef::from(self);
         let command = move || {
             let mut events = vec![];
             domain.bodies_sequence.register(id.0);
