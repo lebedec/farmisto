@@ -1,5 +1,5 @@
 use crate::landscaping::{Land, LandscapingError, Place};
-use crate::math::TileMath;
+use crate::math::{ArrayIndex, TileMath};
 
 impl Land {
     pub fn get_moisture(&self, place: Place) -> Result<f32, LandscapingError> {

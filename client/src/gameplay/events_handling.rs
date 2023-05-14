@@ -8,7 +8,7 @@ use game::assembling::Assembling;
 use game::building::{Building, Material};
 use game::inventory::Inventory;
 use game::landscaping::Landscaping;
-use game::math::Array2D;
+use game::math::Array;
 use game::model::{Activity, AssemblyTarget, Universe};
 use game::physics::{Barrier, Physics};
 use game::planting::Planting;
@@ -175,7 +175,7 @@ impl Gameplay {
                     if farmland.entity.land == land {
                         farmland
                             .moisture
-                            .patch_rect(farmland.kind.land.width, rect, moisture);
+                            .paste(farmland.kind.land.width, rect, &moisture);
                         break;
                     }
                 }
@@ -187,10 +187,10 @@ impl Gameplay {
             } => {
                 for farmland in self.farmlands.values_mut() {
                     if farmland.entity.land == land {
-                        farmland.moisture_capacity.patch_rect(
+                        farmland.moisture_capacity.paste(
                             farmland.kind.land.width,
                             rect,
-                            moisture_capacity,
+                            &moisture_capacity,
                         );
                         break;
                     }
@@ -206,7 +206,7 @@ impl Gameplay {
                     if farmland.entity.land == land {
                         farmland
                             .surface
-                            .patch_rect(farmland.kind.land.width, rect, surface);
+                            .paste(farmland.kind.land.width, rect, &surface);
                         break;
                     }
                 }
@@ -258,7 +258,7 @@ impl Gameplay {
                     if farmland.entity.soil == soil {
                         farmland
                             .fertility
-                            .patch_rect(farmland.kind.soil.width, rect, fertility);
+                            .paste(farmland.kind.soil.width, rect, &fertility);
                         break;
                     }
                 }

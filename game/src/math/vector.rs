@@ -19,8 +19,6 @@ pub trait TileMath {
     fn add_offset(self, offset: [i8; 2]) -> Self;
 
     fn position(self) -> Position;
-
-    fn fit(self, width: usize) -> usize;
 }
 
 impl TileMath for [usize; 2] {
@@ -38,11 +36,6 @@ impl TileMath for [usize; 2] {
 
     fn position(self) -> Position {
         [self[0] as f32 + 0.5, self[1] as f32 + 0.5]
-    }
-
-    #[inline]
-    fn fit(self, width: usize) -> usize {
-        self[0] + self[1] * width
     }
 }
 
@@ -159,7 +152,7 @@ impl VectorMath for [f32; 2] {
 
     #[inline]
     fn is_zero(self) -> bool {
-        (self[0] == 0.0 && self[1] == 0.0)
+        self[0] == 0.0 && self[1] == 0.0
     }
 }
 

@@ -1,7 +1,7 @@
 use crate::api::{ActionError, Event};
 use crate::inventory::{Inventory, ItemData};
 use crate::landscaping::Landscaping;
-use crate::math::{Array2D, VectorMath};
+use crate::math::{Array, ArrayIndex, VectorMath};
 use crate::model::{
     Assembly, Cementer, Composter, Corpse, Creature, Crop, Door, Equipment, Farmer, PlayerId, Rest,
     Stack, Universe, UniverseSnapshot,
@@ -20,21 +20,15 @@ impl Game {
         let mut events = vec![];
         let limit_x = 128;
         let limit_y = 128;
-        let range = [36, 20];
+        let range = [37, 21];
         let farmer = self.universe.get_player_farmer(player)?;
         let body = self.physics.get_body(farmer.body)?;
         let farmland = self.universe.get_farmland_by_space(body.space)?;
-        let [x, y] = body.position.to_tile();
-        let [w, h] = range;
-        let x = if x >= w / 2 { x - w / 2 } else { 0 };
-        let y = if y >= h / 2 { y - h / 2 } else { 0 };
-        let w = if x + w < limit_x { x + w } else { limit_x - x };
-        let h = if y + h < limit_y { y + h } else { limit_y - y };
-        let rect = [x, y, w, h];
+        let rect = body.position.to_tile().rect([limit_x, limit_y], range);
         let land = self.landscaping.get_land(farmland.land)?;
-        let surface = land.surface.extract_rect(land.kind.width, rect);
-        let moisture = land.moisture.extract_rect(land.kind.width, rect);
-        let moisture_capacity = land.moisture_capacity.extract_rect(land.kind.width, rect);
+        let surface = land.surface.copy(land.kind.width, rect);
+        let moisture = land.moisture.copy(land.kind.width, rect);
+        let moisture_capacity = land.moisture_capacity.copy(land.kind.width, rect);
         events.push(
             vec![
                 Landscaping::SurfaceInspected {
@@ -56,7 +50,7 @@ impl Game {
             .into(),
         );
         let soil = self.planting.get_soil(farmland.soil)?;
-        let fertility = soil.fertility.extract_rect(soil.kind.width, rect);
+        let fertility = soil.fertility.copy(soil.kind.width, rect);
         events.push(
             vec![Planting::SoilFertilityInspected {
                 soil: soil.id,

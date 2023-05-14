@@ -1,6 +1,6 @@
 use crate::ffi::{PyString, PyStringToString};
 use datamap::Storage;
-use game::api::{ActionResponse, Event};
+use game::api::{ActionError, Event};
 use game::Game;
 use std::ffi::CString;
 use std::fs;
@@ -9,7 +9,7 @@ use std::mem::take;
 pub struct Scenario {
     pub game: Game,
     pub events: Vec<Event>,
-    pub errors: Option<ActionResponse>,
+    pub errors: Option<ActionError>,
 }
 
 #[no_mangle]

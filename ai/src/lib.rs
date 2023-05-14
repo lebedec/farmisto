@@ -7,7 +7,7 @@ use std::time::Instant;
 
 use game::api::Action;
 use game::inventory::{ContainerId, FunctionsQuery, ItemId};
-use game::math::{cast_ray, Array2D, VectorMath};
+use game::math::{cast_ray, Array, ArrayIndex, VectorMath};
 use game::model::{Farmer, Knowledge};
 use game::physics::SpaceId;
 pub use thread::*;
@@ -104,19 +104,19 @@ impl Nature {
                     continue;
                 }
             };
-            let [x, y] = container.position.to_offset();
-            let radius = 5;
-            let min_x = (x - radius).max(0);
-            let min_y = (y - radius).max(0);
-            let max_x = (x + radius + 1).min(128);
-            let max_y = (y + radius + 1).min(128);
-            let x = min_x as usize;
-            let y = min_y as usize;
-            let w = (max_x - min_x) as usize;
-            let h = (max_y - min_y) as usize;
-            let rect = [x, y, w, h];
-            let patch = vec![0.5; w * h];
-            self.feeding_map.append_rect(128, rect, patch);
+            let mut is_food = false;
+            for item in items.values() {
+                if item.kind.functions.as_food().is_ok() {
+                    is_food = true;
+                    break;
+                }
+            }
+            if is_food {
+                let rect = container.position.to_tile().rect([128, 128], [9, 9]);
+                let [x, y, w, h] = rect;
+                let patch = vec![0.5; w * h];
+                self.feeding_map.add(128, rect, &patch);
+            }
         }
 
         for index in 0..self.creature_agents.len() {

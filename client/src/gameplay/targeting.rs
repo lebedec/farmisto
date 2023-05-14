@@ -2,7 +2,7 @@ use sdl2::keyboard::Keycode;
 
 use game::inventory::ContainerId;
 use game::landscaping::Surface;
-use game::math::{Tile, TileMath, VectorMath};
+use game::math::{ArrayIndex, Tile, TileMath, VectorMath};
 use game::model::{
     Assembly, Cementer, Composter, Construction, Corpse, Creature, Crop, Door, Equipment, Rest,
     Stack,

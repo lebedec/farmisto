@@ -8,7 +8,7 @@ use rand::prelude::*;
 use game::assembling::Rotation;
 use game::building::{Cell, Grid, Marker, Material, Room, Structure};
 use game::inventory::{ContainerId, ItemId};
-use game::math::{Position, Tile, TileMath, VectorMath};
+use game::math::{ArrayIndex, Position, Tile, TileMath, VectorMath};
 use game::model::{Activity, CementerKind, ComposterKind, Purpose};
 
 use crate::assets::{CementerAsset, ComposterAsset, SpriteAsset, SpriteAssetData};

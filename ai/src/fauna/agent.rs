@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use game::api::Action;
-use game::math::{Random, TileMath, VectorMath};
+use game::math::{ArrayIndex, Random, TileMath, VectorMath};
 use game::model::{Creature, Farmland};
 use game::raising::Behaviour;
 

@@ -4,7 +4,7 @@ use std::thread::current;
 
 use crate::api::Event;
 use crate::inventory::ItemId;
-use crate::math::{Random, TileMath, VectorMath};
+use crate::math::{ArrayIndex, Random, TileMath, VectorMath};
 use crate::model::Activity;
 use crate::{occur, Game};
 
