@@ -726,7 +726,12 @@ impl Assets {
     }
 
     pub fn load_behaviours_data(&mut self, path: PathBuf) -> Behaviours {
-        serde_json::from_slice(&fs::read(path).unwrap()).unwrap()
+        match serde_json::from_slice(&fs::read(path).unwrap()) {
+            Err(error) => {
+                panic!("Unable to load behaviours, {:?}", error);
+            }
+            Ok(behaviours) => behaviours,
+        }
     }
 
     pub fn create_sampler_from_data(

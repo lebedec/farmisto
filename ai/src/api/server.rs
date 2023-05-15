@@ -1,14 +1,12 @@
 use std::net::TcpListener;
-use std::sync::mpsc::{Receiver, Sender};
-use std::thread;
+use std::sync::mpsc::{Receiver, RecvTimeoutError, Sender};
+use std::time::Duration;
 
 use log::{error, info};
 use tungstenite::Message;
 
 use crate::api::handlers;
-use crate::api::rpc::Procedure::{
-    GetAgentInfo, GetAgentThinking, GetAgents, GetBehaviours, SaveBehaviours,
-};
+use crate::api::rpc::Procedure::{GetAgentInfo, GetAgentThinking, GetAgents, SaveBehaviours};
 use crate::api::rpc::{Procedure, ProcedureResult};
 use crate::Nature;
 
@@ -22,7 +20,6 @@ pub fn handle_rpc(
             GetAgentInfo { id } => handlers::get_agent_info(nature, id),
             GetAgentThinking { id } => handlers::get_agent_thinking(nature, id),
             GetAgents { .. } => handlers::get_agents(nature),
-            GetBehaviours { .. } => handlers::get_behaviours(),
             SaveBehaviours { behaviours } => handlers::save_behaviours(behaviours),
         };
         sender.send(result?)?;
@@ -53,18 +50,21 @@ pub fn serve_web_socket(call: Sender<Procedure>, results: Receiver<ProcedureResu
                     break;
                 }
 
-                for result in results.try_iter() {
-                    let message = match serde_json::to_string(&result) {
-                        Ok(message) => message,
-                        Err(error) => {
-                            error!("Unable to write result message, {error}");
-                            continue;
+                match results.recv_timeout(Duration::from_secs(1)) {
+                    Ok(result) => {
+                        let message = match serde_json::to_string(&result) {
+                            Ok(message) => message,
+                            Err(error) => {
+                                error!("Unable to write result message, {error}");
+                                continue;
+                            }
+                        };
+                        if let Err(error) = websocket.write_message(Message::text(message)) {
+                            error!("Unable to send message, {error}");
+                            break;
                         }
-                    };
-                    if let Err(error) = websocket.write_message(Message::text(message)) {
-                        error!("Unable to send message, {error}");
-                        break;
                     }
+                    _ => continue,
                 }
             }
         }

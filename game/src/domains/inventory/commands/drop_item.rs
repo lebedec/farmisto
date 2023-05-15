@@ -32,6 +32,7 @@ impl InventoryDomain {
                     items: vec![item],
                 },
             );
+            self.containers_id.register(destination_id.0);
             vec![
                 ItemRemoved {
                     item: data.id,

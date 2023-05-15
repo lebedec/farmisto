@@ -37,7 +37,7 @@ impl Gameplay {
                 .track_at_index_mut(CreatureRep::ANIMATION_WALK as usize)
                 .unwrap();
             walk.set_alpha(alpha);
-            walk.set_timescale(self.game_speed);
+            walk.set_timescale(self.game_speed * 1.5);
 
             let mut idle = creature
                 .spine

@@ -27,6 +27,7 @@ pub fn get_agent_info(nature: &Nature, id: usize) -> Result<ProcedureResult> {
         daytime: agent.daytime,
         timestamps: agent.timestamps.clone(),
         cooldowns: agent.cooldowns.clone(),
+        disabling: agent.disabling.clone(),
     };
     Ok(result)
 }

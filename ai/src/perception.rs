@@ -6,9 +6,9 @@ use log::error;
 use game::api::Event;
 use game::collections::Shared;
 use game::inventory::{ContainerId, FunctionsQuery, Inventory, ItemId, ItemKey, ItemKind};
-use game::math::{Position, VectorMath};
+use game::math::{ArrayIndex, Position, VectorMath};
 use game::model::{Creature, Crop, Farmer, Knowledge, Stack, Universe};
-use game::physics::Physics;
+use game::physics::{BarrierId, BarrierKey, BarrierKind, Physics};
 use game::raising::Raising;
 use game::timing::Timing;
 
@@ -32,14 +32,14 @@ pub struct CreatureView {
     pub _entity: Creature,
 }
 
-#[derive(Default, Clone, Copy)]
-pub struct TileView {
-    pub has_hole: bool,
-    pub has_barrier: bool,
-}
-
 pub struct InvaserView {
     _threat: f32,
+}
+
+pub struct BarrierView {
+    id: BarrierId,
+    kind: Shared<BarrierKind>,
+    position: [f32; 2],
 }
 
 pub struct ContainerView {
@@ -72,7 +72,7 @@ pub struct FoodView {
 }
 
 impl Nature {
-    pub fn perceive_universe(&mut self, event: Universe, known: &Knowledge) {
+    pub fn perceive_universe(&mut self, event: Universe) {
         match event {
             Universe::ActivityChanged { .. } => {}
             Universe::TreeAppeared { .. } => {}
@@ -80,13 +80,16 @@ impl Nature {
             Universe::FarmlandAppeared {
                 farmland, holes, ..
             } => {
-                let mut tiles = vec![vec![TileView::default(); 128]; 128];
+                let mut holes_map = vec![0; 128 * 128];
+                let barriers_map = vec![0; 128 * 128];
                 for y in 0..holes.len() {
-                    for x in 0..holes.len() {
-                        tiles[y][x].has_hole = holes[y][x] == 1;
+                    for x in 0..holes[0].len() {
+                        let index = [x, y].fit(128);
+                        holes_map[index] = holes[y][x];
                     }
                 }
-                self.tiles.insert(farmland.space, tiles);
+                self.holes_map.insert(farmland.space, holes_map);
+                self.barriers_map.insert(farmland.space, barriers_map);
             }
             Universe::FarmlandVanished(_) => {}
             Universe::FarmerAppeared {
@@ -164,6 +167,7 @@ impl Nature {
                     behaviour,
                     timestamps: HashMap::new(),
                     cooldowns: HashMap::new(),
+                    disabling: Default::default(),
                 });
             }
             Universe::CreatureVanished(creature) => {
@@ -253,31 +257,52 @@ impl Nature {
                 }
             }
             Physics::BarrierCreated {
-                space, position, ..
+                space,
+                position,
+                key,
+                id,
+                active,
+                ..
             } => {
-                let tiles = self.tiles.get_mut(&space).expect("tiles");
-                let [x, y] = position.to_tile();
-                // TODO: barrier bounds
-                tiles[y][x].has_barrier = true;
+                let barriers_map = self.barriers_map.get_mut(&space).expect("barriers_map");
+                let kind = self.known.barriers.get(key).expect("barrier kind");
+                let tiles = kind.tiles(position);
+                self.barriers.insert(id, BarrierView { id, position, kind });
+                for tile in tiles {
+                    let index = tile.fit(128);
+                    barriers_map[index] = if active { 1 } else { 0 };
+                }
             }
             Physics::BarrierChanged { id, space, active } => {
-                // let tiles = self.tiles.get_mut(&space).expect("tiles");
-                // let [x, y] = position.to_tile();
-                // tiles[y][x].has_barrier = active;
+                let barriers_map = self.barriers_map.get_mut(&space).expect("barriers_map");
+                let barrier = self.barriers.get(&id).expect("barrier");
+                let tiles = barrier.kind.tiles(barrier.position);
+                for tile in tiles {
+                    let index = tile.fit(128);
+                    barriers_map[index] = if active { 1 } else { 0 };
+                }
             }
             Physics::BarrierDestroyed {
-                position, space, ..
+                id,
+                position,
+                space,
+                ..
             } => {
-                let tiles = self.tiles.get_mut(&space).expect("tiles");
-                let [x, y] = position.to_tile();
-                // TODO: multiple barriers on same tile
-                tiles[y][x].has_barrier = false;
+                let barriers_map = self.barriers_map.get_mut(&space).expect("barriers_map");
+                let barrier = self.barriers.get(&id).expect("barrier");
+                let tiles = barrier.kind.tiles(barrier.position);
+                for tile in tiles {
+                    let index = tile.fit(128);
+                    barriers_map[index] = 0;
+                }
+                self.barriers.remove(&id);
             }
             Physics::SpaceUpdated { id, holes } => {
-                let tiles = self.tiles.get_mut(&id).expect("tiles");
+                let holes_map = self.holes_map.get_mut(&id).expect("holes_map");
                 for y in 0..holes.len() {
                     for x in 0..holes.len() {
-                        tiles[y][x].has_hole = holes[y][x] == 1;
+                        let index = [x, y].fit(128);
+                        holes_map[index] = holes[y][x];
                     }
                 }
             }
@@ -335,7 +360,7 @@ impl Nature {
         }
     }
 
-    pub fn perceive_inventory(&mut self, event: Inventory, known: &Knowledge) {
+    pub fn perceive_inventory(&mut self, event: Inventory) {
         match event {
             Inventory::ContainerCreated { .. } => {}
             Inventory::ContainerDestroyed { id } => {
@@ -344,7 +369,7 @@ impl Nature {
             Inventory::ItemsAdded { items } => {
                 for item in items {
                     let container = self.items.entry(item.container).or_insert(HashMap::new());
-                    let kind = known.items.get(item.key).unwrap();
+                    let kind = self.known.items.get(item.key).unwrap();
                     container.insert(
                         item.id,
                         ItemView {
@@ -373,12 +398,12 @@ impl Nature {
         }
     }
 
-    pub fn perceive(&mut self, events: Vec<Event>, knowledge: &Knowledge) {
+    pub fn perceive(&mut self, events: Vec<Event>) {
         for event in events {
             match event {
                 Event::UniverseStream(events) => {
                     for event in events {
-                        self.perceive_universe(event, knowledge);
+                        self.perceive_universe(event);
                     }
                 }
                 Event::PhysicsStream(events) => {
@@ -389,7 +414,7 @@ impl Nature {
                 Event::BuildingStream(_) => {}
                 Event::InventoryStream(events) => {
                     for event in events {
-                        self.perceive_inventory(event, knowledge);
+                        self.perceive_inventory(event);
                     }
                 }
                 Event::PlantingStream(_) => {}

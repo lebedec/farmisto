@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use game::api::Action;
 use game::math::{ArrayIndex, Random, TileMath, VectorMath};
@@ -25,6 +25,7 @@ pub struct CreatureAgent {
     pub behaviour: Behaviour,
     pub timestamps: HashMap<Behaviour, f32>,
     pub cooldowns: HashMap<String, f32>,
+    pub disabling: HashSet<String>,
 }
 
 #[derive(Default, Clone, serde::Serialize)]
@@ -35,19 +36,22 @@ pub struct Targeting {
     pub me: Vec<usize>,
 }
 
-#[derive(Debug, Copy, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub enum MyAction {
     Nothing,
     Relax,
+    Enable(String),
+    Disable(String),
 }
 
-#[derive(Debug, Copy, Clone, serde::Serialize, serde::Deserialize)]
+#[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
 pub enum My {
     Constant,
     Delay(Behaviour, f32),
     Hunger,
     Thirst,
     Daytime,
+    Disabling(String),
 }
 
 #[derive(Debug, Copy, Clone, serde::Serialize, serde::Deserialize)]
@@ -80,7 +84,6 @@ pub enum Food {
 #[derive(Debug, Copy, Clone, serde::Serialize, serde::Deserialize)]
 pub enum GroundAction {
     Move,
-    Delay { min: f32, max: f32 },
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
@@ -96,7 +99,8 @@ pub enum Ground {
 
 pub enum Tuning {
     Nothing,
-    Delay,
+    Enable(String),
+    Disable(String),
 }
 
 pub type CreatureDecision = Decision<My, MyAction>;
@@ -109,8 +113,13 @@ type Reaction = decision_making::Reaction<Action, Tuning>;
 impl CreatureAgent {
     pub fn tune(&mut self, tuning: Tuning) {
         match tuning {
-            Tuning::Delay => {}
             Tuning::Nothing => {}
+            Tuning::Enable(behaviour) => {
+                self.disabling.remove(&behaviour);
+            }
+            Tuning::Disable(behaviour) => {
+                self.disabling.insert(behaviour);
+            }
         }
     }
 
@@ -121,15 +130,22 @@ impl CreatureAgent {
             My::Thirst => self.thirst,
             My::Delay(behaviour, delay) => self.duration(*behaviour) / delay,
             My::Daytime => self.daytime,
+            My::Disabling(behaviour) => self.disabled(behaviour),
         }
     }
 
-    pub fn react_me(&self, action: MyAction, me: &CreatureView) -> Reaction {
+    pub fn react_me(&self, action: &MyAction, me: &CreatureView) -> Reaction {
         let action = match action {
             MyAction::Nothing => return Reaction::Tuning(Tuning::Nothing),
             MyAction::Relax => Action::TakeNap {
                 creature: self.entity,
             },
+            MyAction::Enable(behaviour) => {
+                return Reaction::Tuning(Tuning::Enable(behaviour.clone()))
+            }
+            MyAction::Disable(behaviour) => {
+                return Reaction::Tuning(Tuning::Disable(behaviour.clone()))
+            }
         };
         Reaction::Action(action)
     }
@@ -144,7 +160,7 @@ impl CreatureAgent {
         }
     }
 
-    pub fn react_crop(&self, action: CropAction, crop: &CropView) -> Reaction {
+    pub fn react_crop(&self, action: &CropAction, crop: &CropView) -> Reaction {
         let action = match action {
             CropAction::Eat => Action::EatCrop {
                 crop: crop.entity,
@@ -163,7 +179,7 @@ impl CreatureAgent {
         }
     }
 
-    pub fn react_food(&self, action: FoodAction, food: &FoodView) -> Reaction {
+    pub fn react_food(&self, action: &FoodAction, food: &FoodView) -> Reaction {
         let action = match action {
             FoodAction::Eat => match food.owner {
                 Owner::Stack(stack) => Action::EatFoodFromStack {
@@ -193,18 +209,25 @@ impl CreatureAgent {
         }
     }
 
-    pub fn react_ground(&self, action: GroundAction, tile: &[usize; 2]) -> Reaction {
+    pub fn react_ground(&self, action: &GroundAction, tile: &[usize; 2]) -> Reaction {
         match action {
             GroundAction::Move => Reaction::Action(Action::MoveCreature {
                 creature: self.entity,
                 destination: tile.position(),
             }),
-            GroundAction::Delay { .. } => Reaction::Tuning(Tuning::Delay),
         }
     }
 }
 
 impl CreatureAgent {
+    fn disabled(&self, behavior: &str) -> f32 {
+        if self.disabling.contains(behavior) {
+            1.0
+        } else {
+            0.0
+        }
+    }
+
     fn duration(&self, behaviour: Behaviour) -> f32 {
         let timestamp = *self.timestamps.get(&behaviour).unwrap_or(&0.0);
         self.colonization_date - timestamp

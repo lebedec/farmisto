@@ -1,6 +1,6 @@
 use log::info;
 use serde::Serialize;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 use std::fmt::Debug;
 
 #[derive(serde::Serialize, serde::Deserialize)]
@@ -15,11 +15,12 @@ where
 #[derive(serde::Serialize, serde::Deserialize)]
 pub struct Decision<I, A>
 where
-    A: Copy + Sized + Debug + Serialize,
+    A: Sized + Debug + Serialize,
     I: Sized + Serialize,
 {
     pub action: A,
-    pub tags: Option<Vec<String>>,
+    #[serde(default = "HashSet::new")]
+    pub tags: HashSet<String>,
     pub considerations: Vec<Consideration<I>>,
 }
 
@@ -81,7 +82,7 @@ pub struct Best {
     pub set: usize,
     pub behaviour: usize,
     pub decision: usize,
-    pub decision_tags: Option<Vec<String>>,
+    pub decision_tags: HashSet<String>,
     pub target: usize,
     pub scores: f32,
 }
@@ -94,21 +95,23 @@ pub fn react<'t, I, T, E, F, A, Action, Tuning, Agent, Context>(
     input: F,
     interact: E,
     thinking: &mut Thinking,
+    disabling: &HashSet<String>,
 ) -> Option<(Best, Reaction<Action, Tuning>)>
 where
-    A: Copy + Sized + Debug + Serialize,
+    A: Sized + Debug + Serialize,
     I: Sized + Serialize,
     F: Fn(&Agent, &I, &T, &Context) -> f32,
-    E: Fn(&Agent, A, &T) -> Reaction<Action, Tuning>,
+    E: Fn(&Agent, &A, &T) -> Reaction<Action, Tuning>,
 {
     match consider(
         &behaviours,
         targets,
         |inp, target| input(agent, &inp, target, context),
         thinking,
+        disabling,
     ) {
         Some(best) => {
-            let action = behaviours[best.behaviour].decisions[best.decision].action;
+            let action = &behaviours[best.behaviour].decisions[best.decision].action;
             let target = &targets[best.target];
             let action = interact(agent, action, target);
             Some((best, action))
@@ -122,9 +125,10 @@ pub fn consider<'t, I, T, F, A>(
     targets: &'t Vec<T>,
     input: F,
     thinking: &mut Thinking,
+    disabling: &HashSet<String>,
 ) -> Option<Best>
 where
-    A: Copy + Sized + Debug + Serialize,
+    A: Sized + Debug + Serialize,
     I: Sized + Serialize,
     F: Fn(&I, &T) -> f32,
 {
@@ -138,6 +142,10 @@ where
             let mut best_decision = 0;
             let mut best_decision_scores = 0.0;
             for (decision_index, decision) in behaviour.decisions.iter().enumerate() {
+                if !decision.tags.is_disjoint(disabling) {
+                    // TODO: optimization, check before targets iteration
+                    continue;
+                }
                 let mut scores = 1.0;
                 for (index, consideration) in decision.considerations.iter().enumerate() {
                     let x = input(&consideration.input, target);

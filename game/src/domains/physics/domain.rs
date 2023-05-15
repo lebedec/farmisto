@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 
 use crate::collections::{Sequence, Shared};
-use crate::math::Collider;
+use crate::math::{Collider, Tile, VectorMath};
 
 pub const MAX_SPACES: usize = 128;
 
@@ -221,5 +221,27 @@ impl Collider for Barrier {
         } else {
             [0.0, 0.0]
         }
+    }
+}
+
+impl BarrierKind {
+    pub fn tiles(&self, position: [f32; 2]) -> Vec<Tile> {
+        // TODO: rotation of barrier
+        let bounds = self.bounds.to_offset();
+        let [w, h] = bounds;
+        let offset_x = (bounds[0] / 2) as isize;
+        let offset_y = (bounds[1] / 2) as isize;
+        let mut tiles = vec![];
+        let [px, py] = position.to_offset();
+        for y in 0..h {
+            for x in 0..w {
+                let x = x - offset_x + px;
+                let y = y - offset_y + py;
+                if x >= 0 && y >= 0 {
+                    tiles.push([x as usize, y as usize]);
+                }
+            }
+        }
+        tiles
     }
 }

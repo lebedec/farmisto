@@ -12,9 +12,10 @@ impl Game {
         let bite = 0.3;
         let damage_plant = self.planting.damage_plant(crop.plant, bite)?;
         let feed_events = self.raising.feed_animal(creature.animal, bite)?();
+        let continuation = self.raising.get_animal(creature.animal)?.behaviour;
         let trigger_behaviour =
             self.raising
-                .trigger_behaviour(creature.animal, Behaviour::Eating, Behaviour::Idle)?;
+                .trigger_behaviour(creature.animal, Behaviour::Eating, continuation)?;
         let events = occur![damage_plant(), feed_events, trigger_behaviour(),];
         Ok(events)
     }

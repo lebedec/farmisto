@@ -7,9 +7,9 @@ use std::time::Instant;
 
 use game::api::Action;
 use game::inventory::{ContainerId, FunctionsQuery, ItemId};
-use game::math::{cast_ray, Array, ArrayIndex, VectorMath};
+use game::math::{cast_ray, cast_ray2, Array, ArrayIndex, VectorMath};
 use game::model::{Farmer, Knowledge};
-use game::physics::SpaceId;
+use game::physics::{BarrierId, BarrierKey, SpaceId};
 pub use thread::*;
 
 use crate::decision_making::{make_decision, react, Behaviour, Reaction, Thinking};
@@ -18,7 +18,7 @@ use crate::fauna::{
     CreatureGroundDecision, Targeting,
 };
 use crate::perception::{
-    ContainerView, CreatureView, CropView, FarmerView, FoodView, ItemView, TileView,
+    BarrierView, ContainerView, CreatureView, CropView, FarmerView, FoodView, ItemView,
 };
 
 mod api;
@@ -63,7 +63,9 @@ pub struct Nature {
     // game view
     crops: Vec<CropView>,
     creatures: Vec<CreatureView>,
-    tiles: HashMap<SpaceId, Vec<Vec<TileView>>>,
+    holes_map: HashMap<SpaceId, Vec<u8>>,
+    barriers_map: HashMap<SpaceId, Vec<u8>>,
+    barriers: HashMap<BarrierId, BarrierView>,
     containers: HashMap<ContainerId, ContainerView>,
     items: HashMap<ContainerId, HashMap<ItemId, ItemView>>,
     farmers: HashMap<Farmer, FarmerView>,
@@ -72,6 +74,8 @@ pub struct Nature {
     colonization_date: f32,
     // shared
     feeding_map: Vec<f32>,
+    //
+    known: Knowledge,
 }
 
 impl Nature {
@@ -81,17 +85,13 @@ impl Nature {
         let mut actions = vec![];
 
         let mut holes = HashMap::new();
-        for (space, view) in &self.tiles {
-            let mut data = vec![vec![0u8; 128]; 128];
-            for y in 0..128 {
-                for x in 0..128 {
-                    data[y][x] = if view[y][x].has_hole || view[y][x].has_barrier {
-                        1
-                    } else {
-                        0
-                    }
-                }
-            }
+        for (space, view) in &self.holes_map {
+            let mut data = view.clone();
+            data.add(
+                128,
+                [0, 0, 128, 128],
+                &self.barriers_map.get(space).unwrap(),
+            );
             holes.insert(*space, data);
         }
 
@@ -123,9 +123,9 @@ impl Nature {
             let agent = &self.creature_agents[index];
             let sets = &behaviours.creatures;
             let tiles = self.get_tiles_around(
-                agent.farmland.space,
                 agent.position.to_tile(),
                 agent.radius as usize,
+                holes.get(&agent.farmland.space).expect("agent holes"),
             );
 
             let mut foods = vec![];
@@ -141,7 +141,7 @@ impl Nature {
                     continue;
                 }
                 let holes = holes.get(&agent.farmland.space).unwrap();
-                let contacts = cast_ray(agent.position, container.position, holes);
+                let contacts = cast_ray2(agent.position, container.position, holes);
                 let is_food_reachable = contacts.is_empty();
                 if is_food_reachable {
                     for item in items.values() {
@@ -164,7 +164,7 @@ impl Nature {
                     continue;
                 }
                 let holes = holes.get(&agent.farmland.space).unwrap();
-                let contacts = cast_ray(agent.position, crop.position, holes);
+                let contacts = cast_ray2(agent.position, crop.position, holes);
                 let is_food_reachable = contacts.is_empty();
                 if is_food_reachable {
                     // TODO: common borrowing structure
@@ -192,6 +192,7 @@ impl Nature {
                     CreatureAgent::me,
                     CreatureAgent::react_me,
                     thinking,
+                    &agent.disabling,
                 ),
                 CreatureBehaviourSet::Crop { behaviours, .. } => react(
                     self,
@@ -201,6 +202,7 @@ impl Nature {
                     CreatureAgent::crop,
                     CreatureAgent::react_crop,
                     thinking,
+                    &agent.disabling,
                 ),
                 CreatureBehaviourSet::Ground { behaviours, .. } => react(
                     self,
@@ -210,6 +212,7 @@ impl Nature {
                     CreatureAgent::ground,
                     CreatureAgent::react_ground,
                     thinking,
+                    &agent.disabling,
                 ),
                 CreatureBehaviourSet::Food { behaviours, .. } => react(
                     self,
@@ -219,6 +222,7 @@ impl Nature {
                     CreatureAgent::food,
                     CreatureAgent::react_food,
                     thinking,
+                    &agent.disabling,
                 ),
             });
             let agent = &mut self.creature_agents[index];
@@ -226,10 +230,8 @@ impl Nature {
             agent.targeting = targeting;
 
             if let Some(best) = agent.thinking.best.as_ref() {
-                if let Some(tags) = best.decision_tags.as_ref() {
-                    for tag in tags {
-                        agent.cooldowns.insert(tag.clone(), self.colonization_date);
-                    }
+                for tag in &best.decision_tags {
+                    agent.cooldowns.insert(tag.clone(), self.colonization_date);
                 }
             }
 

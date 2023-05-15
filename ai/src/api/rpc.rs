@@ -1,5 +1,5 @@
 use game::raising::Behaviour;
-use std::collections::HashMap;
+use std::collections::{HashMap, HashSet};
 
 use crate::fauna::Targeting;
 use crate::{Behaviours, Thinking};
@@ -9,7 +9,6 @@ pub enum Procedure {
     GetAgentInfo { id: usize },
     GetAgentThinking { id: usize },
     GetAgents {},
-    GetBehaviours {},
     SaveBehaviours { behaviours: Behaviours },
 }
 
@@ -27,15 +26,13 @@ pub enum ProcedureResult {
         daytime: f32,
         timestamps: HashMap<Behaviour, f32>,
         cooldowns: HashMap<String, f32>,
+        disabling: HashSet<String>,
     },
     GetAgentThinking {
         thinking: Thinking,
     },
     GetAgents {
         creatures: Vec<usize>,
-    },
-    GetBehaviours {
-        behaviours: Behaviours,
     },
     GetViews {
         crops: Vec<usize>,

@@ -45,6 +45,16 @@ class Editor:
             farmland=farmland
         )
 
+    def add_door(self, farmland: str, tile: [int, int], kind_name: str):
+        execute_script(
+            self.connection,
+            './add_door.sql',
+            kind_name=f"'{kind_name}'",
+            position=as_sql_position(tile),
+            pivot=as_sql_tile(tile),
+            farmland=farmland
+        )
+
     def add_equipment(self, farmland: str, tile: [int, int], kind_name: str):
         execute_script(
             self.connection,
@@ -219,10 +229,11 @@ def generate_farmland(
                 if code in objects:
                     tile = (x, y)
                     edits.append((tile, objects[code]))
-                elif code in surfaces:
+
+                if code in surfaces:
                     surface = surfaces[code]
                     is_hole = 1
-                else:
+                elif code in buildings:
                     wall, door, window, material = buildings[code]
                     is_hole = 1 if wall and not door else 0
 
@@ -363,8 +374,8 @@ def prototype_raising(destination_path: str, template_path: str):
             '8': lambda tile, f: editor.add_crop(f, tile, 'corn', 1.3, health=0.75, hunger=1.0, thirst=0.5),
             '9': lambda tile, f: editor.add_crop(f, tile, 'corn', 1.9, health=0.5, hunger=1.0, thirst=0.5),
             'k': lambda tile, farmland: editor.add_composter(farmland, tile, 'composter'),
-            'd': lambda tile, farmland: editor.add_stack(farmland, tile, ['door-x3'] * 5, 1),
             'r': lambda tile, farmland: editor.add_stack(farmland, tile, ['residue'] * 1, 10),
+            'd': lambda tile, farmland: editor.add_door(farmland, tile, 'door-x3-planks'),
         },
         buildings={
             #?': (w, d, window, material)
@@ -373,7 +384,8 @@ def prototype_raising(destination_path: str, template_path: str):
             '|': (1, 1, 0, Material.CONCRETE),
             '-': (1, 0, 1, Material.CONCRETE),
             '+': (1, 0, 0, Material.PLANKS),
-            '=': (1, 1, 0, Material.PLANKS)
+            '=': (1, 1, 0, Material.PLANKS),
+            'd': (1, 1, 0, Material.PLANKS),
         },
         surfaces={
             '~': 1
@@ -388,12 +400,12 @@ def prototype_raising(destination_path: str, template_path: str):
         . . . . . . . . . . . . . . . . . . . . . . . . . r r . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
         . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
         . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-        . . . . . . . . . . . . . . . . . d . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
         . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-        . . . . . . . . . . . . . . . . + + + = = = + + + . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+        . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+        . . . . . . . . . . . . . . . . + + + = d = + + + . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
         . . . . . . . . . . . . . . . . + . . . . . . . + . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-        . . . . . . . . . . . . b . . . + . . . . . . . + . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-        . . . . . . . . . . . . . . . . + . . . L . . . + . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+        . . . . . . . . . . . . b . . . + . . . L . . . + . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+        . . . . . . . . . . . . . . . . + . . . . . . . + . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
         . . . . . . . . . . . . . . . . + . . . . . . . + . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
         . . . . . . . . . . . . . . . . + + + + + + + + + . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
         . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .

@@ -10,9 +10,7 @@ use game::api::{Event, GameResponse, PlayerRequest};
 use game::Game;
 use network::TcpClient;
 
-use crate::api::rpc::Procedure::{
-    GetAgentInfo, GetAgentThinking, GetAgents, GetBehaviours, SaveBehaviours,
-};
+use crate::api::rpc::Procedure::{GetAgentInfo, GetAgentThinking, GetAgents, SaveBehaviours};
 use crate::api::{handle_rpc, serve_web_socket};
 use crate::{Behaviours, Nature};
 
@@ -29,23 +27,25 @@ impl AiThread {
         thread::spawn(move || serve_web_socket(call, results));
         thread::spawn(move || {
             let mut action_id = 0;
-            let known = Game::load_knowledge(&knowledge);
             let mut nature = Nature {
                 crops: vec![],
                 creatures: vec![],
+                holes_map: Default::default(),
+                barriers_map: Default::default(),
                 creature_agents: vec![],
-                tiles: Default::default(),
                 containers: Default::default(),
                 items: Default::default(),
                 colonization_date: 0.0,
                 farmers: Default::default(),
                 feeding_map: vec![],
+                known: Game::load_knowledge(&knowledge),
+                barriers: Default::default(),
             };
             loop {
                 let t = Instant::now();
                 {
                     let events = handle_server_responses(&mut client);
-                    nature.perceive(events, &known);
+                    nature.perceive(events);
                     let behaviours = match behaviours.read() {
                         Ok(behaviours) => behaviours,
                         Err(_) => {

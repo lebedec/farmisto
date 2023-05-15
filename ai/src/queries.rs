@@ -1,15 +1,14 @@
 use crate::Nature;
+use game::math::ArrayIndex;
 use game::physics::SpaceId;
 
 impl Nature {
     pub(crate) fn get_tiles_around(
         &self,
-        space: SpaceId,
         center: [usize; 2],
         radius: usize,
+        game_tiles: &Vec<u8>,
     ) -> Vec<[usize; 2]> {
-        let game_tiles = self.tiles.get(&space).expect("tiles");
-
         let mut tiles = vec![];
         let mut map = vec![vec![0; 128]; 128];
         let mut frontier = vec![center];
@@ -29,8 +28,9 @@ impl Nature {
                     if nx >= 0 && nx < 128 && ny >= 0 && ny < 128 {
                         let nx = nx as usize;
                         let ny = ny as usize;
-                        let tile = &game_tiles[ny][nx];
-                        let not_empty = tile.has_barrier || tile.has_hole;
+                        let nindex = [nx, ny].fit(128);
+                        let tile = game_tiles[nindex];
+                        let not_empty = tile > 0;
                         if not_empty {
                             // mark blocked tiles
                             map[ny][nx] = 1;
