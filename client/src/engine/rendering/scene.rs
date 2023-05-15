@@ -11,16 +11,16 @@ use std::mem::take;
 use std::sync::{Arc, RwLock};
 use std::time::Instant;
 
-use crate::assets::SamplerAsset;
+use crate::assets::{SamplerAsset, TextureAsset};
 use crate::engine::base::Screen;
 use crate::engine::base::ShaderData;
 use crate::engine::base::{MyPipeline, MyQueue};
 use crate::engine::buffers::{CameraUniform, LightUniform, UniformBuffer};
-use crate::engine::rendering::GROUND_VERTICES;
 use crate::engine::rendering::SPRITE_VERTICES;
 use crate::engine::rendering::{AnimalPushConstants, AnimalRenderObject, GroundRenderObject};
 use crate::engine::rendering::{ElementPushConstants, ElementRenderObject, PlantRenderObject};
 use crate::engine::rendering::{GroundPushConstants, GroundUniform, Light};
+use crate::engine::rendering::{LinePushConstants, LineRenderObject, GROUND_VERTICES};
 use crate::engine::rendering::{PlantPushConstants, RenderingLine};
 use crate::engine::rendering::{SceneMetrics, SpritePushConstants};
 use crate::engine::rendering::{SpineVertex, TilemapPushConstants};
@@ -69,11 +69,17 @@ pub struct Scene {
     pub ui_element_sampler: SamplerAsset,
     pub ui_elements: Vec<ElementRenderObject>,
 
+    pub line_pipeline: MyPipeline<1, LinePushConstants, 1>,
+    pub lines: Vec<LineRenderObject>,
+
     pub swapchain: usize,
 
     metrics: Arc<Box<SceneMetrics>>,
 
     pub rasterizer: Arc<RwLock<TextRenderThread>>,
+
+    pub white: TextureAsset,
+    pub rope: TextureAsset,
 }
 
 impl Scene {
@@ -148,6 +154,16 @@ impl Scene {
                 SpriteVertex::ATTRIBUTES.to_vec(),
             );
 
+        let line_pipeline = MyPipeline::build(assets.pipeline("lines"), pass)
+            .material([vk::DescriptorType::COMBINED_IMAGE_SAMPLER])
+            .data([vk::DescriptorType::UNIFORM_BUFFER])
+            .build(
+                device,
+                &screen,
+                SpriteVertex::BINDINGS.to_vec(),
+                SpriteVertex::ATTRIBUTES.to_vec(),
+            );
+
         let tilemap_pipeline = MyPipeline::build(assets.pipeline("tilemap"), pass)
             .material([vk::DescriptorType::COMBINED_IMAGE_SAMPLER])
             .data([vk::DescriptorType::UNIFORM_BUFFER])
@@ -211,8 +227,12 @@ impl Scene {
             ui_element_sampler,
             ui_element_vertex_buffer,
             ui_elements: vec![],
+            line_pipeline,
             metrics,
             rasterizer,
+            lines: vec![],
+            white: assets.texture_white(),
+            rope: assets.texture("assets/texture/rope.png"),
         }
     }
 
@@ -245,6 +265,7 @@ impl Scene {
         self.animals_pipeline.update(&self.device, &self.screen);
         self.ground_pipeline.update(&self.device, &self.screen);
         self.sprite_pipeline.update(&self.device, &self.screen);
+        self.line_pipeline.update(&self.device, &self.screen);
         self.tilemap_pipeline.update(&self.device, &self.screen);
         self.ui_pipeline.update(&self.device, &self.screen);
     }
@@ -325,6 +346,26 @@ impl Scene {
             pipeline.draw_vertices(self.tilemap_vertex_buffer.vertices);
         }
         timer.gauge("tilemap-0", &self.metrics.draw);
+
+        self.lines = vec![LineRenderObject {
+            texture: self.rope.share(),
+            constants: LinePushConstants {
+                position: [1200.0, 300.0],
+                size: [400.0, 400.0],
+                coords: [0.0, 0.0, 1.0, 1.0],
+                color: [1.0, 0.0, 0.0, 1.0],
+                pivot: [0.5, 0.5],
+            },
+        }];
+        let lines = take(&mut self.lines);
+        let mut pipeline = self.line_pipeline.perform(device, buffer);
+        pipeline.bind_camera(camera_descriptor);
+        for line in lines {
+            pipeline.bind_vertex_buffer(&self.tilemap_vertex_buffer);
+            pipeline.bind_material([(self.ui_element_sampler.handle, line.texture.view)]);
+            pipeline.push_constants(line.constants);
+            pipeline.draw_vertices(self.tilemap_vertex_buffer.vertices);
+        }
 
         for (line, objects) in take(&mut self.sorted_render_objects) {
             let mut pipeline = self.sprite_pipeline.perform(device, buffer);

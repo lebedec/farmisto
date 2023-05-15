@@ -112,3 +112,18 @@ pub struct ElementRenderObject {
     pub constants: ElementPushConstants,
     pub texture: vk::DescriptorSet,
 }
+
+#[derive(Debug, Clone, Copy, bytemuck::Pod, bytemuck::Zeroable)]
+#[repr(C)]
+pub struct LinePushConstants {
+    pub position: [f32; 2],
+    pub size: [f32; 2],
+    pub coords: [f32; 4],
+    pub color: [f32; 4],
+    pub pivot: [f32; 2],
+}
+
+pub struct LineRenderObject {
+    pub texture: TextureAsset,
+    pub constants: LinePushConstants,
+}
