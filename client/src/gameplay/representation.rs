@@ -9,11 +9,11 @@ use game::inventory::{ContainerId, ItemId, ItemKind};
 use game::math::{Collider, Tile, VectorMath};
 use game::model::{
     Activity, Assembly, Cementer, CementerKind, Composter, ComposterKind, Construction, Corpse,
-    Creature, CreatureKind, Crop, Door, Equipment, Farmer, FarmerKind, Farmland, FarmlandKind,
-    Rest, Stack, Tree, TreeKind,
+    Creature, CreatureKind, Crop, Door, Equipment, EquipmentKind, Farmer, FarmerKind, Farmland,
+    FarmlandKind, Rest, Stack, Tree, TreeKind,
 };
 use game::physics::BodyKind;
-use game::raising::Behaviour;
+use game::raising::{Behaviour, TetherId};
 
 use crate::assets::{
     BuildingMaterialAsset, ComposterAsset, CorpseAsset, CreatureAsset, SpriteAsset,
@@ -132,6 +132,8 @@ pub struct ConstructionRep {
 pub struct EquipmentRep {
     pub entity: Equipment,
     pub position: [f32; 2],
+    pub kind: Shared<EquipmentKind>,
+    pub item: ItemAsset,
 }
 
 pub enum AssemblyTargetAsset {
@@ -294,6 +296,7 @@ pub struct CreatureRep {
     pub direction: [f32; 2],
     pub velocity: [f32; 2],
     pub behaviour: Behaviour,
+    pub tether: Option<TetherId>,
 }
 
 pub fn anim(behaviour: Behaviour) -> &'static str {

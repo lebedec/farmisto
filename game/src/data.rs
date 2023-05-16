@@ -1,7 +1,7 @@
 use core::fmt::Debug;
 
 use datamap::Storage;
-use log::info;
+use log::{info, warn};
 use serde::de;
 
 use crate::assembling::{Placement, PlacementId};
@@ -263,7 +263,8 @@ impl Game {
             let surveyor = self.known.surveyors.find2(&name)?.id;
             PurposeDescription::Surveying { surveyor }
         } else {
-            PurposeDescription::Moisture { sensor: 0 }
+            warn!("Loads tethering purpose by default, deprecated");
+            PurposeDescription::Tethering
         };
         let data = EquipmentKind {
             id: EquipmentKey(row.get("id")?),

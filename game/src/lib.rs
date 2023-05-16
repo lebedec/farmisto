@@ -225,6 +225,10 @@ impl Game {
                     FarmerBound::UntieCreature { creature } => {
                         self.untie_creature(farmer, creature)?
                     }
+                    FarmerBound::TieCreature2 { tether, creature } => self.tie_creature2(farmer, tether, creature)?,
+                    FarmerBound::UntieCreature2 { tether, creature } => {
+                        self.untie_creature2(farmer, tether, creature)?
+                    }
                     FarmerBound::Survey {
                         surveyor,
                         tile,

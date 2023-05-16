@@ -7,9 +7,9 @@ use game::api::Event;
 use game::collections::Shared;
 use game::inventory::{ContainerId, FunctionsQuery, Inventory, ItemId, ItemKey, ItemKind};
 use game::math::{ArrayIndex, Position, VectorMath};
-use game::model::{Creature, Crop, Farmer, Knowledge, Stack, Universe};
+use game::model::{Creature, Crop, Farmer, Knowledge, Purpose, Stack, Universe};
 use game::physics::{BarrierId, BarrierKey, BarrierKind, Physics};
-use game::raising::Raising;
+use game::raising::{Raising, TetherId};
 use game::timing::Timing;
 
 use crate::decision_making::Thinking;
@@ -71,6 +71,12 @@ pub struct FoodView {
     pub position: [f32; 2],
 }
 
+pub struct TetherView {
+    pub id: TetherId,
+    pub length: f32,
+    pub position: [f32; 2],
+}
+
 impl Nature {
     pub fn perceive_universe(&mut self, event: Universe) {
         match event {
@@ -110,9 +116,18 @@ impl Nature {
                         owner: Owner::Hands(farmer),
                     },
                 );
+                self.tethers.insert(
+                    farmer.tether,
+                    TetherView {
+                        id: farmer.tether,
+                        length: 5.0,
+                        position,
+                    },
+                );
             }
             Universe::FarmerVanished(farmer) => {
                 self.farmers.remove(&farmer);
+                self.tethers.remove(&farmer.tether);
             }
             Universe::StackAppeared { stack, position } => {
                 self.containers.insert(
@@ -140,8 +155,23 @@ impl Nature {
             Universe::CropVanished(_) => {}
             Universe::ConstructionAppeared { .. } => {}
             Universe::ConstructionVanished { .. } => {}
-            Universe::EquipmentAppeared { .. } => {}
-            Universe::EquipmentVanished(_) => {}
+            Universe::EquipmentAppeared { position, entity } => {
+                if let Purpose::Tethering { tether } = entity.purpose {
+                    self.tethers.insert(
+                        tether,
+                        TetherView {
+                            id: tether,
+                            length: 5.0,
+                            position,
+                        },
+                    );
+                }
+            }
+            Universe::EquipmentVanished(equipment) => {
+                if let Purpose::Tethering { tether } = equipment.purpose {
+                    self.tethers.remove(&tether);
+                }
+            }
             Universe::CreatureAppeared {
                 entity,
                 health,
@@ -242,6 +272,9 @@ impl Nature {
                 for farmer in self.farmers.values_mut() {
                     if farmer.entity.body == id {
                         farmer.position = position;
+                        self.tethers
+                            .entry(farmer.entity.tether)
+                            .and_modify(|tether| tether.position = position);
                         for container in self.containers.values_mut() {
                             if container.id == farmer.entity.hands {
                                 container.position = position;

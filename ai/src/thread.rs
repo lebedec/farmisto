@@ -40,6 +40,7 @@ impl AiThread {
                 feeding_map: vec![],
                 known: Game::load_knowledge(&knowledge),
                 barriers: Default::default(),
+                tethers: Default::default(),
             };
             loop {
                 let t = Instant::now();

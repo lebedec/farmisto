@@ -550,8 +550,11 @@ pub enum Activity {
         comfort: u8,
     },
     Tethering {
-        creature: Creature
-    }
+        creature: Creature,
+    },
+    Tethering2 {
+        tether: TetherId,
+    },
 }
 
 impl Activity {
@@ -571,7 +574,7 @@ pub struct Farmer {
     pub body: BodyId,
     pub hands: ContainerId,
     pub backpack: ContainerId,
-    pub tether: TetherId
+    pub tether: TetherId,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
@@ -639,6 +642,7 @@ pub struct EquipmentKey(pub usize);
 pub enum PurposeDescription {
     Surveying { surveyor: SurveyorKey },
     Moisture { sensor: usize },
+    Tethering,
 }
 
 pub struct EquipmentKind {
@@ -653,6 +657,7 @@ pub struct EquipmentKind {
 pub enum Purpose {
     Surveying { surveyor: SurveyorId },
     Moisture { sensor: usize },
+    Tethering { tether: TetherId },
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]

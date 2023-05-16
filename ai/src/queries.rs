@@ -1,9 +1,19 @@
 use crate::Nature;
-use game::math::ArrayIndex;
-use game::physics::SpaceId;
+use game::math::{ArrayIndex, Position, VectorMath};
+use game::raising::TetherId;
 
 impl Nature {
-    pub(crate) fn get_tiles_around(
+    pub fn get_tethering(&self, position: Position, tether: &Option<TetherId>) -> f32 {
+        match tether {
+            Some(tether) => match self.tethers.get(tether) {
+                Some(tether) => tether.position.distance(position) / tether.length,
+                None => 0.0,
+            },
+            None => 0.0,
+        }
+    }
+
+    pub fn get_tiles_around(
         &self,
         center: [usize; 2],
         radius: usize,

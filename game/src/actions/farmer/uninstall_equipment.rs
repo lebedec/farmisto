@@ -2,7 +2,7 @@ use crate::api::{ActionError, Event};
 use crate::building::SurveyorId;
 use crate::inventory::ItemId;
 use crate::model::{Activity, Construction, Equipment, Farmer, Farmland, Purpose};
-use crate::Universe;
+use crate::{emit, Universe};
 use crate::{occur, Game};
 
 impl Game {
@@ -40,6 +40,24 @@ impl Game {
                 Ok(events)
             }
             Purpose::Moisture { .. } => Ok(vec![]),
+            Purpose::Tethering { tether } => {
+                let destroy_tether = self.raising.destroy_tether(tether)?;
+                let destroy_barrier = self.physics.destroy_barrier(equipment.barrier)?;
+                let equipment_kind = self.known.equipments.get(equipment.key)?;
+                let item = self.inventory.items_id.introduce().one(ItemId);
+                let create_item =
+                    self.inventory
+                        .create_item(item, &equipment_kind.item, farmer.hands, 1)?;
+                let vanish_equipment = self.universe.vanish_equipment(equipment);
+                let change_activity = self.universe.change_activity(farmer, Activity::Usage);
+                emit![
+                    destroy_tether(),
+                    destroy_barrier(),
+                    create_item(),
+                    vanish_equipment,
+                    change_activity,
+                ]
+            }
         }
     }
 

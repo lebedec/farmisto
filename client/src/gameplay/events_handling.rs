@@ -292,8 +292,22 @@ impl Gameplay {
                     }
                 }
             }
-            Raising::AnimalTied { .. } => {}
-            Raising::AnimalUntied { .. } => {}
+            Raising::AnimalTied { id, tether } => {
+                for creature in self.creatures.values_mut() {
+                    if creature.entity.animal == id {
+                        creature.tether = Some(tether);
+                        break;
+                    }
+                }
+            }
+            Raising::AnimalUntied { id, tether } => {
+                for creature in self.creatures.values_mut() {
+                    if creature.entity.animal == id {
+                        creature.tether = None;
+                        break;
+                    }
+                }
+            }
         }
     }
 
@@ -628,8 +642,17 @@ impl Gameplay {
             }
             Universe::EquipmentAppeared { entity, position } => {
                 info!("Appear {:?} at {:?}", entity, position);
-                self.equipments
-                    .insert(entity, EquipmentRep { entity, position });
+                let kind = self.known.equipments.get(entity.key).unwrap();
+                let item = assets.item(&kind.item.name);
+                self.equipments.insert(
+                    entity,
+                    EquipmentRep {
+                        entity,
+                        position,
+                        kind,
+                        item,
+                    },
+                );
             }
             Universe::EquipmentVanished(equipment) => {
                 self.equipments.remove(&equipment);
@@ -749,6 +772,7 @@ impl Gameplay {
                     direction: [1.0, 0.0],
                     velocity: [0.0, 0.0],
                     behaviour,
+                    tether: None,
                 };
                 representation.play(behaviour, behaviour);
                 self.creatures.insert(entity, representation);

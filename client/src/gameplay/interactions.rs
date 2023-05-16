@@ -229,6 +229,26 @@ impl Gameplay {
                 QuickSwap(_) => {}
                 Aim(_) => {}
             },
+
+            Activity::Tethering2 { tether } => match intention {
+                Use => match target {
+                    Creature(creature) => {
+                        self.send_action(FarmerBound::TieCreature2 { tether, creature });
+                    }
+                    _ => {}
+                },
+                Put => match target {
+                    Creature(creature) => {
+                        self.send_action(FarmerBound::UntieCreature2 { tether, creature });
+                    }
+                    _ => {}
+                },
+                Move => {
+                    self.send_action(FarmerBound::CancelActivity);
+                    farmer.activity = Activity::Idle;
+                }
+                _ => {}
+            },
             Activity::Surveying {
                 equipment,
                 selection,

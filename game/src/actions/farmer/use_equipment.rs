@@ -21,6 +21,10 @@ impl Game {
             Purpose::Moisture { .. } => {
                 vec![]
             }
+            Purpose::Tethering { tether } => {
+                let activity = Activity::Tethering2 { tether };
+                vec![self.universe.change_activity(farmer, activity)]
+            }
         };
         Ok(occur![events,])
     }

@@ -10,6 +10,7 @@ use game::inventory::{ContainerId, FunctionsQuery, ItemId};
 use game::math::{cast_ray, cast_ray2, Array, ArrayIndex, VectorMath};
 use game::model::{Farmer, Knowledge};
 use game::physics::{BarrierId, BarrierKey, SpaceId};
+use game::raising::TetherId;
 pub use thread::*;
 
 use crate::decision_making::{make_decision, react, Behaviour, Reaction, Thinking};
@@ -17,9 +18,7 @@ use crate::fauna::{
     CreatureAgent, CreatureCropDecision, CreatureDecision, CreatureFoodDecision,
     CreatureGroundDecision, Targeting,
 };
-use crate::perception::{
-    BarrierView, ContainerView, CreatureView, CropView, FarmerView, FoodView, ItemView,
-};
+use crate::perception::{BarrierView, ContainerView, CreatureView, CropView, FarmerView, FoodView, ItemView, TetherView};
 
 mod api;
 mod decision_making;
@@ -69,6 +68,7 @@ pub struct Nature {
     containers: HashMap<ContainerId, ContainerView>,
     items: HashMap<ContainerId, HashMap<ItemId, ItemView>>,
     farmers: HashMap<Farmer, FarmerView>,
+    tethers: HashMap<TetherId, TetherView>,
     // agents
     creature_agents: Vec<CreatureAgent>,
     colonization_date: f32,

@@ -2,8 +2,10 @@ use std::collections::HashMap;
 use std::fmt::format;
 
 use lazy_static::lazy_static;
-use log::info;
+use log::{error, info};
 use rand::prelude::*;
+use rusty_spine::c_interface::CTmpRef;
+use rusty_spine::{Bone, Skeleton};
 
 use game::assembling::Rotation;
 use game::building::{Cell, Grid, Marker, Material, Room, Structure};
@@ -581,9 +583,34 @@ impl Gameplay {
             match equipment.entity.purpose {
                 Purpose::Surveying { .. } => {
                     let position = rendering_position_of(equipment.position);
-                    scene.render_sprite(&self.theodolite_sprite, xy(position));
+                    scene.render_sprite(&equipment.item.sprite, xy(position));
                 }
                 Purpose::Moisture { .. } => {}
+                Purpose::Tethering { tether } => {
+                    let position = rendering_position_of(equipment.position);
+                    scene.render_sprite(&equipment.item.sprite, xy(position));
+
+                    let start = position;
+                    for creature in self.creatures.values() {
+                        if creature.tether == Some(tether) {
+                            let end = match creature.spine.skeleton.skeleton.find_bone("tether") {
+                                None => {
+                                    error!(
+                                        "Can't find creature tether node of {}",
+                                        creature.kind.name
+                                    );
+                                    rendering_position_of(creature.rendering_position)
+                                }
+                                Some(node) => {
+                                    let node = node.applied_position();
+                                    let node = [node.x, -node.y];
+                                    rendering_position_of(creature.rendering_position).add(node)
+                                }
+                            };
+                            scene.render_line(start, end, scene.rope.share());
+                        }
+                    }
+                }
             }
         }
 
@@ -608,8 +635,18 @@ impl Gameplay {
             }
             if let Activity::Tethering { creature } = farmer.activity {
                 let creature = self.creatures.get(&creature).unwrap();
-                let start = rendering_position_of(farmer.rendering_position);
-                let end = rendering_position_of(creature.rendering_position);
+                let start = rendering_position_of(farmer.rendering_position).add([20.0, -108.0]);
+                let end = match creature.spine.skeleton.skeleton.find_bone("tether") {
+                    None => {
+                        error!("Can't find creature tether node of {}", creature.kind.name);
+                        rendering_position_of(creature.rendering_position)
+                    }
+                    Some(node) => {
+                        let node = node.applied_position();
+                        let node = [node.x, -node.y];
+                        rendering_position_of(creature.rendering_position).add(node)
+                    }
+                };
                 scene.render_line(start, end, scene.rope.share());
             }
         }

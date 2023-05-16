@@ -96,6 +96,8 @@ pub enum Ground {
     Distance,
     Daytime,
     Feeding,
+    Tethering,
+    HasTethering,
 }
 
 pub enum Tuning {
@@ -207,6 +209,14 @@ impl CreatureAgent {
             Ground::Daytime => self.daytime,
             Ground::Cooldown(tag, cooldown) => self.cooldown(tag) / cooldown,
             Ground::Feeding => context.feeding_map[tile.fit(128)],
+            Ground::Tethering => context.get_tethering(tile.position(), &self.tether),
+            Ground::HasTethering => {
+                if self.tether.is_some() {
+                    1.0
+                } else {
+                    0.0
+                }
+            }
         }
     }
 

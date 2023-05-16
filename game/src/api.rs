@@ -12,7 +12,7 @@ use crate::model::{
 };
 use crate::physics::{Physics, PhysicsError};
 use crate::planting::{Planting, PlantingError};
-use crate::raising::{AnimalId, Raising, RaisingError};
+use crate::raising::{AnimalId, Raising, RaisingError, TetherId};
 use crate::timing::{Timing, TimingError};
 use crate::working::{DeviceId, Working, WorkingError};
 
@@ -226,6 +226,14 @@ pub enum FarmerBound {
         creature: Creature,
     },
     UntieCreature {
+        creature: Creature,
+    },
+    TieCreature2 {
+        tether: TetherId,
+        creature: Creature,
+    },
+    UntieCreature2 {
+        tether: TetherId,
         creature: Creature,
     },
 }

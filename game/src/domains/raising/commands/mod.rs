@@ -5,3 +5,4 @@ mod feed_animal;
 mod tie_animal;
 mod trigger_behaviour;
 mod untie_animal;
+mod destroy_tether;
