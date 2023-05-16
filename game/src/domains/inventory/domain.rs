@@ -44,6 +44,7 @@ pub enum Function {
     Fertilizer(f32),
     Residue,
     Food,
+    Tether,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]

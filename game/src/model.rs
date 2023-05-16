@@ -12,7 +12,7 @@ use crate::physics::{
     SpaceId, SpaceKey, SpaceKind,
 };
 use crate::planting::{PlantId, PlantKey, PlantKind, SoilId, SoilKey, SoilKind};
-use crate::raising::{AnimalId, AnimalKey, AnimalKind, Behaviour};
+use crate::raising::{AnimalId, AnimalKey, AnimalKind, Behaviour, TetherId};
 use crate::timing::{CalendarId, CalendarKey, CalendarKind, Sequence};
 use crate::working::{DeviceId, DeviceKey, DeviceKind};
 
@@ -549,6 +549,9 @@ pub enum Activity {
     Resting {
         comfort: u8,
     },
+    Tethering {
+        creature: Creature
+    }
 }
 
 impl Activity {
@@ -568,6 +571,7 @@ pub struct Farmer {
     pub body: BodyId,
     pub hands: ContainerId,
     pub backpack: ContainerId,
+    pub tether: TetherId
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]

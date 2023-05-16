@@ -184,6 +184,12 @@ create table Animal
     behaviour json    not null
 );
 
+create table Tether
+(
+    id     integer primary key,
+    animal integer
+);
+
 -- Building
 
 create table GridKind
@@ -331,7 +337,8 @@ create table Farmer
     player   integer not null references Player (id),
     body     integer not null references Body (id),
     hands    integer not null references Container (id),
-    backpack integer not null references Container (id)
+    backpack integer not null references Container (id),
+    tether   integer not null references Tether (id)
 );
 
 create table Stack

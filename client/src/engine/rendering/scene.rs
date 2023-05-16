@@ -347,26 +347,6 @@ impl Scene {
         }
         timer.gauge("tilemap-0", &self.metrics.draw);
 
-        self.lines = vec![LineRenderObject {
-            texture: self.rope.share(),
-            constants: LinePushConstants {
-                position: [1200.0, 300.0],
-                size: [400.0, 400.0],
-                coords: [0.0, 0.0, 1.0, 1.0],
-                color: [1.0, 0.0, 0.0, 1.0],
-                pivot: [0.5, 0.5],
-            },
-        }];
-        let lines = take(&mut self.lines);
-        let mut pipeline = self.line_pipeline.perform(device, buffer);
-        pipeline.bind_camera(camera_descriptor);
-        for line in lines {
-            pipeline.bind_vertex_buffer(&self.tilemap_vertex_buffer);
-            pipeline.bind_material([(self.ui_element_sampler.handle, line.texture.view)]);
-            pipeline.push_constants(line.constants);
-            pipeline.draw_vertices(self.tilemap_vertex_buffer.vertices);
-        }
-
         for (line, objects) in take(&mut self.sorted_render_objects) {
             let mut pipeline = self.sprite_pipeline.perform(device, buffer);
             pipeline.bind_data_by_descriptor(lights_descriptor);
@@ -413,6 +393,16 @@ impl Scene {
             }
         }
         timer.gauge("sorted", &self.metrics.draw);
+
+        let lines = take(&mut self.lines);
+        let mut pipeline = self.line_pipeline.perform(device, buffer);
+        pipeline.bind_camera(camera_descriptor);
+        for line in lines {
+            pipeline.bind_vertex_buffer(&self.tilemap_vertex_buffer);
+            pipeline.bind_material([(self.ui_element_sampler.handle, line.texture.view)]);
+            pipeline.push_constants(line.constants);
+            pipeline.draw_vertices(self.tilemap_vertex_buffer.vertices);
+        }
 
         let mut pipeline = self.tilemap_pipeline.perform(device, buffer);
         pipeline.bind_camera(camera_descriptor);

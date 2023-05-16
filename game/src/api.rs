@@ -12,7 +12,7 @@ use crate::model::{
 };
 use crate::physics::{Physics, PhysicsError};
 use crate::planting::{Planting, PlantingError};
-use crate::raising::{Raising, RaisingError};
+use crate::raising::{AnimalId, Raising, RaisingError};
 use crate::timing::{Timing, TimingError};
 use crate::working::{DeviceId, Working, WorkingError};
 
@@ -221,6 +221,12 @@ pub enum FarmerBound {
     },
     CollectCorpse {
         corpse: Corpse,
+    },
+    TieCreature {
+        creature: Creature,
+    },
+    UntieCreature {
+        creature: Creature,
     },
 }
 

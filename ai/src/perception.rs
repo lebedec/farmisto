@@ -168,6 +168,7 @@ impl Nature {
                     timestamps: HashMap::new(),
                     cooldowns: HashMap::new(),
                     disabling: Default::default(),
+                    tether: None,
                 });
             }
             Universe::CreatureVanished(creature) => {
@@ -353,6 +354,22 @@ impl Nature {
                             .timestamps
                             .insert(behaviour, self.colonization_date);
                         creature.timestamps.insert(trigger, self.colonization_date);
+                        break;
+                    }
+                }
+            }
+            Raising::AnimalTied { id, tether } => {
+                for creature in self.creature_agents.iter_mut() {
+                    if creature.entity.animal == id {
+                        creature.tether = Some(tether);
+                        break;
+                    }
+                }
+            }
+            Raising::AnimalUntied { id, .. } => {
+                for creature in self.creature_agents.iter_mut() {
+                    if creature.entity.animal == id {
+                        creature.tether = None;
                         break;
                     }
                 }

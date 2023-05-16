@@ -127,12 +127,14 @@ impl Game {
             let create_backpack = self
                 .inventory
                 .add_empty_container(backpack, &backpack_kind)?;
+            let (tether, create_tether) = self.raising.create_tether()?;
 
             let events = occur![
                 create_body(),
                 create_hands(),
                 create_backpack(),
-                self.appear_farmer(farmer_kind.id, player, body, hands, backpack)?,
+                create_tether(),
+                self.appear_farmer(farmer_kind.id, player, body, hands, backpack, tether)?,
             ];
             Ok(events)
         } else {
@@ -219,6 +221,10 @@ impl Game {
 
                 match action {
                     FarmerBound::Move { destination } => self.move_farmer(farmer, destination)?,
+                    FarmerBound::TieCreature { creature } => self.tie_creature(farmer, creature)?,
+                    FarmerBound::UntieCreature { creature } => {
+                        self.untie_creature(farmer, creature)?
+                    }
                     FarmerBound::Survey {
                         surveyor,
                         tile,

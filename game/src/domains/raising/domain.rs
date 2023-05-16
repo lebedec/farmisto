@@ -11,6 +11,8 @@ pub struct RaisingDomain {
     pub animals_id: usize,
     pub animals: Vec<Animal>,
     pub dead_animals: Vec<Animal>,
+    pub tethers_id: usize,
+    pub tethers: Vec<Tether>,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
@@ -68,6 +70,14 @@ pub struct Animal {
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
+pub struct TetherId(pub usize);
+
+pub struct Tether {
+    pub id: TetherId,
+    pub animal: Option<AnimalId>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub struct HerdsmanId(pub(crate) usize);
 
 pub struct Herdsman {
@@ -103,19 +113,19 @@ pub enum Raising {
         trigger: Behaviour,
         behaviour: Behaviour,
     },
+    AnimalTied {
+        id: AnimalId,
+        tether: TetherId,
+    },
+    AnimalUntied {
+        id: AnimalId,
+        tether: TetherId,
+    },
 }
 
 #[derive(Debug, Serialize, Deserialize)]
 pub enum RaisingError {
     AnimalNotFound { id: AnimalId },
+    TetherNotFound { id: TetherId },
     HerdsmanNotFound { id: HerdsmanId },
-}
-
-impl RaisingDomain {
-    pub fn load_animals(&mut self, animals: Vec<Animal>, sequence: usize) {
-        self.animals_id = sequence;
-        for animal in animals {
-            self.animals.push(animal);
-        }
-    }
 }

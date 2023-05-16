@@ -3,7 +3,7 @@ use std::collections::{HashMap, HashSet};
 use game::api::Action;
 use game::math::{ArrayIndex, Random, TileMath, VectorMath};
 use game::model::{Creature, Farmland};
-use game::raising::Behaviour;
+use game::raising::{Behaviour, TetherId};
 
 use crate::decision_making::{Decision, Thinking};
 use crate::perception::{CreatureView, FoodView, Owner};
@@ -26,6 +26,7 @@ pub struct CreatureAgent {
     pub timestamps: HashMap<Behaviour, f32>,
     pub cooldowns: HashMap<String, f32>,
     pub disabling: HashSet<String>,
+    pub tether: Option<TetherId>,
 }
 
 #[derive(Default, Clone, serde::Serialize)]

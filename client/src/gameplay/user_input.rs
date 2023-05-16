@@ -78,7 +78,10 @@ impl Gameplay {
         }
 
         match farmer.activity {
-            Activity::Idle | Activity::Usage | Activity::Assembling { .. } => {}
+            Activity::Idle
+            | Activity::Usage
+            | Activity::Assembling { .. }
+            | Activity::Tethering { .. } => {}
             _ => {
                 // not movement allowed
                 return;

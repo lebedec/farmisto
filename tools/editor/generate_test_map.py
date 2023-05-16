@@ -374,8 +374,9 @@ def prototype_raising(destination_path: str, template_path: str):
             '8': lambda tile, f: editor.add_crop(f, tile, 'corn', 1.3, health=0.75, hunger=1.0, thirst=0.5),
             '9': lambda tile, f: editor.add_crop(f, tile, 'corn', 1.9, health=0.5, hunger=1.0, thirst=0.5),
             'k': lambda tile, farmland: editor.add_composter(farmland, tile, 'composter'),
-            'r': lambda tile, farmland: editor.add_stack(farmland, tile, ['residue'] * 1, 10),
+            'r': lambda tile, farmland: editor.add_stack(farmland, tile, ['residue'], 10),
             'd': lambda tile, farmland: editor.add_door(farmland, tile, 'door-x3-planks'),
+            't': lambda tile, farmland: editor.add_stack(farmland, tile, ['tether'], 1),
         },
         buildings={
             #?': (w, d, window, material)
@@ -398,8 +399,8 @@ def prototype_raising(destination_path: str, template_path: str):
         . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
         . . . . . . . . . . . . . . . . . . . . . . . . . r . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
         . . . . . . . . . . . . . . . . . . . . . . . . . r r . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-        . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
-        . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+        . . . . . . . . . . . . . . . t t . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
+        . . . . . . . . . . . . . . . twa . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
         . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
         . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .
         . . . . . . . . . . . . . . . . + + + = d = + + + . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . . .

@@ -606,6 +606,12 @@ impl Gameplay {
                         .sorting(sorting),
                 );
             }
+            if let Activity::Tethering { creature } = farmer.activity {
+                let creature = self.creatures.get(&creature).unwrap();
+                let start = rendering_position_of(farmer.rendering_position);
+                let end = rendering_position_of(creature.rendering_position);
+                scene.render_line(start, end, scene.rope.share());
+            }
         }
 
         for creature in self.creatures.values() {

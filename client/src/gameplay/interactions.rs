@@ -6,12 +6,16 @@ use game::building::{Marker, Structure};
 use game::inventory::Function;
 use game::inventory::Function::{
     Assembly, Fertilizer, Installation, Instrumenting, Moistener, Product, Seeding, Shovel, Stone,
+    Tether,
 };
 use game::model::{Activity, CropKey, Purpose};
 
 use crate::gameplay::representation::FarmerRep;
 use crate::gameplay::Intention::{Aim, Move, Put, QuickSwap, Swap, Use};
-use crate::gameplay::Target::{Cementer, CementerContainer, Composter, ComposterContainer, Construction, Corpse, Creature, Crop, Device, Door, Equipment, Ground, Rest, Stack, Wall, Waterbody};
+use crate::gameplay::Target::{
+    Cementer, CementerContainer, Composter, ComposterContainer, Construction, Corpse, Creature,
+    Crop, Device, Door, Equipment, Ground, Rest, Stack, Wall, Waterbody,
+};
 use crate::gameplay::{Gameplay, Intention, Target};
 
 impl Gameplay {
@@ -70,7 +74,7 @@ impl Gameplay {
                     }
                     Creature(_) => {}
                     Corpse(corpse) => {
-                       self.send_action(FarmerBound::CollectCorpse { corpse });
+                        self.send_action(FarmerBound::CollectCorpse { corpse });
                     }
                     Device(_) => {}
                     Waterbody(_) => {}
@@ -165,6 +169,9 @@ impl Gameplay {
                             }
                             (Stone, Waterbody(place)) => {
                                 self.send_action(FarmerBound::FillBasin { place });
+                            }
+                            (Tether, Creature(creature)) => {
+                                self.send_action(FarmerBound::TieCreature { creature });
                             }
                             (_, Stack(stack)) => {
                                 self.send_action(FarmerBound::TakeItemFromStack { stack });
@@ -361,6 +368,12 @@ impl Gameplay {
                     }
                 }
             }
+            Activity::Tethering { creature } => match intention {
+                Put => {
+                    self.send_action(FarmerBound::UntieCreature { creature });
+                }
+                _ => {}
+            },
             Activity::Resting { .. } => match intention {
                 Put => {
                     self.send_action(FarmerBound::CancelActivity);

@@ -292,6 +292,8 @@ impl Gameplay {
                     }
                 }
             }
+            Raising::AnimalTied { .. } => {}
+            Raising::AnimalUntied { .. } => {}
         }
     }
 

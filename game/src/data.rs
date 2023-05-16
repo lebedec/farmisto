@@ -26,7 +26,7 @@ use crate::physics::{
     SensorKey, SensorKind, Space, SpaceId, SpaceKey, SpaceKind,
 };
 use crate::planting::{Plant, PlantId, PlantKey, PlantKind, Soil, SoilId, SoilKey, SoilKind};
-use crate::raising::{Animal, AnimalId, AnimalKey, AnimalKind};
+use crate::raising::{Animal, AnimalId, AnimalKey, AnimalKind, Tether, TetherId};
 use crate::timing::{Calendar, CalendarId, CalendarKey, CalendarKind, MinGameMinute};
 use crate::working::{Device, DeviceId, DeviceKey, DeviceKind};
 use crate::Game;
@@ -186,6 +186,8 @@ impl Game {
         // raising
         let (animals, sequence) = storage.get_sequence(|row| self.load_animal(row))?;
         self.raising.load_animals(animals, sequence);
+        let (tethers, sequence) = storage.get_sequence(|row| self.load_tether(row))?;
+        self.raising.load_tethers(tethers, sequence);
 
         // building
         let (grids, sequence) = storage.get_sequence(|row| self.load_grid(row))?;
@@ -344,6 +346,7 @@ impl Game {
             body: BodyId(row.get("body")?),
             hands: ContainerId(row.get("hands")?),
             backpack: ContainerId(row.get("backpack")?),
+            tether: TetherId(row.get("tether")?),
         };
         Ok(data)
     }
@@ -945,6 +948,14 @@ impl Game {
             health: row.get("health")?,
             stress: row.get("stress")?,
             behaviour: row.get_json("behaviour")?,
+        };
+        Ok(data)
+    }
+
+    pub(crate) fn load_tether(&mut self, row: &rusqlite::Row) -> Result<Tether, DataError> {
+        let data = Tether {
+            id: row.get_json("id")?,
+            animal: row.get_json("animal")?,
         };
         Ok(data)
     }

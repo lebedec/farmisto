@@ -5,7 +5,7 @@ use crate::inventory::ContainerId;
 use crate::model::*;
 use crate::physics::{BarrierId, BodyId, SensorId};
 use crate::planting::PlantId;
-use crate::raising::AnimalId;
+use crate::raising::{AnimalId, TetherId};
 use crate::working::DeviceId;
 use crate::Game;
 
@@ -36,6 +36,7 @@ impl Game {
         body: BodyId,
         hands: ContainerId,
         backpack: ContainerId,
+        tether: TetherId,
     ) -> Result<Universe, ActionError> {
         self.universe.farmers_id += 1;
         let entity = Farmer {
@@ -45,6 +46,7 @@ impl Game {
             body,
             hands,
             backpack,
+            tether,
         };
         self.universe
             .farmers_activity
