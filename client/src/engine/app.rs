@@ -2,6 +2,7 @@ use crate::engine::base::Base;
 use crate::engine::rendering::{Scene, SceneMetrics};
 use crate::engine::{AppConfig, Input};
 use ash::vk;
+use std::ffi::{CStr, CString};
 
 use libfmod::ffi::{FMOD_INIT_NORMAL, FMOD_STUDIO_INIT_NORMAL, FMOD_VERSION};
 use libfmod::{SpeakerMode, Studio};
@@ -56,9 +57,14 @@ pub fn startup<A: App>(title: String) {
     info!("SDL Vulkan drawable: {:?}", window.vulkan_drawable_size());
     let mut event_pump = system.event_pump().unwrap();
     let instance_extensions: Vec<&'static str> = window.vulkan_instance_extensions().unwrap();
-    info!("SDL Vulkan extensions: {:?}", instance_extensions);
 
-    let mut base = Base::new(&window, instance_extensions);
+    let mut base = Base::new(
+        &window,
+        instance_extensions
+            .iter()
+            .map(|value| CString::new(*value).expect("Unable to create CString"))
+            .collect(),
+    );
     info!(
         "Logical drawable: ({}, {})",
         base.screen.width(),

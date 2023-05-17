@@ -2,7 +2,7 @@ extern crate ash;
 
 use std::borrow::Cow;
 use std::default::Default;
-use std::ffi::CStr;
+use std::ffi::{CStr, CString};
 use std::ops::Drop;
 use std::os::raw::c_char;
 use std::sync::{Arc, Mutex};
@@ -105,14 +105,10 @@ impl Base {
         std::env::var("DEV_MODE").is_ok()
     }
 
-    pub fn new(window: &Window, sdl_extension_names: Vec<&str>) -> Self {
+    pub fn new(window: &Window, mut extensions: Vec<CString>) -> Self {
         unsafe {
-            let mut extension_names = vec![DebugUtils::name().as_ptr()];
-            extension_names.extend(
-                sdl_extension_names
-                    .into_iter()
-                    .map(|ext| ext.as_ptr() as *const c_char),
-            );
+            extensions
+                .push(CString::new("VK_EXT_debug_utils").expect("Failed debug utils name ext"));
 
             let entry = Entry::load().unwrap();
             let app_name = CStr::from_bytes_with_nul_unchecked(b"Farmisto\0");
@@ -145,10 +141,14 @@ impl Base {
                 vec![]
             };
 
+            info!("Enables Vulkan extensions: {:?}", extensions);
+            let extensions_names_raw: Vec<*const c_char> =
+                extensions.iter().map(|ext| ext.as_ptr()).collect();
+
             let create_info = vk::InstanceCreateInfo::builder()
                 .application_info(&appinfo)
                 .enabled_layer_names(&layers_names_raw)
-                .enabled_extension_names(&extension_names)
+                .enabled_extension_names(&extensions_names_raw)
                 .flags(create_flags);
 
             info!("Creates Vulkan instance");
