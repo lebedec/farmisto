@@ -58,10 +58,26 @@ impl Gameplay {
                 .unwrap();
             age.set_alpha(1.0);
             age.set_timescale(1.0);
-            // let f = 100.0 * (1.0 / 30.0);
-            let creature_age = 0.5;
-            age.set_animation_start(creature_age);
-            age.set_animation_end(creature_age);
+            let age_t = creature.age;
+            let age_t = if age_t < 24.0 {
+                age_t / 24.0 * 0.33
+            } else if age_t < 48.0 {
+                0.33 + (age_t - 24.0) / 24.0 * 0.33
+            } else {
+                0.67
+            };
+            age.set_animation_start(age_t);
+            age.set_animation_end(age_t);
+
+            let mut weight = creature
+                .spine
+                .skeleton
+                .animation_state
+                .track_at_index_mut(CreatureRep::ANIMATION_WEIGHT as usize)
+                .unwrap();
+            let weight_t = creature.weight.min(1.0);
+            weight.set_animation_start(weight_t);
+            weight.set_animation_end(weight_t);
         }
         for creature in self.creatures.values_mut() {
             creature

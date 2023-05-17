@@ -58,6 +58,7 @@ pub struct Animal {
     pub kind: Shared<AnimalKind>,
     // pub flock: HerdId,
     pub age: f32,
+    pub weight: f32,
     // pub sex: Sex,
     pub thirst: f32,
     pub hunger: f32,
@@ -91,6 +92,8 @@ pub enum Raising {
         id: AnimalId,
         hunger: f32,
         thirst: f32,
+        age: f32,
+        weight: f32,
     },
     AnimalDamaged {
         id: AnimalId,

@@ -943,6 +943,7 @@ impl Game {
             id: AnimalId(row.get("id")?),
             kind: self.known.animals.get_by(row, "kind", AnimalKey)?,
             age: row.get("age")?,
+            weight: 0.0,
             thirst: row.get("thirst")?,
             hunger: row.get("hunger")?,
             voracity: row.get("voracity")?,

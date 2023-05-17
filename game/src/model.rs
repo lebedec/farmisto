@@ -139,6 +139,8 @@ pub enum Universe {
         farmland: Farmland,
         health: f32,
         hunger: f32,
+        age: f32,
+        weight: f32,
         position: [f32; 2],
         behaviour: Behaviour,
     },

@@ -87,6 +87,8 @@ impl Game {
             farmland,
             health: animal.health,
             hunger: animal.hunger,
+            age: animal.age,
+            weight: animal.weight,
             position: body.position,
             behaviour: animal.behaviour,
         };

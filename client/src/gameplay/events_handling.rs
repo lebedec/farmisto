@@ -268,8 +268,29 @@ impl Gameplay {
 
     pub fn handle_raising_event(&mut self, _frame: &mut Frame, event: Raising) {
         match event {
-            Raising::AnimalChanged { .. } => {}
-            Raising::AnimalDamaged { .. } => {}
+            Raising::AnimalChanged {
+                id,
+                age,
+                thirst,
+                hunger,
+                weight,
+            } => {
+                for creature in self.creatures.values_mut() {
+                    if creature.entity.animal == id {
+                        creature.age = age;
+                        creature.weight = weight;
+                        break;
+                    }
+                }
+            }
+            Raising::AnimalDamaged { id, health } => {
+                for creature in self.creatures.values_mut() {
+                    if creature.entity.animal == id {
+                        creature.health = health;
+                        break;
+                    }
+                }
+            }
             Raising::LeadershipChanged { .. } => {}
             Raising::HerdsmanChanged { .. } => {}
             Raising::BehaviourChanged { id, behaviour } => {
@@ -675,10 +696,13 @@ impl Gameplay {
             }
             Universe::CreatureAppeared {
                 entity,
+                farmland,
                 health,
+                hunger,
+                weight,
                 position,
                 behaviour,
-                ..
+                age,
             } => {
                 let kind = self.known.creatures.get(entity.key).unwrap();
                 let asset = assets.creature(&kind.name);
@@ -741,6 +765,12 @@ impl Gameplay {
                     .set_animation_by_name(CreatureRep::ANIMATION_AGE, "age", false)
                     .unwrap();
 
+                spine
+                    .skeleton
+                    .animation_state
+                    .set_animation_by_name(CreatureRep::ANIMATION_WEIGHT, "weight", false)
+                    .unwrap();
+
                 // animal variants
                 let mut skin = Skin::new("lama-dynamic-848");
                 let head = asset.spine.skeleton.find_skin(&head_skins[head]).unwrap();
@@ -765,6 +795,8 @@ impl Gameplay {
                     asset,
                     kind,
                     health,
+                    age,
+                    weight,
                     estimated_position: position,
                     rendering_position: position,
                     last_sync_position: position,

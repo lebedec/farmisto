@@ -16,6 +16,8 @@ impl RaisingDomain {
                     id,
                     hunger: animal.hunger,
                     thirst: animal.thirst,
+                    age: animal.age,
+                    weight: animal.weight,
                 },
                 BehaviourTriggered {
                     id,

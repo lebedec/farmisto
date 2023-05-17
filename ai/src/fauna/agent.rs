@@ -20,6 +20,8 @@ pub struct CreatureAgent {
     pub hunger: f32,
     pub health: f32,
     pub thirst: f32,
+    pub weight: f32,
+    pub age: f32,
     pub colonization_date: f32,
     pub daytime: f32,
     pub behaviour: Behaviour,

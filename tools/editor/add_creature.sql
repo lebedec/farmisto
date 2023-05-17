@@ -2,7 +2,7 @@ begin transaction;
 insert into Animal
 values (null,
         (select id from AnimalKind where name = (select animal from CreatureKind where name = :kind_name)),
-        0.0, -- age
+        :age,
         0.0, -- thirst
         0.0, -- hunger
         1.0, -- health

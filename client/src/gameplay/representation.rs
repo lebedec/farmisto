@@ -289,6 +289,8 @@ pub struct CreatureRep {
     pub asset: CreatureAsset,
     pub kind: Shared<CreatureKind>,
     pub health: f32,
+    pub age: f32,
+    pub weight: f32,
     pub estimated_position: [f32; 2],
     pub rendering_position: [f32; 2],
     pub last_sync_position: [f32; 2],
@@ -312,6 +314,7 @@ impl CreatureRep {
     pub const ANIMATION_BASE: i32 = 0;
     pub const ANIMATION_WALK: i32 = 1;
     pub const ANIMATION_AGE: i32 = 3;
+    pub const ANIMATION_WEIGHT: i32 = 4;
 
     pub fn play(&mut self, trigger: Behaviour, behaviour: Behaviour) {
         self.behaviour = behaviour;

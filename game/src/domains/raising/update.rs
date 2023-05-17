@@ -18,10 +18,21 @@ impl RaisingDomain {
             let extra_hunger = random.max(animal.voracity) * time;
             animal.hunger = (animal.hunger + kind.hunger_speed * time + extra_hunger).min(1.0);
             animal.thirst = (animal.thirst + kind.thirst_speed * time).min(1.0);
+            animal.age += time;
+            if animal.hunger < 0.35 {
+                animal.weight += time / 6.0;
+                animal.weight = animal.weight.min(1.0);
+            }
+            if animal.hunger > 0.75 {
+                animal.weight -= time / 6.0;
+                animal.weight = animal.weight.max(0.0);
+            }
             events.push(AnimalChanged {
                 id: animal.id,
                 hunger: animal.hunger,
                 thirst: animal.thirst,
+                age: animal.age,
+                weight: animal.weight,
             });
 
             if animal.hunger > 0.0 && animal.thirst > 0.0 && animal.health < 1.0 {

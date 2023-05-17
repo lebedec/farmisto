@@ -175,10 +175,12 @@ impl Nature {
             Universe::CreatureAppeared {
                 entity,
                 health,
+                weight,
                 position,
                 hunger,
                 farmland,
                 behaviour,
+                age,
             } => {
                 self.creatures.push(CreatureView { _entity: entity });
                 self.creature_agents.push(CreatureAgent {
@@ -192,6 +194,8 @@ impl Nature {
                     interaction: 2.0,
                     radius: 5.0,
                     thirst: 0.0,
+                    weight,
+                    age,
                     colonization_date: 0.0,
                     daytime: 0.0,
                     behaviour,
@@ -345,11 +349,19 @@ impl Nature {
 
     pub fn perceive_raising(&mut self, event: Raising) {
         match event {
-            Raising::AnimalChanged { id, hunger, thirst } => {
+            Raising::AnimalChanged {
+                id,
+                hunger,
+                thirst,
+                age,
+                weight,
+            } => {
                 for creature in self.creature_agents.iter_mut() {
                     if creature.entity.animal == id {
                         creature.hunger = hunger;
                         creature.thirst = thirst;
+                        creature.age = age;
+                        creature.weight = weight;
                         break;
                     }
                 }
