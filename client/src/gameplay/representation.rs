@@ -326,7 +326,6 @@ impl CreatureRep {
     }
 
     fn repeat(&mut self, track: i32, animation: &str) {
-        info!("repeat {animation}");
         self.spine
             .skeleton
             .animation_state
@@ -335,7 +334,6 @@ impl CreatureRep {
     }
 
     fn once(&mut self, track: i32, trigger: &str, continuation: &str) {
-        info!("once {trigger} {continuation}");
         self.spine.skeleton.animation_state.clear_track(track);
         self.spine
             .skeleton

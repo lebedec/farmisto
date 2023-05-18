@@ -45,7 +45,8 @@ impl PhysicsDomain {
                     };
 
                     // Collision Detection
-                    let holes = generate_holes(body_next_position, body.kind.radius, &space.holes);
+                    let holes =
+                        generate_holes(body_next_position, body.kind.radius, &space.holes, &[1, 2]);
                     let holes_offsets = match test_collisions(&body, body_next_position, &holes) {
                         Some(offsets) => offsets,
                         None => vec![],
@@ -117,7 +118,12 @@ impl PhysicsDomain {
     }
 }
 
-pub fn generate_holes(position: [f32; 2], r: f32, holes_map: &Vec<Vec<u8>>) -> Vec<Hole> {
+pub fn generate_holes(
+    position: [f32; 2],
+    r: f32,
+    holes_map: &Vec<Vec<u8>>,
+    filter: &[u8],
+) -> Vec<Hole> {
     let [body_x, body_y] = position;
     let (min_x, min_y) = ((body_x - r) as usize, (body_y - r) as usize);
     let (max_x, max_y) = ((body_x + r) as usize, (body_y + r) as usize);
@@ -125,7 +131,8 @@ pub fn generate_holes(position: [f32; 2], r: f32, holes_map: &Vec<Vec<u8>>) -> V
     let mut holes = vec![];
     for hole_y in min_y..=max_y {
         for hole_x in min_x..=max_x {
-            if holes_map[hole_y][hole_x] == 1 {
+            let h = holes_map[hole_y][hole_x];
+            if filter.contains(&h) {
                 holes.push(Hole {
                     position: [hole_x as f32 + 0.5, hole_y as f32 + 0.5],
                     bounds: [1.0, 1.0],

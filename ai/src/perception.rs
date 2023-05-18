@@ -215,7 +215,7 @@ impl Nature {
                         error!("Unable to remove creature agent {creature:?}, not found");
                     }
                     Some(index) => {
-                        self.creatures.remove(index);
+                        self.creature_agents.remove(index);
                     }
                 }
                 match self
@@ -366,7 +366,7 @@ impl Nature {
                     }
                 }
             }
-            Raising::AnimalDamaged { id, health } => {
+            Raising::AnimalHealthChanged { id, health } => {
                 for creature in self.creature_agents.iter_mut() {
                     if creature.entity.animal == id {
                         creature.health = health;

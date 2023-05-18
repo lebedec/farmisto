@@ -95,7 +95,7 @@ pub enum Raising {
         age: f32,
         weight: f32,
     },
-    AnimalDamaged {
+    AnimalHealthChanged {
         id: AnimalId,
         health: f32,
     },

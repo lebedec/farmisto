@@ -18,7 +18,9 @@ use crate::fauna::{
     CreatureAgent, CreatureCropDecision, CreatureDecision, CreatureFoodDecision,
     CreatureGroundDecision, Targeting,
 };
-use crate::perception::{BarrierView, ContainerView, CreatureView, CropView, FarmerView, FoodView, ItemView, TetherView};
+use crate::perception::{
+    BarrierView, ContainerView, CreatureView, CropView, FarmerView, FoodView, ItemView, TetherView,
+};
 
 mod api;
 mod decision_making;
@@ -118,6 +120,13 @@ impl Nature {
                 self.feeding_map.add(128, rect, &patch);
             }
         }
+        for crop in &self.crops {
+            let radius = crop.growth as usize + 6;
+            let rect = crop.position.to_tile().rect([128, 128], [radius, radius]);
+            let [x, y, w, h] = rect;
+            let patch = vec![crop.growth / 4.0; w * h];
+            self.feeding_map.add(128, rect, &patch);
+        }
 
         for index in 0..self.creature_agents.len() {
             let agent = &self.creature_agents[index];
@@ -141,7 +150,7 @@ impl Nature {
                     continue;
                 }
                 let holes = holes.get(&agent.farmland.space).unwrap();
-                let contacts = cast_ray2(agent.position, container.position, holes);
+                let contacts = cast_ray2(agent.position, container.position, holes, &[1]);
                 let is_food_reachable = contacts.is_empty();
                 if is_food_reachable {
                     for item in items.values() {
@@ -164,7 +173,7 @@ impl Nature {
                     continue;
                 }
                 let holes = holes.get(&agent.farmland.space).unwrap();
-                let contacts = cast_ray2(agent.position, crop.position, holes);
+                let contacts = cast_ray2(agent.position, crop.position, holes, &[1]);
                 let is_food_reachable = contacts.is_empty();
                 if is_food_reachable {
                     // TODO: common borrowing structure

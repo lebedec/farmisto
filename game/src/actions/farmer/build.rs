@@ -25,7 +25,12 @@ impl Game {
                 let use_items = self.inventory.use_items_from(construction.container)?;
                 let (structure, create_wall) =
                     self.building.create_wall(farmland.grid, tile, material)?;
-                let create_hole = self.physics.create_hole(farmland.space, tile)?;
+                let size = if material_index == Material::PLANKS {
+                    2
+                } else {
+                    1
+                };
+                let create_hole = self.physics.create_hole(farmland.space, tile, size)?;
 
                 if structure == Structure::Door {
                     let events = occur![
@@ -50,7 +55,8 @@ impl Game {
                 let material = grid.cells[tile[1]][tile[0]].material;
                 let (structure, create_wall) =
                     self.building.create_wall(farmland.grid, tile, material)?;
-                let create_hole = self.physics.create_hole(farmland.space, tile)?;
+                let size = if material.0 == Material::PLANKS { 2 } else { 1 };
+                let create_hole = self.physics.create_hole(farmland.space, tile, size)?;
 
                 if structure == Structure::Door {
                     let events = occur![

@@ -1,5 +1,5 @@
 use crate::math::Random;
-use crate::raising::Raising::{AnimalChanged, AnimalDamaged};
+use crate::raising::Raising::{AnimalChanged, AnimalHealthChanged};
 use crate::raising::{Animal, Raising, RaisingDomain};
 use log::{error, info};
 use std::collections::HashSet;
@@ -35,23 +35,34 @@ impl RaisingDomain {
                 weight: animal.weight,
             });
 
-            if animal.hunger > 0.0 && animal.thirst > 0.0 && animal.health < 1.0 {
-                animal.health = (animal.health + 0.2 * time).min(1.0);
-            }
-
+            let mut health_change = false;
             let mut damage = 0.0;
-            damage += animal.thirst * kind.thirst_damage * time;
-            damage += animal.hunger * kind.hunger_damage * time;
+            // if animal.thirst > 0.5 {
+            //     damage += animal.thirst * kind.thirst_damage * time;
+            // }
+            if animal.hunger > 0.5 {
+                damage += animal.hunger * kind.hunger_damage * time;
+            }
             if animal.health < kind.death_threshold {
                 damage += 0.2 * time;
             }
             if damage > 0.0 {
+                health_change = true;
                 animal.health = (animal.health - damage).max(0.0);
-                events.push(AnimalDamaged {
+            }
+
+            if animal.hunger < 0.5 && animal.health < 1.0 {
+                health_change = true;
+                animal.health = (animal.health + 0.2 * time).min(1.0);
+            }
+
+            if health_change {
+                events.push(AnimalHealthChanged {
                     id: animal.id,
                     health: animal.health,
                 })
             }
+
             if animal.health <= 0.0 {
                 dead_animals.push(animal.id);
             }

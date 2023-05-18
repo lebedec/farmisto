@@ -1,7 +1,8 @@
 use crate::api::{ActionError, Event};
-use crate::math::VectorMath;
+use crate::math::{TileMath, VectorMath};
 use crate::model::{Farmer, Farmland};
-use crate::Game;
+use crate::physics::BodyId;
+use crate::{emit, Game};
 
 impl Game {
     pub(crate) fn cheat_growth_up_crops(
@@ -19,6 +20,29 @@ impl Game {
             }
         }
         Ok(vec![])
+    }
+
+    pub(crate) fn cheat_spawn_lama(
+        &mut self,
+        farmer: Farmer,
+        farmland: Farmland,
+        tile: [usize; 2],
+    ) -> Result<Vec<Event>, ActionError> {
+        let creature_kind = self.known.creatures.find("lama")?;
+        let body = self.physics.bodies_sequence.introduce().one(BodyId);
+        let create_body = self.physics.create_body(
+            body,
+            farmland.space,
+            creature_kind.body.clone(),
+            tile.position(),
+        )?;
+        let (animal, create_animal) = self.raising.create_animal(creature_kind.animal.clone())?;
+
+        emit![
+            create_body(),
+            create_animal(),
+            self.appear_creature(creature_kind.id, body, animal)?
+        ]
     }
 
     pub(crate) fn cheat_set_creatures_health(

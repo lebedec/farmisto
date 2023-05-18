@@ -672,6 +672,7 @@ impl Gameplay {
                 &creature.spine,
                 &creature.asset.coloration,
                 rendering_position_of(creature.rendering_position),
+                creature.health,
             );
         }
 

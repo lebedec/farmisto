@@ -68,7 +68,7 @@ pub struct PlantRenderObject {
 pub struct AnimalPushConstants {
     pub colors: [[f32; 4]; 4],
     pub position: [f32; 2],
-    pub size: [f32; 2],
+    pub health: f32,
 }
 
 pub struct AnimalRenderObject {

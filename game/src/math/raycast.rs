@@ -1,22 +1,29 @@
 use crate::math::{ArrayIndex, TileMath, VectorMath};
 
-pub fn cast_ray(start: [f32; 2], end: [f32; 2], holes: &Vec<Vec<u8>>) -> Vec<[f32; 2]> {
+pub fn cast_ray(
+    start: [f32; 2],
+    end: [f32; 2],
+    holes: &Vec<Vec<u8>>,
+    filter: &[u8],
+) -> Vec<[f32; 2]> {
     let mut contacts = vec![];
     let line = rasterize_line(start.to_tile(), end.to_tile());
     for point in line {
         let [x, y] = point;
-        if holes[y][x] == 1 && point.position() != end {
+        let h = holes[y][x];
+        if filter.contains(&h) && point.position() != end {
             contacts.push(point.position())
         }
     }
     contacts
 }
 
-pub fn cast_ray2(start: [f32; 2], end: [f32; 2], holes: &Vec<u8>) -> Vec<[f32; 2]> {
+pub fn cast_ray2(start: [f32; 2], end: [f32; 2], holes: &Vec<u8>, filter: &[u8]) -> Vec<[f32; 2]> {
     let mut contacts = vec![];
     let line = rasterize_line(start.to_tile(), end.to_tile());
     for point in line {
-        if holes[point.fit(128)] == 1 && point.position() != end {
+        let h = holes[point.fit(128)];
+        if filter.contains(&h) && point.position() != end {
             contacts.push(point.position())
         }
     }

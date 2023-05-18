@@ -28,7 +28,7 @@ impl Game {
         if actor.distance(target) > 2.0 {
             Ok(false)
         } else {
-            let contacts = self.physics.cast_ray(space, actor, target)?;
+            let contacts = self.physics.cast_ray(space, actor, target, &[1])?;
             Ok(contacts.is_empty())
         }
     }

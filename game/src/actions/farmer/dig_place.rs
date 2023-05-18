@@ -49,7 +49,7 @@ impl Game {
                 self.create_stack(container, barrier),
             ]
         } else if is_basin_generated {
-            let create_hole = self.physics.create_hole(farmland.space, place)?;
+            let create_hole = self.physics.create_hole(farmland.space, place, 2)?;
             occur![dig_place(), create_hole(),]
         } else {
             occur![dig_place(),]

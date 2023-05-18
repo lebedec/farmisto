@@ -6,6 +6,7 @@ impl PhysicsDomain {
         &'operation mut self,
         id: SpaceId,
         hole: [usize; 2],
+        size: u8
     ) -> Result<impl FnOnce() -> Vec<Physics> + 'operation, PhysicsError> {
         let space = self.get_space_mut(id)?;
         let [hole_x, hole_y] = hole;
@@ -15,7 +16,7 @@ impl PhysicsDomain {
         // }
 
         let operation = move || {
-            space.holes[hole_y][hole_x] = 1;
+            space.holes[hole_y][hole_x] = size;
             vec![SpaceUpdated {
                 id,
                 holes: space.holes.clone(),

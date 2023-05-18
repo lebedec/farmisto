@@ -202,6 +202,7 @@ impl Game {
                     Cheat::SetCreaturesHealth { health, radius } => {
                         self.cheat_set_creatures_health(farmer, farmland, health, radius)?
                     }
+                    Cheat::SpawnLama { tile } => self.cheat_spawn_lama(farmer, farmland, tile)?,
                 }
             }
             Action::Farmer { action } => {
@@ -225,7 +226,9 @@ impl Game {
                     FarmerBound::UntieCreature { creature } => {
                         self.untie_creature(farmer, creature)?
                     }
-                    FarmerBound::TieCreature2 { tether, creature } => self.tie_creature2(farmer, tether, creature)?,
+                    FarmerBound::TieCreature2 { tether, creature } => {
+                        self.tie_creature2(farmer, tether, creature)?
+                    }
                     FarmerBound::UntieCreature2 { tether, creature } => {
                         self.untie_creature2(farmer, tether, creature)?
                     }

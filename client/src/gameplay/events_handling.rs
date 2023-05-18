@@ -283,7 +283,7 @@ impl Gameplay {
                     }
                 }
             }
-            Raising::AnimalDamaged { id, health } => {
+            Raising::AnimalHealthChanged { id, health } => {
                 for creature in self.creatures.values_mut() {
                     if creature.entity.animal == id {
                         creature.health = health;

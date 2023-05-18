@@ -41,6 +41,11 @@ impl Gameplay {
                 radius: 3.0,
             });
         }
+        if input.ctrl_pressed(Keycode::L) {
+            self.send_cheat(Cheat::SpawnLama {
+                tile 
+            });
+        }
 
         // if input.pressed(Keycode::E) {
         //     if let Target::Crop(crop) = target {
@@ -117,7 +122,12 @@ impl Gameplay {
         // client side physics pre-calculation to prevent
         // obvious movement errors
         // Collision Detection
-        let holes = generate_holes(estimated_position, farmer.body.radius, &farmland.holes);
+        let holes = generate_holes(
+            estimated_position,
+            farmer.body.radius,
+            &farmland.holes,
+            &[1, 2],
+        );
         let holes_offsets = match test_collisions(farmer, estimated_position, &holes) {
             Some(offsets) => offsets,
             None => vec![],

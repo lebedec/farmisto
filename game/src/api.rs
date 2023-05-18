@@ -95,6 +95,7 @@ pub enum Action {
 pub enum Cheat {
     GrowthUpCrops { radius: f32, growth: f32 },
     SetCreaturesHealth { radius: f32, health: f32 },
+    SpawnLama { tile: [usize; 2] },
 }
 
 #[derive(Debug, Clone, serde::Serialize, serde::Deserialize)]
