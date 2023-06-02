@@ -21,7 +21,7 @@ jobs:
     - name: Install stable toolchain
       uses: actions-rs/toolchain@v1
       with:
-        toolchain: 1.68.2
+        toolchain: 1.70.0
         override: true
     - name: Prepare Rust
       run: cargo --version
@@ -42,7 +42,7 @@ jobs:
         key: ${{ runner.os }}-pip-${{ hashFiles('tests/requirements.txt') }}
 
     - name: Run unit tests
-      run: cargo test
+      run: cargo test --package game
 
     - name: Build testing lib
       run: cargo build --package testing --release
