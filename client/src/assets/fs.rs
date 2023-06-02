@@ -33,7 +33,7 @@ impl FileSystem {
     }
 
     #[cfg(unix)]
-    pub fn watch() -> Arc<RwLock<HashMap<PathBuf, FileEvent>>> {
+    pub fn watch(extensions: Vec<&'static str>) -> FileSystem {
         let process = Command::new("fswatch")
             .arg("assets")
             .arg("-xr")
@@ -50,6 +50,10 @@ impl FileSystem {
                 break;
             }
             let line = line.trim();
+            let ext = line.split(".").last().unwrap_or("");
+            if !extensions.contains(&ext) {
+                continue;
+            }
             let message = line.split(" ").collect::<Vec<&str>>();
             let (event, path) = match message[..] {
                 [path, "Created", ..] => (FileEvent::Created, path),
@@ -63,7 +67,11 @@ impl FileSystem {
             let path = PathBuf::from(path.trim());
             compact_events(thread_events.clone(), path, event);
         });
-        shared_events
+
+        FileSystem {
+            events_timer: Instant::now(),
+            events: shared_events,
+        }
     }
 
     pub fn idle() -> FileSystem {
