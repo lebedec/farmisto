@@ -1,4 +1,4 @@
-use std::cell::RefCell;
+
 use std::sync::mpsc::channel;
 use std::sync::{Arc, RwLock};
 use std::thread;
@@ -10,7 +10,7 @@ use game::api::{Event, GameResponse, PlayerRequest};
 use game::Game;
 use network::TcpClient;
 
-use crate::api::rpc::Procedure::{GetAgentInfo, GetAgentThinking, GetAgents, SaveBehaviours};
+
 use crate::api::{handle_rpc, serve_web_socket};
 use crate::{Behaviours, Nature};
 

@@ -1,40 +1,40 @@
 use std::collections::HashMap;
-use std::fmt::format;
-use std::time::Instant;
+
+
 
 use ai::AiThread;
 use glam::vec3;
 use log::{error, info};
-use sdl2::keyboard::Keycode;
+
 
 use datamap::Storage;
 use game::api::{Action, Cheat, FarmerBound, GameResponse, PlayerRequest};
 use game::inventory::{ContainerId, ItemId};
-use game::math::{test_collisions, VectorMath};
+use game::math::{VectorMath};
 use game::model::Farmer;
 use game::model::Farmland;
 use game::model::Knowledge;
 use game::model::Stack;
 use game::model::Tree;
-use game::model::{Activity, Assembly, Door};
+use game::model::{Assembly, Door};
 use game::model::{Cementer, Construction};
 use game::model::{Composter, Crop};
 use game::model::{Corpse, Equipment};
 use game::model::{Creature, Rest};
-use game::physics::{generate_holes, Barrier};
+use game::physics::{Barrier};
 use game::Game;
 use network::TcpClient;
 use server::LocalServerThread;
 
 use crate::assets::{SamplerAsset, SpriteAsset, TextureAsset};
 use crate::engine::rendering::TextController;
-use crate::engine::Input;
+
 use crate::gameplay::camera::Camera;
 use crate::gameplay::representation::{
     AssemblyRep, CementerRep, ComposterRep, ConstructionRep, CorpseRep, CreatureRep, CropRep,
     DoorRep, EquipmentRep, FarmerRep, FarmlandRep, ItemRep, RestRep, StackRep, TreeRep,
 };
-use crate::gameplay::{GameplayMetrics, InputMethod, Target};
+use crate::gameplay::{GameplayMetrics};
 use crate::monitoring::{Timer, TimerIntegration};
 use crate::{Frame, Mode};
 

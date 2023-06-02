@@ -8,7 +8,7 @@ impl Game {
     pub(crate) fn take_item_from_stack(
         &mut self,
         farmer: Farmer,
-        farmland: Farmland,
+        _farmland: Farmland,
         stack: Stack,
     ) -> Result<Vec<Event>, ActionError> {
         let destination = self.physics.get_barrier(stack.barrier)?.position;
@@ -19,7 +19,7 @@ impl Game {
     pub(crate) fn take_item_from_construction(
         &mut self,
         farmer: Farmer,
-        farmland: Farmland,
+        _farmland: Farmland,
         construction: Construction,
     ) -> Result<Vec<Event>, ActionError> {
         let destination = construction.cell.position();
@@ -30,7 +30,7 @@ impl Game {
     pub(crate) fn take_item_from_cementer(
         &mut self,
         farmer: Farmer,
-        farmland: Farmland,
+        _farmland: Farmland,
         cementer: Cementer,
         container: ContainerId,
     ) -> Result<Vec<Event>, ActionError> {
@@ -52,7 +52,7 @@ impl Game {
     pub(crate) fn take_item_from_composter(
         &mut self,
         farmer: Farmer,
-        farmland: Farmland,
+        _farmland: Farmland,
         composter: Composter,
         container: ContainerId,
     ) -> Result<Vec<Event>, ActionError> {

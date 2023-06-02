@@ -1,5 +1,5 @@
 use crate::api::{ActionError, Event};
-use crate::inventory::{ContainerId, Item, ItemId};
+use crate::inventory::{ContainerId};
 use crate::math::TileMath;
 use crate::model::{Farmer, Farmland};
 use crate::{emit, Game};

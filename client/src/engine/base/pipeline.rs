@@ -5,12 +5,12 @@ use std::time::Instant;
 use ash::vk::{DescriptorSet, ImageView, Sampler};
 use ash::{vk, Device};
 use bytemuck::NoUninit;
-use lazy_static::lazy_static;
+
 use log::{error, info};
 
 use crate::assets::PipelineAsset;
 use crate::engine::base::{Screen, ShaderData, ShaderDataSet};
-use crate::engine::rendering::SpriteVertex;
+
 use crate::engine::{IndexBuffer, VertexBuffer};
 
 pub struct MyPipelinePerformer<'a, const M: usize, C, const D: usize> {

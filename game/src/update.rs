@@ -1,6 +1,6 @@
-use log::info;
+
 use rand::thread_rng;
-use std::thread::current;
+
 
 use crate::api::Event;
 use crate::inventory::ItemId;
@@ -173,9 +173,9 @@ impl Game {
             }
         }
 
-        let mut deprecated_random = thread_rng();
+        let deprecated_random = thread_rng();
         let working_events = self.working.update(physics_time, deprecated_random.clone());
-        let mut random = &mut Random::new();
+        let random = &mut Random::new();
 
         let raising_events = self.raising.update(time, random);
         let dead_animals = self.raising.take_dead_animals();

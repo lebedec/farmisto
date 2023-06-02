@@ -1,7 +1,7 @@
 use crate::api::{ActionError, Event};
-use crate::inventory::{ContainerId, FunctionsQuery, Item, ItemId};
-use crate::landscaping::Surface;
-use crate::math::{Tile, TileMath};
+use crate::inventory::{ItemId};
+
+use crate::math::{TileMath};
 use crate::model::{Activity, Corpse, Farmer, Farmland};
 use crate::{occur, Game};
 
@@ -9,7 +9,7 @@ impl Game {
     pub(crate) fn collect_corpse(
         &mut self,
         farmer: Farmer,
-        farmland: Farmland,
+        _farmland: Farmland,
         corpse: Corpse,
     ) -> Result<Vec<Event>, ActionError> {
         self.universe.ensure_activity(farmer, Activity::Idle)?;

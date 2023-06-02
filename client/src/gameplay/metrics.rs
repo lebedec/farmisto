@@ -1,4 +1,4 @@
-use prometheus::{register_gauge_vec_with_registry, CounterVec, GaugeVec, Registry};
+use prometheus::{register_gauge_vec_with_registry, GaugeVec, Registry};
 
 pub struct GameplayMetrics {
     pub update: GaugeVec,

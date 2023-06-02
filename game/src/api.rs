@@ -7,12 +7,12 @@ use crate::inventory::{ContainerId, Inventory, InventoryError, ItemId};
 use crate::landscaping::{Landscaping, LandscapingError};
 use crate::math::Tile;
 use crate::model::{
-    Activity, Cementer, Composter, Construction, Corpse, Creature, Crop, Door, Equipment, Farmer,
+    Cementer, Composter, Construction, Corpse, Creature, Crop, Door, Equipment, Farmer,
     Rest, Stack, Universe, UniverseError,
 };
 use crate::physics::{Physics, PhysicsError};
 use crate::planting::{Planting, PlantingError};
-use crate::raising::{AnimalId, Raising, RaisingError, TetherId};
+use crate::raising::{Raising, RaisingError, TetherId};
 use crate::timing::{Timing, TimingError};
 use crate::working::{DeviceId, Working, WorkingError};
 

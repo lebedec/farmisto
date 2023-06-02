@@ -1,5 +1,5 @@
 use game::math::VectorMath;
-use log::{error, info};
+use log::{error};
 use sdl2::event::Event;
 use sdl2::keyboard::{Keycode, Mod};
 use sdl2::mouse::MouseButton;

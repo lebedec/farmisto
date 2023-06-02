@@ -1,7 +1,6 @@
 use prometheus::{
-    register_gauge_vec_with_registry, register_histogram_vec_with_registry,
-    register_int_counter_with_registry, register_int_gauge_vec_with_registry, GaugeVec,
-    HistogramVec, IntCounter, IntGauge, IntGaugeVec, Registry,
+    register_gauge_vec_with_registry,
+    register_int_counter_with_registry, register_int_gauge_vec_with_registry, GaugeVec, IntCounter, IntGaugeVec, Registry,
 };
 
 pub struct SceneMetrics {

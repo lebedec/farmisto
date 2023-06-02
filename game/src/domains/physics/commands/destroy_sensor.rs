@@ -12,7 +12,7 @@ impl PhysicsDomain {
                 .iter()
                 .position(|sensor| sensor.id == id)
                 .unwrap();
-            let sensor = self.sensors[space.0].remove(index);
+            let _sensor = self.sensors[space.0].remove(index);
 
             vec![]
         };

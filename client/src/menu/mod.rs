@@ -2,7 +2,7 @@ use glam::vec3;
 use log::info;
 use sdl2::keyboard::Keycode;
 
-use crate::engine::rendering::{ButtonController, InputController, TextController};
+use crate::engine::rendering::{ButtonController, InputController};
 use ai::AiThread;
 use network::{ClientMetrics, Configuration, TcpClient};
 use server::LocalServerThread;

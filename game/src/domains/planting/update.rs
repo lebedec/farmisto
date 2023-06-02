@@ -1,6 +1,6 @@
 use crate::planting::Planting::{PlantDamaged, PlantFruitsChanged, PlantUpdated};
 use crate::planting::{PlantId, Planting, PlantingDomain, PlantingError, SoilId};
-use log::info;
+
 
 impl PlantingDomain {
     pub fn update_impact(&mut self) {}

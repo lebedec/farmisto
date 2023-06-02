@@ -1,5 +1,5 @@
 use std::net::TcpListener;
-use std::sync::mpsc::{Receiver, RecvTimeoutError, Sender};
+use std::sync::mpsc::{Receiver, Sender};
 use std::time::Duration;
 
 use log::{error, info};

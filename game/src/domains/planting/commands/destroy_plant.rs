@@ -13,7 +13,7 @@ impl PlantingDomain {
                 .iter()
                 .position(|plant| plant.id == id)
                 .unwrap();
-            let plant = self.plants[soil.0].remove(index);
+            let _plant = self.plants[soil.0].remove(index);
             vec![]
         };
         Ok((residue, command))

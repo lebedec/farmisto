@@ -1,5 +1,5 @@
 use crate::raising::{
-    Animal, AnimalId, AnimalKind, Behaviour, Raising, RaisingDomain, RaisingError, Tether, TetherId,
+    Animal, AnimalId, AnimalKind, Behaviour, Raising, RaisingDomain, RaisingError,
 };
 use crate::timing::Shared;
 

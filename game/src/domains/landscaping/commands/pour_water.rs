@@ -4,7 +4,7 @@ use rand::Rng;
 use crate::landscaping::{
     LandId, Landscaping, LandscapingDomain, LandscapingError, Place, Surface,
 };
-use crate::math::{Array, ArrayIndex, TileMath, VectorMath};
+use crate::math::{ArrayIndex, TileMath, VectorMath};
 
 impl LandscapingDomain {
     pub fn pour_water(

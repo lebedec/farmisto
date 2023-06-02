@@ -128,7 +128,7 @@ impl CreatureAgent {
         }
     }
 
-    pub fn me(&self, input: &My, me: &CreatureView, context: &Nature) -> f32 {
+    pub fn me(&self, input: &My, _me: &CreatureView, _context: &Nature) -> f32 {
         match input {
             My::Constant => 1.0,
             My::Hunger => self.hunger,
@@ -139,7 +139,7 @@ impl CreatureAgent {
         }
     }
 
-    pub fn react_me(&self, action: &MyAction, me: &CreatureView) -> Reaction {
+    pub fn react_me(&self, action: &MyAction, _me: &CreatureView) -> Reaction {
         let action = match action {
             MyAction::Nothing => return Reaction::Tuning(Tuning::Nothing),
             MyAction::Relax => Action::TakeNap {
@@ -155,7 +155,7 @@ impl CreatureAgent {
         Reaction::Action(action)
     }
 
-    pub fn crop(&self, input: &Crop, crop: &CropView, context: &Nature) -> f32 {
+    pub fn crop(&self, input: &Crop, crop: &CropView, _context: &Nature) -> f32 {
         match input {
             Crop::Hunger => self.hunger,
             Crop::Distance => crop.position.distance(self.position) / self.interaction,
@@ -175,7 +175,7 @@ impl CreatureAgent {
         Reaction::Action(action)
     }
 
-    pub fn food(&self, input: &Food, food: &FoodView, context: &Nature) -> f32 {
+    pub fn food(&self, input: &Food, food: &FoodView, _context: &Nature) -> f32 {
         match input {
             Food::Hunger => self.hunger,
             Food::Distance => self.position.distance(food.position) / self.interaction,

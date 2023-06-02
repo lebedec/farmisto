@@ -1,4 +1,4 @@
-use crate::raising::{Animal, AnimalId, RaisingDomain, RaisingError, Tether, TetherId};
+use crate::raising::{RaisingDomain, RaisingError, Tether, TetherId};
 
 impl RaisingDomain {
     pub fn get_tether_mut(&mut self, id: TetherId) -> Result<&mut Tether, RaisingError> {

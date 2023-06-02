@@ -1,7 +1,7 @@
 use crate::api::ActionError;
 use crate::math::{Position, VectorMath};
-use crate::model::Farmer;
-use crate::physics::{Body, BodyId, SpaceId};
+
+use crate::physics::{BodyId, SpaceId};
 use crate::Game;
 
 impl Game {

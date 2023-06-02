@@ -4,8 +4,8 @@ use rusty_spine::controller::SkeletonController;
 use crate::assets::{SpineAsset, TextureAsset};
 use crate::engine::base::ShaderData;
 use crate::engine::rendering::{
-    AnimalPushConstants, AnimalRenderObject, RenderingLine, Scene, SpineRenderController,
-    SpineUniform, SpineVertex, SpriteVertex,
+    AnimalPushConstants, AnimalRenderObject, Scene, SpineRenderController,
+    SpineUniform, SpineVertex,
 };
 use crate::engine::{IndexBuffer, UniformBuffer, VertexBuffer};
 

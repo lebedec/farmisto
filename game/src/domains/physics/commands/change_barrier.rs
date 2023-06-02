@@ -1,4 +1,4 @@
-use crate::physics::{BarrierId, BodyId, Physics, PhysicsDomain, PhysicsError};
+use crate::physics::{BarrierId, Physics, PhysicsDomain, PhysicsError};
 
 impl PhysicsDomain {
     pub fn change_barrier(&mut self, id: BarrierId, active: bool) -> Result<impl FnOnce() -> Vec<Physics> + '_, PhysicsError> {

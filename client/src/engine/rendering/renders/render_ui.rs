@@ -171,7 +171,7 @@ impl TextRenderThread {
         let (request, requests) = channel::<TextRenderRequest>();
         let font_type = font.font_type.clone();
         thread::spawn(move || {
-            for mut request in requests {
+            for request in requests {
                 let mut timer = Timer::now();
                 let fonts = FontCollection::from(font_type.clone());
 

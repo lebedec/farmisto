@@ -6,7 +6,7 @@ use std::ptr;
 use ash::vk::Handle;
 use ash::{vk, Device};
 use lazy_static::lazy_static;
-use log::info;
+
 
 use crate::assets::TextureAsset;
 

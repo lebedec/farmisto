@@ -1,6 +1,6 @@
-use crate::engine::buffers::CameraUniform;
+
 use crate::Input;
-use glam::{vec3, Mat4, Vec3};
+use glam::{vec3, Vec3};
 use sdl2::keyboard::Keycode;
 
 pub struct Camera {

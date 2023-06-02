@@ -2,7 +2,7 @@ use crate::engine::base::Base;
 use crate::engine::rendering::{Scene, SceneMetrics};
 use crate::engine::{AppConfig, Input};
 use ash::vk;
-use std::ffi::{CStr, CString};
+use std::ffi::{CString};
 
 use libfmod::ffi::{FMOD_INIT_NORMAL, FMOD_STUDIO_INIT_NORMAL, FMOD_VERSION};
 use libfmod::{SpeakerMode, Studio};
@@ -14,9 +14,9 @@ use crate::assets::Assets;
 use crate::monitoring::{spawn_prometheus_metrics_pusher, spawn_prometheus_metrics_server};
 use crate::translation::Translator;
 use prometheus::Registry;
-use sdl2::image::{InitFlag, LoadTexture};
+use sdl2::image::{InitFlag};
 use sdl2::keyboard::Keycode;
-use sdl2::video::FullscreenType;
+
 
 pub struct Frame<'c> {
     pub config: &'c AppConfig,
@@ -39,7 +39,7 @@ pub fn startup<A: App>(title: String) {
     let video = system.video().unwrap();
     sdl2::image::init(InitFlag::PNG).unwrap();
 
-    let mut windowed = true;
+    let _windowed = true;
     let mut window = video.window(&title, config.resolution[0], config.resolution[1]);
     let window = if config.windowed {
         window
@@ -48,7 +48,7 @@ pub fn startup<A: App>(title: String) {
     } else {
         window.fullscreen()
     };
-    let mut window = window.vulkan().build().unwrap();
+    let window = window.vulkan().build().unwrap();
     info!(
         "SDL display: {:?}, dpi {:?}",
         video.display_bounds(0).unwrap(),
@@ -199,7 +199,7 @@ pub fn startup<A: App>(title: String) {
                 translator: &translator,
                 metrics_registry: &metrics_registry,
             });
-            let t1 = t1.elapsed().as_secs_f32();
+            let _t1 = t1.elapsed().as_secs_f32();
             // if t1 > 0.0002 {
             //     println!("t1: {}", t1);
             // }

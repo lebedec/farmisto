@@ -1,6 +1,6 @@
 use ash::vk;
 
-use game::building::{Grid, Room};
+
 use game::math::VectorMath;
 
 use crate::assets::{SamplerAsset, TextureAsset};

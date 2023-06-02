@@ -1,15 +1,15 @@
 use ash::{vk, Device};
 use glam::{vec3, Mat4, Vec3};
-use lazy_static::lazy_static;
-use log::info;
-use prometheus::{register_histogram_vec_with_registry, HistogramVec, Registry};
-use sdl2::libc::pipe;
-use std::cell::RefCell;
+
+
+
+
+
 use std::collections::BTreeMap;
-use std::mem;
+
 use std::mem::take;
 use std::sync::{Arc, RwLock};
-use std::time::Instant;
+
 
 use crate::assets::{SamplerAsset, TextureAsset};
 use crate::engine::base::Screen;
@@ -17,14 +17,14 @@ use crate::engine::base::ShaderData;
 use crate::engine::base::{MyPipeline, MyQueue};
 use crate::engine::buffers::{CameraUniform, LightUniform, UniformBuffer};
 use crate::engine::rendering::SPRITE_VERTICES;
-use crate::engine::rendering::{AnimalPushConstants, AnimalRenderObject, GroundRenderObject};
-use crate::engine::rendering::{ElementPushConstants, ElementRenderObject, PlantRenderObject};
+use crate::engine::rendering::{AnimalPushConstants, GroundRenderObject};
+use crate::engine::rendering::{ElementPushConstants, ElementRenderObject};
 use crate::engine::rendering::{GroundPushConstants, GroundUniform, Light};
 use crate::engine::rendering::{LinePushConstants, LineRenderObject, GROUND_VERTICES};
 use crate::engine::rendering::{PlantPushConstants, RenderingLine};
 use crate::engine::rendering::{SceneMetrics, SpritePushConstants};
 use crate::engine::rendering::{SpineVertex, TilemapPushConstants};
-use crate::engine::rendering::{SpriteRenderObject, TextRenderThread};
+use crate::engine::rendering::{TextRenderThread};
 use crate::engine::rendering::{SpriteVertex, TilemapRenderObject};
 use crate::engine::VertexBuffer;
 use crate::monitoring::Timer;
@@ -347,7 +347,7 @@ impl Scene {
         }
         timer.gauge("tilemap-0", &self.metrics.draw);
 
-        for (line, objects) in take(&mut self.sorted_render_objects) {
+        for (_line, objects) in take(&mut self.sorted_render_objects) {
             let mut pipeline = self.sprite_pipeline.perform(device, buffer);
             pipeline.bind_data_by_descriptor(lights_descriptor);
             pipeline.bind_camera(camera_descriptor);

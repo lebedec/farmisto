@@ -1,8 +1,8 @@
-use std::io::{BufReader, Cursor, Read, Write};
+use std::io::{Read, Write};
 use std::net::TcpStream;
 
 use bincode::error::{DecodeError, EncodeError};
-use bincode::{Decode, Encode};
+
 use log::error;
 
 pub struct SyncReceiver {

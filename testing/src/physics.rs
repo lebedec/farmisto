@@ -4,7 +4,7 @@ use std::ffi::CString;
 
 use serde_json::json;
 
-use game::api::Event;
+
 use game::physics::{Barrier, BarrierId, Space, SpaceId};
 
 use crate::ffi::{PyString, PyStringToString, PyTuple, PyTupleToSlice};

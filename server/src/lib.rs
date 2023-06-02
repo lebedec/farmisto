@@ -8,7 +8,7 @@ use lazy_static::lazy_static;
 use log::{error, info};
 
 use datamap::Storage;
-use game::api::{ActionError, Event, GameResponse, PlayerRequest};
+use game::api::{GameResponse, PlayerRequest};
 use game::model::UniverseSnapshot;
 use game::Game;
 use network::{Configuration, TcpServer};
@@ -43,8 +43,8 @@ impl LocalServerThread {
                 let mut tick = Instant::now();
                 notify_started.send(true).unwrap();
 
-                let m_fps_time = 0.0;
-                let m_fps = 0;
+                let _m_fps_time = 0.0;
+                let _m_fps = 0;
 
                 while running_thread.load(Ordering::Relaxed) {
                     HOST_FRAMES_TOTAL.inc();

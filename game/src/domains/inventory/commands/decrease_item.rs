@@ -1,6 +1,6 @@
 use crate::inventory::domain::InventoryDomain;
 use crate::inventory::Inventory::{ItemQuantityChanged, ItemRemoved};
-use crate::inventory::{ContainerId, Inventory, InventoryError, ItemId};
+use crate::inventory::{ContainerId, Inventory, InventoryError};
 
 impl InventoryDomain {
     pub fn decrease_container_item(

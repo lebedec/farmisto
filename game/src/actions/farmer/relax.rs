@@ -6,7 +6,7 @@ impl Game {
     pub(crate) fn relax(
         &mut self,
         farmer: Farmer,
-        farmland: Farmland,
+        _farmland: Farmland,
         rest: Rest,
     ) -> Result<Vec<Event>, ActionError> {
         self.universe.ensure_activity(farmer, Activity::Idle)?;

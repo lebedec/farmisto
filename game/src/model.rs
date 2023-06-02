@@ -5,7 +5,7 @@ use crate::building::{
     Cell, GridId, GridKey, GridKind, Marker, Room, SurveyorId, SurveyorKey, SurveyorKind,
 };
 use crate::collections::{Dictionary, Shared};
-use crate::inventory::{ContainerId, ContainerKey, ContainerKind, ItemId, ItemKey, ItemKind};
+use crate::inventory::{ContainerId, ContainerKey, ContainerKind, ItemKey, ItemKind};
 use crate::landscaping::{LandId, LandKey, LandKind};
 use crate::physics::{
     BarrierId, BarrierKey, BarrierKind, BodyId, BodyKey, BodyKind, SensorId, SensorKey, SensorKind,
@@ -13,7 +13,7 @@ use crate::physics::{
 };
 use crate::planting::{PlantId, PlantKey, PlantKind, SoilId, SoilKey, SoilKind};
 use crate::raising::{AnimalId, AnimalKey, AnimalKind, Behaviour, TetherId};
-use crate::timing::{CalendarId, CalendarKey, CalendarKind, Sequence};
+use crate::timing::{CalendarId, CalendarKey, CalendarKind};
 use crate::working::{DeviceId, DeviceKey, DeviceKind};
 
 #[derive(Default)]

@@ -1,18 +1,18 @@
 use std::sync::Arc;
-use std::{fs, ptr};
+use std::{ptr};
 
 use ash::prelude::VkResult;
 use ash::vk::Handle;
 use ash::{vk, Device};
 use lazy_static::lazy_static;
-use log::{debug, error, info};
+use log::{debug, info};
 use sdl2::image::ImageRWops;
 use sdl2::rwops::RWops;
 
 use crate::assets::Asset;
 use crate::engine::base::{create_buffer, index_memory_type, MyQueue};
 use crate::engine::commands::Single;
-use crate::monitoring::Timer;
+
 
 lazy_static! {
     static ref METRIC_LOADING_SECONDS: prometheus::HistogramVec =
@@ -147,7 +147,7 @@ impl TextureAssetData {
         // let image_data = image_data.as_ptr();
         // debug!("{path} L{image_data_len} {image_width}x{image_height} {c:?}");
 
-        let mut file = RWops::from_file(path, "rb").unwrap();
+        let file = RWops::from_file(path, "rb").unwrap();
         let surface = file.load_png().unwrap();
         let image_width = surface.width() as usize;
         let image_height = surface.height() as usize;

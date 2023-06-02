@@ -344,7 +344,7 @@ impl Base {
                 family: queue_family_index,
             });
 
-            let working_queue = Arc::new(MyQueue {
+            let _working_queue = Arc::new(MyQueue {
                 device: device.clone(),
                 device_memory: device_memory_properties,
                 handle: Mutex::new(working_queue),

@@ -1,4 +1,4 @@
-use log::info;
+
 use rand::Rng;
 
 use crate::working::Working::DeviceUpdated;

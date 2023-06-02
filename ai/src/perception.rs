@@ -1,14 +1,14 @@
 use std::collections::HashMap;
-use std::sync::RwLock;
+
 
 use log::error;
 
 use game::api::Event;
 use game::collections::Shared;
-use game::inventory::{ContainerId, FunctionsQuery, Inventory, ItemId, ItemKey, ItemKind};
-use game::math::{ArrayIndex, Position, VectorMath};
-use game::model::{Creature, Crop, Farmer, Knowledge, Purpose, Stack, Universe};
-use game::physics::{BarrierId, BarrierKey, BarrierKind, Physics};
+use game::inventory::{ContainerId, Inventory, ItemId, ItemKind};
+use game::math::{ArrayIndex, Position};
+use game::model::{Creature, Crop, Farmer, Purpose, Stack, Universe};
+use game::physics::{BarrierId, BarrierKind, Physics};
 use game::raising::{Raising, TetherId};
 use game::timing::Timing;
 
@@ -322,7 +322,7 @@ impl Nature {
             }
             Physics::BarrierDestroyed {
                 id,
-                position,
+                
                 space,
                 ..
             } => {

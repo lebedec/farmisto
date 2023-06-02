@@ -1,8 +1,8 @@
 use crate::math::Random;
 use crate::raising::Raising::{AnimalChanged, AnimalHealthChanged};
 use crate::raising::{Animal, Raising, RaisingDomain};
-use log::{error, info};
-use std::collections::HashSet;
+use log::{error};
+
 use std::mem::take;
 
 impl RaisingDomain {

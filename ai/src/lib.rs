@@ -1,15 +1,15 @@
-use log::{error, info};
-use std::cell::RefCell;
+use log::{error};
+
 use std::collections::HashMap;
 use std::fmt::Debug;
-use std::sync::{Arc, RwLock};
-use std::time::Instant;
+
+
 
 use game::api::Action;
 use game::inventory::{ContainerId, FunctionsQuery, ItemId};
-use game::math::{cast_ray, cast_ray2, Array, ArrayIndex, VectorMath};
+use game::math::{cast_ray2, Array, ArrayIndex, VectorMath};
 use game::model::{Farmer, Knowledge};
-use game::physics::{BarrierId, BarrierKey, SpaceId};
+use game::physics::{BarrierId, SpaceId};
 use game::raising::TetherId;
 pub use thread::*;
 
@@ -115,7 +115,7 @@ impl Nature {
             }
             if is_food {
                 let rect = container.position.to_tile().rect([128, 128], [9, 9]);
-                let [x, y, w, h] = rect;
+                let [_x, _y, w, h] = rect;
                 let patch = vec![0.5; w * h];
                 self.feeding_map.add(128, rect, &patch);
             }
@@ -123,7 +123,7 @@ impl Nature {
         for crop in &self.crops {
             let radius = crop.growth as usize + 6;
             let rect = crop.position.to_tile().rect([128, 128], [radius, radius]);
-            let [x, y, w, h] = rect;
+            let [_x, _y, w, h] = rect;
             let patch = vec![crop.growth / 4.0; w * h];
             self.feeding_map.add(128, rect, &patch);
         }

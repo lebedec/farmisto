@@ -7,7 +7,7 @@ impl Game {
     pub(crate) fn harvest_crop(
         &mut self,
         farmer: Farmer,
-        farmland: Farmland,
+        _farmland: Farmland,
         crop: Crop,
     ) -> Result<Vec<Event>, ActionError> {
         let destination = self.physics.get_barrier(crop.barrier)?.position;

@@ -1,4 +1,4 @@
-use crate::assembling::{Assembling, AssemblingDomain, AssemblingError, Placement, PlacementId};
+use crate::assembling::{Assembling, AssemblingDomain, AssemblingError, PlacementId};
 
 impl AssemblingDomain {
     pub fn cancel_placement(

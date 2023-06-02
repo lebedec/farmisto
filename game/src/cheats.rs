@@ -8,7 +8,7 @@ impl Game {
     pub(crate) fn cheat_growth_up_crops(
         &mut self,
         farmer: Farmer,
-        farmland: Farmland,
+        _farmland: Farmland,
         growth: f32,
         radius: f32,
     ) -> Result<Vec<Event>, ActionError> {
@@ -24,7 +24,7 @@ impl Game {
 
     pub(crate) fn cheat_spawn_lama(
         &mut self,
-        farmer: Farmer,
+        _farmer: Farmer,
         farmland: Farmland,
         tile: [usize; 2],
     ) -> Result<Vec<Event>, ActionError> {
@@ -48,7 +48,7 @@ impl Game {
     pub(crate) fn cheat_set_creatures_health(
         &mut self,
         farmer: Farmer,
-        farmland: Farmland,
+        _farmland: Farmland,
         health: f32,
         radius: f32,
     ) -> Result<Vec<Event>, ActionError> {

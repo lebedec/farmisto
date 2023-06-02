@@ -9,8 +9,8 @@ use crate::model::{
 use crate::physics::Physics;
 use crate::planting::Planting;
 use crate::Game;
-use log::info;
-use std::time::Instant;
+
+
 
 impl Game {
     pub fn inspect_player_private_space(
@@ -202,10 +202,10 @@ impl Game {
 
         for farmland in self.universe.farmlands.iter() {
             if snapshot.whole || snapshot.farmlands.contains(&farmland.id) {
-                let soil = self.planting.get_soil(farmland.soil).unwrap();
+                let _soil = self.planting.get_soil(farmland.soil).unwrap();
                 let grid = self.building.get_grid(farmland.grid).unwrap();
                 let space = self.physics.get_space(farmland.space).unwrap();
-                let land = self.landscaping.get_land(farmland.land).unwrap();
+                let _land = self.landscaping.get_land(farmland.land).unwrap();
                 let calendar = self.timing.get_calendar(farmland.calendar).unwrap();
                 stream.push(Universe::FarmlandAppeared {
                     farmland: *farmland,

@@ -1,5 +1,5 @@
 use game::assembling::Rotation;
-use log::{error, info};
+use log::{error};
 use rusty_spine::Skin;
 use std::collections::HashMap;
 

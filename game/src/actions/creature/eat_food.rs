@@ -1,15 +1,15 @@
 use crate::api::{ActionError, Event};
-use crate::inventory::{ContainerId, ItemId};
+use crate::inventory::{ItemId};
 use crate::model::{Creature, Farmer, Stack};
-use crate::{emit, occur, Game};
-use log::error;
+use crate::{emit, Game};
+
 
 impl Game {
     pub fn eat_food_from_stack(
         &mut self,
         creature: Creature,
         stack: Stack,
-        item: ItemId,
+        _item: ItemId,
     ) -> Result<Vec<Event>, ActionError> {
         let position = self.physics.get_barrier(stack.barrier)?.position;
         self.ensure_target_reachable(creature.body, position)?;
@@ -23,7 +23,7 @@ impl Game {
         &mut self,
         creature: Creature,
         farmer: Farmer,
-        item: ItemId,
+        _item: ItemId,
     ) -> Result<Vec<Event>, ActionError> {
         let position = self.physics.get_body(farmer.body)?.position;
         self.ensure_target_reachable(creature.body, position)?;

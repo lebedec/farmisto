@@ -4,7 +4,7 @@ use crate::inventory::InventoryDomain;
 use crate::inventory::InventoryError;
 use crate::inventory::{ContainerId, Function};
 use crate::inventory::{Inventory, ItemData};
-use crate::math::VectorMath;
+
 
 impl InventoryDomain {
     pub fn pop_item<'operation>(

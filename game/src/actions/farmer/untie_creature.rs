@@ -8,7 +8,7 @@ impl Game {
         &mut self,
         farmer: Farmer,
         tether: TetherId,
-        creature: Creature,
+        _creature: Creature,
     ) -> Result<Vec<Event>, ActionError> {
         self.universe
             .ensure_activity(farmer, Activity::Tethering2 { tether })?;

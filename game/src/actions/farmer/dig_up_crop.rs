@@ -2,7 +2,7 @@ use crate::api::{ActionError, Event};
 use crate::inventory::{ContainerId, FunctionsQuery, Item, ItemId};
 use crate::model::{Crop, Farmer, Farmland};
 use crate::{occur, Game};
-use log::info;
+
 
 impl Game {
     pub(crate) fn dig_up_crop(

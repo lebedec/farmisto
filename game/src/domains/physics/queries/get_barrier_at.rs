@@ -1,5 +1,5 @@
 use crate::math::test_rect_collision;
-use crate::physics::{Barrier, PhysicsDomain, PhysicsError, SpaceId};
+use crate::physics::{Barrier, PhysicsDomain, SpaceId};
 
 impl PhysicsDomain {
     pub fn get_barrier_at(&self, space: SpaceId, position: [f32; 2]) -> Option<&Barrier> {

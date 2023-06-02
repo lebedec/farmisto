@@ -271,8 +271,8 @@ impl Gameplay {
             Raising::AnimalChanged {
                 id,
                 age,
-                thirst,
-                hunger,
+                thirst: _,
+                hunger: _,
                 weight,
             } => {
                 for creature in self.creatures.values_mut() {
@@ -321,7 +321,7 @@ impl Gameplay {
                     }
                 }
             }
-            Raising::AnimalUntied { id, tether } => {
+            Raising::AnimalUntied { id, tether: _ } => {
                 for creature in self.creatures.values_mut() {
                     if creature.entity.animal == id {
                         creature.tether = None;
@@ -443,7 +443,7 @@ impl Gameplay {
         }
     }
 
-    pub fn handle_timing_event(&mut self, frame: &mut Frame, event: Timing) {
+    pub fn handle_timing_event(&mut self, _frame: &mut Frame, event: Timing) {
         match event {
             Timing::TimeUpdated {
                 speed,
@@ -696,9 +696,9 @@ impl Gameplay {
             }
             Universe::CreatureAppeared {
                 entity,
-                farmland,
+                farmland: _,
                 health,
-                hunger,
+                hunger: _,
                 weight,
                 position,
                 behaviour,

@@ -4,7 +4,7 @@ use game::math::Position;
 
 use crate::assets::SpriteAsset;
 use crate::engine::base::ShaderData;
-use crate::engine::rendering::{RenderingLine, Scene, SpritePushConstants, SpriteRenderObject};
+use crate::engine::rendering::{Scene, SpritePushConstants, SpriteRenderObject};
 
 #[derive(Debug, Clone, Copy)]
 pub struct SpritePosition {

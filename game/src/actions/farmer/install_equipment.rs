@@ -2,7 +2,7 @@ use crate::api::{ActionError, Event};
 use crate::inventory::FunctionsQuery;
 use crate::math::TileMath;
 use crate::model::{Activity, EquipmentKey, Farmer, Farmland, Purpose, PurposeDescription};
-use crate::{emit, occur, Game};
+use crate::{emit, Game};
 
 impl Game {
     pub(crate) fn install_equipment(
