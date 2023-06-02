@@ -45,7 +45,7 @@ jobs:
       run: cargo test --package game
 
     - name: Build testing lib
-      run: cargo build --package testing --release
+      run: cargo build --package testing
 
     - name: Install Python requirements
       run: pip3 install -r tests/requirements.txt
