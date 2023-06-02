@@ -59,3 +59,8 @@ def step_impl(context: Context):
 def step_impl(context: Context):
     creature = Creature(43, 2, 4, 5)
     context.game.test_entity2(creature)
+
+
+@then("assert fail")
+def step_impl(context: Context):
+    assert False

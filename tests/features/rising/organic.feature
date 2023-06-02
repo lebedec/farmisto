@@ -23,3 +23,4 @@ Feature: Животноводство - Органик
 
   Scenario: Отгораживает сеткой в курятнике новых кур чтобы они прижились в стае
     Given test farmland
+    Then assert fail
