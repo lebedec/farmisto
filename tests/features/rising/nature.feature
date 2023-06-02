@@ -1,4 +1,7 @@
-Feature: Fight or flight
+Feature: Животноводство - Природа
+
+  Background:
+    Given farmer Alice on empty farm
 
   Scenario: Physics only
     Given test space

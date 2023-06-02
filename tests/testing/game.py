@@ -1,9 +1,32 @@
 import ctypes
 import json
 from ctypes import c_float
-from typing import List, Tuple, Dict
+from typing import List, Dict
 
 Array2Float = c_float * 2
+
+
+def define(structure_type):
+    fields = []
+    for name, python_type in structure_type.__annotations__.items():
+        c_type = ctypes.c_void_p
+
+        if python_type == int:
+            c_type = ctypes.c_ulonglong
+
+        fields.append((name, c_type))
+
+    structure_type._fields_ = fields
+    return structure_type
+
+
+@define
+class Creature(ctypes.Structure):
+    id: int
+    key: int
+    body: int
+    animal: int
+
 
 class GameTestScenario:
 
@@ -16,6 +39,13 @@ class GameTestScenario:
 
     def dispose(self):
         self._lib.dispose(self._scenario)
+
+    def test_entity(self) -> Creature:
+        self._lib.test_entity.restype = Creature
+        return self._lib.test_entity()
+
+    def test_entity2(self, value: Creature):
+        return self._lib.test_entity2(value)
 
     # game
 

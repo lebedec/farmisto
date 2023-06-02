@@ -1,10 +1,17 @@
-use crate::ffi::{PyString, PyStringToString};
-use datamap::Storage;
-use game::api::{ActionError, Event};
-use game::Game;
+#![allow(improper_ctypes_definitions)]
+
 use std::ffi::CString;
 use std::fs;
 use std::mem::take;
+
+use datamap::Storage;
+use game::api::{ActionError, Event};
+use game::model::{Creature, CreatureKey};
+use game::physics::BodyId;
+use game::raising::AnimalId;
+use game::Game;
+
+use crate::ffi::{PyString, PyStringToString};
 
 pub struct Scenario {
     pub game: Game,
@@ -27,19 +34,23 @@ pub unsafe extern "C" fn perform_action(scenario: &mut Scenario, data: PyString)
 }
 
 #[no_mangle]
+pub unsafe extern "C" fn test_entity() -> Creature {
+    Creature {
+        id: 42,
+        key: CreatureKey(1),
+        body: BodyId(2),
+        animal: AnimalId(3),
+    }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn test_entity2(creature: Creature) {
+    println!("CREATURE: {creature:?}");
+}
+
+#[no_mangle]
 pub unsafe extern "C" fn create(database: PyString) -> *mut Scenario {
-    println!("LS ./");
     let paths = fs::read_dir("./").unwrap();
-    for path in paths {
-        println!("Name: {}", path.unwrap().path().display())
-    }
-    println!("LS ../");
-    let paths = fs::read_dir("../").unwrap();
-    for path in paths {
-        println!("Name: {}", path.unwrap().path().display())
-    }
-    println!("LS ../assets");
-    let paths = fs::read_dir("../assets").unwrap();
     for path in paths {
         println!("Name: {}", path.unwrap().path().display())
     }

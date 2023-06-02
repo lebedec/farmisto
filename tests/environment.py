@@ -1,3 +1,5 @@
+from behave.model import Scenario
+
 from testing import Context, setup_environment, setup_scenario, teardown_scenario
 
 
@@ -5,8 +7,8 @@ def before_all(context: Context):
     setup_environment(context)
 
 
-def before_scenario(context: Context, s):
-    print(type(s))
+def before_scenario(context: Context, scenario: Scenario):
+    print('TAGS', scenario.tags, scenario.location, scenario.description)
     setup_scenario(context)
 
 

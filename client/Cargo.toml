@@ -9,6 +9,7 @@ game = { path = "../game" }
 network = { path = "../network" }
 server = { path = "../server" }
 ai = { path = "../ai" }
+testing = { path = "../testing" }
 log = "0.4"
 env_logger = { version = "0.9", default-features = false, features = ["humantime"] }
 bytemuck = { version = "1.9", features = ["derive"] }

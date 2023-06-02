@@ -1,7 +1,11 @@
+#![allow(improper_ctypes_definitions)]
+
+use std::ffi::CString;
+
+use serde_json::json;
+
 use game::api::Event;
 use game::physics::{Barrier, BarrierId, Space, SpaceId};
-use serde_json::json;
-use std::ffi::CString;
 
 use crate::ffi::{PyString, PyStringToString, PyTuple, PyTupleToSlice};
 use crate::game::Scenario;
