@@ -6,12 +6,12 @@ use std::mem::take;
 
 use datamap::Storage;
 use game::api::{ActionError, Event};
-use game::model::{Creature, CreatureKey};
+use game::model::{Creature, CreatureKey, Farmer, Farmland, Universe};
 use game::physics::BodyId;
 use game::raising::AnimalId;
 use game::Game;
 
-use crate::ffi::{PyString, PyStringToString};
+use crate::ffi::{PyString, PyStringToString, PyTuple, PyTupleToSlice};
 
 pub struct Scenario {
     pub game: Game,
@@ -20,9 +20,21 @@ pub struct Scenario {
 }
 
 #[no_mangle]
+pub unsafe extern "C" fn create(database: PyString) -> *mut Scenario {
+    let storage = Storage::open(database.to_str()).unwrap();
+    let mut game = Game::new(storage);
+    game.load_game_knowledge().unwrap();
+    let scenario = Scenario {
+        game,
+        events: vec![],
+        errors: None,
+    };
+    Box::into_raw(Box::new(scenario))
+}
+
+#[no_mangle]
 pub unsafe extern "C" fn perform_action(scenario: &mut Scenario, data: PyString) {
     let action = serde_json::from_str(data.to_str()).unwrap();
-    println!("ACTION!!!: {action:?}");
     match scenario.game.perform_action("Alice", action) {
         Ok(events) => {
             scenario.events.extend(events);
@@ -34,36 +46,42 @@ pub unsafe extern "C" fn perform_action(scenario: &mut Scenario, data: PyString)
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn test_entity() -> Creature {
-    Creature {
-        id: 42,
-        key: CreatureKey(1),
-        body: BodyId(2),
-        animal: AnimalId(3),
+pub unsafe extern "C" fn add_farmland(scenario: &mut Scenario, kind: PyString) -> Farmland {
+    let events = scenario.game.create_farmland(kind.to_str()).unwrap();
+    for event in events {
+        if let Event::UniverseStream(events) = event {
+            for event in events {
+                if let Universe::FarmlandAppeared { farmland, .. } = event {
+                    return farmland;
+                }
+            }
+        }
     }
+    panic!("Unable to add farmland, event with farmland id not found");
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn test_entity2(creature: Creature) {
-    println!("CREATURE: {creature:?}");
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn create(database: PyString) -> *mut Scenario {
-    let paths = fs::read_dir("./").unwrap();
-    for path in paths {
-        println!("Name: {}", path.unwrap().path().display())
+pub unsafe extern "C" fn add_farmer(
+    scenario: &mut Scenario,
+    name: PyString,
+    kind: PyString,
+    farmland: Farmland,
+    position: PyTuple,
+) -> Farmer {
+    let events = scenario
+        .game
+        .create_farmer(name.to_str(), kind.to_str(), farmland, position.to_slice())
+        .unwrap();
+    for event in events {
+        if let Event::UniverseStream(events) = event {
+            for event in events {
+                if let Universe::FarmerAppeared { farmer, .. } = event {
+                    return farmer;
+                }
+            }
+        }
     }
-    let storage = Storage::open(database.to_str()).unwrap();
-    let mut game = Game::new(storage);
-    game.load_game_knowledge().unwrap();
-    println!("KNOWN SPACES: {}", game.known.spaces.len());
-    let scenario = Scenario {
-        game,
-        events: vec![],
-        errors: None,
-    };
-    Box::into_raw(Box::new(scenario))
+    panic!("Unable to add farmer, event with farmer id not found");
 }
 
 #[no_mangle]

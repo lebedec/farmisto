@@ -3,14 +3,12 @@ use crate::inventory::{Inventory, ItemData};
 use crate::landscaping::Landscaping;
 use crate::math::{Array, ArrayIndex, VectorMath};
 use crate::model::{
-    Assembly, Cementer, Composter, Corpse, Creature, Crop, Door, Equipment, Farmer, PlayerId, Rest,
-    Stack, Universe, UniverseSnapshot,
+    Assembly, Cementer, Composter, Corpse, Creature, Crop, Door, Equipment, Farmer, Farmland,
+    PlayerId, Rest, Stack, Universe, UniverseSnapshot,
 };
 use crate::physics::Physics;
 use crate::planting::Planting;
 use crate::Game;
-
-
 
 impl Game {
     pub fn inspect_player_private_space(
@@ -197,25 +195,29 @@ impl Game {
         })
     }
 
+    pub fn inspect_farmland(&self, farmland: Farmland) -> Result<Universe, ActionError> {
+        let _soil = self.planting.get_soil(farmland.soil).unwrap();
+        let grid = self.building.get_grid(farmland.grid).unwrap();
+        let space = self.physics.get_space(farmland.space).unwrap();
+        let _land = self.landscaping.get_land(farmland.land).unwrap();
+        let calendar = self.timing.get_calendar(farmland.calendar).unwrap();
+        Ok(Universe::FarmlandAppeared {
+            farmland,
+            cells: grid.cells.clone(),
+            rooms: grid.rooms.clone(),
+            holes: space.holes.clone(),
+            season: calendar.season,
+            season_day: calendar.season_day,
+            times_of_day: calendar.times_of_day,
+        })
+    }
+
     pub fn look_around(&self, snapshot: UniverseSnapshot) -> Vec<Event> {
         let mut stream = vec![];
 
         for farmland in self.universe.farmlands.iter() {
             if snapshot.whole || snapshot.farmlands.contains(&farmland.id) {
-                let _soil = self.planting.get_soil(farmland.soil).unwrap();
-                let grid = self.building.get_grid(farmland.grid).unwrap();
-                let space = self.physics.get_space(farmland.space).unwrap();
-                let _land = self.landscaping.get_land(farmland.land).unwrap();
-                let calendar = self.timing.get_calendar(farmland.calendar).unwrap();
-                stream.push(Universe::FarmlandAppeared {
-                    farmland: *farmland,
-                    cells: grid.cells.clone(),
-                    rooms: grid.rooms.clone(),
-                    holes: space.holes.clone(),
-                    season: calendar.season,
-                    season_day: calendar.season_day,
-                    times_of_day: calendar.times_of_day,
-                });
+                stream.push(self.inspect_farmland(*farmland).unwrap());
             }
         }
 

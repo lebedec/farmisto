@@ -2,10 +2,12 @@ use crate::api::ActionError;
 use crate::assembling::PlacementId;
 use crate::building::{GridId, Marker, SurveyorId};
 use crate::inventory::ContainerId;
+use crate::landscaping::LandId;
 use crate::model::*;
-use crate::physics::{BarrierId, BodyId, SensorId};
-use crate::planting::PlantId;
+use crate::physics::{BarrierId, BodyId, SensorId, SpaceId};
+use crate::planting::{PlantId, SoilId};
 use crate::raising::{AnimalId, TetherId};
+use crate::timing::CalendarId;
 use crate::working::DeviceId;
 use crate::Game;
 
@@ -53,6 +55,29 @@ impl Game {
             .insert(entity, Activity::Idle);
         self.universe.farmers.push(entity);
         self.inspect_farmer(entity)
+    }
+
+    pub fn appear_farmland(
+        &mut self,
+        kind: FarmlandKey,
+        space: SpaceId,
+        soil: SoilId,
+        grid: GridId,
+        land: LandId,
+        calendar: CalendarId,
+    ) -> Result<Universe, ActionError> {
+        self.universe.farmlands_id += 1;
+        let entity = Farmland {
+            id: self.universe.farmlands_id,
+            kind,
+            space,
+            soil,
+            grid,
+            land,
+            calendar,
+        };
+        self.universe.farmlands.push(entity);
+        self.inspect_farmland(entity)
     }
 
     pub(crate) fn appear_construction(

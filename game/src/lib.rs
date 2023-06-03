@@ -11,18 +11,16 @@ pub use update::*;
 use crate::api::ActionError::PlayerFarmerNotFound;
 use crate::api::{Action, ActionError, Cheat, Event, FarmerBound};
 use crate::assembling::AssemblingDomain;
-use crate::building::{BuildingDomain};
+use crate::building::BuildingDomain;
 use crate::inventory::{ContainerId, InventoryDomain};
 use crate::landscaping::LandscapingDomain;
+use crate::math::Position;
 use crate::model::Activity::Idle;
-use crate::model::Player;
+use crate::model::Knowledge;
+use crate::model::PlayerId;
 use crate::model::UniverseDomain;
-use crate::model::{
-    PlayerId,
-};
-use crate::model::{Knowledge};
 use crate::model::{Farmer, Universe};
-
+use crate::model::{Farmland, Player};
 use crate::physics::{BodyId, PhysicsDomain};
 use crate::planting::PlantingDomain;
 use crate::raising::RaisingDomain;
@@ -99,47 +97,73 @@ impl Game {
                 info!("Accepts <AI> player");
                 return Ok(vec![]);
             }
-
-            info!("Accepts new player {player_name}");
-            self.players_id += 1;
-            let player = PlayerId(self.players_id);
-            self.players.push(Player {
-                id: player,
-                name: player_name.to_string(),
-            });
-            let farmer_kind = self.known.farmers.find("farmer")?;
-
             // TODO: define player spawn place
-            let spawn = [10.5, 10.5];
-            let farmland = &self.universe.farmlands[0];
-
-            let body = self.physics.bodies_sequence.introduce().one(BodyId);
-            let body_kind = self.known.bodies.find("farmer")?;
-            let create_body = self
-                .physics
-                .create_body(body, farmland.space, body_kind, spawn)?;
-
-            let [hands, backpack] = self.inventory.containers_id.introduce().many(ContainerId);
-            let hands_kind = self.known.containers.find("<hands>")?;
-            let backpack_kind = self.known.containers.find("<backpack>")?;
-            let create_hands = self.inventory.add_empty_container(hands, &hands_kind)?;
-            let create_backpack = self
-                .inventory
-                .add_empty_container(backpack, &backpack_kind)?;
-            let (tether, create_tether) = self.raising.create_tether()?;
-
-            let events = occur![
-                create_body(),
-                create_hands(),
-                create_backpack(),
-                create_tether(),
-                self.appear_farmer(farmer_kind.id, player, body, hands, backpack, tether)?,
-            ];
+            let farmland = self.universe.farmlands[0];
+            let events = self.create_farmer(player_name, "farmer", farmland, [10.5, 10.5])?;
             Ok(events)
         } else {
             info!("Accepts exist player, reconnect");
             Ok(vec![])
         }
+    }
+
+    pub fn create_farmland(&mut self, kind: &str) -> Result<Vec<Event>, ActionError> {
+        let kind = self.known.farmlands.find(kind)?;
+
+        let (space, create_space) = self.physics.create_space(&kind.space)?;
+        let (soil, create_soil) = self.planting.create_soil(&kind.soil)?;
+        let (grid, create_grid) = self.building.create_grid(&kind.grid)?;
+        let (land, create_land) = self.landscaping.create_land(&kind.land)?;
+        let (calendar, create_calendar) = self.timing.create_calendar(&kind.calendar)?;
+
+        emit![
+            create_space(),
+            create_soil(),
+            create_grid(),
+            create_land(),
+            create_calendar(),
+            self.appear_farmland(kind.id, space, soil, grid, land, calendar)?,
+        ]
+    }
+
+    pub fn create_farmer(
+        &mut self,
+        player_name: &str,
+        kind: &str,
+        farmland: Farmland,
+        position: Position,
+    ) -> Result<Vec<Event>, ActionError> {
+        info!("Accepts new player {player_name}");
+        self.players_id += 1;
+        let player = PlayerId(self.players_id);
+        self.players.push(Player {
+            id: player,
+            name: player_name.to_string(),
+        });
+
+        let farmer_kind = self.known.farmers.find(kind)?;
+        let body = self.physics.bodies_sequence.introduce().one(BodyId);
+        let body_kind = self.known.bodies.find("farmer")?;
+        let create_body = self
+            .physics
+            .create_body(body, farmland.space, body_kind, position)?;
+
+        let [hands, backpack] = self.inventory.containers_id.introduce().many(ContainerId);
+        let hands_kind = self.known.containers.find("<hands>")?;
+        let backpack_kind = self.known.containers.find("<backpack>")?;
+        let create_hands = self.inventory.add_empty_container(hands, &hands_kind)?;
+        let create_backpack = self
+            .inventory
+            .add_empty_container(backpack, &backpack_kind)?;
+        let (tether, create_tether) = self.raising.create_tether()?;
+
+        emit![
+            create_body(),
+            create_hands(),
+            create_backpack(),
+            create_tether(),
+            self.appear_farmer(farmer_kind.id, player, body, hands, backpack, tether)?,
+        ]
     }
 
     pub fn perform_action(

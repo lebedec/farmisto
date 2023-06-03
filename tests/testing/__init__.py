@@ -1,7 +1,9 @@
 from typing import Protocol, Dict
 
+from behave.model import Scenario
+
 from .ffi import load_testing_library
-from .game import GameTestScenario
+from .game import GameTestScenario, Farmer, Farmland
 
 
 class Planting(Protocol):
@@ -15,8 +17,16 @@ class Physics(Protocol):
     barrier: int
 
 
-class Context(Physics, Planting):
+class Universe(Protocol):
+    farmlands: Dict[str, Farmland]
+    farmers: Dict[str, Farmer]
+
+    farmland: Farmland
+
+
+class Context(Universe, Physics, Planting):
     game: GameTestScenario
+    scenario: Scenario
 
 
 def setup_environment(context: Context):
@@ -25,8 +35,12 @@ def setup_environment(context: Context):
 
 def setup_scenario(context: Context):
     context.game.create('../assets/database.sqlite')
+
     context.spaces = {}
     context.barriers = {}
+
+    context.farmlands = {}
+    context.farmers = {}
 
 
 def teardown_scenario(context: Context):

@@ -28,6 +28,28 @@ class Creature(ctypes.Structure):
     animal: int
 
 
+@define
+class Farmland(ctypes.Structure):
+    id: int
+    kind: int
+    space: int
+    soil: int
+    grid: int
+    land: int
+    calendar: int
+
+
+@define
+class Farmer(ctypes.Structure):
+    id: int
+    kind: int
+    player: int
+    body: int
+    hands: int
+    backpack: int
+    tether: int
+
+
 class GameTestScenario:
 
     def __init__(self, lib):
@@ -48,6 +70,20 @@ class GameTestScenario:
         return self._lib.test_entity2(value)
 
     # game
+
+    def add_farmland(self, kind: str) -> Farmland:
+        self._lib.add_farmland.restype = Farmland
+        return self._lib.add_farmland(self._scenario, kind.encode('utf-8'))
+
+    def add_farmer(self, name: str, kind: str, farmland: Farmland, position: List[float]) -> Farmer:
+        self._lib.add_farmer.restype = Farmer
+        return self._lib.add_farmer(
+            self._scenario,
+            name.encode('utf-8'),
+            kind.encode('utf-8'),
+            farmland,
+            Array2Float(*position)
+        )
 
     def perform_action(self, action: Dict):
         action = json.dumps(action)

@@ -9,7 +9,18 @@ register_type(Position=parse_position)
 
 @given('{kind} farmland')
 def add_farmland(context: Context, kind: str):
-    pass
+    name = 'test-farmland'
+    farmland = context.game.add_farmland(kind)
+    context.farmlands[name] = farmland
+    context.farmland = farmland
+
+
+@given("{kind} farmer {name}")
+def step_impl(context: Context, kind: str, name: str):
+    farmland = context.farmland
+    position = [10.0, 10.0]
+    farmer = context.game.add_farmer(name, kind, farmland, position)
+    context.farmers[name] = farmer
 
 
 @when("I move {position:Position}")
@@ -64,3 +75,18 @@ def step_impl(context: Context):
 @then("assert fail")
 def step_impl(context: Context):
     assert False
+
+
+@given("building surveying as figure below:")
+def step_impl(context: Context):
+    print("CONTENT:", context.scenario.description)
+
+
+@when("do something")
+def step_impl(context):
+    pass
+
+
+@given("building surveying as figure above {legend}")
+def step_impl(context: Context, legend: str):
+    pass
