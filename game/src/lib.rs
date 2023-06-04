@@ -14,13 +14,13 @@ use crate::assembling::AssemblingDomain;
 use crate::building::BuildingDomain;
 use crate::inventory::{ContainerId, InventoryDomain};
 use crate::landscaping::LandscapingDomain;
-use crate::math::Position;
+use crate::math::{Position, Tile, TileMath};
 use crate::model::Activity::Idle;
-use crate::model::Knowledge;
 use crate::model::PlayerId;
 use crate::model::UniverseDomain;
 use crate::model::{Farmer, Universe};
 use crate::model::{Farmland, Player};
+use crate::model::{Knowledge, TheodoliteKey};
 use crate::physics::{BodyId, PhysicsDomain};
 use crate::planting::PlantingDomain;
 use crate::raising::RaisingDomain;
@@ -163,6 +163,31 @@ impl Game {
             create_backpack(),
             create_tether(),
             self.appear_farmer(farmer_kind.id, player, body, hands, backpack, tether)?,
+        ]
+    }
+
+    pub fn create_theodolite(
+        &mut self,
+        key: TheodoliteKey,
+        farmland: Farmland,
+        tile: Tile,
+    ) -> Result<Vec<Event>, ActionError> {
+        let position = tile.position();
+        let kind = self.known.theodolites.get(key)?;
+        let (surveyor, create_surveyor) = self
+            .building
+            .create_surveyor(farmland.grid, kind.surveyor.clone())?;
+        let (barrier, create_barrier) = self.physics.create_barrier(
+            farmland.space,
+            kind.barrier.clone(),
+            position,
+            true,
+            false,
+        )?;
+        emit![
+            create_surveyor(),
+            create_barrier(),
+            self.appear_theodolite(kind.id, surveyor, barrier)?,
         ]
     }
 

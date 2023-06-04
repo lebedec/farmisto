@@ -4,8 +4,7 @@ use std::ffi::CString;
 
 use serde_json::json;
 
-
-use game::physics::{Barrier, BarrierId, Space, SpaceId};
+use game::physics::{Barrier, BarrierId, BodyId, Space, SpaceId};
 
 use crate::ffi::{PyString, PyStringToString, PyTuple, PyTupleToSlice};
 use crate::game::Scenario;
@@ -23,6 +22,16 @@ pub unsafe extern "C" fn add_space(scenario: &mut Scenario, kind: PyString) -> S
     };
     physics.load_spaces(vec![space], id.0);
     id
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn set_body_position(
+    scenario: &mut Scenario,
+    body: BodyId,
+    position: PyTuple,
+) {
+    let body = scenario.game.physics.get_body_mut(body).unwrap();
+    body.position = position.to_slice();
 }
 
 #[no_mangle]

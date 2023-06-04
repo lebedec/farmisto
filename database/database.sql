@@ -375,6 +375,23 @@ create table Equipment
     p_surveyor integer null references Surveyor (id)
 );
 
+create table TheodoliteKind
+(
+    id       integer primary key,
+    name     text not null unique,
+    item     text not null references ItemKind (name),
+    barrier  text not null references BarrierKind (name),
+    surveyor text null references SurveyorKind (name)
+);
+
+create table Theodolite
+(
+    id       integer primary key,
+    key      integer not null references TheodoliteKind (id),
+    barrier  integer not null references Barrier (id),
+    surveyor integer null references Surveyor (id)
+);
+
 create table CropKind
 (
     id      integer primary key,

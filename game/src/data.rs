@@ -19,7 +19,7 @@ use crate::model::{
     CreatureKey, CreatureKind, Crop, CropKey, CropKind, Door, DoorKey, DoorKind, Equipment,
     EquipmentKey, EquipmentKind, Farmer, FarmerKey, FarmerKind, Farmland, FarmlandKey,
     FarmlandKind, Knowledge, Player, PlayerId, Purpose, PurposeDescription, Rest, RestKey,
-    RestKind, Stack, Tree, TreeKey, TreeKind,
+    RestKind, Stack, Theodolite, TheodoliteKey, TheodoliteKind, Tree, TreeKey, TreeKind,
 };
 use crate::physics::{
     Barrier, BarrierId, BarrierKey, BarrierKind, Body, BodyId, BodyKey, BodyKind, Sensor, SensorId,
@@ -113,6 +113,11 @@ impl Game {
         for kind in storage.find_all(|row| self.load_equipment_kind(row))? {
             self.known
                 .equipments
+                .insert(kind.id, kind.name.clone(), kind);
+        }
+        for kind in storage.find_all(|row| self.load_theodolite_kind(row))? {
+            self.known
+                .theodolites
                 .insert(kind.id, kind.name.clone(), kind);
         }
         for kind in storage.find_all(|row| self.load_crop_kind(row))? {
@@ -214,6 +219,9 @@ impl Game {
         self.universe.load_trees(trees, trees_id);
         let (farmlands, farmlands_id) = storage.get_sequence(|row| self.load_farmland(row))?;
         self.universe.load_farmlands(farmlands, farmlands_id);
+        let (theodolites, theodolites_id) =
+            storage.get_sequence(|row| self.load_theodolite(row))?;
+        self.universe.load_theodolites(theodolites, theodolites_id);
         let (farmers, farmers_id) = storage.get_sequence(|row| self.load_farmer(row))?;
         self.universe.load_farmers(farmers, farmers_id);
         let (stacks, stacks_id) = storage.get_sequence(|row| self.load_stack(row))?;
@@ -321,6 +329,30 @@ impl Game {
             grid: GridId(row.get("grid")?),
             land: LandId(row.get("land")?),
             calendar: CalendarId(row.get("calendar")?),
+        };
+        Ok(data)
+    }
+
+    pub(crate) fn load_theodolite_kind(
+        &mut self,
+        row: &rusqlite::Row,
+    ) -> Result<TheodoliteKind, DataError> {
+        let data = TheodoliteKind {
+            id: TheodoliteKey(row.get("id")?),
+            name: row.get("name")?,
+            surveyor: self.known.surveyors.find_by(row, "surveyor")?,
+            barrier: self.known.barriers.find_by(row, "barrier")?,
+            item: self.known.items.find_by(row, "item")?,
+        };
+        Ok(data)
+    }
+
+    pub(crate) fn load_theodolite(&mut self, row: &rusqlite::Row) -> Result<Theodolite, DataError> {
+        let data = Theodolite {
+            id: row.get("id")?,
+            key: TheodoliteKey(row.get("key")?),
+            surveyor: SurveyorId(row.get("surveyor")?),
+            barrier: BarrierId(row.get("barrier")?),
         };
         Ok(data)
     }

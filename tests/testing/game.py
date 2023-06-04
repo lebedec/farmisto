@@ -1,9 +1,9 @@
 import ctypes
 import json
-from ctypes import c_float
 from typing import List, Dict
 
-Array2Float = c_float * 2
+Array2Float = ctypes.c_float * 2
+Array2Int = ctypes.c_ulonglong * 2
 
 
 def define(structure_type):
@@ -14,9 +14,22 @@ def define(structure_type):
         if python_type == int:
             c_type = ctypes.c_ulonglong
 
+        if python_type == List[int]:
+            c_type = Array2Int
+
         fields.append((name, c_type))
 
     structure_type._fields_ = fields
+
+    def as_json(self):
+        data = {}
+        for field in fields:
+            name, *_ = field
+            data[name] = getattr(self, name)
+        return data
+
+    structure_type.as_json = as_json
+
     return structure_type
 
 
@@ -48,6 +61,30 @@ class Farmer(ctypes.Structure):
     hands: int
     backpack: int
     tether: int
+
+
+@define
+class Equipment(ctypes.Structure):
+    id: int
+    key: int
+
+
+@define
+class Theodolite(ctypes.Structure):
+    id: int
+    key: int
+    surveyor: int
+    barrier: int
+
+
+@define
+class Construction(ctypes.Structure):
+    id: int
+    container: int
+    grid: int
+    surveyor: int
+    cell: List[int]
+    marker: int
 
 
 class GameTestScenario:
@@ -85,9 +122,35 @@ class GameTestScenario:
             Array2Float(*position)
         )
 
-    def perform_action(self, action: Dict):
+    def add_theodolite(self, kind: str, farmland: Farmland, position: List[float]) -> Theodolite:
+        self._lib.add_theodolite.restype = Theodolite
+        return self._lib.add_theodolite(
+            self._scenario,
+            kind.encode('utf-8'),
+            farmland,
+            Array2Float(*position)
+        )
+
+    def add_construction(self, surveyor: int, marker: Dict, grid: int, position: List[float]) -> Construction:
+        self._lib.add_construction.restype = Construction
+        return self._lib.add_construction(
+            self._scenario,
+            surveyor,
+            json.dumps(marker).encode('utf-8'),
+            grid,
+            Array2Float(*position)
+        )
+
+    def add_item(self, kind: str, container: int):
+        self._lib.add_item(
+            self._scenario,
+            kind.encode('utf-8'),
+            container
+        )
+
+    def perform_action(self, player: str, action: Dict):
         action = json.dumps(action)
-        self._lib.perform_action(self._scenario, action.encode('utf-8'))
+        self._lib.perform_action(self._scenario, player.encode('utf-8'), action.encode('utf-8'))
 
     def take_events(self) -> Dict:
         self._lib.take_events.restype = ctypes.c_void_p
@@ -107,6 +170,13 @@ class GameTestScenario:
             space,
             Array2Float(*position),
             int(active),
+        )
+
+    def set_body_position(self, body: int, position: List[float]):
+        return self._lib.set_body_position(
+            self._scenario,
+            body,
+            Array2Float(*position),
         )
 
     def change_barrier(self, id: int, active: bool) -> int:

@@ -7,6 +7,7 @@ use crate::building::{
 use crate::collections::{Dictionary, Shared};
 use crate::inventory::{ContainerId, ContainerKey, ContainerKind, ItemKey, ItemKind};
 use crate::landscaping::{LandId, LandKey, LandKind};
+use crate::math::{Position, Tile};
 use crate::physics::{
     BarrierId, BarrierKey, BarrierKind, BodyId, BodyKey, BodyKind, SensorId, SensorKey, SensorKind,
     SpaceId, SpaceKey, SpaceKind,
@@ -30,6 +31,7 @@ pub struct Knowledge {
     pub cementers: Dictionary<CementerKey, CementerKind>,
     pub composters: Dictionary<ComposterKey, ComposterKind>,
     pub rests: Dictionary<RestKey, RestKind>,
+    pub theodolites: Dictionary<TheodoliteKey, TheodoliteKind>,
     // timing
     pub calendars: Dictionary<CalendarKey, CalendarKind>,
     // physics
@@ -66,6 +68,8 @@ pub struct UniverseDomain {
     pub farmers_activity: HashMap<Farmer, Activity>,
     pub constructions: Vec<Construction>,
     pub constructions_id: usize,
+    pub theodolites: Vec<Theodolite>,
+    pub theodolites_id: usize,
     pub stacks: Vec<Stack>,
     pub stacks_id: usize,
     pub equipments: Vec<Equipment>,
@@ -96,7 +100,7 @@ pub enum Universe {
     },
     TreeAppeared {
         tree: Tree,
-        position: [f32; 2],
+        position: Position,
         growth: f32,
     },
     TreeVanished(Tree),
@@ -115,12 +119,12 @@ pub enum Universe {
     FarmerAppeared {
         farmer: Farmer,
         player: String,
-        position: [f32; 2],
+        position: Position,
     },
     FarmerVanished(Farmer),
     StackAppeared {
         stack: Stack,
-        position: [f32; 2],
+        position: Position,
     },
     StackVanished(Stack),
     CropAppeared {
@@ -131,7 +135,7 @@ pub enum Universe {
         growth: f32,
         health: f32,
         fruits: f32,
-        position: [f32; 2],
+        position: Position,
     },
     CropVanished(Crop),
     CreatureAppeared {
@@ -141,44 +145,51 @@ pub enum Universe {
         hunger: f32,
         age: f32,
         weight: f32,
-        position: [f32; 2],
+        position: Position,
         behaviour: Behaviour,
     },
     CreatureVanished(Creature),
     CorpseAppeared {
         entity: Corpse,
-        position: [f32; 2],
+        position: Position,
     },
     CorpseVanished(Corpse),
     ConstructionAppeared {
         id: Construction,
-        cell: [usize; 2],
+        cell: Tile,
     },
     ConstructionVanished {
         id: Construction,
     },
+    TheodoliteAppeared {
+        id: Theodolite,
+        position: Position,
+    },
+    TheodoliteVanished {
+        id: Theodolite,
+    },
     EquipmentAppeared {
         entity: Equipment,
-        position: [f32; 2],
+        position: Position,
     },
     EquipmentVanished(Equipment),
     AssemblyAppeared {
         entity: Assembly,
         rotation: Rotation,
-        pivot: [usize; 2],
+        pivot: Tile,
         valid: bool,
     },
     AssemblyUpdated {
         entity: Assembly,
         rotation: Rotation,
-        pivot: [usize; 2],
+        pivot: Tile,
     },
     AssemblyVanished(Assembly),
     DoorAppeared {
         entity: Door,
         open: bool,
         rotation: Rotation,
-        position: [f32; 2],
+        position: Position,
     },
     DoorChanged {
         entity: Door,
@@ -188,13 +199,13 @@ pub enum Universe {
     RestAppeared {
         entity: Rest,
         rotation: Rotation,
-        position: [f32; 2],
+        position: Position,
     },
     RestVanished(Rest),
     CementerAppeared {
         entity: Cementer,
         rotation: Rotation,
-        position: [f32; 2],
+        position: Position,
         enabled: bool,
         broken: bool,
         input: bool,
@@ -205,7 +216,7 @@ pub enum Universe {
     ComposterInspected {
         entity: Composter,
         rotation: Rotation,
-        position: [f32; 2],
+        position: Position,
         enabled: bool,
         broken: bool,
         input: bool,
@@ -249,6 +260,11 @@ impl UniverseDomain {
     pub fn load_farmlands(&mut self, farmlands: Vec<Farmland>, farmlands_id: usize) {
         self.farmlands_id = farmlands_id;
         self.farmlands.extend(farmlands);
+    }
+
+    pub fn load_theodolites(&mut self, theodolites: Vec<Theodolite>, theodolites_id: usize) {
+        self.theodolites_id = theodolites_id;
+        self.theodolites.extend(theodolites);
     }
 
     pub fn get_stack_by(&self, container: ContainerId) -> Result<Stack, UniverseError> {
@@ -627,15 +643,15 @@ pub struct Construction {
     pub container: ContainerId,
     pub grid: GridId,
     pub surveyor: SurveyorId,
+    pub cell: Tile,
     pub marker: Marker,
-    pub cell: [usize; 2],
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub struct Deconstruction {
     pub id: usize,
     pub grid: GridId,
-    pub cell: [usize; 2],
+    pub cell: Tile,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
@@ -667,6 +683,25 @@ pub struct Equipment {
     pub id: usize,
     pub key: EquipmentKey,
     pub purpose: Purpose,
+    pub barrier: BarrierId,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+pub struct TheodoliteKey(pub usize);
+
+pub struct TheodoliteKind {
+    pub id: TheodoliteKey,
+    pub name: String,
+    pub surveyor: Shared<SurveyorKind>,
+    pub barrier: Shared<BarrierKind>,
+    pub item: Shared<ItemKind>,
+}
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
+pub struct Theodolite {
+    pub id: usize,
+    pub key: TheodoliteKey,
+    pub surveyor: SurveyorId,
     pub barrier: BarrierId,
 }
 

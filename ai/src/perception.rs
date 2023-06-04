@@ -1,6 +1,5 @@
 use std::collections::HashMap;
 
-
 use log::error;
 
 use game::api::Event;
@@ -245,6 +244,8 @@ impl Nature {
             Universe::ComposterVanished(_) => {}
             Universe::CorpseAppeared { .. } => {}
             Universe::CorpseVanished(_) => {}
+            Universe::TheodoliteAppeared { .. } => {}
+            Universe::TheodoliteVanished { .. } => {}
         }
     }
 
@@ -320,12 +321,7 @@ impl Nature {
                     barriers_map[index] = if active { 1 } else { 0 };
                 }
             }
-            Physics::BarrierDestroyed {
-                id,
-                
-                space,
-                ..
-            } => {
+            Physics::BarrierDestroyed { id, space, .. } => {
                 let barriers_map = self.barriers_map.get_mut(&space).expect("barriers_map");
                 let barrier = self.barriers.get(&id).expect("barrier");
                 let tiles = barrier.kind.tiles(barrier.position);

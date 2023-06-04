@@ -1054,6 +1054,8 @@ impl Gameplay {
             Universe::ComposterVanished(entity) => {
                 self.composters.remove(&entity);
             }
+            Universe::TheodoliteAppeared { .. } => {}
+            Universe::TheodoliteVanished { .. } => {}
         }
     }
 }

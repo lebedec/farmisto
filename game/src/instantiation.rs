@@ -80,7 +80,7 @@ impl Game {
         self.inspect_farmland(entity)
     }
 
-    pub(crate) fn appear_construction(
+    pub fn appear_construction(
         &mut self,
         container: ContainerId,
         grid: GridId,
@@ -102,6 +102,23 @@ impl Game {
             id: construction,
             cell,
         }]
+    }
+
+    pub fn appear_theodolite(
+        &mut self,
+        key: TheodoliteKey,
+        surveyor: SurveyorId,
+        barrier: BarrierId,
+    ) -> Result<Universe, ActionError> {
+        self.universe.theodolites_id += 1;
+        let theodolite = Theodolite {
+            id: self.universe.theodolites_id,
+            key,
+            surveyor,
+            barrier,
+        };
+        self.universe.theodolites.push(theodolite);
+        self.inspect_theodolite(theodolite)
     }
 
     pub fn appear_creature(

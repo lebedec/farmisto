@@ -4,7 +4,7 @@ use crate::landscaping::Landscaping;
 use crate::math::{Array, ArrayIndex, VectorMath};
 use crate::model::{
     Assembly, Cementer, Composter, Corpse, Creature, Crop, Door, Equipment, Farmer, Farmland,
-    PlayerId, Rest, Stack, Universe, UniverseSnapshot,
+    PlayerId, Rest, Stack, Theodolite, Universe, UniverseSnapshot,
 };
 use crate::physics::Physics;
 use crate::planting::Planting;
@@ -171,6 +171,15 @@ impl Game {
             stack,
             position: barrier.position,
         }
+    }
+
+    pub fn inspect_theodolite(&self, theodolite: Theodolite) -> Result<Universe, ActionError> {
+        let barrier = self.physics.get_barrier(theodolite.barrier)?;
+        let event = Universe::TheodoliteAppeared {
+            id: theodolite,
+            position: barrier.position,
+        };
+        Ok(event)
     }
 
     pub fn look_at_equipment(&self, entity: Equipment) -> Universe {

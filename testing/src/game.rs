@@ -6,10 +6,13 @@ use std::mem::take;
 
 use datamap::Storage;
 use game::api::{ActionError, Event};
-use game::model::{Creature, CreatureKey, Farmer, Farmland, Universe};
+use game::building::{GridId, Stake, SurveyorId};
+use game::inventory::{ContainerId, ItemId};
+use game::math::VectorMath;
+use game::model::{Construction, Creature, CreatureKey, Farmer, Farmland, Theodolite, Universe};
 use game::physics::BodyId;
 use game::raising::AnimalId;
-use game::Game;
+use game::{occur, Game};
 
 use crate::ffi::{PyString, PyStringToString, PyTuple, PyTupleToSlice};
 
@@ -33,9 +36,9 @@ pub unsafe extern "C" fn create(database: PyString) -> *mut Scenario {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn perform_action(scenario: &mut Scenario, data: PyString) {
+pub unsafe extern "C" fn perform_action(scenario: &mut Scenario, player: PyString, data: PyString) {
     let action = serde_json::from_str(data.to_str()).unwrap();
-    match scenario.game.perform_action("Alice", action) {
+    match scenario.game.perform_action(player.to_str(), action) {
         Ok(events) => {
             scenario.events.extend(events);
         }
@@ -82,6 +85,99 @@ pub unsafe extern "C" fn add_farmer(
         }
     }
     panic!("Unable to add farmer, event with farmer id not found");
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn add_theodolite(
+    scenario: &mut Scenario,
+    kind: PyString,
+    farmland: Farmland,
+    position: PyTuple,
+) -> Theodolite {
+    let kind = scenario.game.known.theodolites.find(kind.to_str()).unwrap();
+    let events = scenario
+        .game
+        .create_theodolite(kind.id, farmland, position.to_slice().to_tile())
+        .unwrap();
+    for event in events {
+        if let Event::UniverseStream(events) = event {
+            for event in events {
+                if let Universe::TheodoliteAppeared { id, .. } = event {
+                    return id;
+                }
+            }
+        }
+    }
+    panic!("Unable to add theodolite, event with theodolite id not found");
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn add_item(scenario: &mut Scenario, kind: PyString, container: ContainerId) {
+    let kind = scenario
+        .game
+        .known
+        .items
+        .find(kind.to_str())
+        .expect("failed kind");
+    let id = scenario.game.inventory.items_id.introduce().one(ItemId);
+    let create_item = scenario
+        .game
+        .inventory
+        .create_item(id, &kind, container, 1)
+        .expect("failed created_item");
+    create_item();
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn add_construction(
+    scenario: &mut Scenario,
+    surveyor: SurveyorId,
+    marker: PyString,
+    grid: GridId,
+    position: PyTuple,
+) -> Construction {
+    let cell = position.to_slice().to_tile();
+    let marker = serde_json::from_str(marker.to_str()).expect("failed marker");
+    let stake = Stake { marker, cell };
+    let survey = scenario
+        .game
+        .building
+        .survey(surveyor, stake)
+        .expect("failed survey");
+    let container_kind = scenario
+        .game
+        .known
+        .containers
+        .find("<construction>")
+        .unwrap();
+    let container = scenario
+        .game
+        .inventory
+        .containers_id
+        .introduce()
+        .one(ContainerId);
+    let create_container = scenario
+        .game
+        .inventory
+        .add_empty_container(container, &container_kind)
+        .unwrap();
+    let events = occur![
+        survey(),
+        create_container(),
+        scenario
+            .game
+            .appear_construction(container, grid, surveyor, marker, cell),
+    ];
+    for event in events {
+        if let Event::UniverseStream(events) = event {
+            for event in events {
+                if let Universe::ConstructionAppeared { id, .. } = event {
+                    return id;
+                }
+            }
+        }
+    }
+    panic!("Unable to add construction, event with construction id not found");
 }
 
 #[no_mangle]
