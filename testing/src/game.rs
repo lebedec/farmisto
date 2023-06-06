@@ -248,6 +248,15 @@ pub unsafe extern "C" fn get_grid(scenario: &mut Scenario, id: GridId) -> PyStri
 }
 
 #[no_mangle]
+pub unsafe extern "C" fn get_constructions(
+    scenario: &mut Scenario,
+    _farmland: Farmland,
+) -> PyString {
+    let data = serde_json::to_string(&scenario.game.universe.constructions).expect("failed json");
+    CString::new(data).unwrap().into_raw()
+}
+
+#[no_mangle]
 pub unsafe extern "C" fn take_events(scenario: &mut Scenario) -> PyString {
     let events = take(&mut scenario.events);
     let data = serde_json::to_string(&events).unwrap();

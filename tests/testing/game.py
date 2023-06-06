@@ -182,6 +182,12 @@ class GameTestScenario:
         data = ctypes.cast(ptr, ctypes.c_char_p).value.decode('utf-8')
         return json.loads(data)
 
+    def get_constructions(self, farmland: Farmland) -> Dict:
+        self._lib.get_constructions.restype = ctypes.c_void_p
+        ptr = self._lib.get_constructions(self._scenario, farmland)
+        data = ctypes.cast(ptr, ctypes.c_char_p).value.decode('utf-8')
+        return json.loads(data)
+
     # physics
 
     def add_space(self, kind: str) -> int:

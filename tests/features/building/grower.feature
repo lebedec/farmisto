@@ -8,7 +8,7 @@ Feature: Строительство - Растениевод
   Scenario: Строит теплицы для растений
   . . . . . . . .
   . + + + + + . .
-  . + A $ B + . T
+  . + A $ B = . T
   . + + = + + . .
   . . . . . . . .
     Given regular theodolite as T
@@ -32,12 +32,4 @@ Feature: Строительство - Растениевод
     When Alice moves to point A
     When Alice use theodolite T
     When Alice survey building as + - =
-    Then building surveying as + - = should exist
-
-
-  Scenario: Something Else
-    . . . . ½ ± . .
-    . + + + +⁴+ . .
-    . + A²$³B¹+ . T
-    . + + = + + . .
-    . . . . . . . .
+    Then there should be 14 constructions

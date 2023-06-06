@@ -122,12 +122,15 @@ def setup_scenario(context: Context):
     if context.scenario.description:
         scene = context.scenario.description
         for y in range(len(scene)):
-            line = scene[y].split(' ')
-            for x in range(len(line)):
-                code = line[x]
-                position = [x + 0.5, y + 0.5]
-                context.points[code] = position
-                context.points_array[code].append(position)
+            for i, code in enumerate(scene[y]):
+                x = i // 2
+                if i % 2 == 0:
+                    position = [x + 0.5, y + 0.5]
+                    context.points[code] = position
+                    context.points_array[code].append(position)
+                elif code != ' ':
+                    print('subscription!!', code)
+
 
 
 def teardown_scenario(context: Context):

@@ -2,7 +2,8 @@ from behave import given, when, register_type, then
 from hamcrest import assert_that, is_not, equal_to, is_in
 
 from steps.parsers import parse_position, parse_index
-from testing import Context, FarmerTestContext, BuildingSurveyingTestContext, Index, Position, RoomAssert, Material
+from testing import Context, FarmerTestContext, BuildingSurveyingTestContext, Index, Position, RoomAssert, Material, \
+    tile
 
 register_type(Position=parse_position)
 register_type(Index=parse_index)
@@ -62,26 +63,18 @@ def step_impl(context: Context, kind: str, point: str):
 def step_impl(context: Context, legend: str, theodolite: str):
     context.surveying = BuildingSurveyingTestContext()
     wall, window, door = legend.split(' ')
-    scene = context.scenario.description
+    markers = {
+        wall: {'Construction': 'Wall'},
+        window: {'Construction': 'Window'},
+        door: {'Construction': 'Door'},
+    }
     surveyor = context.theodolites[theodolite].surveyor
     grid = context.farmland.grid
-    for y in range(len(scene)):
-        line = scene[y].split(' ')
-        for x in range(len(line)):
-            code = line[x]
-            position = [x + 0.5, y + 0.5]
-            marker = None
-
-            if code == wall:
-                marker = {'Construction': 'Wall'}
-            if code == window:
-                marker = {'Construction': 'Window'}
-            if code == door:
-                marker = {'Construction': 'Door'}
-
-            if marker is not None:
-                construction = context.game.add_construction(surveyor, marker, grid, position)
-                context.surveying.append(position, construction)
+    for key in [wall, window, door]:
+        for position in context.points_array[key]:
+            marker = markers[key]
+            construction = context.game.add_construction(surveyor, marker, grid, position)
+            context.surveying.append(position, construction)
 
 
 @given("{kind} laid out for construction")
@@ -174,3 +167,40 @@ def step_impl(context: Context, farmer: str, theodolite: str):
     theodolite = context.theodolites[theodolite]
     action = {'UseTheodolite': {'theodolite': theodolite.as_json()}}
     context.game.perform_action(farmer.player, {'Farmer': {'action': action}})
+    # TODO: remove
+    context.theodolite = theodolite
+
+
+@when("{farmer} survey building as {legend}")
+def step_impl(context: Context, farmer: str, legend: str):
+    farmer = context.farmers[farmer]
+    wall, window, door = legend.split(' ')
+    markers = {
+        wall: {'Construction': 'Wall'},
+        window: {'Construction': 'Window'},
+        door: {'Construction': 'Door'},
+    }
+    for key in [wall, window, door]:
+        for position in context.points_array[key]:
+            action = {'Survey': {
+                'surveyor': context.theodolite.surveyor,
+                'tile': tile(position),
+                'marker': markers[key]
+            }}
+            context.game.perform_action(farmer.player, {'Farmer': {'action': action}})
+
+
+@then("there should be {count:int} constructions")
+def step_impl(context: Context, count: int):
+    constructions = context.game.get_constructions(context.farmland)
+    assert_that(len(constructions), equal_to(count))
+
+
+@given("building as {legend} made of {material:Material}")
+def step_impl(context: Context, legend: str, material: Material):
+    raise NotImplementedError()
+
+
+@when("{farmer} survey for deconstruction {points}")
+def step_impl(context: Context, farmer: str, points: str):
+    raise NotImplementedError()
