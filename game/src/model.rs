@@ -562,6 +562,10 @@ pub enum Activity {
         equipment: Equipment,
         selection: usize,
     },
+    Surveying2 {
+        theodolite: Theodolite,
+        selection: usize,
+    },
     Assembling {
         assembly: Assembly,
     },

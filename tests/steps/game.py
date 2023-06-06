@@ -120,6 +120,13 @@ def step_impl(context: Context, farmer: str, points: str):
         context.game.update(0.02)
 
 
+@when("{farmer} moves to point {point}")
+def step_impl(context: Context, farmer: str, point: str):
+    farmer = context.farmers[farmer]
+    position = context.points[point]
+    context.game.set_body_position(farmer.entity.body, position)
+
+
 @then("{index:Index} room should exist")
 def step_impl(context: Context, index: Index):
     rooms = context.game.get_grid(context.farmland.grid)
@@ -153,3 +160,17 @@ def step_impl(context: Context):
 @then("room is mostly made of {material:Material}")
 def step_impl(context: Context, material: Material):
     assert_that(context.room.material, equal_to(material))
+
+
+@given("{kind} planted as {point}")
+def step_impl(context: Context, kind: str, point: str):
+    for position in context.points_array[point]:
+        context.game.add_crop(kind, context.farmland, position)
+
+
+@when("{farmer} use theodolite {theodolite}")
+def step_impl(context: Context, farmer: str, theodolite: str):
+    farmer = context.farmers[farmer]
+    theodolite = context.theodolites[theodolite]
+    action = {'UseTheodolite': {'theodolite': theodolite.as_json()}}
+    context.game.perform_action(farmer.player, {'Farmer': {'action': action}})

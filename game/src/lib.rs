@@ -330,6 +330,9 @@ impl Game {
                     FarmerBound::UseEquipment { equipment } => {
                         self.use_equipment(farmer, equipment)?
                     }
+                    FarmerBound::UseTheodolite { theodolite } => {
+                        self.use_theodolite(farmer, theodolite)?
+                    }
                     FarmerBound::CancelActivity => self.cancel_activity(farmer)?,
                     FarmerBound::ToggleSurveyingOption { option } => {
                         self.toggle_surveying_option(farmer, option)?

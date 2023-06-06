@@ -37,6 +37,7 @@ class Entity(ctypes.Structure):
     def as_json(self) -> Dict:
         pass
 
+
 @define
 class Creature(Entity):
     id: int
@@ -90,6 +91,15 @@ class Construction(Entity):
     stake: int
 
 
+@define
+class Crop(Entity):
+    id: int
+    key: int
+    plant: int
+    barrier: int
+    sensor: int
+
+
 class GameTestScenario:
 
     def __init__(self, lib):
@@ -124,6 +134,15 @@ class GameTestScenario:
     def add_theodolite(self, kind: str, farmland: Farmland, position: List[float]) -> Theodolite:
         self._lib.add_theodolite.restype = Theodolite
         return self._lib.add_theodolite(
+            self._scenario,
+            kind.encode('utf-8'),
+            farmland,
+            Array2Float(*position)
+        )
+
+    def add_crop(self, kind: str, farmland: Farmland, position: List[float]) -> Crop:
+        self._lib.add_crop.restype = Crop
+        return self._lib.add_crop(
             self._scenario,
             kind.encode('utf-8'),
             farmland,

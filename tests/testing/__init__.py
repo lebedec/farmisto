@@ -1,5 +1,6 @@
 import enum
 import math
+from collections import defaultdict
 from dataclasses import dataclass
 from typing import Protocol, Dict, Callable, Iterable
 
@@ -97,6 +98,7 @@ class Context(Universe, Physics, Planting):
 
     surveying: BuildingSurveyingTestContext
     points: Dict[str, Position]
+    points_array: Dict[str, List[Position]]
 
 
 def setup_environment(context: Context):
@@ -116,6 +118,7 @@ def setup_scenario(context: Context):
     context.theodolites = {}
 
     context.points = {}
+    context.points_array = defaultdict(list)
     if context.scenario.description:
         scene = context.scenario.description
         for y in range(len(scene)):
@@ -124,6 +127,7 @@ def setup_scenario(context: Context):
                 code = line[x]
                 position = [x + 0.5, y + 0.5]
                 context.points[code] = position
+                context.points_array[code].append(position)
 
 
 def teardown_scenario(context: Context):

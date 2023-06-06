@@ -347,6 +347,88 @@ impl Gameplay {
                 }
                 Aim(_) => {}
             },
+            Activity::Surveying2 {
+                theodolite,
+                selection,
+            } => match intention {
+                Use => match target {
+                    Ground(tile) => {
+                        let structure = match selection {
+                            1 => Structure::Door,
+                            2 => Structure::Window,
+                            3 => Structure::Fence,
+                            _ => Structure::Wall,
+                        };
+                        self.send_action(FarmerBound::Survey {
+                            surveyor: theodolite.surveyor,
+                            tile,
+                            marker: Marker::Construction(structure),
+                        });
+                    }
+                    Wall(tile) => {
+                        let structure = match selection {
+                            1 => Structure::Door,
+                            2 => Structure::Window,
+                            3 => Structure::Fence,
+                            _ => Structure::Wall,
+                        };
+                        self.send_action(FarmerBound::Survey {
+                            surveyor: theodolite.surveyor,
+                            tile,
+                            marker: Marker::Reconstruction(structure),
+                        });
+                    }
+                    Construction(construction) => {
+                        self.send_action(FarmerBound::RemoveConstruction { construction });
+                        let con = self.constructions.get(&construction).unwrap();
+                        let structure = match selection {
+                            1 => Structure::Door,
+                            2 => Structure::Window,
+                            3 => Structure::Fence,
+                            _ => Structure::Wall,
+                        };
+                        let marker = match con.marker {
+                            Marker::Construction(_) => Marker::Construction(structure),
+                            Marker::Reconstruction(_) => Marker::Reconstruction(structure),
+                            Marker::Deconstruction => Marker::Construction(structure),
+                        };
+                        self.send_action(FarmerBound::Survey {
+                            surveyor: theodolite.surveyor,
+                            tile: con.tile,
+                            marker,
+                        });
+                    }
+                    _ => {
+                        // beep error
+                    }
+                },
+                Put => match target {
+                    Construction(construction) => {
+                        self.send_action(FarmerBound::RemoveConstruction { construction });
+                    }
+                    Wall(tile) => {
+                        self.send_action(FarmerBound::Survey {
+                            surveyor: theodolite.surveyor,
+                            tile,
+                            marker: Marker::Deconstruction,
+                        });
+                    }
+                    _ => {}
+                },
+                Swap => {
+                    self.send_action(FarmerBound::ToggleSurveyingOption {
+                        option: selection as u8 + 1,
+                    });
+                }
+                QuickSwap(option) => {
+                    self.send_action(FarmerBound::ToggleSurveyingOption { option });
+                }
+                Move => {
+                    self.send_action(FarmerBound::CancelActivity);
+                    farmer.activity = Activity::Idle;
+                }
+                Aim(_) => {}
+            },
             Activity::Assembling { assembly } => {
                 let assembly = self.assembly.get(&assembly).unwrap();
                 match intention {

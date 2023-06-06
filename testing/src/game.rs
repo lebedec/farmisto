@@ -9,7 +9,9 @@ use game::api::{ActionError, Event};
 use game::building::{GridId, Stake, SurveyorId};
 use game::inventory::{ContainerId, ItemId};
 use game::math::VectorMath;
-use game::model::{Construction, Creature, CreatureKey, Farmer, Farmland, Theodolite, Universe};
+use game::model::{
+    Construction, Creature, CreatureKey, Crop, Farmer, Farmland, Theodolite, Universe,
+};
 use game::physics::BodyId;
 use game::raising::AnimalId;
 use game::{occur, Game};
@@ -131,6 +133,55 @@ pub unsafe extern "C" fn add_item(scenario: &mut Scenario, kind: PyString, conta
         .create_item(id, &kind, container, 1)
         .expect("failed created_item");
     create_item();
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn add_crop(
+    scenario: &mut Scenario,
+    kind: PyString,
+    farmland: Farmland,
+    position: PyTuple,
+) -> Crop {
+    let kind = scenario
+        .game
+        .known
+        .crops
+        .find(kind.to_str())
+        .expect("failed kind");
+    let (barrier, sensor, create_barrier_sensor) = scenario
+        .game
+        .physics
+        .create_barrier_sensor(
+            farmland.space,
+            &kind.barrier,
+            &kind.sensor,
+            position.to_slice(),
+            false,
+        )
+        .expect("failed physics");
+    let (plant, create_plant) = scenario
+        .game
+        .planting
+        .create_plant(farmland.soil, &kind.plant, 0.0)
+        .expect("failed planting");
+    let events = occur![
+        create_barrier_sensor(),
+        create_plant(),
+        scenario
+            .game
+            .appear_crop(kind.id, barrier, sensor, plant)
+            .expect("appear"),
+    ];
+    for event in events {
+        if let Event::UniverseStream(events) = event {
+            for event in events {
+                if let Universe::CropAppeared { entity, .. } = event {
+                    return entity;
+                }
+            }
+        }
+    }
+    panic!("Unable to add crop, event with crop id not found");
 }
 
 #[no_mangle]

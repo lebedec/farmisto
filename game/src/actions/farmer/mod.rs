@@ -29,4 +29,5 @@ mod toggle_surveying_option;
 mod uninstall_equipment;
 mod untie_creature;
 mod use_equipment;
+mod use_theodolite;
 mod water_crop;

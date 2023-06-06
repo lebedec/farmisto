@@ -7,8 +7,8 @@ use crate::inventory::{ContainerId, Inventory, InventoryError, ItemId};
 use crate::landscaping::{Landscaping, LandscapingError};
 use crate::math::Tile;
 use crate::model::{
-    Cementer, Composter, Construction, Corpse, Creature, Crop, Door, Equipment, Farmer,
-    Rest, Stack, Universe, UniverseError,
+    Cementer, Composter, Construction, Corpse, Creature, Crop, Door, Equipment, Farmer, Rest,
+    Stack, Theodolite, Universe, UniverseError,
 };
 use crate::physics::{Physics, PhysicsError};
 use crate::planting::{Planting, PlantingError};
@@ -111,6 +111,9 @@ pub enum FarmerBound {
     },
     UseEquipment {
         equipment: Equipment,
+    },
+    UseTheodolite {
+        theodolite: Theodolite,
     },
     CancelActivity,
     ToggleBackpack,
