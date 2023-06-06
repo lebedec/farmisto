@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::fmt::{Debug, Formatter};
 
 use crate::collections::Shared;
+use crate::math::Rect;
 
 #[derive(
     Clone,
@@ -65,7 +66,9 @@ pub struct Room {
     pub contour: bool,
     pub area_y: usize,
     pub area: Vec<u128>,
+    pub aabb: Rect,
     pub active: bool,
+    pub material: Material,
 }
 
 impl Debug for Room {
@@ -143,6 +146,7 @@ pub enum Marker {
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub struct Stake {
+    pub id: usize,
     pub marker: Marker,
     pub cell: [usize; 2],
 }
@@ -161,6 +165,7 @@ pub struct SurveyorId(pub usize);
 pub struct Surveyor {
     pub id: SurveyorId,
     pub grid: GridId,
+    pub stake_id: usize,
     pub surveying: Vec<Stake>,
     pub kind: Shared<SurveyorKind>,
 }
@@ -201,6 +206,7 @@ pub enum BuildingError {
     CellHasNoMarkers { cell: [usize; 2] },
     SurveyorNotFound { id: SurveyorId },
     SurveyorMarkerNotFound,
+    StakeNotFound { id: usize },
     ConstructStakeMarkedForDeconstruction,
 }
 

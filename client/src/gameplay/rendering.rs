@@ -1,11 +1,7 @@
 use std::collections::HashMap;
 
-
-
 use log::{error, info};
 use rand::prelude::*;
-
-
 
 use game::assembling::Rotation;
 use game::building::{Cell, Grid, Marker, Material, Room, Structure};
@@ -320,12 +316,12 @@ impl Gameplay {
 
             let mut surveying = HashMap::new();
             for construction in self.constructions.values() {
-                surveying.insert(construction.tile, construction.entity.marker);
+                surveying.insert(construction.tile, construction.marker);
                 let [column, row] = construction.tile;
                 // create walls from markers via rendering process
                 // to make correct tiling calculation
                 rendering_cells[row][column].wall = true;
-                match construction.entity.marker {
+                match construction.marker {
                     Marker::Construction(structure) => {
                         rendering_cells[row][column].window = structure == Structure::Window;
                         rendering_cells[row][column].door = structure == Structure::Door;

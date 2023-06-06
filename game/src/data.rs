@@ -492,8 +492,7 @@ impl Game {
             container: ContainerId(row.get("container")?),
             grid: GridId(row.get("grid")?),
             surveyor: SurveyorId(row.get("surveyor")?),
-            marker: row.get_json("marker")?,
-            cell: row.get_json("cell")?,
+            stake: row.get("stake")?,
         };
         Ok(data)
     }
@@ -764,6 +763,7 @@ impl Game {
         let data = Surveyor {
             id: SurveyorId(row.get("id")?),
             grid: GridId(row.get("grid")?),
+            stake_id: 0,
             surveying: vec![],
             kind: self.known.surveyors.get_by(row, "kind", SurveyorKey)?,
         };

@@ -49,6 +49,11 @@ pub unsafe extern "C" fn perform_action(scenario: &mut Scenario, player: PyStrin
 }
 
 #[no_mangle]
+pub unsafe extern "C" fn update(scenario: &mut Scenario, time: f32) {
+    scenario.game.update(time);
+}
+
+#[no_mangle]
 pub unsafe extern "C" fn add_farmland(scenario: &mut Scenario, kind: PyString) -> Farmland {
     let events = scenario.game.create_farmland(kind.to_str()).unwrap();
     for event in events {
@@ -138,11 +143,10 @@ pub unsafe extern "C" fn add_construction(
 ) -> Construction {
     let cell = position.to_slice().to_tile();
     let marker = serde_json::from_str(marker.to_str()).expect("failed marker");
-    let stake = Stake { marker, cell };
-    let survey = scenario
+    let (stake, survey) = scenario
         .game
         .building
-        .survey(surveyor, stake)
+        .survey(surveyor, marker, cell)
         .expect("failed survey");
     let container_kind = scenario
         .game
@@ -166,7 +170,8 @@ pub unsafe extern "C" fn add_construction(
         create_container(),
         scenario
             .game
-            .appear_construction(container, grid, surveyor, marker, cell),
+            .appear_construction(container, grid, surveyor, stake)
+            .expect("failed appear"),
     ];
     for event in events {
         if let Event::UniverseStream(events) = event {
@@ -178,6 +183,17 @@ pub unsafe extern "C" fn add_construction(
         }
     }
     panic!("Unable to add construction, event with construction id not found");
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn get_grid(scenario: &mut Scenario, id: GridId) -> PyString {
+    let grid = scenario
+        .game
+        .building
+        .get_grid(id)
+        .expect("failed get grid");
+    let data = serde_json::to_string(&grid.rooms).expect("failed json");
+    CString::new(data).unwrap().into_raw()
 }
 
 #[no_mangle]

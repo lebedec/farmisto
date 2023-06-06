@@ -354,8 +354,7 @@ create table Construction
     container integer not null references Container (id),
     grid      integer not null references Grid (id),
     surveyor  integer not null references Surveyor (id),
-    marker    json    not null,
-    cell      json    not null
+    stake     integer not null
 );
 
 create table EquipmentKind

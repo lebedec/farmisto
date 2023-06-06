@@ -1,9 +1,9 @@
 use game::assembling::Rotation;
-use log::{error};
+use log::error;
 use rusty_spine::Skin;
 use std::collections::HashMap;
 
-use game::building::{Cell, Room};
+use game::building::{Cell, Marker, Room};
 use game::collections::Shared;
 use game::inventory::{ContainerId, ItemId, ItemKind};
 use game::math::{Collider, Tile, VectorMath};
@@ -126,7 +126,8 @@ pub struct StackRep {
 
 pub struct ConstructionRep {
     pub entity: Construction,
-    pub tile: [usize; 2],
+    pub tile: Tile,
+    pub marker: Marker,
 }
 
 pub struct EquipmentRep {

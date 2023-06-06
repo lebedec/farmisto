@@ -12,14 +12,16 @@ impl Game {
         farmland: Farmland,
         construction: Construction,
     ) -> Result<Vec<Event>, ActionError> {
-        let destination = construction.cell.position();
+        let surveyor = self.building.get_surveyor(construction.surveyor)?;
+        let stake = surveyor.get_stake(construction.stake)?;
+        let tile = stake.cell;
+        let destination = stake.cell.position();
         self.ensure_target_reachable(farmer.body, destination)?;
-        match construction.marker {
+        match stake.marker {
             Marker::Construction(_) => {
                 let item = self.inventory.get_container_item(construction.container)?;
                 let material_index = item.kind.functions.as_material()?;
                 let material = Material(material_index);
-                let tile = construction.cell;
                 self.ensure_tile_empty(farmland, tile)?;
 
                 let use_items = self.inventory.use_items_from(construction.container)?;
@@ -50,7 +52,6 @@ impl Game {
                 }
             }
             Marker::Reconstruction(_structure) => {
-                let tile = construction.cell;
                 let grid = self.building.get_grid(construction.grid)?;
                 let material = grid.cells[tile[1]][tile[0]].material;
                 let (structure, create_wall) =
@@ -76,7 +77,6 @@ impl Game {
                 }
             }
             Marker::Deconstruction => {
-                let tile = construction.cell;
                 let use_items = self.inventory.use_items_from(construction.container)?;
                 let destroy_wall = self.building.destroy_walls(farmland.grid, vec![tile])?;
                 let destroy_hole = self.physics.destroy_hole(farmland.space, tile)?;

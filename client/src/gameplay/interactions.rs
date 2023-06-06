@@ -290,6 +290,7 @@ impl Gameplay {
                     }
                     Construction(construction) => {
                         self.send_action(FarmerBound::RemoveConstruction { construction });
+                        let con = self.constructions.get(&construction).unwrap();
                         let structure = match selection {
                             1 => Structure::Door,
                             2 => Structure::Window,
@@ -297,14 +298,14 @@ impl Gameplay {
                             _ => Structure::Wall,
                         };
                         if let Purpose::Surveying { surveyor } = equipment.purpose {
-                            let marker = match construction.marker {
+                            let marker = match con.marker {
                                 Marker::Construction(_) => Marker::Construction(structure),
                                 Marker::Reconstruction(_) => Marker::Reconstruction(structure),
                                 Marker::Deconstruction => Marker::Construction(structure),
                             };
                             self.send_action(FarmerBound::Survey {
                                 surveyor,
-                                tile: construction.cell,
+                                tile: con.tile,
                                 marker,
                             });
                         } else {

@@ -157,6 +157,7 @@ pub enum Universe {
     ConstructionAppeared {
         id: Construction,
         cell: Tile,
+        marker: Marker,
     },
     ConstructionVanished {
         id: Construction,
@@ -643,8 +644,7 @@ pub struct Construction {
     pub container: ContainerId,
     pub grid: GridId,
     pub surveyor: SurveyorId,
-    pub cell: Tile,
-    pub marker: Marker,
+    pub stake: usize,
 }
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]

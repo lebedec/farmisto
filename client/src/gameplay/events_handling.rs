@@ -653,10 +653,19 @@ impl Gameplay {
             Universe::StackVanished(entity) => {
                 self.stacks.remove(&entity);
             }
-            Universe::ConstructionAppeared { id: entity, cell } => {
-                info!("Appear {:?} at {:?}", entity, cell);
-                self.constructions
-                    .insert(entity, ConstructionRep { entity, tile: cell });
+            Universe::ConstructionAppeared {
+                id: entity,
+                cell: tile,
+                marker,
+            } => {
+                self.constructions.insert(
+                    entity,
+                    ConstructionRep {
+                        entity,
+                        tile,
+                        marker,
+                    },
+                );
             }
             Universe::ConstructionVanished { id } => {
                 self.constructions.remove(&id);

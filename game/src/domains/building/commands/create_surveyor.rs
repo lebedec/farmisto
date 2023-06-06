@@ -14,6 +14,7 @@ impl BuildingDomain {
         let surveyor = Surveyor {
             id,
             grid,
+            stake_id: 0,
             surveying: vec![],
             kind,
         };

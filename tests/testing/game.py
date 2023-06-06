@@ -33,8 +33,12 @@ def define(structure_type):
     return structure_type
 
 
+class Entity(ctypes.Structure):
+    def as_json(self) -> Dict:
+        pass
+
 @define
-class Creature(ctypes.Structure):
+class Creature(Entity):
     id: int
     key: int
     body: int
@@ -42,7 +46,7 @@ class Creature(ctypes.Structure):
 
 
 @define
-class Farmland(ctypes.Structure):
+class Farmland(Entity):
     id: int
     kind: int
     space: int
@@ -53,7 +57,7 @@ class Farmland(ctypes.Structure):
 
 
 @define
-class Farmer(ctypes.Structure):
+class Farmer(Entity):
     id: int
     kind: int
     player: int
@@ -64,13 +68,13 @@ class Farmer(ctypes.Structure):
 
 
 @define
-class Equipment(ctypes.Structure):
+class Equipment(Entity):
     id: int
     key: int
 
 
 @define
-class Theodolite(ctypes.Structure):
+class Theodolite(Entity):
     id: int
     key: int
     surveyor: int
@@ -78,13 +82,12 @@ class Theodolite(ctypes.Structure):
 
 
 @define
-class Construction(ctypes.Structure):
+class Construction(Entity):
     id: int
     container: int
     grid: int
     surveyor: int
-    cell: List[int]
-    marker: int
+    stake: int
 
 
 class GameTestScenario:
@@ -99,12 +102,8 @@ class GameTestScenario:
     def dispose(self):
         self._lib.dispose(self._scenario)
 
-    def test_entity(self) -> Creature:
-        self._lib.test_entity.restype = Creature
-        return self._lib.test_entity()
-
-    def test_entity2(self, value: Creature):
-        return self._lib.test_entity2(value)
+    def update(self, time: float):
+        self._lib.update(self._scenario, ctypes.c_float(time))
 
     # game
 
@@ -155,6 +154,12 @@ class GameTestScenario:
     def take_events(self) -> Dict:
         self._lib.take_events.restype = ctypes.c_void_p
         ptr = self._lib.take_events(self._scenario)
+        data = ctypes.cast(ptr, ctypes.c_char_p).value.decode('utf-8')
+        return json.loads(data)
+
+    def get_grid(self, grid: int) -> Dict:
+        self._lib.get_grid.restype = ctypes.c_void_p
+        ptr = self._lib.get_grid(self._scenario, grid)
         data = ctypes.cast(ptr, ctypes.c_char_p).value.decode('utf-8')
         return json.loads(data)
 

@@ -1,7 +1,108 @@
-use crate::building::{Cell, Grid, Room};
 use std::collections::HashMap;
 
+use log::error;
+
+use crate::building::{Cell, Grid, Material, Room};
+
 impl Grid {
+    pub fn calculate_rooms(map: &Vec<Vec<Cell>>) -> Vec<Room> {
+        // TODO: array on stack increases speed to ~2 times!
+        // let mut map = [[Cell::default(); Grid::COLUMNS]; Grid::ROWS];
+        // for y in 0..Grid::ROWS {
+        //     for x in 0..Grid::COLUMNS {
+        //         map[y][x] = input_map[y][x];
+        //     }
+        // }
+
+        let exterior = Room {
+            id: Room::EXTERIOR_ID,
+            contour: false,
+            area_y: 0,
+            area: vec![u128::MAX],
+            aabb: [0, 0, Grid::COLUMNS, Grid::ROWS],
+            active: true,
+            material: Material(Material::UNKNOWN),
+        };
+        let mut unique_id = 1;
+        let mut rooms: Vec<Room> = vec![exterior];
+        for y in 1..Grid::ROWS {
+            let mut row = 0;
+            for x in 0..Grid::COLUMNS {
+                if !map[y][x].wall {
+                    row = row | 1 << (Grid::COLUMNS - x - 1);
+                }
+            }
+            let rooms_above_row: Vec<u128> = rooms
+                .iter()
+                .map(|room| match room.active {
+                    true => *room.area.last().unwrap(),
+                    false => 0,
+                })
+                .collect();
+            let expansions = Self::expand_rooms_by_row(row, rooms_above_row);
+            let merges = Self::apply_expansion(y, &mut rooms, &mut unique_id, expansions);
+            rooms = Self::merge_rooms(merges, rooms);
+        }
+        Self::include_walls_to_rooms(&mut rooms);
+        let mut rooms = Self::merge_rooms_into_buildings(rooms);
+        Self::determine_room_bounds(&mut rooms);
+        Self::determine_room_dominant_material(map, &mut rooms);
+        rooms
+    }
+
+    fn determine_room_bounds(rooms: &mut Vec<Room>) {
+        for room in rooms {
+            if room.id == Room::EXTERIOR_ID {
+                continue;
+            }
+            let min_y = room.area_y;
+            let max_y = room.area_y + room.area.len() - 1;
+            let mut min_x = Grid::COLUMNS;
+            let mut max_x = 0;
+            for row in &room.area {
+                let left = row.leading_zeros() as usize;
+                let right = row.trailing_zeros() as usize;
+                let right = Grid::COLUMNS - right - 1;
+                if left < min_x {
+                    min_x = left;
+                }
+                if right > max_x {
+                    max_x = right;
+                }
+            }
+            room.aabb = [min_x, min_y, max_x, max_y];
+        }
+    }
+
+    fn determine_room_dominant_material(cells: &Vec<Vec<Cell>>, rooms: &mut Vec<Room>) {
+        for room in rooms {
+            if room.id == Room::EXTERIOR_ID {
+                continue;
+            }
+            let mut materials = HashMap::new();
+            for (i, row) in room.area.iter().enumerate() {
+                let y = room.area_y + i;
+                let left = row.leading_zeros() as usize;
+                let right = row.trailing_zeros() as usize;
+                let right = Grid::COLUMNS - right - 1;
+                let left = cells[y][left].material;
+                let right = cells[y][right].material;
+                let counter = materials.entry(left).or_insert(0);
+                *counter += 1;
+                let counter = materials.entry(right).or_insert(0);
+                *counter += 1;
+            }
+            match materials.iter().max_by(|one, other| one.1.cmp(&other.1)) {
+                Some((material, _)) => {
+                    room.material = *material;
+                }
+                None => {
+                    error!("Unable to determine room dominant material, zero bounds")
+                }
+            }
+        }
+    }
+
     fn include_walls_to_rooms(rooms: &mut Vec<Room>) {
         for room in rooms {
             if room.id == Room::EXTERIOR_ID {
@@ -95,7 +196,9 @@ impl Grid {
                     contour: false,
                     area_y: y,
                     area: vec![expansions[room]],
+                    aabb: [0; 4],
                     active: true,
+                    material: Material(Material::UNKNOWN),
                 });
                 *room_id += 1;
             } else {
@@ -182,45 +285,5 @@ impl Grid {
             }
         }
         rooms
-    }
-
-    pub fn calculate_rooms(map: &Vec<Vec<Cell>>) -> Vec<Room> {
-        // TODO: array on stack increases speed to ~2 times!
-        // let mut map = [[Cell::default(); Grid::COLUMNS]; Grid::ROWS];
-        // for y in 0..Grid::ROWS {
-        //     for x in 0..Grid::COLUMNS {
-        //         map[y][x] = input_map[y][x];
-        //     }
-        // }
-
-        let exterior = Room {
-            id: Room::EXTERIOR_ID,
-            contour: false,
-            area_y: 0,
-            area: vec![u128::MAX],
-            active: true,
-        };
-        let mut unique_id = 1;
-        let mut rooms: Vec<Room> = vec![exterior];
-        for y in 1..Grid::ROWS {
-            let mut row = 0;
-            for x in 0..Grid::COLUMNS {
-                if !map[y][x].wall {
-                    row = row | 1 << (Grid::COLUMNS - x - 1);
-                }
-            }
-            let rooms_above_row: Vec<u128> = rooms
-                .iter()
-                .map(|room| match room.active {
-                    true => *room.area.last().unwrap(),
-                    false => 0,
-                })
-                .collect();
-            let expansions = Self::expand_rooms_by_row(row, rooms_above_row);
-            let merges = Self::apply_expansion(y, &mut rooms, &mut unique_id, expansions);
-            rooms = Self::merge_rooms(merges, rooms);
-        }
-        Self::include_walls_to_rooms(&mut rooms);
-        Self::merge_rooms_into_buildings(rooms)
     }
 }

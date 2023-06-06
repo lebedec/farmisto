@@ -1,9 +1,13 @@
-from behave import given, when, register_type
+from behave import given, when, register_type, then
+from hamcrest import assert_that, is_not, equal_to, is_in
 
-from steps.parsers import parse_position, Position
-from testing import Context, FarmerTestContext, TestBuildingSurveying
+from steps.parsers import parse_position, parse_index
+from testing import Context, FarmerTestContext, BuildingSurveyingTestContext, Index, Position, RoomAssert, Material
 
 register_type(Position=parse_position)
+register_type(Index=parse_index)
+register_type(int=int)
+register_type(Material=lambda label: Material[label])
 
 
 @given('{kind} farmland')
@@ -56,7 +60,7 @@ def step_impl(context: Context, kind: str, point: str):
 
 @given("building surveying as {legend} using {theodolite}")
 def step_impl(context: Context, legend: str, theodolite: str):
-    context.surveying = TestBuildingSurveying()
+    context.surveying = BuildingSurveyingTestContext()
     wall, window, door = legend.split(' ')
     scene = context.scenario.description
     surveyor = context.theodolites[theodolite].surveyor
@@ -98,8 +102,7 @@ def step_impl(context: Context, farmer: str):
 
     def build_everything_around():
         for construction in context.surveying.around(farmer.position, 2.0):
-            print(construction.as_json())
-            action = {'Build': {'construction': construction}}
+            action = {'Build': {'construction': construction.as_json()}}
             context.game.perform_action(farmer.player, {'Farmer': {'action': action}})
 
     farmer.actions.append(build_everything_around)
@@ -114,3 +117,39 @@ def step_impl(context: Context, farmer: str, points: str):
         farmer.position = position
         for action in farmer.actions:
             action()
+        context.game.update(0.02)
+
+
+@then("{index:Index} room should exist")
+def step_impl(context: Context, index: Index):
+    rooms = context.game.get_grid(context.farmland.grid)
+    assert_that(len(rooms) > index)
+    room = rooms[index]
+    min_x, min_y, max_x, max_y = room['aabb']
+    context.room = RoomAssert(
+        id=room['id'],
+        x=0,
+        y=room['area_y'],
+        w=max_x - min_x + 1,
+        h=max_y - min_y + 1,
+        area=room['area'],
+        material=Material(room['material'])
+    )
+
+
+@then("room bounds is {width:int} x {height:int}")
+def step_impl(context: Context, width: int, height: int):
+    room = context.room
+    bounds = width, height
+    assert_that((room.w, room.h), equal_to(bounds))
+
+
+@then("room has roof, but no floor")
+def step_impl(context: Context):
+    assert_that(context.room.material, is_not(is_in([Material.PLANKS, Material.UNKNOWN])))
+    assert_that(context.room.material, is_in([Material.GLASS, Material.PLANKS, Material.UNKNOWN]))
+
+
+@then("room is mostly made of {material:Material}")
+def step_impl(context: Context, material: Material):
+    assert_that(context.room.material, equal_to(material))

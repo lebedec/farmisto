@@ -32,6 +32,7 @@ pub unsafe extern "C" fn set_body_position(
 ) {
     let body = scenario.game.physics.get_body_mut(body).unwrap();
     body.position = position.to_slice();
+    body.destination = position.to_slice();
 }
 
 #[no_mangle]

@@ -22,7 +22,9 @@ impl Game {
         _farmland: Farmland,
         construction: Construction,
     ) -> Result<Vec<Event>, ActionError> {
-        let destination = construction.cell.position();
+        let surveyor = self.building.get_surveyor(construction.surveyor)?;
+        let stake = surveyor.get_stake(construction.stake)?;
+        let destination = stake.cell.position();
         self.ensure_target_reachable(farmer.body, destination)?;
         self.put_item_into_container(farmer, construction.container)
     }

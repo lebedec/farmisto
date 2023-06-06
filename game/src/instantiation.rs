@@ -85,23 +85,18 @@ impl Game {
         container: ContainerId,
         grid: GridId,
         surveyor: SurveyorId,
-        marker: Marker,
-        cell: [usize; 2],
-    ) -> Vec<Universe> {
+        stake: usize,
+    ) -> Result<Universe, ActionError> {
         self.universe.constructions_id += 1;
         let construction = Construction {
             id: self.universe.constructions_id,
             container,
             grid,
             surveyor,
-            marker,
-            cell,
+            stake,
         };
         self.universe.constructions.push(construction);
-        vec![Universe::ConstructionAppeared {
-            id: construction,
-            cell,
-        }]
+        self.inspect_construction(construction)
     }
 
     pub fn appear_theodolite(

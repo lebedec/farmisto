@@ -1,12 +1,13 @@
+import enum
 import math
 from dataclasses import dataclass
-from typing import Protocol, Dict, List, Callable, Iterable
+from typing import Protocol, Dict, Callable, Iterable
 
 from behave.model import Scenario
 
-from steps.parsers import Position
 from .ffi import load_testing_library
 from .game import GameTestScenario, Farmer, Farmland, Construction, Theodolite
+from .types import *
 
 
 class Planting(Protocol):
@@ -28,7 +29,29 @@ class FarmerTestContext:
     actions: List[Callable]
 
 
-class TestBuildingSurveying:
+class Material(enum.IntEnum):
+    UNKNOWN = 0
+    METAL = 10
+    MESH = 15
+    CONCRETE = 20
+    WOOD = 30
+    PLANKS = 35
+    GLASS = 40
+    TARPAULIN = 50
+
+
+@dataclass
+class RoomAssert:
+    id: int
+    x: int
+    y: int
+    w: int
+    h: int
+    area: List[int]
+    material: Material
+
+
+class BuildingSurveyingTestContext:
 
     def __init__(self):
         self._positions = []
@@ -70,7 +93,9 @@ class Context(Universe, Physics, Planting):
     game: GameTestScenario
     scenario: Scenario
 
-    surveying: TestBuildingSurveying
+    room: RoomAssert
+
+    surveying: BuildingSurveyingTestContext
     points: Dict[str, Position]
 
 

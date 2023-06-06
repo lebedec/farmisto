@@ -13,8 +13,7 @@ impl Game {
         cell: [usize; 2],
         marker: Marker,
     ) -> Result<Vec<Event>, ActionError> {
-        let stake = Stake { marker, cell };
-        let survey = self.building.survey(surveyor, stake)?;
+        let (stake, survey) = self.building.survey(surveyor, marker, cell)?;
         let container_kind = self.known.containers.find("<construction>")?;
         let container = self.inventory.containers_id.introduce().one(ContainerId);
         let create_container = self
@@ -23,7 +22,7 @@ impl Game {
         let events = occur![
             survey(),
             create_container(),
-            self.appear_construction(container, farmland.grid, surveyor, marker, cell),
+            self.appear_construction(container, farmland.grid, surveyor, stake)?,
         ];
         Ok(events)
     }

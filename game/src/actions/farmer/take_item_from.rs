@@ -3,6 +3,7 @@ use crate::inventory::ContainerId;
 use crate::math::TileMath;
 use crate::model::{Activity, Cementer, Composter, Construction, Farmer, Farmland, Stack};
 use crate::{occur, Game};
+use core::borrow::Borrow;
 
 impl Game {
     pub(crate) fn take_item_from_stack(
@@ -22,7 +23,9 @@ impl Game {
         _farmland: Farmland,
         construction: Construction,
     ) -> Result<Vec<Event>, ActionError> {
-        let destination = construction.cell.position();
+        let surveyor = self.building.get_surveyor(construction.surveyor)?;
+        let stake = surveyor.get_stake(construction.stake)?;
+        let destination = stake.cell.position();
         self.ensure_target_reachable(farmer.body, destination)?;
         self.take_item_from_container(farmer, construction.container)
     }

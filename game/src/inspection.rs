@@ -3,8 +3,8 @@ use crate::inventory::{Inventory, ItemData};
 use crate::landscaping::Landscaping;
 use crate::math::{Array, ArrayIndex, VectorMath};
 use crate::model::{
-    Assembly, Cementer, Composter, Corpse, Creature, Crop, Door, Equipment, Farmer, Farmland,
-    PlayerId, Rest, Stack, Theodolite, Universe, UniverseSnapshot,
+    Assembly, Cementer, Composter, Construction, Corpse, Creature, Crop, Door, Equipment, Farmer,
+    Farmland, PlayerId, Rest, Stack, Theodolite, Universe, UniverseSnapshot,
 };
 use crate::physics::Physics;
 use crate::planting::Planting;
@@ -182,6 +182,20 @@ impl Game {
         Ok(event)
     }
 
+    pub fn inspect_construction(
+        &self,
+        construction: Construction,
+    ) -> Result<Universe, ActionError> {
+        let surveyor = self.building.get_surveyor(construction.surveyor)?;
+        let stake = surveyor.get_stake(construction.stake)?;
+        let event = Universe::ConstructionAppeared {
+            id: construction,
+            cell: stake.cell,
+            marker: stake.marker,
+        };
+        Ok(event)
+    }
+
     pub fn look_at_equipment(&self, entity: Equipment) -> Universe {
         let barrier = self.physics.get_barrier(entity.barrier).unwrap();
         Universe::EquipmentAppeared {
@@ -239,10 +253,7 @@ impl Game {
         }
 
         for construction in &self.universe.constructions {
-            stream.push(Universe::ConstructionAppeared {
-                id: *construction,
-                cell: construction.cell,
-            })
+            stream.push(self.inspect_construction(*construction).unwrap());
         }
 
         for crop in &self.universe.crops {

@@ -12,7 +12,7 @@ impl PhysicsDomain {
         let space = Space {
             id,
             kind: kind.clone(),
-            holes: vec![],
+            holes: vec![vec![0; 128]; 128],
         };
         let command = move || {
             let events = vec![];

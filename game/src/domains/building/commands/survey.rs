@@ -1,16 +1,25 @@
-use crate::building::{Building, BuildingDomain, BuildingError, Stake, SurveyorId};
+use crate::building::{Building, BuildingDomain, BuildingError, Marker, Stake, SurveyorId};
+use crate::math::Tile;
 
 impl BuildingDomain {
-    pub fn survey<'operation>(
-        &'operation mut self,
+    pub fn survey(
+        & mut self,
         surveyor: SurveyorId,
-        stake: Stake,
-    ) -> Result<impl FnOnce() -> Vec<Building> + 'operation, BuildingError> {
+        marker: Marker,
+        cell: Tile
+    ) -> Result<(usize, impl FnOnce() -> Vec<Building> + '_), BuildingError> {
         let surveyor = self.get_surveyor_mut(surveyor)?;
-        let operation = move || {
+        let id = surveyor.stake_id + 1;
+        let stake = Stake {
+            id,
+            marker,
+            cell,
+        };
+        let command = move || {
+            surveyor.stake_id = id;
             surveyor.surveying.push(stake);
             vec![]
         };
-        Ok(operation)
+        Ok((id, command))
     }
 }
