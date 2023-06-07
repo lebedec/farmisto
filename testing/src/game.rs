@@ -95,6 +95,16 @@ pub unsafe extern "C" fn add_farmer(
 }
 
 #[no_mangle]
+pub unsafe extern "C" fn set_farmer_activity(
+    scenario: &mut Scenario,
+    farmer: Farmer,
+    activity: PyString,
+) {
+    let activity = serde_json::from_str(activity.to_str()).expect("failed activity");
+    scenario.game.universe.change_activity(farmer, activity);
+}
+
+#[no_mangle]
 pub unsafe extern "C" fn add_theodolite(
     scenario: &mut Scenario,
     kind: PyString,

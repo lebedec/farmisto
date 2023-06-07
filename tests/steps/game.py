@@ -1,5 +1,5 @@
 from behave import given, when, register_type, then
-from hamcrest import assert_that, is_not, equal_to, is_in, greater_than
+from hamcrest import assert_that, is_not, equal_to, is_in, greater_than, has_item, has_key, has_entry
 
 from steps.parsers import parse_position, parse_index
 from testing import Context, FarmerTestContext, BuildingSurveyingTestContext, Index, Position, RoomAssert, Material, \
@@ -19,10 +19,10 @@ def add_farmland(context: Context, kind: str):
     context.farmland = farmland
 
 
-@given("{kind} farmer {name}")
-def step_impl(context: Context, kind: str, name: str):
+@given("{kind} farmer {name} at {point}")
+def step_impl(context: Context, kind: str, name: str, point: str):
     farmland = context.farmland
-    position = [0.0, 0.0]
+    position = context.points[point]
     farmer = context.game.add_farmer(name, kind, farmland, position)
     context.farmers[name] = FarmerTestContext(
         player=name,
@@ -87,6 +87,7 @@ def step_impl(context: Context, kind: str):
 def step_impl(context: Context, kind: str, farmer: str):
     farmer = context.farmers[farmer]
     context.game.add_item(kind, farmer.entity.hands)
+    context.game.set_farmer_activity(farmer.entity, 'Usage')
 
 
 @when("{farmer} builds everything around")
@@ -99,6 +100,7 @@ def step_impl(context: Context, farmer: str):
             context.game.perform_action(farmer.player, {'Farmer': {'action': action}})
 
     farmer.actions.append(build_everything_around)
+    build_everything_around()
 
 
 @when("{farmer} repeats actions in points {points}")
@@ -190,6 +192,20 @@ def step_impl(context: Context, farmer: str, legend: str):
             context.game.perform_action(farmer.player, {'Farmer': {'action': action}})
 
 
+@when("{farmer} survey for reconstruction {points} to {structure}")
+def step_impl(context: Context, farmer: str, points: str, structure: str):
+    farmer = context.farmers[farmer]
+    points = points.split(' ')
+    for point in points:
+        position = context.points_identified[point]
+        action = {'Survey': {
+            'surveyor': context.theodolite.surveyor,
+            'tile': tile(position),
+            'marker': {'Reconstruction': structure}
+        }}
+        context.game.perform_action(farmer.player, {'Farmer': {'action': action}})
+
+
 @when("{farmer} survey for deconstruction {points}")
 def step_impl(context: Context, farmer: str, points: str):
     farmer = context.farmers[farmer]
@@ -222,3 +238,24 @@ def step_impl(context: Context, legend: str, material: Material):
         for point in context.points_array[key]:
             context.game.add_building(context.farmland, point, material, structures[key])
     context.game.rebuild_grid(context.farmland)
+
+
+@when("{farmer} install item to {point}")
+def step_impl(context: Context, farmer: str, point: str):
+    farmer = context.farmers[farmer]
+    position = context.points[point]
+    action = {'Install': {'tile': tile(position)}}
+    context.game.perform_action(farmer.player, {'Farmer': {'action': action}})
+
+
+@then("theodolite should appear at {point}")
+def step_impl(context: Context, point: str):
+    position = context.points[point]
+    events = context.game.take_events()
+    for stream in events:
+        if events := stream.get('UniverseStream'):
+            expected_event = has_entry('TheodoliteAppeared', has_entry('position', position))
+            assert_that(events, has_item(expected_event))
+            break
+    else:
+        assert_that(False, 'Universe events not found in response')

@@ -2,7 +2,7 @@ Feature: Строительство - Растениевод
 
   Background:
     Given regular farmland
-    Given regular farmer Alice
+    Given regular farmer Alice at A
     Given corn planted as $
 
   Scenario: Строит теплицы для растений
@@ -16,7 +16,7 @@ Feature: Строительство - Растениевод
     Given fiberglass laid out for construction
     Given hammer in Alice hands
     When Alice builds everything around
-    When Alice repeats actions in points A B
+    When Alice repeats actions in points B
     Then second room should exist
     And room bounds is 5 x 3
     And room is mostly made of GLASS

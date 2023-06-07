@@ -133,6 +133,9 @@ class GameTestScenario:
             Array2Float(*position)
         )
 
+    def set_farmer_activity(self, farmer: Farmer, activity):
+        return self._lib.set_farmer_activity(self._scenario, farmer, json.dumps(activity).encode('utf-8'))
+
     def add_theodolite(self, kind: str, farmland: Farmland, position: List[float]) -> Theodolite:
         self._lib.add_theodolite.restype = Theodolite
         return self._lib.add_theodolite(
@@ -175,6 +178,12 @@ class GameTestScenario:
     def take_events(self) -> Dict:
         self._lib.take_events.restype = ctypes.c_void_p
         ptr = self._lib.take_events(self._scenario)
+        data = ctypes.cast(ptr, ctypes.c_char_p).value.decode('utf-8')
+        return json.loads(data)
+
+    def take_errors(self) -> List:
+        self._lib.take_errors.restype = ctypes.c_void_p
+        ptr = self._lib.take_errors(self._scenario)
         data = ctypes.cast(ptr, ctypes.c_char_p).value.decode('utf-8')
         return json.loads(data)
 
