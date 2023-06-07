@@ -2,6 +2,8 @@ import ctypes
 import json
 from typing import List, Dict
 
+from .types import Material
+
 Array2Float = ctypes.c_float * 2
 Array2Int = ctypes.c_ulonglong * 2
 
@@ -187,6 +189,21 @@ class GameTestScenario:
         ptr = self._lib.get_constructions(self._scenario, farmland)
         data = ctypes.cast(ptr, ctypes.c_char_p).value.decode('utf-8')
         return json.loads(data)
+
+    def add_building(self, farmland: Farmland, position: List[float], material: Material, structure: str):
+        self._lib.add_building(
+            self._scenario,
+            farmland,
+            Array2Float(*position),
+            material.value,
+            f'"{structure}"'.encode('utf-8')
+        )
+
+    def rebuild_grid(self, farmland: Farmland):
+        self._lib.rebuild_grid(
+            self._scenario,
+            farmland,
+        )
 
     # physics
 

@@ -6,7 +6,7 @@ use std::mem::take;
 
 use datamap::Storage;
 use game::api::{ActionError, Event};
-use game::building::{GridId, Stake, SurveyorId};
+use game::building::{Grid, GridId, Material, Stake, Structure, SurveyorId};
 use game::inventory::{ContainerId, ItemId};
 use game::math::VectorMath;
 use game::model::{
@@ -254,6 +254,65 @@ pub unsafe extern "C" fn get_constructions(
 ) -> PyString {
     let data = serde_json::to_string(&scenario.game.universe.constructions).expect("failed json");
     CString::new(data).unwrap().into_raw()
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn rebuild_grid(scenario: &mut Scenario, farmland: Farmland) {
+    let grid = scenario
+        .game
+        .building
+        .get_mut_grid(farmland.grid)
+        .expect("failed get grid");
+    grid.rooms = Grid::calculate_rooms(&grid.cells);
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn add_building(
+    scenario: &mut Scenario,
+    farmland: Farmland,
+    position: PyTuple,
+    material: Material,
+    structure: PyString,
+) {
+    let tile = position.to_tile();
+    let grid = scenario
+        .game
+        .building
+        .get_mut_grid(farmland.grid)
+        .expect("failed get grid");
+    let [x, y] = tile;
+    let structure: Structure = serde_json::from_str(structure.to_str()).expect("structure");
+    let cell = &mut grid.cells[y][x];
+    cell.material = material;
+    match structure {
+        Structure::Wall => {
+            cell.wall = true;
+        }
+        Structure::Window => {
+            cell.wall = true;
+            cell.window = true;
+        }
+        Structure::Door => {
+            cell.wall = true;
+            cell.door = true;
+        }
+        Structure::Fence => {
+            cell.wall = true;
+        }
+    }
+    let size = if material.index() == Material::PLANKS {
+        2
+    } else {
+        1
+    };
+    let create_hole = scenario
+        .game
+        .physics
+        .create_hole(farmland.space, tile, size)
+        .expect("failed create hole");
+    if structure != Structure::Door {
+        create_hole();
+    }
 }
 
 #[no_mangle]

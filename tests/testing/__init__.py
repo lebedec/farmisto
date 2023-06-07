@@ -1,4 +1,4 @@
-import enum
+
 import math
 from collections import defaultdict
 from dataclasses import dataclass
@@ -28,17 +28,6 @@ class FarmerTestContext:
     entity: Farmer
     position: Position
     actions: List[Callable]
-
-
-class Material(enum.IntEnum):
-    UNKNOWN = 0
-    METAL = 10
-    MESH = 15
-    CONCRETE = 20
-    WOOD = 30
-    PLANKS = 35
-    GLASS = 40
-    TARPAULIN = 50
 
 
 @dataclass
@@ -98,6 +87,7 @@ class Context(Universe, Physics, Planting):
 
     surveying: BuildingSurveyingTestContext
     points: Dict[str, Position]
+    points_identified: Dict[str, Position]
     points_array: Dict[str, List[Position]]
 
 
@@ -119,6 +109,7 @@ def setup_scenario(context: Context):
 
     context.points = {}
     context.points_array = defaultdict(list)
+    context.points_identified = {}
     if context.scenario.description:
         scene = context.scenario.description
         for y in range(len(scene)):
@@ -129,7 +120,9 @@ def setup_scenario(context: Context):
                     context.points[code] = position
                     context.points_array[code].append(position)
                 elif code != ' ':
-                    print('subscription!!', code)
+                    prev = scene[y][i - 1]
+                    position = [x + 0.5, y + 0.5]
+                    context.points_identified[f'{prev}{code}'] = position
 
 
 

@@ -1,5 +1,5 @@
 from behave import given, when, register_type, then
-from hamcrest import assert_that, is_not, equal_to, is_in
+from hamcrest import assert_that, is_not, equal_to, is_in, greater_than
 
 from steps.parsers import parse_position, parse_index
 from testing import Context, FarmerTestContext, BuildingSurveyingTestContext, Index, Position, RoomAssert, Material, \
@@ -123,7 +123,7 @@ def step_impl(context: Context, farmer: str, point: str):
 @then("{index:Index} room should exist")
 def step_impl(context: Context, index: Index):
     rooms = context.game.get_grid(context.farmland.grid)
-    assert_that(len(rooms) > index)
+    assert_that(len(rooms), greater_than(index))
     room = rooms[index]
     min_x, min_y, max_x, max_y = room['aabb']
     context.room = RoomAssert(
@@ -190,7 +190,21 @@ def step_impl(context: Context, farmer: str, legend: str):
             context.game.perform_action(farmer.player, {'Farmer': {'action': action}})
 
 
-@then("there should be {count:int} constructions")
+@when("{farmer} survey for deconstruction {points}")
+def step_impl(context: Context, farmer: str, points: str):
+    farmer = context.farmers[farmer]
+    points = points.split(' ')
+    for point in points:
+        position = context.points_identified[point]
+        action = {'Survey': {
+            'surveyor': context.theodolite.surveyor,
+            'tile': tile(position),
+            'marker': 'Deconstruction'
+        }}
+        context.game.perform_action(farmer.player, {'Farmer': {'action': action}})
+
+
+@then("there should be {count:int} building markers")
 def step_impl(context: Context, count: int):
     constructions = context.game.get_constructions(context.farmland)
     assert_that(len(constructions), equal_to(count))
@@ -198,9 +212,13 @@ def step_impl(context: Context, count: int):
 
 @given("building as {legend} made of {material:Material}")
 def step_impl(context: Context, legend: str, material: Material):
-    raise NotImplementedError()
-
-
-@when("{farmer} survey for deconstruction {points}")
-def step_impl(context: Context, farmer: str, points: str):
-    raise NotImplementedError()
+    wall, window, door = legend.split(' ')
+    structures = {
+        wall: 'Wall',
+        window: 'Window',
+        door: 'Door',
+    }
+    for key in [wall, window, door]:
+        for point in context.points_array[key]:
+            context.game.add_building(context.farmland, point, material, structures[key])
+    context.game.rebuild_grid(context.farmland)

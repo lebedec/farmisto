@@ -15,3 +15,4 @@ Feature: Строительство - Механизатор
     When Alice moves to point A
     When Alice use theodolite T
     When Alice survey for deconstruction ▪₁ ■₂ ■₃ □₄
+    Then there should be 4 building markers

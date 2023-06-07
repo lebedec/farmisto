@@ -32,4 +32,4 @@ Feature: Строительство - Растениевод
     When Alice moves to point A
     When Alice use theodolite T
     When Alice survey building as + - =
-    Then there should be 14 constructions
+    Then there should be 14 building markers
