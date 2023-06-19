@@ -159,6 +159,19 @@ impl Sequence {
         result
     }
 
+    pub fn many_vec<C, T>(&mut self, count: usize, constructor: C) -> Vec<T>
+    where
+        T: Copy,
+        C: Fn(usize) -> T,
+    {
+        let mut result = vec![constructor(0); count];
+        for i in 0..count {
+            self.value += 1;
+            result[i] = constructor(self.value);
+        }
+        result
+    }
+
     pub fn set(&mut self, value: usize) {
         self.value = value;
     }

@@ -1,13 +1,12 @@
-
 import math
 from collections import defaultdict
 from dataclasses import dataclass
-from typing import Protocol, Dict, Callable, Iterable
+from typing import Protocol, Dict, Iterable
 
 from behave.model import Scenario
 
 from .ffi import load_testing_library
-from .game import GameTestScenario, Farmer, Farmland, Construction, Theodolite
+from .game import GameTestScenario, Farmer, Farmland, Construction, Theodolite, Stack, FarmerTestContext
 from .types import *
 
 
@@ -20,14 +19,6 @@ class Physics(Protocol):
     barriers: Dict[str, int]
     space: int
     barrier: int
-
-
-@dataclass
-class FarmerTestContext:
-    player: str
-    entity: Farmer
-    position: Position
-    actions: List[Callable]
 
 
 @dataclass
@@ -51,6 +42,10 @@ class BuildingSurveyingTestContext:
         self._positions.append(position)
         self._constructions.append(construction)
 
+    def get_by_position(self, position: Position) -> Construction:
+        index = self._positions.index(position)
+        return self._constructions[index]
+
     @property
     def constructions(self) -> List[Construction]:
         return self._constructions
@@ -71,15 +66,20 @@ def distance(a: Position, b: Position):
     return math.sqrt(x * x + y * y)
 
 
+class Inventory(Protocol):
+    containers: Dict[str, int]
+
+
 class Universe(Protocol):
     farmlands: Dict[str, Farmland]
     farmers: Dict[str, FarmerTestContext]
     theodolites: Dict[str, Theodolite]
+    stacks: Dict[str, Stack]
 
     farmland: Farmland
 
 
-class Context(Universe, Physics, Planting):
+class Context(Universe, Physics, Planting, Inventory):
     game: GameTestScenario
     scenario: Scenario
 
@@ -89,6 +89,7 @@ class Context(Universe, Physics, Planting):
     points: Dict[str, Position]
     points_identified: Dict[str, Position]
     points_array: Dict[str, List[Position]]
+    points_array_id: Dict[str, List[str]]
 
 
 def setup_environment(context: Context):
@@ -103,12 +104,17 @@ def setup_scenario(context: Context):
     context.spaces = {}
     context.barriers = {}
 
+    context.containers = {}
+
     context.farmlands = {}
     context.farmers = {}
     context.theodolites = {}
+    context.stacks = {}
 
+    context.surveying = None
     context.points = {}
     context.points_array = defaultdict(list)
+    context.points_array_id = defaultdict(list)
     context.points_identified = {}
     if context.scenario.description:
         scene = context.scenario.description
@@ -118,12 +124,15 @@ def setup_scenario(context: Context):
                 if i % 2 == 0:
                     position = [x + 0.5, y + 0.5]
                     context.points[code] = position
-                    context.points_array[code].append(position)
+                    if code != '.':
+                        context.points_array[code].append(position)
+                        context.points_array_id[code].append(None)
                 elif code != ' ':
                     prev = scene[y][i - 1]
                     position = [x + 0.5, y + 0.5]
-                    context.points_identified[f'{prev}{code}'] = position
-
+                    key = f'{prev}{code}'
+                    context.points_identified[key] = position
+                    context.points_array_id[prev][-1] = key
 
 
 def teardown_scenario(context: Context):

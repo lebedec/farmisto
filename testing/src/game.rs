@@ -1,5 +1,6 @@
 #![allow(improper_ctypes_definitions)]
 
+use serde_json::json;
 use std::ffi::CString;
 use std::fs;
 use std::mem::take;
@@ -7,10 +8,10 @@ use std::mem::take;
 use datamap::Storage;
 use game::api::{ActionError, Event};
 use game::building::{Grid, GridId, Material, Stake, Structure, SurveyorId};
-use game::inventory::{ContainerId, ItemId};
+use game::inventory::{ContainerId, Item, ItemId};
 use game::math::VectorMath;
 use game::model::{
-    Construction, Creature, CreatureKey, Crop, Farmer, Farmland, Theodolite, Universe,
+    Construction, Creature, CreatureKey, Crop, Farmer, Farmland, Stack, Theodolite, Universe,
 };
 use game::physics::BodyId;
 use game::raising::AnimalId;
@@ -129,20 +130,83 @@ pub unsafe extern "C" fn add_theodolite(
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn add_item(scenario: &mut Scenario, kind: PyString, container: ContainerId) {
-    let kind = scenario
-        .game
-        .known
-        .items
-        .find(kind.to_str())
-        .expect("failed kind");
-    let id = scenario.game.inventory.items_id.introduce().one(ItemId);
-    let create_item = scenario
-        .game
-        .inventory
-        .create_item(id, &kind, container, 1)
-        .expect("failed created_item");
-    create_item();
+pub unsafe extern "C" fn add_items(
+    scenario: &mut Scenario,
+    kind: PyString,
+    count: usize,
+    container: ContainerId,
+) {
+    for _ in 0..count {
+        let kind = scenario
+            .game
+            .known
+            .items
+            .find(kind.to_str())
+            .expect("failed kind");
+        let id = scenario.game.inventory.items_id.introduce().one(ItemId);
+        let create_item = scenario
+            .game
+            .inventory
+            .create_item(id, &kind, container, 1)
+            .expect("failed created_item");
+        create_item();
+    }
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn add_stack(
+    scenario: &mut Scenario,
+    farmland: Farmland,
+    position: PyTuple,
+    count: usize,
+    item_kind: PyString,
+) -> Stack {
+    let mut add_stack = || {
+        let game = &mut scenario.game;
+        let barrier_kind = game.known.barriers.find("<drop>")?;
+        let (barrier, create_barrier) = game.physics.create_barrier(
+            farmland.space,
+            barrier_kind,
+            position.to_slice(),
+            true,
+            false,
+        )?;
+        let item_kind = game.known.items.find(item_kind.to_str())?;
+        let container_kind = game.known.containers.find("<drop>")?;
+        let container = game.inventory.containers_id.introduce().one(ContainerId);
+        let items = game
+            .inventory
+            .items_id
+            .introduce()
+            .many_vec(count, ItemId)
+            .into_iter()
+            .map(|id| Item {
+                id,
+                kind: item_kind.clone(),
+                container,
+                quantity: 1,
+            })
+            .collect();
+        let create_container = game
+            .inventory
+            .add_container(container, &container_kind, items)?;
+        let events = occur![
+            create_barrier(),
+            create_container(),
+            game.appear_stack(container, barrier),
+        ];
+        for event in events {
+            if let Event::UniverseStream(events) = event {
+                for event in events {
+                    if let Universe::StackAppeared { stack, .. } = event {
+                        return Ok(stack);
+                    }
+                }
+            }
+        }
+        Err(ActionError::Test)
+    };
+    add_stack().expect("unable to add stack")
 }
 
 #[no_mangle]
@@ -152,46 +216,36 @@ pub unsafe extern "C" fn add_crop(
     farmland: Farmland,
     position: PyTuple,
 ) -> Crop {
-    let kind = scenario
-        .game
-        .known
-        .crops
-        .find(kind.to_str())
-        .expect("failed kind");
-    let (barrier, sensor, create_barrier_sensor) = scenario
-        .game
-        .physics
-        .create_barrier_sensor(
+    let mut add_crop = || {
+        let game = &mut scenario.game;
+        let kind = game.known.crops.find(kind.to_str())?;
+        let (barrier, sensor, create_barrier_sensor) = game.physics.create_barrier_sensor(
             farmland.space,
             &kind.barrier,
             &kind.sensor,
             position.to_slice(),
             false,
-        )
-        .expect("failed physics");
-    let (plant, create_plant) = scenario
-        .game
-        .planting
-        .create_plant(farmland.soil, &kind.plant, 0.0)
-        .expect("failed planting");
-    let events = occur![
-        create_barrier_sensor(),
-        create_plant(),
-        scenario
-            .game
-            .appear_crop(kind.id, barrier, sensor, plant)
-            .expect("appear"),
-    ];
-    for event in events {
-        if let Event::UniverseStream(events) = event {
-            for event in events {
-                if let Universe::CropAppeared { entity, .. } = event {
-                    return entity;
+        )?;
+        let (plant, create_plant) = game
+            .planting
+            .create_plant(farmland.soil, &kind.plant, 0.0)?;
+        let events = occur![
+            create_barrier_sensor(),
+            create_plant(),
+            game.appear_crop(kind.id, barrier, sensor, plant)?,
+        ];
+        for event in events {
+            if let Event::UniverseStream(events) = event {
+                for event in events {
+                    if let Universe::CropAppeared { entity, .. } = event {
+                        return Ok(entity);
+                    }
                 }
             }
         }
-    }
-    panic!("Unable to add crop, event with crop id not found");
+        Err(ActionError::Test)
+    };
+    add_crop().expect("unable to add crop")
 }
 
 #[no_mangle]
@@ -263,6 +317,33 @@ pub unsafe extern "C" fn get_constructions(
     _farmland: Farmland,
 ) -> PyString {
     let data = serde_json::to_string(&scenario.game.universe.constructions).expect("failed json");
+    CString::new(data).unwrap().into_raw()
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn get_stacks(scenario: &mut Scenario, _farmland: Farmland) -> PyString {
+    let data = serde_json::to_string(&scenario.game.universe.stacks).expect("failed json");
+    CString::new(data).unwrap().into_raw()
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn get_items(scenario: &mut Scenario, container: ContainerId) -> PyString {
+    let container = scenario
+        .game
+        .inventory
+        .get_container(container)
+        .expect("get container");
+    let items: Vec<serde_json::Value> = container
+        .items
+        .iter()
+        .map(|item| {
+            json!({
+                "id": item.id.0,
+                "kind": item.kind.name.clone()
+            })
+        })
+        .collect();
+    let data = serde_json::to_string(&items).expect("failed json");
     CString::new(data).unwrap().into_raw()
 }
 

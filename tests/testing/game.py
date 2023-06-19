@@ -1,8 +1,9 @@
 import ctypes
 import json
-from typing import List, Dict
+from dataclasses import dataclass
+from typing import List, Dict, Callable
 
-from .types import Material
+from .types import Material, Position
 
 Array2Float = ctypes.c_float * 2
 Array2Int = ctypes.c_ulonglong * 2
@@ -94,12 +95,27 @@ class Construction(Entity):
 
 
 @define
+class Stack(Entity):
+    id: int
+    container: int
+    barrier: int
+
+
+@define
 class Crop(Entity):
     id: int
     key: int
     plant: int
     barrier: int
     sensor: int
+
+
+@dataclass
+class FarmerTestContext:
+    player: str
+    entity: Farmer
+    position: Position
+    actions: List[Callable]
 
 
 class GameTestScenario:
@@ -154,7 +170,7 @@ class GameTestScenario:
             Array2Float(*position)
         )
 
-    def add_construction(self, surveyor: int, marker: Dict, grid: int, position: List[float]) -> Construction:
+    def add_construction(self, surveyor: int, marker: Dict | str, grid: int, position: List[float]) -> Construction:
         self._lib.add_construction.restype = Construction
         return self._lib.add_construction(
             self._scenario,
@@ -164,12 +180,26 @@ class GameTestScenario:
             Array2Float(*position)
         )
 
-    def add_item(self, kind: str, container: int):
-        self._lib.add_item(
+    def add_items(self, kind: str, count: int, container: int):
+        self._lib.add_items(
             self._scenario,
             kind.encode('utf-8'),
+            count,
             container
         )
+
+    def add_stack(self, farmland: Farmland, position: List[float], count: int, item_kind: str) -> Stack:
+        self._lib.add_stack.restype = Stack
+        return self._lib.add_stack(
+            self._scenario,
+            farmland,
+            Array2Float(*position),
+            count,
+            item_kind.encode('utf-8'),
+        )
+
+    def perform_farmer_action(self, farmer: FarmerTestContext, action: Dict):
+        self.perform_action(farmer.player, {'Farmer': {'action': action}})
 
     def perform_action(self, player: str, action: Dict):
         action = json.dumps(action)
@@ -193,9 +223,21 @@ class GameTestScenario:
         data = ctypes.cast(ptr, ctypes.c_char_p).value.decode('utf-8')
         return json.loads(data)
 
-    def get_constructions(self, farmland: Farmland) -> Dict:
+    def get_constructions(self, farmland: Farmland) -> List[Dict]:
         self._lib.get_constructions.restype = ctypes.c_void_p
         ptr = self._lib.get_constructions(self._scenario, farmland)
+        data = ctypes.cast(ptr, ctypes.c_char_p).value.decode('utf-8')
+        return json.loads(data)
+
+    def get_stacks(self, farmland: Farmland) -> List[Dict]:
+        self._lib.get_stacks.restype = ctypes.c_void_p
+        ptr = self._lib.get_stacks(self._scenario, farmland)
+        data = ctypes.cast(ptr, ctypes.c_char_p).value.decode('utf-8')
+        return json.loads(data)
+
+    def get_items(self, container: int) -> List[Dict]:
+        self._lib.get_items.restype = ctypes.c_void_p
+        ptr = self._lib.get_items(self._scenario, container)
         data = ctypes.cast(ptr, ctypes.c_char_p).value.decode('utf-8')
         return json.loads(data)
 
