@@ -65,6 +65,15 @@ class Editor:
             farmland=farmland
         )
 
+    def add_theodolite(self, farmland: str, tile: [int, int], kind_name: str):
+        execute_script(
+            self.connection,
+            './add_theodolite.sql',
+            kind_name=f"'{kind_name}'",
+            position=as_sql_position(tile),
+            farmland=farmland
+        )
+
     def add_cementer(self, farmland: str, tile: [int, int], kind_name: str):
         execute_script(
             self.connection,
@@ -544,7 +553,7 @@ def prototype_assembling(destination_path: str, template_path: str):
             'r': lambda tile, farmland: editor.add_stack(farmland, tile, ['stones'] * 5, 1),
             's': lambda tile, farmland: editor.add_stack(farmland, tile, ['shovel'], 1),
             'h': lambda tile, farmland: editor.add_stack(farmland, tile, ['hammer'], 1),
-            'n': lambda tile, farmland: editor.add_equipment(farmland, tile, 'theodolite'),
+            'n': lambda tile, farmland: editor.add_theodolite(farmland, tile, 'regular'),
         },
         buildings={
             # (wall, door, window, material)
@@ -603,7 +612,7 @@ def prototype_building(destination_path: str, template_path: str):
             'd': lambda tile, farmland: editor.add_stack(farmland, tile, ['door-x1'] * 5, 1),
             'k': lambda tile, farmland: editor.add_stack(farmland, tile, ['cementer-kit'] * 5, 1),
             'h': lambda tile, farmland: editor.add_stack(farmland, tile, ['hammer'], 1),
-            'n': lambda tile, farmland: editor.add_equipment(farmland, tile, 'theodolite'),
+            'n': lambda tile, farmland: editor.add_theodolite(farmland, tile, 'regular'),
         },
         buildings={
             # (wall, door, window, material)

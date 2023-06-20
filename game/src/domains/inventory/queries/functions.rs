@@ -1,4 +1,4 @@
-use crate::inventory::{Function, InventoryError, Nozzle};
+use crate::inventory::{Function, Installation, InventoryError, Nozzle};
 
 pub type Constructor<T> = fn(usize) -> T;
 
@@ -11,7 +11,7 @@ pub trait FunctionsQuery {
     fn as_stone(&self) -> Result<(), InventoryError>;
     fn as_material(&self) -> Result<u8, InventoryError>;
     fn as_product(&self) -> Result<usize, InventoryError>;
-    fn as_installation(&self) -> Result<usize, InventoryError>;
+    fn as_installation(&self) -> Result<Installation, InventoryError>;
     fn as_assembly<T>(&self, constructor: Constructor<T>) -> Result<T, InventoryError>;
     fn as_moistener(&self) -> Result<Nozzle, InventoryError>;
     fn as_fertilizer(&self) -> Result<f32, InventoryError>;
@@ -108,10 +108,10 @@ impl FunctionsQuery for Vec<Function> {
         Err(InventoryError::ItemFunctionNotFound)
     }
 
-    fn as_installation(&self) -> Result<usize, InventoryError> {
+    fn as_installation(&self) -> Result<Installation, InventoryError> {
         for function in self {
-            if let Function::Installation(kind) = function {
-                return Ok(*kind);
+            if let Function::Installation(installation) = function {
+                return Ok(*installation);
             }
         }
         Err(InventoryError::ItemFunctionNotFound)

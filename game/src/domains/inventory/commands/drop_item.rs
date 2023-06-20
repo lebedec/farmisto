@@ -1,4 +1,4 @@
-use crate::collections::{trust};
+use crate::collections::trust;
 use crate::inventory::Inventory::{ContainerCreated, ItemRemoved, ItemsAdded};
 use crate::inventory::{
     Container, ContainerId, ContainerKind, Inventory, InventoryDomain, InventoryError, ItemData,

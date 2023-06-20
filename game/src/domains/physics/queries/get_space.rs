@@ -1,7 +1,6 @@
 use crate::physics::{PhysicsDomain, PhysicsError, Space, SpaceId};
 
 impl PhysicsDomain {
-
     pub fn get_space(&self, id: SpaceId) -> Result<&Space, PhysicsError> {
         self.spaces
             .iter()

@@ -11,13 +11,6 @@ impl Game {
     ) -> Result<Vec<Event>, ActionError> {
         self.universe.ensure_activity(farmer, Idle)?;
         let events = match equipment.purpose {
-            Purpose::Surveying { .. } => {
-                let activity = Activity::Surveying {
-                    equipment,
-                    selection: 0,
-                };
-                vec![self.universe.change_activity(farmer, activity)]
-            }
             Purpose::Moisture { .. } => {
                 vec![]
             }

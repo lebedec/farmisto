@@ -4,8 +4,8 @@ use game::inventory::ContainerId;
 use game::landscaping::Surface;
 use game::math::{ArrayIndex, Tile, TileMath, VectorMath};
 use game::model::{
-    Cementer, Composter, Construction, Corpse, Creature, Crop, Door, Equipment, Rest,
-    Stack,
+    Cementer, Composter, Construction, Corpse, Creature, Crop, Door, Equipment, Rest, Stack,
+    Theodolite,
 };
 use game::working::DeviceId;
 
@@ -27,6 +27,7 @@ pub enum Target {
     Ground(Tile),
     Construction(Construction),
     Equipment(Equipment),
+    Theodolite(Theodolite),
     Wall([usize; 2]),
     Crop(Crop),
     Door(Door),
@@ -93,6 +94,12 @@ impl Gameplay {
         for equipment in self.equipments.values() {
             if equipment.position.to_tile() == tile {
                 return vec![Target::Equipment(equipment.entity)];
+            }
+        }
+
+        for theodolite in self.theodolites.values() {
+            if theodolite.position.to_tile() == tile {
+                return vec![Target::Theodolite(theodolite.entity)];
             }
         }
 

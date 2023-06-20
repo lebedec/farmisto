@@ -1,17 +1,13 @@
 use std::collections::HashMap;
 
-
-
 use ai::AiThread;
 use glam::vec3;
 use log::{error, info};
 
-
 use datamap::Storage;
 use game::api::{Action, Cheat, FarmerBound, GameResponse, PlayerRequest};
 use game::inventory::{ContainerId, ItemId};
-use game::math::{VectorMath};
-use game::model::Farmer;
+use game::math::VectorMath;
 use game::model::Farmland;
 use game::model::Knowledge;
 use game::model::Stack;
@@ -21,7 +17,8 @@ use game::model::{Cementer, Construction};
 use game::model::{Composter, Crop};
 use game::model::{Corpse, Equipment};
 use game::model::{Creature, Rest};
-use game::physics::{Barrier};
+use game::model::{Farmer, Theodolite};
+use game::physics::Barrier;
 use game::Game;
 use network::TcpClient;
 use server::LocalServerThread;
@@ -32,9 +29,10 @@ use crate::engine::rendering::TextController;
 use crate::gameplay::camera::Camera;
 use crate::gameplay::representation::{
     AssemblyRep, CementerRep, ComposterRep, ConstructionRep, CorpseRep, CreatureRep, CropRep,
-    DoorRep, EquipmentRep, FarmerRep, FarmlandRep, ItemRep, RestRep, StackRep, TreeRep,
+    DoorRep, EquipmentRep, FarmerRep, FarmlandRep, ItemRep, RestRep, StackRep, TheodoliteRep,
+    TreeRep,
 };
-use crate::gameplay::{GameplayMetrics};
+use crate::gameplay::GameplayMetrics;
 use crate::monitoring::{Timer, TimerIntegration};
 use crate::{Frame, Mode};
 
@@ -68,6 +66,7 @@ pub struct Gameplay {
     pub farmers: HashMap<Farmer, FarmerRep>,
     pub stacks: HashMap<Stack, StackRep>,
     pub equipments: HashMap<Equipment, EquipmentRep>,
+    pub theodolites: HashMap<Theodolite, TheodoliteRep>,
     pub assembly: HashMap<Assembly, AssemblyRep>,
     pub doors: HashMap<Door, DoorRep>,
     pub rests: HashMap<Rest, RestRep>,
@@ -139,6 +138,7 @@ impl Gameplay {
             farmers: Default::default(),
             stacks: Default::default(),
             equipments: Default::default(),
+            theodolites: Default::default(),
             assembly: Default::default(),
             doors: Default::default(),
             rests: Default::default(),

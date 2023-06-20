@@ -7,7 +7,6 @@ use ash::vk::Handle;
 use ash::{vk, Device};
 use lazy_static::lazy_static;
 
-
 use crate::assets::TextureAsset;
 
 lazy_static! {

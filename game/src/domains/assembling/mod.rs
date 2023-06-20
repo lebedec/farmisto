@@ -1,9 +1,9 @@
 pub use commands::*;
 pub use domain::*;
-pub use queries::*;
 pub use loading::*;
+pub use queries::*;
 
 mod commands;
 mod domain;
-mod queries;
 mod loading;
+mod queries;

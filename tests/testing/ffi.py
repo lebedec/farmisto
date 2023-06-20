@@ -22,7 +22,7 @@ class Any(ctypes.Structure):
 Self = ctypes.POINTER(Any)
 
 
-def load_testing_library(need_rebuild: bool = True) -> GameTestScenario:
+def load_testing_library(need_rebuild: bool = False) -> GameTestScenario:
     if need_rebuild:
         rebuild = Popen(
             ['cargo', 'build', '--package', 'testing'],

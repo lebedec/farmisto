@@ -2,6 +2,7 @@ use serde::{Deserialize, Serialize};
 use std::fmt::{Debug, Formatter};
 
 use crate::collections::Shared;
+use crate::math::Rect;
 
 #[derive(
     Clone,
@@ -65,7 +66,9 @@ pub struct Room {
     pub contour: bool,
     pub area_y: usize,
     pub area: Vec<u128>,
+    pub aabb: Rect,
     pub active: bool,
+    pub material: Material,
 }
 
 impl Debug for Room {
@@ -129,9 +132,8 @@ impl Grid {
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
 pub enum Structure {
     Wall,
-    Window,
     Door,
-    Fence,
+    Window,
 }
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize, PartialEq, Eq, Hash)]
@@ -143,6 +145,7 @@ pub enum Marker {
 
 #[derive(Clone, Copy, Debug, Serialize, Deserialize)]
 pub struct Stake {
+    pub id: usize,
     pub marker: Marker,
     pub cell: [usize; 2],
 }
@@ -161,8 +164,20 @@ pub struct SurveyorId(pub usize);
 pub struct Surveyor {
     pub id: SurveyorId,
     pub grid: GridId,
+    pub stake_id: usize,
     pub surveying: Vec<Stake>,
     pub kind: Shared<SurveyorKind>,
+    pub mode: u8,
+}
+
+impl Surveyor {
+    pub const MODE_WALL: u8 = 0;
+
+    pub const MODE_DOOR: u8 = 1;
+
+    pub const MODE_WINDOW: u8 = 2;
+
+    pub const MODES: [u8; 3] = [Self::MODE_WALL, Self::MODE_DOOR, Self::MODE_WINDOW];
 }
 
 #[derive(Serialize, Deserialize)]
@@ -175,6 +190,10 @@ pub enum Building {
     SurveyorCreated {
         id: SurveyorId,
         grid: GridId,
+    },
+    SurveyorModeChanged {
+        id: SurveyorId,
+        mode: u8,
     },
     SurveyorDestroyed {
         id: SurveyorId,
@@ -201,6 +220,7 @@ pub enum BuildingError {
     CellHasNoMarkers { cell: [usize; 2] },
     SurveyorNotFound { id: SurveyorId },
     SurveyorMarkerNotFound,
+    StakeNotFound { id: usize },
     ConstructStakeMarkedForDeconstruction,
 }
 

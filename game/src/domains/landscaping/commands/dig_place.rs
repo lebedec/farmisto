@@ -1,7 +1,7 @@
 use crate::landscaping::{
     LandId, Landscaping, LandscapingDomain, LandscapingError, Place, Surface,
 };
-use crate::math::{ArrayIndex};
+use crate::math::ArrayIndex;
 
 impl LandscapingDomain {
     pub fn dig_place(

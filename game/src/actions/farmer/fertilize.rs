@@ -1,5 +1,3 @@
-
-
 use crate::api::{ActionError, Event};
 use crate::inventory::FunctionsQuery;
 use crate::math::{Tile, TileMath};

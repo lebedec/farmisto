@@ -8,10 +8,8 @@ def before_all(context: Context):
 
 
 def before_scenario(context: Context, scenario: Scenario):
-    print('TAGS', scenario.tags, scenario.location, scenario.description)
     setup_scenario(context)
 
 
-def after_scenario(context: Context, s):
-    print(type(s))
+def after_scenario(context: Context, scenario: Scenario):
     teardown_scenario(context)

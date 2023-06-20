@@ -1,7 +1,6 @@
 use crate::building::{BuildingDomain, BuildingError, GridId, Surveyor, SurveyorId};
 
 impl BuildingDomain {
-
     pub fn find_surveyor_mut(
         &mut self,
         grid: GridId,

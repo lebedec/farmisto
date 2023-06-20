@@ -1,7 +1,7 @@
 use crate::math::Random;
 use crate::raising::Raising::{AnimalChanged, AnimalHealthChanged};
 use crate::raising::{Animal, Raising, RaisingDomain};
-use log::{error};
+use log::error;
 
 use std::mem::take;
 

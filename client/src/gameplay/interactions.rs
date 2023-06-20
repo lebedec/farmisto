@@ -1,20 +1,18 @@
-use log::error;
-
 use game::api::FarmerBound;
 use game::assembling::Rotation;
-use game::building::{Marker, Structure};
+
 use game::inventory::Function;
 use game::inventory::Function::{
     Assembly, Fertilizer, Installation, Instrumenting, Moistener, Product, Seeding, Shovel, Stone,
     Tether,
 };
-use game::model::{Activity, CropKey, Purpose};
+use game::model::{Activity, CropKey};
 
 use crate::gameplay::representation::FarmerRep;
 use crate::gameplay::Intention::{Aim, Move, Put, QuickSwap, Swap, Use};
 use crate::gameplay::Target::{
     Cementer, CementerContainer, Composter, ComposterContainer, Construction, Corpse, Creature,
-    Crop, Device, Door, Equipment, Ground, Rest, Stack, Wall, Waterbody,
+    Crop, Device, Door, Equipment, Ground, Rest, Stack, Theodolite, Wall, Waterbody,
 };
 use crate::gameplay::{Gameplay, Intention, Target};
 
@@ -35,7 +33,9 @@ impl Gameplay {
                     Construction(construction) => {
                         self.send_action(FarmerBound::TakeItemFromConstruction { construction });
                     }
-
+                    Theodolite(theodolite) => {
+                        self.send_action(FarmerBound::UseTheodolite { theodolite });
+                    }
                     Equipment(equipment) => {
                         self.send_action(FarmerBound::UseEquipment { equipment });
                     }
@@ -82,6 +82,9 @@ impl Gameplay {
                 Put => match target {
                     Equipment(equipment) => {
                         self.send_action(FarmerBound::Uninstall { equipment });
+                    }
+                    Theodolite(theodolite) => {
+                        self.send_action(FarmerBound::UninstallTheodolite { theodolite });
                     }
                     Door(door) => {
                         self.send_action(FarmerBound::DisassembleDoor { door });
@@ -249,67 +252,19 @@ impl Gameplay {
                 }
                 _ => {}
             },
-            Activity::Surveying {
-                equipment,
-                selection,
-            } => match intention {
+            Activity::Surveying { theodolite } => match intention {
                 Use => match target {
                     Ground(tile) => {
-                        let structure = match selection {
-                            1 => Structure::Door,
-                            2 => Structure::Window,
-                            3 => Structure::Fence,
-                            _ => Structure::Wall,
-                        };
-                        if let Purpose::Surveying { surveyor } = equipment.purpose {
-                            self.send_action(FarmerBound::Survey {
-                                surveyor,
-                                tile,
-                                marker: Marker::Construction(structure),
-                            });
-                        } else {
-                            error!("Not sur")
-                        }
+                        self.send_action(FarmerBound::Construct {
+                            surveyor: theodolite.surveyor,
+                            tile,
+                        });
                     }
                     Wall(tile) => {
-                        let structure = match selection {
-                            1 => Structure::Door,
-                            2 => Structure::Window,
-                            3 => Structure::Fence,
-                            _ => Structure::Wall,
-                        };
-                        if let Purpose::Surveying { surveyor } = equipment.purpose {
-                            self.send_action(FarmerBound::Survey {
-                                surveyor,
-                                tile,
-                                marker: Marker::Reconstruction(structure),
-                            });
-                        } else {
-                            error!("Not sur")
-                        }
-                    }
-                    Construction(construction) => {
-                        self.send_action(FarmerBound::RemoveConstruction { construction });
-                        let structure = match selection {
-                            1 => Structure::Door,
-                            2 => Structure::Window,
-                            3 => Structure::Fence,
-                            _ => Structure::Wall,
-                        };
-                        if let Purpose::Surveying { surveyor } = equipment.purpose {
-                            let marker = match construction.marker {
-                                Marker::Construction(_) => Marker::Construction(structure),
-                                Marker::Reconstruction(_) => Marker::Reconstruction(structure),
-                                Marker::Deconstruction => Marker::Construction(structure),
-                            };
-                            self.send_action(FarmerBound::Survey {
-                                surveyor,
-                                tile: construction.cell,
-                                marker,
-                            });
-                        } else {
-                            error!("Not sur")
-                        }
+                        self.send_action(FarmerBound::Reconstruct {
+                            surveyor: theodolite.surveyor,
+                            tile,
+                        });
                     }
                     _ => {
                         // beep error
@@ -320,21 +275,17 @@ impl Gameplay {
                         self.send_action(FarmerBound::RemoveConstruction { construction });
                     }
                     Wall(tile) => {
-                        if let Purpose::Surveying { surveyor } = equipment.purpose {
-                            self.send_action(FarmerBound::Survey {
-                                surveyor,
-                                tile,
-                                marker: Marker::Deconstruction,
-                            });
-                        } else {
-                            error!("Not sur")
-                        }
+                        self.send_action(FarmerBound::Deconstruct {
+                            surveyor: theodolite.surveyor,
+                            tile,
+                        });
                     }
                     _ => {}
                 },
                 Swap => {
+                    let theodolite = self.theodolites.get(&theodolite).unwrap();
                     self.send_action(FarmerBound::ToggleSurveyingOption {
-                        option: selection as u8 + 1,
+                        option: theodolite.mode + 1,
                     });
                 }
                 QuickSwap(option) => {

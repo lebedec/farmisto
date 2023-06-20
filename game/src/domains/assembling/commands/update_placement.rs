@@ -7,7 +7,7 @@ impl AssemblingDomain {
         id: PlacementId,
         rotation: Rotation,
         pivot: [usize; 2],
-        valid: bool
+        valid: bool,
     ) -> Result<impl FnOnce() -> Vec<Assembling> + '_, AssemblingError> {
         let placement = self.get_placement_mut(id)?;
         let command = move || {

@@ -42,9 +42,7 @@ impl Gameplay {
             });
         }
         if input.ctrl_pressed(Keycode::L) {
-            self.send_cheat(Cheat::SpawnLama {
-                tile 
-            });
+            self.send_cheat(Cheat::SpawnLama { tile });
         }
 
         // if input.pressed(Keycode::E) {

@@ -1,9 +1,9 @@
-use crate::building::{Building, BuildingDomain, BuildingError, Grid, GridId};
 use crate::building::BuildingError::CellHasNoWall;
+use crate::building::{Building, BuildingDomain, BuildingError, Grid, GridId};
 
 impl BuildingDomain {
     pub fn destroy_walls(
-        & mut self,
+        &mut self,
         grid_id: GridId,
         cells: Vec<[usize; 2]>,
     ) -> Result<impl FnOnce() -> Vec<Building> + '_, BuildingError> {

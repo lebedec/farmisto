@@ -5,11 +5,17 @@ pub type PyTuple = *const f32;
 
 pub trait PyTupleToSlice {
     fn to_slice(self) -> [f32; 2];
+    fn to_tile(self) -> [usize; 2];
 }
 
 impl PyTupleToSlice for PyTuple {
     fn to_slice(self) -> [f32; 2] {
         unsafe { slice::from_raw_parts(self, 2).try_into().unwrap() }
+    }
+
+    fn to_tile(self) -> [usize; 2] {
+        let [x, y] = self.to_slice();
+        [x as usize, y as usize]
     }
 }
 

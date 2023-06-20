@@ -1,5 +1,5 @@
 use crate::api::{ActionError, Event};
-use crate::inventory::{ContainerId};
+use crate::inventory::ContainerId;
 use crate::math::TileMath;
 use crate::model::{Farmer, Farmland};
 use crate::{emit, Game};
@@ -26,7 +26,7 @@ impl Game {
         emit![
             create_barrier(),
             drop_item(),
-            self.create_stack(container, barrier)
+            self.appear_stack(container, barrier)
         ]
     }
 }

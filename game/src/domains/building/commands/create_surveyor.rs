@@ -5,19 +5,21 @@ use crate::building::{
 use crate::collections::Shared;
 
 impl BuildingDomain {
-    pub fn create_surveyor<'operation>(
-        &'operation mut self,
+    pub fn create_surveyor(
+        &mut self,
         grid: GridId,
         kind: Shared<SurveyorKind>,
-    ) -> Result<(SurveyorId, impl FnOnce() -> Vec<Building> + 'operation), BuildingError> {
+    ) -> Result<(SurveyorId, impl FnOnce() -> Vec<Building> + '_), BuildingError> {
         let id = SurveyorId(self.surveyors_sequence + 1);
         let surveyor = Surveyor {
             id,
             grid,
+            stake_id: 0,
             surveying: vec![],
             kind,
+            mode: 0,
         };
-        let operation = move || {
+        let command = move || {
             let events = vec![SurveyorCreated {
                 id: surveyor.id,
                 grid: surveyor.grid,
@@ -26,6 +28,6 @@ impl BuildingDomain {
             self.surveyors.push(surveyor);
             events
         };
-        Ok((id, operation))
+        Ok((id, command))
     }
 }

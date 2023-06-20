@@ -1,10 +1,9 @@
 use crate::api::{ActionError, Event};
-use crate::assembling::{Rotation};
+use crate::assembling::Rotation;
 
-use crate::math::{Tile};
+use crate::math::Tile;
 use crate::model::{Farmer, Farmland};
 use crate::{occur, Game};
-
 
 impl Game {
     pub(crate) fn move_assembly(

@@ -1,6 +1,5 @@
-
 use crate::working::Working::DeviceUpdated;
-use crate::working::{DeviceId,  Working, WorkingDomain, WorkingError};
+use crate::working::{DeviceId, Working, WorkingDomain, WorkingError};
 
 impl WorkingDomain {
     pub fn repair_device(

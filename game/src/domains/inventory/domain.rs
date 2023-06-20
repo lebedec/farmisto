@@ -29,10 +29,16 @@ pub struct Nozzle {
     pub spread: u32,
 }
 
+#[derive(Debug, Clone, Copy, PartialEq, serde::Deserialize)]
+pub enum Installation {
+    Theodolite(usize),
+    Peg(usize),
+}
+
 #[derive(Debug, Clone, PartialEq, serde::Deserialize)]
 pub enum Function {
     Material(u8),
-    Installation(usize),
+    Installation(Installation),
     Seeding(usize),
     Carry,
     Instrumenting,

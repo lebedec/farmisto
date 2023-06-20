@@ -3,14 +3,12 @@ use crate::inventory::{Inventory, ItemData};
 use crate::landscaping::Landscaping;
 use crate::math::{Array, ArrayIndex, VectorMath};
 use crate::model::{
-    Assembly, Cementer, Composter, Corpse, Creature, Crop, Door, Equipment, Farmer, PlayerId, Rest,
-    Stack, Universe, UniverseSnapshot,
+    Assembly, Cementer, Composter, Construction, Corpse, Creature, Crop, Door, Equipment, Farmer,
+    Farmland, PlayerId, Rest, Stack, Theodolite, Universe,
 };
 use crate::physics::Physics;
 use crate::planting::Planting;
 use crate::Game;
-
-
 
 impl Game {
     pub fn inspect_player_private_space(
@@ -175,6 +173,31 @@ impl Game {
         }
     }
 
+    pub fn inspect_theodolite(&self, theodolite: Theodolite) -> Result<Universe, ActionError> {
+        let barrier = self.physics.get_barrier(theodolite.barrier)?;
+        let surveyor = self.building.get_surveyor(theodolite.surveyor)?;
+        let event = Universe::TheodoliteAppeared {
+            id: theodolite,
+            position: barrier.position,
+            mode: surveyor.mode,
+        };
+        Ok(event)
+    }
+
+    pub fn inspect_construction(
+        &self,
+        construction: Construction,
+    ) -> Result<Universe, ActionError> {
+        let surveyor = self.building.get_surveyor(construction.surveyor)?;
+        let stake = surveyor.get_stake(construction.stake)?;
+        let event = Universe::ConstructionAppeared {
+            id: construction,
+            cell: stake.cell,
+            marker: stake.marker,
+        };
+        Ok(event)
+    }
+
     pub fn look_at_equipment(&self, entity: Equipment) -> Universe {
         let barrier = self.physics.get_barrier(entity.barrier).unwrap();
         Universe::EquipmentAppeared {
@@ -197,26 +220,28 @@ impl Game {
         })
     }
 
-    pub fn look_around(&self, snapshot: UniverseSnapshot) -> Vec<Event> {
+    pub fn inspect_farmland(&self, farmland: Farmland) -> Result<Universe, ActionError> {
+        let _soil = self.planting.get_soil(farmland.soil).unwrap();
+        let grid = self.building.get_grid(farmland.grid).unwrap();
+        let space = self.physics.get_space(farmland.space).unwrap();
+        let _land = self.landscaping.get_land(farmland.land).unwrap();
+        let calendar = self.timing.get_calendar(farmland.calendar).unwrap();
+        Ok(Universe::FarmlandAppeared {
+            farmland,
+            cells: grid.cells.clone(),
+            rooms: grid.rooms.clone(),
+            holes: space.holes.clone(),
+            season: calendar.season,
+            season_day: calendar.season_day,
+            times_of_day: calendar.times_of_day,
+        })
+    }
+
+    pub fn look_around(&self) -> Vec<Event> {
         let mut stream = vec![];
 
         for farmland in self.universe.farmlands.iter() {
-            if snapshot.whole || snapshot.farmlands.contains(&farmland.id) {
-                let _soil = self.planting.get_soil(farmland.soil).unwrap();
-                let grid = self.building.get_grid(farmland.grid).unwrap();
-                let space = self.physics.get_space(farmland.space).unwrap();
-                let _land = self.landscaping.get_land(farmland.land).unwrap();
-                let calendar = self.timing.get_calendar(farmland.calendar).unwrap();
-                stream.push(Universe::FarmlandAppeared {
-                    farmland: *farmland,
-                    cells: grid.cells.clone(),
-                    rooms: grid.rooms.clone(),
-                    holes: space.holes.clone(),
-                    season: calendar.season,
-                    season_day: calendar.season_day,
-                    times_of_day: calendar.times_of_day,
-                });
-            }
+            stream.push(self.inspect_farmland(*farmland).unwrap());
         }
 
         for farmer in self.universe.farmers.iter() {
@@ -228,10 +253,7 @@ impl Game {
         }
 
         for construction in &self.universe.constructions {
-            stream.push(Universe::ConstructionAppeared {
-                id: *construction,
-                cell: construction.cell,
-            })
+            stream.push(self.inspect_construction(*construction).unwrap());
         }
 
         for crop in &self.universe.crops {
@@ -248,6 +270,10 @@ impl Game {
 
         for equipment in &self.universe.equipments {
             stream.push(self.look_at_equipment(*equipment));
+        }
+
+        for theodolite in &self.universe.theodolites {
+            stream.push(self.inspect_theodolite(*theodolite).unwrap());
         }
 
         for assembly in &self.universe.assembly {

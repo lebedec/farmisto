@@ -1,4 +1,3 @@
-
 use std::sync::mpsc::channel;
 use std::sync::{Arc, RwLock};
 use std::thread;
@@ -9,7 +8,6 @@ use log::{error, info};
 use game::api::{Event, GameResponse, PlayerRequest};
 use game::Game;
 use network::TcpClient;
-
 
 use crate::api::{handle_rpc, serve_web_socket};
 use crate::{Behaviours, Nature};

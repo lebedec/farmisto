@@ -1,5 +1,5 @@
 use log::{error, info};
-use std::net::{TcpStream};
+use std::net::TcpStream;
 use std::sync::mpsc::{channel, Receiver, RecvTimeoutError, Sender, TryIter};
 use std::thread;
 use std::time::{Duration, Instant};

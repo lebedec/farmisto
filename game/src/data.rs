@@ -1,7 +1,7 @@
 use core::fmt::Debug;
 
 use datamap::Storage;
-use log::{info, warn};
+use log::info;
 use serde::de;
 
 use crate::assembling::{Placement, PlacementId};
@@ -19,7 +19,7 @@ use crate::model::{
     CreatureKey, CreatureKind, Crop, CropKey, CropKind, Door, DoorKey, DoorKind, Equipment,
     EquipmentKey, EquipmentKind, Farmer, FarmerKey, FarmerKind, Farmland, FarmlandKey,
     FarmlandKind, Knowledge, Player, PlayerId, Purpose, PurposeDescription, Rest, RestKey,
-    RestKind, Stack, Tree, TreeKey, TreeKind,
+    RestKind, Stack, Theodolite, TheodoliteKey, TheodoliteKind, Tree, TreeKey, TreeKind,
 };
 use crate::physics::{
     Barrier, BarrierId, BarrierKey, BarrierKind, Body, BodyId, BodyKey, BodyKind, Sensor, SensorId,
@@ -113,6 +113,11 @@ impl Game {
         for kind in storage.find_all(|row| self.load_equipment_kind(row))? {
             self.known
                 .equipments
+                .insert(kind.id, kind.name.clone(), kind);
+        }
+        for kind in storage.find_all(|row| self.load_theodolite_kind(row))? {
+            self.known
+                .theodolites
                 .insert(kind.id, kind.name.clone(), kind);
         }
         for kind in storage.find_all(|row| self.load_crop_kind(row))? {
@@ -214,6 +219,9 @@ impl Game {
         self.universe.load_trees(trees, trees_id);
         let (farmlands, farmlands_id) = storage.get_sequence(|row| self.load_farmland(row))?;
         self.universe.load_farmlands(farmlands, farmlands_id);
+        let (theodolites, theodolites_id) =
+            storage.get_sequence(|row| self.load_theodolite(row))?;
+        self.universe.load_theodolites(theodolites, theodolites_id);
         let (farmers, farmers_id) = storage.get_sequence(|row| self.load_farmer(row))?;
         self.universe.load_farmers(farmers, farmers_id);
         let (stacks, stacks_id) = storage.get_sequence(|row| self.load_stack(row))?;
@@ -259,13 +267,7 @@ impl Game {
         &mut self,
         row: &rusqlite::Row,
     ) -> Result<EquipmentKind, DataError> {
-        let purpose = if let Ok(Some(name)) = row.get("p_surveyor") {
-            let surveyor = self.known.surveyors.find2(&name)?.id;
-            PurposeDescription::Surveying { surveyor }
-        } else {
-            warn!("Loads tethering purpose by default, deprecated");
-            PurposeDescription::Tethering
-        };
+        let purpose = PurposeDescription::Tethering;
         let data = EquipmentKind {
             id: EquipmentKey(row.get("id")?),
             name: row.get("name")?,
@@ -280,13 +282,7 @@ impl Game {
         let id = row.get("id")?;
         let kind = row.get("kind")?;
         let barrier = row.get("barrier")?;
-        let purpose = if let Ok(Some(id)) = row.get("p_surveyor") {
-            Purpose::Surveying {
-                surveyor: SurveyorId(id),
-            }
-        } else {
-            Purpose::Moisture { sensor: 0 }
-        };
+        let purpose = Purpose::Moisture { sensor: 0 };
         let data = Equipment {
             id,
             key: EquipmentKey(kind),
@@ -321,6 +317,30 @@ impl Game {
             grid: GridId(row.get("grid")?),
             land: LandId(row.get("land")?),
             calendar: CalendarId(row.get("calendar")?),
+        };
+        Ok(data)
+    }
+
+    pub(crate) fn load_theodolite_kind(
+        &mut self,
+        row: &rusqlite::Row,
+    ) -> Result<TheodoliteKind, DataError> {
+        let data = TheodoliteKind {
+            id: TheodoliteKey(row.get("id")?),
+            name: row.get("name")?,
+            surveyor: self.known.surveyors.find_by(row, "surveyor")?,
+            barrier: self.known.barriers.find_by(row, "barrier")?,
+            item: self.known.items.find_by(row, "item")?,
+        };
+        Ok(data)
+    }
+
+    pub(crate) fn load_theodolite(&mut self, row: &rusqlite::Row) -> Result<Theodolite, DataError> {
+        let data = Theodolite {
+            id: row.get("id")?,
+            key: TheodoliteKey(row.get("key")?),
+            surveyor: SurveyorId(row.get("surveyor")?),
+            barrier: BarrierId(row.get("barrier")?),
         };
         Ok(data)
     }
@@ -460,8 +480,7 @@ impl Game {
             container: ContainerId(row.get("container")?),
             grid: GridId(row.get("grid")?),
             surveyor: SurveyorId(row.get("surveyor")?),
-            marker: row.get_json("marker")?,
-            cell: row.get_json("cell")?,
+            stake: row.get("stake")?,
         };
         Ok(data)
     }
@@ -732,8 +751,10 @@ impl Game {
         let data = Surveyor {
             id: SurveyorId(row.get("id")?),
             grid: GridId(row.get("grid")?),
+            stake_id: 0,
             surveying: vec![],
             kind: self.known.surveyors.get_by(row, "kind", SurveyorKey)?,
+            mode: 0,
         };
         Ok(data)
     }

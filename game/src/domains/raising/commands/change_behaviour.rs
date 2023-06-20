@@ -1,5 +1,5 @@
-use crate::raising::{AnimalId, Behaviour, Raising, RaisingDomain, RaisingError};
 use crate::raising::Raising::BehaviourChanged;
+use crate::raising::{AnimalId, Behaviour, Raising, RaisingDomain, RaisingError};
 
 impl RaisingDomain {
     pub fn change_behaviour(
@@ -10,10 +10,7 @@ impl RaisingDomain {
         let animal = self.get_animal_mut(id)?;
         let command = move || {
             animal.behaviour = behaviour;
-            vec![BehaviourChanged {
-                id,
-                behaviour,
-            }]
+            vec![BehaviourChanged { id, behaviour }]
         };
         Ok(command)
     }

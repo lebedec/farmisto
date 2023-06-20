@@ -1,6 +1,5 @@
 use ash::vk;
 
-
 use game::math::VectorMath;
 
 use crate::assets::{SamplerAsset, TextureAsset};

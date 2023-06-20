@@ -4,18 +4,14 @@ impl BuildingDomain {
     pub fn unmark(
         &mut self,
         surveyor: SurveyorId,
-        cell: [usize; 2],
+        stake: usize,
     ) -> Result<impl FnOnce() -> Vec<Building> + '_, BuildingError> {
         let surveyor = self.get_surveyor_mut(surveyor)?;
-        let operation = move || {
-            let index = surveyor
-                .surveying
-                .iter()
-                .position(|marker| marker.cell == cell)
-                .unwrap();
+        let index = surveyor.index_stake(stake)?;
+        let command = move || {
             surveyor.surveying.remove(index);
             vec![]
         };
-        Ok(operation)
+        Ok(command)
     }
 }

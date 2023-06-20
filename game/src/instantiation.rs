@@ -1,11 +1,13 @@
 use crate::api::ActionError;
 use crate::assembling::PlacementId;
-use crate::building::{GridId, Marker, SurveyorId};
+use crate::building::{GridId, SurveyorId};
 use crate::inventory::ContainerId;
+use crate::landscaping::LandId;
 use crate::model::*;
-use crate::physics::{BarrierId, BodyId, SensorId};
-use crate::planting::PlantId;
+use crate::physics::{BarrierId, BodyId, SensorId, SpaceId};
+use crate::planting::{PlantId, SoilId};
 use crate::raising::{AnimalId, TetherId};
+use crate::timing::CalendarId;
 use crate::working::DeviceId;
 use crate::Game;
 
@@ -55,28 +57,63 @@ impl Game {
         self.inspect_farmer(entity)
     }
 
-    pub(crate) fn appear_construction(
+    pub fn appear_farmland(
+        &mut self,
+        kind: FarmlandKey,
+        space: SpaceId,
+        soil: SoilId,
+        grid: GridId,
+        land: LandId,
+        calendar: CalendarId,
+    ) -> Result<Universe, ActionError> {
+        self.universe.farmlands_id += 1;
+        let entity = Farmland {
+            id: self.universe.farmlands_id,
+            kind,
+            space,
+            soil,
+            grid,
+            land,
+            calendar,
+        };
+        self.universe.farmlands.push(entity);
+        self.inspect_farmland(entity)
+    }
+
+    pub fn appear_construction(
         &mut self,
         container: ContainerId,
         grid: GridId,
         surveyor: SurveyorId,
-        marker: Marker,
-        cell: [usize; 2],
-    ) -> Vec<Universe> {
+        stake: usize,
+    ) -> Result<Universe, ActionError> {
         self.universe.constructions_id += 1;
         let construction = Construction {
             id: self.universe.constructions_id,
             container,
             grid,
             surveyor,
-            marker,
-            cell,
+            stake,
         };
         self.universe.constructions.push(construction);
-        vec![Universe::ConstructionAppeared {
-            id: construction,
-            cell,
-        }]
+        self.inspect_construction(construction)
+    }
+
+    pub fn appear_theodolite(
+        &mut self,
+        key: TheodoliteKey,
+        surveyor: SurveyorId,
+        barrier: BarrierId,
+    ) -> Result<Universe, ActionError> {
+        self.universe.theodolites_id += 1;
+        let theodolite = Theodolite {
+            id: self.universe.theodolites_id,
+            key,
+            surveyor,
+            barrier,
+        };
+        self.universe.theodolites.push(theodolite);
+        self.inspect_theodolite(theodolite)
     }
 
     pub fn appear_creature(
@@ -212,7 +249,7 @@ impl Game {
         self.inspect_composter(entity)
     }
 
-    pub fn create_stack(&mut self, container: ContainerId, barrier: BarrierId) -> Universe {
+    pub fn appear_stack(&mut self, container: ContainerId, barrier: BarrierId) -> Universe {
         self.universe.stacks_id += 1;
         let stack = Stack {
             id: self.universe.stacks_id,

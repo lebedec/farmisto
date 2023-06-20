@@ -1,16 +1,16 @@
 use game::assembling::Rotation;
-use log::{error};
+use log::error;
 use rusty_spine::Skin;
 use std::collections::HashMap;
 
-use game::building::{Cell, Room};
+use game::building::{Cell, Marker, Room};
 use game::collections::Shared;
 use game::inventory::{ContainerId, ItemId, ItemKind};
 use game::math::{Collider, Tile, VectorMath};
 use game::model::{
     Activity, Assembly, Cementer, CementerKind, Composter, ComposterKind, Construction, Corpse,
     Creature, CreatureKind, Crop, Door, Equipment, EquipmentKind, Farmer, FarmerKind, Farmland,
-    FarmlandKind, Rest, Stack, Tree, TreeKind,
+    FarmlandKind, Rest, Stack, Theodolite, Tree, TreeKind,
 };
 use game::physics::BodyKind;
 use game::raising::{Behaviour, TetherId};
@@ -126,13 +126,21 @@ pub struct StackRep {
 
 pub struct ConstructionRep {
     pub entity: Construction,
-    pub tile: [usize; 2],
+    pub tile: Tile,
+    pub marker: Marker,
 }
 
 pub struct EquipmentRep {
     pub entity: Equipment,
     pub position: [f32; 2],
     pub kind: Shared<EquipmentKind>,
+    pub item: ItemAsset,
+}
+
+pub struct TheodoliteRep {
+    pub entity: Theodolite,
+    pub position: [f32; 2],
+    pub mode: u8,
     pub item: ItemAsset,
 }
 

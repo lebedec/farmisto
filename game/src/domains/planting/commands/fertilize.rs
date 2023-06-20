@@ -1,4 +1,4 @@
-use crate::math::{ArrayIndex};
+use crate::math::ArrayIndex;
 use crate::planting::{Planting, PlantingDomain, PlantingError, SoilId};
 
 impl PlantingDomain {

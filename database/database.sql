@@ -354,8 +354,7 @@ create table Construction
     container integer not null references Container (id),
     grid      integer not null references Grid (id),
     surveyor  integer not null references Surveyor (id),
-    marker    json    not null,
-    cell      json    not null
+    stake     integer not null
 );
 
 create table EquipmentKind
@@ -373,6 +372,23 @@ create table Equipment
     barrier    integer not null references Barrier (id),
     kind       integer not null references EquipmentKind (id),
     p_surveyor integer null references Surveyor (id)
+);
+
+create table TheodoliteKind
+(
+    id       integer primary key,
+    name     text not null unique,
+    item     text not null references ItemKind (name),
+    barrier  text not null references BarrierKind (name),
+    surveyor text null references SurveyorKind (name)
+);
+
+create table Theodolite
+(
+    id       integer primary key,
+    key      integer not null references TheodoliteKind (id),
+    barrier  integer not null references Barrier (id),
+    surveyor integer null references Surveyor (id)
 );
 
 create table CropKind

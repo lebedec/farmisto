@@ -1,6 +1,6 @@
 use crate::assets::TextureAsset;
 use ash::{vk, Device};
-use log::{error};
+use log::error;
 use rusty_spine::controller::SkeletonController;
 use rusty_spine::{AnimationState, Attachment, AttachmentType, Slot};
 

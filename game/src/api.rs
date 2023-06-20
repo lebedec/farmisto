@@ -1,14 +1,14 @@
 use std::fmt::Debug;
 
 use crate::assembling::{Assembling, AssemblingError, Rotation};
-use crate::building::{Building, BuildingError, Marker, SurveyorId};
+use crate::building::{Building, BuildingError, SurveyorId};
 use crate::collections::DictionaryError;
 use crate::inventory::{ContainerId, Inventory, InventoryError, ItemId};
 use crate::landscaping::{Landscaping, LandscapingError};
 use crate::math::Tile;
 use crate::model::{
-    Cementer, Composter, Construction, Corpse, Creature, Crop, Door, Equipment, Farmer,
-    Rest, Stack, Universe, UniverseError,
+    Cementer, Composter, Construction, Corpse, Creature, Crop, Door, Equipment, Farmer, Rest,
+    Stack, Theodolite, Universe, UniverseError,
 };
 use crate::physics::{Physics, PhysicsError};
 use crate::planting::{Planting, PlantingError};
@@ -109,8 +109,14 @@ pub enum FarmerBound {
     Uninstall {
         equipment: Equipment,
     },
+    UninstallTheodolite {
+        theodolite: Theodolite,
+    },
     UseEquipment {
         equipment: Equipment,
+    },
+    UseTheodolite {
+        theodolite: Theodolite,
     },
     CancelActivity,
     ToggleBackpack,
@@ -120,10 +126,17 @@ pub enum FarmerBound {
     Build {
         construction: Construction,
     },
-    Survey {
+    Construct {
         surveyor: SurveyorId,
         tile: [usize; 2],
-        marker: Marker,
+    },
+    Reconstruct {
+        surveyor: SurveyorId,
+        tile: [usize; 2],
+    },
+    Deconstruct {
+        surveyor: SurveyorId,
+        tile: [usize; 2],
     },
     RemoveConstruction {
         construction: Construction,

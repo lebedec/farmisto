@@ -1,44 +1,51 @@
 use crate::api::{ActionError, Event};
 use crate::building::SurveyorId;
 use crate::inventory::ItemId;
-use crate::model::{Activity, Construction, Equipment, Farmer, Farmland, Purpose};
+use crate::model::{Activity, Construction, Equipment, Farmer, Farmland, Purpose, Theodolite};
 use crate::{emit, Universe};
 use crate::{occur, Game};
 
 impl Game {
-    pub(crate) fn uninstall_equipment(
+    pub(crate) fn uninstall_theodolite(
         &mut self,
         farmer: Farmer,
         farmland: Farmland,
+        theodolite: Theodolite,
+    ) -> Result<Vec<Event>, ActionError> {
+        self.universe.ensure_activity(farmer, Activity::Idle)?;
+
+        // TODO: transactional
+        let teardown = self.teardown_constructions(farmer, farmland, theodolite.surveyor)?;
+
+        let destroy_surveyor = self.building.destroy_surveyor(theodolite.surveyor)?;
+        let destroy_barrier = self.physics.destroy_barrier(theodolite.barrier)?;
+        let kind = self.known.theodolites.get(theodolite.key)?;
+        let item = self.inventory.items_id.introduce().one(ItemId);
+        let create_item = self
+            .inventory
+            .create_item(item, &kind.item, farmer.hands, 1)?;
+        let vanish_theodolite = self.universe.vanish_theodolite(theodolite);
+        let change_activity = self.universe.change_activity(farmer, Activity::Usage);
+
+        let mut events = teardown;
+        events.extend(occur![
+            destroy_surveyor(),
+            destroy_barrier(),
+            create_item(),
+            vanish_theodolite,
+            change_activity,
+        ]);
+        Ok(events)
+    }
+
+    pub(crate) fn uninstall_equipment(
+        &mut self,
+        farmer: Farmer,
+        _farmland: Farmland,
         equipment: Equipment,
     ) -> Result<Vec<Event>, ActionError> {
         self.universe.ensure_activity(farmer, Activity::Idle)?;
         match equipment.purpose {
-            Purpose::Surveying { surveyor } => {
-                // TODO: transactional
-                let teardown_constructions =
-                    self.teardown_constructions(farmer, farmland, surveyor)?;
-
-                let destroy_surveyor = self.building.destroy_surveyor(surveyor)?;
-                let destroy_barrier = self.physics.destroy_barrier(equipment.barrier)?;
-                let equipment_kind = self.known.equipments.get(equipment.key)?;
-                let item = self.inventory.items_id.introduce().one(ItemId);
-                let create_item =
-                    self.inventory
-                        .create_item(item, &equipment_kind.item, farmer.hands, 1)?;
-                let vanish_equipment = self.universe.vanish_equipment(equipment);
-                let change_activity = self.universe.change_activity(farmer, Activity::Usage);
-
-                let mut events = teardown_constructions;
-                events.extend(occur![
-                    destroy_surveyor(),
-                    destroy_barrier(),
-                    create_item(),
-                    vanish_equipment,
-                    change_activity,
-                ]);
-                Ok(events)
-            }
             Purpose::Moisture { .. } => Ok(vec![]),
             Purpose::Tethering { tether } => {
                 let destroy_tether = self.raising.destroy_tether(tether)?;

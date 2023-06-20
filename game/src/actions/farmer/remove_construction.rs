@@ -14,7 +14,7 @@ impl Game {
             .destroy_containers(vec![construction.container], false)?;
         let destroy_marker = self
             .building
-            .unmark(construction.surveyor, construction.cell)?;
+            .unmark(construction.surveyor, construction.stake)?;
         let events = occur![
             destroy_container(),
             destroy_marker(),

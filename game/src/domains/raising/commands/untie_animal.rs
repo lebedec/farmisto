@@ -1,5 +1,5 @@
+use crate::raising::Raising::AnimalUntied;
 use crate::raising::{Raising, RaisingDomain, RaisingError, TetherId};
-use crate::raising::Raising::{AnimalUntied};
 
 impl RaisingDomain {
     pub fn untie_animal(
