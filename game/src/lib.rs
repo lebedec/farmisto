@@ -280,11 +280,15 @@ impl Game {
                     FarmerBound::UntieCreature2 { tether, creature } => {
                         self.untie_creature2(farmer, tether, creature)?
                     }
-                    FarmerBound::Survey {
-                        surveyor,
-                        tile,
-                        marker,
-                    } => self.survey(farmer, farmland, surveyor, tile, marker)?,
+                    FarmerBound::Construct { surveyor, tile } => {
+                        self.construct(farmer, farmland, surveyor, tile)?
+                    }
+                    FarmerBound::Reconstruct { surveyor, tile } => {
+                        self.construct(farmer, farmland, surveyor, tile)?
+                    }
+                    FarmerBound::Deconstruct { surveyor, tile } => {
+                        self.construct(farmer, farmland, surveyor, tile)?
+                    }
                     FarmerBound::Build { construction } => {
                         self.build(farmer, farmland, construction)?
                     }
@@ -323,6 +327,9 @@ impl Game {
                     FarmerBound::ToggleBackpack => self.toggle_backpack(farmer)?,
                     FarmerBound::Uninstall { equipment } => {
                         self.uninstall_equipment(farmer, farmland, equipment)?
+                    }
+                    FarmerBound::UninstallTheodolite { theodolite } => {
+                        self.uninstall_theodolite(farmer, farmland, theodolite)?
                     }
                     FarmerBound::Install { tile } => {
                         self.install_equipment(farmer, farmland, tile)?

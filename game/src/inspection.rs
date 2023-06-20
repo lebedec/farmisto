@@ -4,7 +4,7 @@ use crate::landscaping::Landscaping;
 use crate::math::{Array, ArrayIndex, VectorMath};
 use crate::model::{
     Assembly, Cementer, Composter, Construction, Corpse, Creature, Crop, Door, Equipment, Farmer,
-    Farmland, PlayerId, Rest, Stack, Theodolite, Universe, UniverseSnapshot,
+    Farmland, PlayerId, Rest, Stack, Theodolite, Universe,
 };
 use crate::physics::Physics;
 use crate::planting::Planting;
@@ -175,9 +175,11 @@ impl Game {
 
     pub fn inspect_theodolite(&self, theodolite: Theodolite) -> Result<Universe, ActionError> {
         let barrier = self.physics.get_barrier(theodolite.barrier)?;
+        let surveyor = self.building.get_surveyor(theodolite.surveyor)?;
         let event = Universe::TheodoliteAppeared {
             id: theodolite,
             position: barrier.position,
+            mode: surveyor.mode,
         };
         Ok(event)
     }
@@ -235,13 +237,11 @@ impl Game {
         })
     }
 
-    pub fn look_around(&self, snapshot: UniverseSnapshot) -> Vec<Event> {
+    pub fn look_around(&self) -> Vec<Event> {
         let mut stream = vec![];
 
         for farmland in self.universe.farmlands.iter() {
-            if snapshot.whole || snapshot.farmlands.contains(&farmland.id) {
-                stream.push(self.inspect_farmland(*farmland).unwrap());
-            }
+            stream.push(self.inspect_farmland(*farmland).unwrap());
         }
 
         for farmer in self.universe.farmers.iter() {
@@ -270,6 +270,10 @@ impl Game {
 
         for equipment in &self.universe.equipments {
             stream.push(self.look_at_equipment(*equipment));
+        }
+
+        for theodolite in &self.universe.theodolites {
+            stream.push(self.inspect_theodolite(*theodolite).unwrap());
         }
 
         for assembly in &self.universe.assembly {

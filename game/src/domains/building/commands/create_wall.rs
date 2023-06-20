@@ -1,11 +1,11 @@
+use crate::building::BuildingError::ConstructStakeMarkedForDeconstruction;
 use crate::building::{
     Building, BuildingDomain, BuildingError, Grid, GridId, Marker, Material, Structure,
 };
-use crate::building::BuildingError::ConstructStakeMarkedForDeconstruction;
 
 impl BuildingDomain {
     pub fn create_wall(
-        & mut self,
+        &mut self,
         grid_id: GridId,
         cell: [usize; 2],
         material: Material,
@@ -42,9 +42,6 @@ impl BuildingDomain {
                 Structure::Door => {
                     cell.wall = true;
                     cell.door = true;
-                }
-                Structure::Fence => {
-                    cell.wall = true;
                 }
             }
             let grid = &mut self.grids[grid];

@@ -109,6 +109,9 @@ pub enum FarmerBound {
     Uninstall {
         equipment: Equipment,
     },
+    UninstallTheodolite {
+        theodolite: Theodolite,
+    },
     UseEquipment {
         equipment: Equipment,
     },
@@ -123,10 +126,17 @@ pub enum FarmerBound {
     Build {
         construction: Construction,
     },
-    Survey {
+    Construct {
         surveyor: SurveyorId,
         tile: [usize; 2],
-        marker: Marker,
+    },
+    Reconstruct {
+        surveyor: SurveyorId,
+        tile: [usize; 2],
+    },
+    Deconstruct {
+        surveyor: SurveyorId,
+        tile: [usize; 2],
     },
     RemoveConstruction {
         construction: Construction,

@@ -591,12 +591,13 @@ impl Gameplay {
             render_items_stack(&self.items, stack.entity.container, position, scene);
         }
 
+        for theodolite in self.theodolites.values() {
+            let position = rendering_position_of(theodolite.position);
+            scene.render_sprite(&theodolite.item.sprite, xy(position));
+        }
+
         for equipment in self.equipments.values() {
             match equipment.entity.purpose {
-                Purpose::Surveying { .. } => {
-                    let position = rendering_position_of(equipment.position);
-                    scene.render_sprite(&equipment.item.sprite, xy(position));
-                }
                 Purpose::Moisture { .. } => {}
                 Purpose::Tethering { tether } => {
                     let position = rendering_position_of(equipment.position);
@@ -627,13 +628,9 @@ impl Gameplay {
         }
 
         for farmer in self.farmers.values() {
-            if let Activity::Surveying {
-                equipment,
-                selection,
-            } = farmer.activity
-            {
-                let equipment = self.equipments.get(&equipment).unwrap();
-                let position = rendering_position_of(equipment.position);
+            if let Activity::Surveying { theodolite } = farmer.activity {
+                let theodolite = self.theodolites.get(&theodolite).unwrap();
+                let position = rendering_position_of(theodolite.position);
                 let sorting = position[1] as isize;
                 scene.render_sprite(
                     &self.theodolite_gui_sprite,
@@ -641,7 +638,7 @@ impl Gameplay {
                 );
                 scene.render_sprite(
                     &self.theodolite_gui_select_sprite,
-                    xy(position.add([-196.0 + 128.0 * (selection as f32), -224.0]))
+                    xy(position.add([-196.0 + 128.0 * (theodolite.mode as f32), -224.0]))
                         .sorting(sorting),
                 );
             }

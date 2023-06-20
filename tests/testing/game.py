@@ -170,12 +170,20 @@ class GameTestScenario:
             Array2Float(*position)
         )
 
-    def add_construction(self, surveyor: int, marker: Dict | str, grid: int, position: List[float]) -> Construction:
+    def add_construction(self, surveyor: int, grid: int, position: List[float]) -> Construction:
         self._lib.add_construction.restype = Construction
         return self._lib.add_construction(
             self._scenario,
             surveyor,
-            json.dumps(marker).encode('utf-8'),
+            grid,
+            Array2Float(*position)
+        )
+
+    def add_deconstruction(self, surveyor: int, grid: int, position: List[float]) -> Construction:
+        self._lib.add_construction.restype = Construction
+        return self._lib.add_construction(
+            self._scenario,
+            surveyor,
             grid,
             Array2Float(*position)
         )
@@ -208,6 +216,12 @@ class GameTestScenario:
     def take_events(self) -> Dict:
         self._lib.take_events.restype = ctypes.c_void_p
         ptr = self._lib.take_events(self._scenario)
+        data = ctypes.cast(ptr, ctypes.c_char_p).value.decode('utf-8')
+        return json.loads(data)
+
+    def look_around(self) -> Dict:
+        self._lib.look_around.restype = ctypes.c_void_p
+        ptr = self._lib.look_around(self._scenario)
         data = ctypes.cast(ptr, ctypes.c_char_p).value.decode('utf-8')
         return json.loads(data)
 

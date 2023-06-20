@@ -64,8 +64,7 @@ def step_impl(context: Context, legend: str, theodolite: str):
     grid = context.farmland.grid
     for key in [wall, window, door]:
         for index, position in enumerate(context.points_array[key]):
-            marker = markers[key]
-            construction = context.game.add_construction(surveyor, marker, grid, position)
+            construction = context.game.add_construction(surveyor, grid, position)
             context.surveying.append(position, construction)
             point_id = context.points_array_id[key][index]
             if point_id is not None:
@@ -75,12 +74,11 @@ def step_impl(context: Context, legend: str, theodolite: str):
 @given("building deconstruction at {points} using {theodolite}")
 def step_impl(context: Context, points: str, theodolite: str):
     context.surveying = BuildingSurveyingTestContext()
-    marker = 'Deconstruction'
     surveyor = context.theodolites[theodolite].surveyor
     grid = context.farmland.grid
     for point in points.split(' '):
         position = context.points_identified.get(point)
-        construction = context.game.add_construction(surveyor, marker, grid, position)
+        construction = context.game.add_deconstruction(surveyor, grid, position)
         context.surveying.append(position, construction)
 
 

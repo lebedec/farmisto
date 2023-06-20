@@ -267,13 +267,7 @@ impl Game {
         &mut self,
         row: &rusqlite::Row,
     ) -> Result<EquipmentKind, DataError> {
-        let purpose = if let Ok(Some(name)) = row.get("p_surveyor") {
-            let surveyor = self.known.surveyors.find2(&name)?.id;
-            PurposeDescription::Surveying { surveyor }
-        } else {
-            warn!("Loads tethering purpose by default, deprecated");
-            PurposeDescription::Tethering
-        };
+        let purpose = PurposeDescription::Tethering;
         let data = EquipmentKind {
             id: EquipmentKey(row.get("id")?),
             name: row.get("name")?,
@@ -288,13 +282,7 @@ impl Game {
         let id = row.get("id")?;
         let kind = row.get("kind")?;
         let barrier = row.get("barrier")?;
-        let purpose = if let Ok(Some(id)) = row.get("p_surveyor") {
-            Purpose::Surveying {
-                surveyor: SurveyorId(id),
-            }
-        } else {
-            Purpose::Moisture { sensor: 0 }
-        };
+        let purpose = Purpose::Moisture { sensor: 0 };
         let data = Equipment {
             id,
             key: EquipmentKey(kind),
@@ -766,6 +754,7 @@ impl Game {
             stake_id: 0,
             surveying: vec![],
             kind: self.known.surveyors.get_by(row, "kind", SurveyorKey)?,
+            mode: 0,
         };
         Ok(data)
     }

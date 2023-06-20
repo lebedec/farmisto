@@ -252,52 +252,70 @@ pub unsafe extern "C" fn add_crop(
 pub unsafe extern "C" fn add_construction(
     scenario: &mut Scenario,
     surveyor: SurveyorId,
-    marker: PyString,
     grid: GridId,
     position: PyTuple,
 ) -> Construction {
     let cell = position.to_slice().to_tile();
-    let marker = serde_json::from_str(marker.to_str()).expect("failed marker");
-    let (stake, survey) = scenario
-        .game
-        .building
-        .survey(surveyor, marker, cell)
-        .expect("failed survey");
-    let container_kind = scenario
-        .game
-        .known
-        .containers
-        .find("<construction>")
-        .unwrap();
-    let container = scenario
-        .game
-        .inventory
-        .containers_id
-        .introduce()
-        .one(ContainerId);
-    let create_container = scenario
-        .game
-        .inventory
-        .add_empty_container(container, &container_kind)
-        .unwrap();
-    let events = occur![
-        survey(),
-        create_container(),
-        scenario
-            .game
-            .appear_construction(container, grid, surveyor, stake)
-            .expect("failed appear"),
-    ];
-    for event in events {
-        if let Event::UniverseStream(events) = event {
-            for event in events {
-                if let Universe::ConstructionAppeared { id, .. } = event {
-                    return id;
+    let mut add_construction = || {
+        let game = &mut scenario.game;
+        let (stake, survey) = game.building.construct(surveyor, cell)?;
+        let container_kind = game.known.containers.find("<construction>")?;
+        let container = game.inventory.containers_id.introduce().one(ContainerId);
+        let create_container = game
+            .inventory
+            .add_empty_container(container, &container_kind)?;
+        let events = occur![
+            survey(),
+            create_container(),
+            game.appear_construction(container, grid, surveyor, stake)?,
+        ];
+        for event in events {
+            if let Event::UniverseStream(events) = event {
+                for event in events {
+                    if let Universe::ConstructionAppeared { id, .. } = event {
+                        return Ok(id);
+                    }
                 }
             }
         }
-    }
-    panic!("Unable to add construction, event with construction id not found");
+        Err(ActionError::Test)
+    };
+    add_construction().expect("unable to add construction")
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn add_deconstruction(
+    scenario: &mut Scenario,
+    surveyor: SurveyorId,
+    grid: GridId,
+    position: PyTuple,
+) -> Construction {
+    let cell = position.to_slice().to_tile();
+    let mut add_construction = || {
+        let game = &mut scenario.game;
+        let (stake, survey) = game.building.deconstruct(surveyor, cell)?;
+        let container_kind = game.known.containers.find("<construction>")?;
+        let container = game.inventory.containers_id.introduce().one(ContainerId);
+        let create_container = game
+            .inventory
+            .add_empty_container(container, &container_kind)?;
+        let events = occur![
+            survey(),
+            create_container(),
+            game.appear_construction(container, grid, surveyor, stake)?,
+        ];
+        for event in events {
+            if let Event::UniverseStream(events) = event {
+                for event in events {
+                    if let Universe::ConstructionAppeared { id, .. } = event {
+                        return Ok(id);
+                    }
+                }
+            }
+        }
+        Err(ActionError::Test)
+    };
+    add_construction().expect("unable to add deconstruction")
 }
 
 #[no_mangle]
@@ -316,7 +334,12 @@ pub unsafe extern "C" fn get_constructions(
     scenario: &mut Scenario,
     _farmland: Farmland,
 ) -> PyString {
-    let data = serde_json::to_string(&scenario.game.universe.constructions).expect("failed json");
+    let mut stream = vec![];
+    for construction in &scenario.game.universe.constructions {
+        stream.push(scenario.game.inspect_construction(*construction).unwrap());
+    }
+
+    let data = serde_json::to_string(&stream).expect("failed json");
     CString::new(data).unwrap().into_raw()
 }
 
@@ -387,9 +410,6 @@ pub unsafe extern "C" fn add_building(
             cell.wall = true;
             cell.door = true;
         }
-        Structure::Fence => {
-            cell.wall = true;
-        }
     }
     let size = if material.index() == Material::PLANKS {
         2
@@ -410,6 +430,13 @@ pub unsafe extern "C" fn add_building(
 pub unsafe extern "C" fn take_events(scenario: &mut Scenario) -> PyString {
     let events = take(&mut scenario.events);
     let data = serde_json::to_string(&events).unwrap();
+    CString::new(data).unwrap().into_raw()
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn look_around(scenario: &mut Scenario) -> PyString {
+    let events = scenario.game.look_around();
+    let data = serde_json::to_string(&events).expect("unable to serialize");
     CString::new(data).unwrap().into_raw()
 }
 

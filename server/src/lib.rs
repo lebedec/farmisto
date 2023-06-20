@@ -9,7 +9,6 @@ use log::{error, info};
 
 use datamap::Storage;
 use game::api::{GameResponse, PlayerRequest};
-use game::model::UniverseSnapshot;
 use game::Game;
 use network::{Configuration, TcpServer};
 
@@ -55,7 +54,7 @@ impl LocalServerThread {
                         let events = game.accept_player(&player).unwrap();
                         server.broadcast(GameResponse::Events { events });
 
-                        let events = game.look_around(UniverseSnapshot::whole());
+                        let events = game.look_around();
                         server.send(player, GameResponse::Events { events });
                     }
                     for player in server.lost_players() {

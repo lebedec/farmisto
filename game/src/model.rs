@@ -165,6 +165,7 @@ pub enum Universe {
     TheodoliteAppeared {
         id: Theodolite,
         position: Position,
+        mode: u8,
     },
     TheodoliteVanished {
         id: Theodolite,
@@ -482,6 +483,19 @@ impl UniverseDomain {
         }
     }
 
+    pub(crate) fn vanish_theodolite(&mut self, id: Theodolite) -> Vec<Universe> {
+        if let Some(index) = self
+            .theodolites
+            .iter()
+            .position(|theodolite| theodolite == &id)
+        {
+            self.theodolites.remove(index);
+            vec![Universe::TheodoliteVanished { id }]
+        } else {
+            vec![]
+        }
+    }
+
     pub fn vanish_stack(&mut self, stack: Stack) -> Vec<Universe> {
         let index = self
             .stacks
@@ -518,25 +532,6 @@ impl UniverseDomain {
     }
 }
 
-#[derive(Default)]
-pub struct UniverseSnapshot {
-    pub whole: bool,
-    pub farmlands: HashSet<usize>,
-    pub farmlands_to_delete: HashSet<usize>,
-    pub trees: HashSet<usize>,
-    pub trees_to_delete: HashSet<usize>,
-    pub farmers: HashSet<usize>,
-    pub farmers_to_delete: HashSet<usize>,
-}
-
-impl UniverseSnapshot {
-    pub fn whole() -> Self {
-        let mut snapshot = UniverseSnapshot::default();
-        snapshot.whole = true;
-        snapshot
-    }
-}
-
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub struct PlayerId(pub usize);
 
@@ -558,32 +553,24 @@ pub struct FarmerKind {
 pub enum Activity {
     Idle,
     Usage,
-    Surveying {
-        equipment: Equipment,
-        selection: usize,
-    },
-    Surveying2 {
-        theodolite: Theodolite,
-        selection: usize,
-    },
-    Assembling {
-        assembly: Assembly,
-    },
-    Resting {
-        comfort: u8,
-    },
-    Tethering {
-        creature: Creature,
-    },
-    Tethering2 {
-        tether: TetherId,
-    },
+    Surveying { theodolite: Theodolite },
+    Assembling { assembly: Assembly },
+    Resting { comfort: u8 },
+    Tethering { creature: Creature },
+    Tethering2 { tether: TetherId },
 }
 
 impl Activity {
     pub fn as_assembling(&self) -> Result<Assembly, UniverseError> {
         match self {
             Activity::Assembling { assembly } => Ok(*assembly),
+            _ => Err(UniverseError::ActivityMismatch),
+        }
+    }
+
+    pub fn as_surveying(&self) -> Result<Theodolite, UniverseError> {
+        match self {
+            Activity::Surveying { theodolite } => Ok(*theodolite),
             _ => Err(UniverseError::ActivityMismatch),
         }
     }
@@ -662,7 +649,6 @@ pub struct Deconstruction {
 pub struct EquipmentKey(pub usize);
 
 pub enum PurposeDescription {
-    Surveying { surveyor: SurveyorKey },
     Moisture { sensor: usize },
     Tethering,
 }
@@ -677,7 +663,6 @@ pub struct EquipmentKind {
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, serde::Serialize, serde::Deserialize)]
 pub enum Purpose {
-    Surveying { surveyor: SurveyorId },
     Moisture { sensor: usize },
     Tethering { tether: TetherId },
 }

@@ -21,13 +21,35 @@ Feature: Строительство - Механизатор
     Given regular theodolite as T
     When Alice use theodolite T
     When Alice survey building as + - =
-    Then there should be 16 building markers
+    Then there should be 12 wall 2 door 2 window markers
+
+  Scenario: Демонтирует нивелир чтобы удалить разметку строительства
+  . . . . . . . .
+  . + + + + + . A
+  . - . . . - . T
+  . + + = + + . .
+  . . . . . . . .
+    Given regular theodolite as T
+    Given building surveying as + - = using T
+    When Alice uninstall theodolite T
+    Then there should be 0 building markers
+
+  Scenario: Переключает режимы нивелира чтобы разметить часть здания
+  . . . . . . . .
+  . A T . .₁. . .
+  . . . . .₂. . .
+    Given regular theodolite as T
+    When Alice use theodolite T
+    When Alice survey point .₁
+    When Alice set second mode of theodolite
+    When Alice survey point .₂
+    Then there should be 2 building markers
 
   Scenario: Использует несколько нивелиров для разных проектов
   . . . . . . . . . . .
   . + . . T₁. . . . ■ ■
-  . + . . . A . T₂. . ▪
-  . + + + . . . . . ■ ■
+  . - . . . A . T₂. . ▪
+  . + + + . . . . . □ ■
   . . . . . . . . . . .
     Given regular theodolite as T₁
     Given regular theodolite as T₂
@@ -35,7 +57,7 @@ Feature: Строительство - Механизатор
     When Alice survey building as + - =
     When Alice use theodolite T₂
     When Alice survey building as ■ ▪ □
-    Then there should be 10 building markers
+    Then there should be 7 wall 1 door 2 window markers
 
   Scenario: Размечает на готовом здании участки под снос
   . . . . . . . .

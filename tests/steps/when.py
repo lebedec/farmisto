@@ -2,7 +2,7 @@ from behave import when, register_type
 
 from steps.parsing import parse_position, parse_index
 from testing import Context, Position, Material, \
-    tile
+    tile, Index
 
 register_type(Position=parse_position)
 register_type(Index=parse_index)
@@ -64,28 +64,50 @@ def step_impl(context: Context, farmer: str, theodolite: str):
     farmer = context.farmers[farmer]
     theodolite = context.theodolites[theodolite]
     action = {'UseTheodolite': {'theodolite': theodolite.as_json()}}
-    context.game.perform_action(farmer.player, {'Farmer': {'action': action}})
+    context.game.perform_farmer_action(farmer, action)
     # TODO: remove
     context.theodolite = theodolite
+
+
+@when("{farmer} set {option:Index} mode of theodolite")
+def step_impl(context: Context, farmer: str, option: Index):
+    farmer = context.farmers[farmer]
+    action = {'ToggleSurveyingOption': {'option': option}}
+    context.game.perform_farmer_action(farmer, action)
+
+
+@when("{farmer} uninstall theodolite {theodolite}")
+def step_impl(context: Context, farmer: str, theodolite: str):
+    farmer = context.farmers[farmer]
+    theodolite = context.theodolites[theodolite]
+    action = {'UninstallTheodolite': {'theodolite': theodolite.as_json()}}
+    context.game.perform_farmer_action(farmer, action)
 
 
 @when("{farmer} survey building as {legend}")
 def step_impl(context: Context, farmer: str, legend: str):
     farmer = context.farmers[farmer]
     wall, window, door = legend.split(' ')
-    markers = {
-        wall: {'Construction': 'Wall'},
-        window: {'Construction': 'Window'},
-        door: {'Construction': 'Door'},
-    }
-    for key in [wall, window, door]:
+    for mode, key in enumerate([wall, door, window]):
+        action = {'ToggleSurveyingOption': {'option': mode}}
+        context.game.perform_farmer_action(farmer, action)
         for position in context.points_array[key]:
-            action = {'Survey': {
+            action = {'Construct': {
                 'surveyor': context.theodolite.surveyor,
                 'tile': tile(position),
-                'marker': markers[key]
             }}
-            context.game.perform_action(farmer.player, {'Farmer': {'action': action}})
+            context.game.perform_farmer_action(farmer, action)
+
+
+@when("{farmer} survey point {point}")
+def step_impl(context: Context, farmer: str, point: str):
+    farmer = context.farmers[farmer]
+    position = context.points_identified[point]
+    action = {'Construct': {
+        'surveyor': context.theodolite.surveyor,
+        'tile': tile(position),
+    }}
+    context.game.perform_farmer_action(farmer, action)
 
 
 @when("{farmer} survey for reconstruction {points} to {structure}")
@@ -94,12 +116,11 @@ def step_impl(context: Context, farmer: str, points: str, structure: str):
     points = points.split(' ')
     for point in points:
         position = context.points_identified[point]
-        action = {'Survey': {
+        action = {'Reconstruct': {
             'surveyor': context.theodolite.surveyor,
             'tile': tile(position),
-            'marker': {'Reconstruction': structure}
         }}
-        context.game.perform_action(farmer.player, {'Farmer': {'action': action}})
+        context.game.perform_farmer_action(farmer, action)
 
 
 @when("{farmer} survey for deconstruction {points}")
@@ -108,12 +129,11 @@ def step_impl(context: Context, farmer: str, points: str):
     points = points.split(' ')
     for point in points:
         position = context.points_identified[point]
-        action = {'Survey': {
+        action = {'Deconstruct': {
             'surveyor': context.theodolite.surveyor,
             'tile': tile(position),
-            'marker': 'Deconstruction'
         }}
-        context.game.perform_action(farmer.player, {'Farmer': {'action': action}})
+        context.game.perform_farmer_action(farmer, action)
 
 
 @when("{farmer} install item to {point}")

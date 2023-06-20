@@ -124,9 +124,8 @@ def setup_scenario(context: Context):
                 if i % 2 == 0:
                     position = [x + 0.5, y + 0.5]
                     context.points[code] = position
-                    if code != '.':
-                        context.points_array[code].append(position)
-                        context.points_array_id[code].append(None)
+                    context.points_array[code].append(position)
+                    context.points_array_id[code].append(None)
                 elif code != ' ':
                     prev = scene[y][i - 1]
                     position = [x + 0.5, y + 0.5]

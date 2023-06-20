@@ -57,6 +57,44 @@ def step_impl(context: Context, count: int):
     assert_that(len(constructions), equal_to(count))
 
 
+
+@then("there should be {wall:int} wall {door:int} door {window:int} window markers")
+def step_impl(context: Context, wall: int, door: int, window: int):
+    constructions = context.game.get_constructions(context.farmland)
+    actual_wall = len(list(filter(lambda item: 'ConstructionAppeared' in item and item['ConstructionAppeared']['marker'] == {
+        'Construction': 'Wall'}, constructions)))
+    actual_door = len(list(filter(lambda item: 'ConstructionAppeared' in item and item['ConstructionAppeared']['marker'] == {
+        'Construction': 'Door'}, constructions)))
+    actual_window = len(list(filter(lambda item: 'ConstructionAppeared' in item and item['ConstructionAppeared']['marker'] == {
+        'Construction': 'Window'}, constructions)))
+    assert_that(actual_wall, equal_to(wall))
+    assert_that(actual_door, equal_to(door))
+    assert_that(actual_window, equal_to(window))
+
+@then("there should be {count:int} door markers")
+def step_impl(context: Context, count: int):
+    constructions = context.game.get_constructions(context.farmland)
+    actual = len(list(filter(lambda item: 'ConstructionAppeared' in item and item['ConstructionAppeared']['marker'] == {
+        'Construction': 'Door'}, constructions)))
+    assert_that(actual, equal_to(count))
+
+
+@then("there should be {count:int} wall markers")
+def step_impl(context: Context, count: int):
+    constructions = context.game.get_constructions(context.farmland)
+    actual = len(list(filter(lambda item: 'ConstructionAppeared' in item and item['ConstructionAppeared']['marker'] == {
+        'Construction': 'Wall'}, constructions)))
+    assert_that(actual, equal_to(count))
+
+
+@then("there should be {count:int} window markers")
+def step_impl(context: Context, count: int):
+    constructions = context.game.get_constructions(context.farmland)
+    actual = len(list(filter(lambda item: 'ConstructionAppeared' in item and item['ConstructionAppeared']['marker'] == {
+        'Construction': 'Window'}, constructions)))
+    assert_that(actual, equal_to(count))
+
+
 @then("theodolite should appear at {point}")
 def step_impl(context: Context, point: str):
     position = context.points[point]
@@ -78,13 +116,11 @@ def step_impl(context: Context):
 
 @then("{kind} items should be in {containers}")
 def step_impl(context: Context, kind: str, containers: str):
-
     for container in containers.split(' '):
         container = context.containers[container]
         items = context.game.get_items(container)
         expected_item = has_entry('kind', kind)
         assert_that(items, has_item(expected_item))
-
 
 
 @then('error "{error}" should occur')

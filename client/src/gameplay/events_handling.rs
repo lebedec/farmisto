@@ -20,7 +20,7 @@ use crate::engine::Frame;
 use crate::gameplay::representation::{
     AssemblyRep, AssemblyTargetAsset, BuildingRep, CementerRep, ComposterRep, ConstructionRep,
     CorpseRep, CreatureRep, CropRep, DoorRep, EquipmentRep, FarmerRep, FarmlandRep, ItemRep,
-    RestRep, StackRep, TreeRep,
+    RestRep, StackRep, TheodoliteRep, TreeRep,
 };
 use crate::gameplay::Gameplay;
 
@@ -93,6 +93,14 @@ impl Gameplay {
             }
             Building::SurveyorCreated { .. } => {}
             Building::SurveyorDestroyed { .. } => {}
+            Building::SurveyorModeChanged { id, mode } => {
+                for theodolite in self.theodolites.values_mut() {
+                    if theodolite.entity.surveyor == id {
+                        theodolite.mode = mode;
+                        break;
+                    }
+                }
+            }
         }
     }
 
@@ -670,6 +678,23 @@ impl Gameplay {
             Universe::ConstructionVanished { id } => {
                 self.constructions.remove(&id);
             }
+
+            Universe::TheodoliteAppeared { id, position, mode } => {
+                let kind = self.known.theodolites.get(id.key).unwrap();
+                let item = assets.item(&kind.item.name);
+                self.theodolites.insert(
+                    id,
+                    TheodoliteRep {
+                        entity: id,
+                        position,
+                        mode,
+                        item,
+                    },
+                );
+            }
+            Universe::TheodoliteVanished { id } => {
+                self.theodolites.remove(&id);
+            }
             Universe::EquipmentAppeared { entity, position } => {
                 info!("Appear {:?} at {:?}", entity, position);
                 let kind = self.known.equipments.get(entity.key).unwrap();
@@ -1063,8 +1088,6 @@ impl Gameplay {
             Universe::ComposterVanished(entity) => {
                 self.composters.remove(&entity);
             }
-            Universe::TheodoliteAppeared { .. } => {}
-            Universe::TheodoliteVanished { .. } => {}
         }
     }
 }

@@ -167,7 +167,6 @@ dependencies = [
  "serde",
  "serde_json",
  "server",
- "testing",
  "ureq",
 ]
 
