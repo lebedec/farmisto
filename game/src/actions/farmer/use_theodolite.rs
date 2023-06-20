@@ -1,7 +1,7 @@
 use crate::api::{ActionError, Event};
-use crate::model::Activity::Idle;
+
 use crate::model::{Activity, Farmer, Theodolite};
-use crate::{emit, occur, Game};
+use crate::{emit, Game};
 
 impl Game {
     pub(crate) fn use_theodolite(

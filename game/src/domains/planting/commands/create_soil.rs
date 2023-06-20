@@ -1,7 +1,5 @@
 use crate::collections::Shared;
-use crate::planting::{
-    Plant, PlantId, PlantKind, Planting, PlantingDomain, PlantingError, Soil, SoilId, SoilKind,
-};
+use crate::planting::{Planting, PlantingDomain, PlantingError, Soil, SoilId, SoilKind};
 
 impl PlantingDomain {
     pub fn create_soil(

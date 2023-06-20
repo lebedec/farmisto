@@ -1,10 +1,10 @@
-use crate::api::{Action, ActionError, Event};
+use crate::api::{ActionError, Event};
 use crate::building::{Building, BuildingDomain, GridId, Marker, Material, Structure};
 use crate::inventory::FunctionsQuery;
 use crate::math::TileMath;
 use crate::model::{Construction, Farmer, Farmland};
 use crate::physics::{Physics, PhysicsDomain, SpaceId};
-use crate::{emit, occur, Game};
+use crate::{occur, Game};
 
 pub struct Aggregate2D<'p, 'b> {
     physics: Box<dyn FnOnce() -> Vec<Physics> + 'p>,
@@ -23,7 +23,7 @@ impl Game {
         building: &'b mut BuildingDomain,
         physics: &'p mut PhysicsDomain,
     ) -> Result<Aggregate2D<'p, 'b>, ActionError> {
-        let (structure, create_wall) = building.create_wall(GridId(0), [0, 0], Material(0))?;
+        let (_structure, create_wall) = building.create_wall(GridId(0), [0, 0], Material(0))?;
         let create_hole = physics.create_hole(SpaceId(0), [0, 0], 1)?;
         Ok(Aggregate2D {
             physics: Box::new(create_hole),
@@ -38,7 +38,7 @@ impl Game {
 
         let building = &mut self.building;
         let physics = &mut self.physics;
-        let (structure, create_wall) = building.create_wall(GridId(0), [0, 0], Material(0))?;
+        let (_structure, create_wall) = building.create_wall(GridId(0), [0, 0], Material(0))?;
         let create_hole = physics.create_hole(SpaceId(0), [0, 0], 1)?;
         Ok(Aggregate2D {
             physics: Box::new(create_hole),
@@ -59,7 +59,7 @@ impl Game {
         self.ensure_target_reachable(farmer.body, destination)?;
 
         let item = self.inventory.get_container_item(construction.container)?;
-        let material_index = item.kind.functions.as_material()?;
+        let _material_index = item.kind.functions.as_material()?;
         self.ensure_tile_empty(farmland, tile)?;
         let use_items = self.inventory.use_items_from(construction.container)?;
 
@@ -71,7 +71,7 @@ impl Game {
         //     .create_wall(GridId(0), [0, 0], Material(0))
         //     .unwrap();
 
-        let mut events = occur![
+        let events = occur![
             use_items(),
             aggregate.commit(),
             self.universe.vanish_construction(construction),

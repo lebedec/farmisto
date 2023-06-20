@@ -1,7 +1,5 @@
 use crate::collections::{Shared, TrustedRef};
-use crate::physics::{
-    Body, BodyId, BodyKind, Physics, PhysicsDomain, PhysicsError, SpaceId,
-};
+use crate::physics::{Body, BodyId, BodyKind, Physics, PhysicsDomain, PhysicsError, SpaceId};
 
 impl PhysicsDomain {
     pub fn create_body(

@@ -14,7 +14,11 @@ pub struct SpritePosition {
 }
 
 pub fn xy(xy: Position) -> SpritePosition {
-    SpritePosition { xy, z: 0.0, sorting: xy[1] as isize }
+    SpritePosition {
+        xy,
+        z: 0.0,
+        sorting: xy[1] as isize,
+    }
 }
 
 impl SpritePosition {
@@ -22,7 +26,7 @@ impl SpritePosition {
         self.z = z;
         self
     }
-    
+
     pub fn sorting(mut self, value: isize) -> SpritePosition {
         self.sorting = value;
         self

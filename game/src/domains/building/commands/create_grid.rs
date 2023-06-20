@@ -1,5 +1,4 @@
-use crate::building::Building::SurveyorCreated;
-use crate::building::{Building, BuildingDomain, BuildingError, Grid, GridId, GridKind, Surveyor, SurveyorId, SurveyorKind};
+use crate::building::{Building, BuildingDomain, BuildingError, Grid, GridId, GridKind};
 use crate::collections::Shared;
 
 impl BuildingDomain {

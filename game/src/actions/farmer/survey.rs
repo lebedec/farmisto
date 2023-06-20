@@ -1,5 +1,5 @@
 use crate::api::{ActionError, Event};
-use crate::building::{Marker, Stake, SurveyorId};
+use crate::building::SurveyorId;
 use crate::inventory::ContainerId;
 use crate::model::{Farmer, Farmland};
 use crate::{occur, Game};

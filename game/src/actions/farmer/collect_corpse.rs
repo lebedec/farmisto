@@ -1,7 +1,7 @@
 use crate::api::{ActionError, Event};
-use crate::inventory::{ItemId};
+use crate::inventory::ItemId;
 
-use crate::math::{TileMath};
+use crate::math::TileMath;
 use crate::model::{Activity, Corpse, Farmer, Farmland};
 use crate::{occur, Game};
 

@@ -3,7 +3,7 @@ use std::collections::HashMap;
 use std::fs::File;
 use std::io;
 use std::io::BufRead;
-use std::mem::{take};
+use std::mem::take;
 use std::sync::Arc;
 
 use log::error;

@@ -1,7 +1,6 @@
 use crate::physics::{Barrier, BarrierId, PhysicsDomain, PhysicsError};
 
 impl PhysicsDomain {
-
     pub fn get_barrier(&self, id: BarrierId) -> Result<&Barrier, PhysicsError> {
         for barriers in self.barriers.iter() {
             for barrier in barriers {

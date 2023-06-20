@@ -1,5 +1,5 @@
 use crate::assembling::{PlacementId, Rotation};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 use crate::building::{
     Cell, GridId, GridKey, GridKind, Marker, Room, SurveyorId, SurveyorKey, SurveyorKind,

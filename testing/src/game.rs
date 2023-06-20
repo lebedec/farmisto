@@ -2,19 +2,16 @@
 
 use serde_json::json;
 use std::ffi::CString;
-use std::fs;
+
 use std::mem::take;
 
 use datamap::Storage;
 use game::api::{ActionError, Event};
-use game::building::{Grid, GridId, Material, Stake, Structure, SurveyorId};
+use game::building::{Grid, GridId, Material, Structure, SurveyorId};
 use game::inventory::{ContainerId, Item, ItemId};
 use game::math::VectorMath;
-use game::model::{
-    Construction, Creature, CreatureKey, Crop, Farmer, Farmland, Stack, Theodolite, Universe,
-};
-use game::physics::BodyId;
-use game::raising::AnimalId;
+use game::model::{Construction, Crop, Farmer, Farmland, Stack, Theodolite, Universe};
+
 use game::{occur, Game};
 
 use crate::ffi::{PyString, PyStringToString, PyTuple, PyTupleToSlice};

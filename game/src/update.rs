@@ -1,6 +1,4 @@
-
 use rand::thread_rng;
-
 
 use crate::api::Event;
 use crate::inventory::ItemId;

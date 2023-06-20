@@ -1,6 +1,6 @@
 use crate::api::ActionError;
 use crate::assembling::PlacementId;
-use crate::building::{GridId, Marker, SurveyorId};
+use crate::building::{GridId, SurveyorId};
 use crate::inventory::ContainerId;
 use crate::landscaping::LandId;
 use crate::model::*;

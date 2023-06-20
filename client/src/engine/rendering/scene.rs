@@ -1,21 +1,17 @@
 use ash::{vk, Device};
 use glam::{vec3, Mat4, Vec3};
 
-
-
-
-
 use std::collections::BTreeMap;
 
 use std::mem::take;
 use std::sync::{Arc, RwLock};
-
 
 use crate::assets::{SamplerAsset, TextureAsset};
 use crate::engine::base::Screen;
 use crate::engine::base::ShaderData;
 use crate::engine::base::{MyPipeline, MyQueue};
 use crate::engine::buffers::{CameraUniform, LightUniform, UniformBuffer};
+use crate::engine::rendering::TextRenderThread;
 use crate::engine::rendering::SPRITE_VERTICES;
 use crate::engine::rendering::{AnimalPushConstants, GroundRenderObject};
 use crate::engine::rendering::{ElementPushConstants, ElementRenderObject};
@@ -24,7 +20,6 @@ use crate::engine::rendering::{LinePushConstants, LineRenderObject, GROUND_VERTI
 use crate::engine::rendering::{PlantPushConstants, RenderingLine};
 use crate::engine::rendering::{SceneMetrics, SpritePushConstants};
 use crate::engine::rendering::{SpineVertex, TilemapPushConstants};
-use crate::engine::rendering::{TextRenderThread};
 use crate::engine::rendering::{SpriteVertex, TilemapRenderObject};
 use crate::engine::VertexBuffer;
 use crate::monitoring::Timer;

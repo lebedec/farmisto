@@ -1,9 +1,7 @@
 use crate::api::{ActionError, Event};
 use crate::inventory::{FunctionsQuery, Installation};
 use crate::math::TileMath;
-use crate::model::{
-    Activity, EquipmentKey, Farmer, Farmland, Purpose, PurposeDescription, TheodoliteKey,
-};
+use crate::model::{Activity, Farmer, Farmland, TheodoliteKey};
 use crate::{emit, Game};
 
 impl Game {
@@ -39,7 +37,7 @@ impl Game {
                     self.appear_theodolite(kind.id, surveyor, barrier)?
                 ]
             }
-            Installation::Peg(key) => {
+            Installation::Peg(_key) => {
                 unimplemented!()
             }
         }

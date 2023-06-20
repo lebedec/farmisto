@@ -41,7 +41,7 @@ impl Game {
     pub(crate) fn uninstall_equipment(
         &mut self,
         farmer: Farmer,
-        farmland: Farmland,
+        _farmland: Farmland,
         equipment: Equipment,
     ) -> Result<Vec<Event>, ActionError> {
         self.universe.ensure_activity(farmer, Activity::Idle)?;

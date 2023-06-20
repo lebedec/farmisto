@@ -1,8 +1,7 @@
 use crate::api::{ActionError, Event};
-use crate::inventory::{ItemId};
+use crate::inventory::ItemId;
 use crate::model::{Creature, Farmer, Stack};
 use crate::{emit, Game};
-
 
 impl Game {
     pub fn eat_food_from_stack(

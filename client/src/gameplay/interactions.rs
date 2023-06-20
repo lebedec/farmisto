@@ -1,14 +1,12 @@
-use log::error;
-
 use game::api::FarmerBound;
 use game::assembling::Rotation;
-use game::building::{Marker, Structure};
+
 use game::inventory::Function;
 use game::inventory::Function::{
     Assembly, Fertilizer, Installation, Instrumenting, Moistener, Product, Seeding, Shovel, Stone,
     Tether,
 };
-use game::model::{Activity, CropKey, Purpose};
+use game::model::{Activity, CropKey};
 
 use crate::gameplay::representation::FarmerRep;
 use crate::gameplay::Intention::{Aim, Move, Put, QuickSwap, Swap, Use};

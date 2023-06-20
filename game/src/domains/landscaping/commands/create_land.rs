@@ -1,5 +1,7 @@
-use crate::landscaping::{Land, LandId, LandKind, Landscaping, LandscapingDomain, LandscapingError, Place, Surface};
-use crate::math::{ArrayIndex};
+use crate::landscaping::{
+    Land, LandId, LandKind, Landscaping, LandscapingDomain, LandscapingError,
+};
+
 use crate::timing::Shared;
 
 impl LandscapingDomain {

@@ -3,7 +3,7 @@ use crate::physics::{BarrierId, Physics, PhysicsDomain, PhysicsError};
 
 impl PhysicsDomain {
     pub fn destroy_barrier(
-        & mut self,
+        &mut self,
         id: BarrierId,
     ) -> Result<impl FnOnce() -> Vec<Physics> + '_, PhysicsError> {
         let barrier = self.get_barrier(id)?;

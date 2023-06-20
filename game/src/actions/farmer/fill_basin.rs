@@ -1,7 +1,7 @@
 use crate::api::{ActionError, Event};
-use crate::inventory::{FunctionsQuery};
+use crate::inventory::FunctionsQuery;
 use crate::landscaping::Surface;
-use crate::math::{Tile};
+use crate::math::Tile;
 use crate::model::{Farmer, Farmland};
 use crate::{occur, Game};
 

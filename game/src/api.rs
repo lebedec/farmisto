@@ -1,7 +1,7 @@
 use std::fmt::Debug;
 
 use crate::assembling::{Assembling, AssemblingError, Rotation};
-use crate::building::{Building, BuildingError, Marker, SurveyorId};
+use crate::building::{Building, BuildingError, SurveyorId};
 use crate::collections::DictionaryError;
 use crate::inventory::{ContainerId, Inventory, InventoryError, ItemId};
 use crate::landscaping::{Landscaping, LandscapingError};

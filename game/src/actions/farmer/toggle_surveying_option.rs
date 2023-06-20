@@ -1,8 +1,8 @@
 use crate::api::{ActionError, Event};
-use crate::building::SurveyorId;
-use crate::model::{Activity, Equipment, EquipmentKey, Farmer, Purpose, UniverseError};
-use crate::physics::BarrierId;
-use crate::{emit, occur, Game};
+
+use crate::model::Farmer;
+
+use crate::{emit, Game};
 
 impl Game {
     pub(crate) fn toggle_surveying_option(

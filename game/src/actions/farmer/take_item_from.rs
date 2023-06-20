@@ -3,7 +3,6 @@ use crate::inventory::ContainerId;
 use crate::math::TileMath;
 use crate::model::{Activity, Cementer, Composter, Construction, Farmer, Farmland, Stack};
 use crate::{occur, Game};
-use core::borrow::Borrow;
 
 impl Game {
     pub(crate) fn take_item_from_stack(

@@ -1,9 +1,7 @@
-use log::{error};
+use log::error;
 
 use std::collections::HashMap;
 use std::fmt::Debug;
-
-
 
 use game::api::Action;
 use game::inventory::{ContainerId, FunctionsQuery, ItemId};

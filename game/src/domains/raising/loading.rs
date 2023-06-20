@@ -7,7 +7,7 @@ impl RaisingDomain {
             self.animals.push(animal);
         }
     }
-    
+
     pub fn load_tethers(&mut self, tethers: Vec<Tether>, sequence: usize) {
         self.tethers_id = sequence;
         self.tethers.extend(tethers);

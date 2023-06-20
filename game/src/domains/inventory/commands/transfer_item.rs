@@ -5,7 +5,6 @@ use crate::inventory::InventoryError;
 use crate::inventory::{ContainerId, Function};
 use crate::inventory::{Inventory, ItemData};
 
-
 impl InventoryDomain {
     pub fn pop_item<'operation>(
         &'operation mut self,

@@ -1,7 +1,7 @@
 use core::fmt::Debug;
 
 use datamap::Storage;
-use log::{info, warn};
+use log::info;
 use serde::de;
 
 use crate::assembling::{Placement, PlacementId};

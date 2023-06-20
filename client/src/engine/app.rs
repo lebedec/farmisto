@@ -2,7 +2,7 @@ use crate::engine::base::Base;
 use crate::engine::rendering::{Scene, SceneMetrics};
 use crate::engine::{AppConfig, Input};
 use ash::vk;
-use std::ffi::{CString};
+use std::ffi::CString;
 
 use libfmod::ffi::{FMOD_INIT_NORMAL, FMOD_STUDIO_INIT_NORMAL, FMOD_VERSION};
 use libfmod::{SpeakerMode, Studio};
@@ -14,9 +14,8 @@ use crate::assets::Assets;
 use crate::monitoring::{spawn_prometheus_metrics_pusher, spawn_prometheus_metrics_server};
 use crate::translation::Translator;
 use prometheus::Registry;
-use sdl2::image::{InitFlag};
+use sdl2::image::InitFlag;
 use sdl2::keyboard::Keycode;
-
 
 pub struct Frame<'c> {
     pub config: &'c AppConfig,

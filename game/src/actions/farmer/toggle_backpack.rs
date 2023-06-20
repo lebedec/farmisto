@@ -1,9 +1,8 @@
 use crate::api::{ActionError, Event};
-use crate::{Game, occur};
-use crate::model::{Farmer, Activity};
+use crate::model::{Activity, Farmer};
+use crate::{occur, Game};
 
 impl Game {
-
     pub(crate) fn toggle_backpack(&mut self, farmer: Farmer) -> Result<Vec<Event>, ActionError> {
         let backpack_empty = self
             .inventory

@@ -1,4 +1,3 @@
-
 use crate::Input;
 use glam::{vec3, Vec3};
 use sdl2::keyboard::Keycode;

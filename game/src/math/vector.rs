@@ -1,6 +1,3 @@
-
-
-
 pub type Tile = [usize; 2];
 pub type Rect = [usize; 4];
 

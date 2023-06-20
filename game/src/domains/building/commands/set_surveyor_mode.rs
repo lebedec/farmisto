@@ -1,5 +1,5 @@
 use crate::building::Building::SurveyorModeChanged;
-use crate::building::{Building, BuildingDomain, BuildingError, Stake, Surveyor, SurveyorId};
+use crate::building::{Building, BuildingDomain, BuildingError, Surveyor, SurveyorId};
 
 impl BuildingDomain {
     pub fn set_surveyor_mode(

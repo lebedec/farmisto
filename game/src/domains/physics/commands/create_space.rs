@@ -1,7 +1,5 @@
 use crate::collections::Shared;
-use crate::physics::{
-    BarrierId, BarrierKind, Physics, PhysicsDomain, PhysicsError, Space, SpaceId, SpaceKind,
-};
+use crate::physics::{Physics, PhysicsDomain, PhysicsError, Space, SpaceId, SpaceKind};
 
 impl PhysicsDomain {
     pub fn create_space(

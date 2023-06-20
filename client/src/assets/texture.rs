@@ -1,5 +1,5 @@
+use std::ptr;
 use std::sync::Arc;
-use std::{ptr};
 
 use ash::prelude::VkResult;
 use ash::vk::Handle;
@@ -12,7 +12,6 @@ use sdl2::rwops::RWops;
 use crate::assets::Asset;
 use crate::engine::base::{create_buffer, index_memory_type, MyQueue};
 use crate::engine::commands::Single;
-
 
 lazy_static! {
     static ref METRIC_LOADING_SECONDS: prometheus::HistogramVec =

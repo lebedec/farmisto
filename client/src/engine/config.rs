@@ -23,7 +23,7 @@ pub struct AppConfig {
     pub save_file: String,
 
     #[serde(default = "default_metrics_gateway")]
-    pub metrics_gateway: Option<String>
+    pub metrics_gateway: Option<String>,
 }
 
 impl Default for AppConfig {
