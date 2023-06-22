@@ -698,6 +698,8 @@ impl Gameplay {
         scene.set_point_light([0.0, 0.0, 1.0, 1.0], 512.0, [1024.0, 1024.0]);
 
         scene.render_sprite(&self.gui_controls, xy([-512.0, 512.0]));
+
+        scene.render_sprite(&self.ref64, xy([0.0, 0.0]));
     }
 
     pub fn render_ui(&mut self, frame: &mut Frame) {

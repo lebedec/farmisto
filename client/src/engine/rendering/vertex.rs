@@ -61,53 +61,53 @@ pub const SPRITE_VERTICES: [SpriteVertex; 6] = [
 pub const TILEMAP_VERTICES: [SpriteVertex; 6] = [
     SpriteVertex {
         position: [0.0, 0.0],
+        uv: [0.0, 0.0],
+    },
+    SpriteVertex {
+        position: [0.0, 1.0],
         uv: [0.0, 1.0],
     },
     SpriteVertex {
-        position: [0.0, 1.0],
-        uv: [0.0, 0.0],
+        position: [1.0, 0.0],
+        uv: [1.0, 0.0],
     },
     SpriteVertex {
         position: [1.0, 0.0],
-        uv: [1.0, 1.0],
-    },
-    SpriteVertex {
-        position: [1.0, 0.0],
-        uv: [1.0, 1.0],
+        uv: [1.0, 0.0],
     },
     SpriteVertex {
         position: [0.0, 1.0],
-        uv: [0.0, 0.0],
+        uv: [0.0, 1.0],
     },
     SpriteVertex {
         position: [1.0, 1.0],
-        uv: [1.0, 0.0],
+        uv: [1.0, 1.0],
     },
 ];
 
 pub const GROUND_VERTICES: [SpriteVertex; 6] = [
     SpriteVertex {
         position: [0.0, 0.0],
+        uv: [0.0, 0.0],
+    },
+    SpriteVertex {
+        position: [0.0, 1.0],
         uv: [0.0, 1.0],
     },
     SpriteVertex {
-        position: [0.0, 1.0],
-        uv: [0.0, 0.0],
+        position: [1.0, 0.0],
+        uv: [1.0, 0.0],
     },
     SpriteVertex {
         position: [1.0, 0.0],
-        uv: [1.0, 1.0],
-    },
-    SpriteVertex {
-        position: [1.0, 0.0],
-        uv: [1.0, 1.0],
+        uv: [1.0, 0.0],
     },
     SpriteVertex {
         position: [0.0, 1.0],
-        uv: [0.0, 0.0],
+        uv: [0.0, 1.0],
     },
     SpriteVertex {
         position: [1.0, 1.0],
-        uv: [1.0, 0.0],
+        uv: [1.0, 1.0],
     },
 ];

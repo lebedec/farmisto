@@ -138,7 +138,6 @@ impl TextureAssetData {
         // crate: image
         // let data = fs::read(&path).unwrap();
         // let image_object = image::load_from_memory(&data).unwrap();
-        // let image_object = image_object.flipv();
         // let c = image_object.color();
         // let (image_width, image_height) = (image_object.width(), image_object.height());
         // let image_data = image_object.to_rgba8();
@@ -148,23 +147,11 @@ impl TextureAssetData {
 
         let file = RWops::from_file(path, "rb").unwrap();
         let surface = file.load_png().unwrap();
-        let image_width = surface.width() as usize;
-        let image_height = surface.height() as usize;
-        let image_data_len = image_width * image_height * 4;
-
-        // flipv
-        let mut image_data = vec![0u8; image_data_len];
+        let image_width = surface.width();
+        let image_height = surface.height();
+        let image_data_len = (image_width * image_height * 4) as usize;
         let surf = surface.without_lock().unwrap();
-        let line = image_width as usize * 4;
-        for y in 0..image_height {
-            let src = (image_height - y - 1) * image_width * 4;
-            let dst = y * image_width * 4;
-            image_data[dst..dst + line].copy_from_slice(&surf[src..src + line]);
-        }
-
-        let image_width = image_width as u32;
-        let image_height = image_height as u32;
-        let image_data = image_data.as_ptr();
+        let image_data = surf.as_ptr();
 
         // crate: lodepng
         // let image = lodepng::decode32_file(path).unwrap();

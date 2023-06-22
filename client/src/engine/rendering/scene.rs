@@ -11,7 +11,6 @@ use crate::engine::base::Screen;
 use crate::engine::base::ShaderData;
 use crate::engine::base::{MyPipeline, MyQueue};
 use crate::engine::buffers::{CameraUniform, LightUniform, UniformBuffer};
-use crate::engine::rendering::TextRenderThread;
 use crate::engine::rendering::SPRITE_VERTICES;
 use crate::engine::rendering::{AnimalPushConstants, GroundRenderObject};
 use crate::engine::rendering::{ElementPushConstants, ElementRenderObject};
@@ -21,6 +20,7 @@ use crate::engine::rendering::{PlantPushConstants, RenderingLine};
 use crate::engine::rendering::{SceneMetrics, SpritePushConstants};
 use crate::engine::rendering::{SpineVertex, TilemapPushConstants};
 use crate::engine::rendering::{SpriteVertex, TilemapRenderObject};
+use crate::engine::rendering::{TextRenderThread, TILEMAP_VERTICES};
 use crate::engine::VertexBuffer;
 use crate::monitoring::Timer;
 use crate::Assets;
@@ -168,6 +168,8 @@ impl Scene {
                 SpriteVertex::BINDINGS.to_vec(),
                 SpriteVertex::ATTRIBUTES.to_vec(),
             );
+        let tilemap_vertex_buffer =
+            VertexBuffer::create(device, device_memory, TILEMAP_VERTICES.to_vec());
 
         let ui_pipeline = MyPipeline::build(assets.pipeline("ui:element"), pass)
             .material([vk::DescriptorType::COMBINED_IMAGE_SAMPLER])
@@ -204,7 +206,7 @@ impl Scene {
             sorted_render_objects: Default::default(),
             tilemap_pipeline,
             tilemaps: vec![],
-            tilemap_vertex_buffer: ground_vertex_buffer,
+            tilemap_vertex_buffer,
             present_index: 0,
             spine_coloration_sampler,
             animals_pipeline,

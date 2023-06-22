@@ -106,7 +106,7 @@ pub fn startup<A: App>(title: String) {
             base.present_image_views.len(),
             renderpass,
             &mut assets,
-            2160.0 / base.screen.height() as f32, // reference resolution 4K
+            1080.0 / base.screen.height() as f32, // reference resolution 1080p
             SceneMetrics::new(&metrics_registry).unwrap(),
         );
 

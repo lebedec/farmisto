@@ -73,6 +73,8 @@ fn default_host() -> String {
 
 fn default_resolution() -> [u32; 2] {
     [1920, 1080]
+    // [2560, 1440]
+    // [3840, 2160]
 }
 
 fn default_position() -> [i32; 2] {

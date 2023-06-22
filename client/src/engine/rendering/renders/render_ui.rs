@@ -672,7 +672,6 @@ impl Paragraph {
                     // height overflow
                     continue;
                 }
-                let y = height - y; // flip v
                 let offset = (y * width * 4) + x * 4;
                 buf[offset + 0] = 255;
                 buf[offset + 1] = 255;

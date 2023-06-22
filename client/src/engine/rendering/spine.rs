@@ -75,7 +75,7 @@ impl SpineRenderController {
                 for i in 0..4 {
                     mega_vertices.push(SpineVertex {
                         position: [spine_vertices[i * 2], -spine_vertices[i * 2 + 1]],
-                        uv: [spine_uvs[i * 2], 1.0 - spine_uvs[i * 2 + 1]], // inverse
+                        uv: [spine_uvs[i * 2], spine_uvs[i * 2 + 1]],
                         mask,
                     })
                 }
@@ -106,7 +106,7 @@ impl SpineRenderController {
                 for i in 0..(spine_vertices_count / stride) {
                     vertices.push(SpineVertex {
                         position: [spine_vertices[i * stride], -spine_vertices[i * stride + 1]],
-                        uv: [spine_uvs[i * 2], 1.0 - spine_uvs[i * 2 + 1]], // inverse
+                        uv: [spine_uvs[i * 2], spine_uvs[i * 2 + 1]],
                         mask,
                     })
                 }

@@ -47,10 +47,10 @@ impl Scene {
         let texture = &asset.texture;
         let image_w = asset.texture.width as f32;
         let image_h = asset.texture.height as f32;
-        let [sprite_x, sprite_y] = asset.position;
+        let [src_x, src_y] = asset.src;
         let [sprite_w, sprite_h] = asset.size;
-        let x = sprite_x / image_w;
-        let y = sprite_y / image_h;
+        let x = src_x / image_w;
+        let y = src_y / image_h;
         let w = sprite_w / image_w;
         let h = sprite_h / image_h;
         let object = SpriteRenderObject {

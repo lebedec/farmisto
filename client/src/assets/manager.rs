@@ -694,7 +694,7 @@ impl Assets {
         let texture: String = entry.get("texture")?;
         let data = SpriteAssetData {
             texture: self.texture(texture),
-            position: entry.get("position")?,
+            src: entry.get("position")?,
             size: entry.get("size")?,
             sampler: self.sampler(entry.get("sampler")?),
             pivot: entry.get("pivot")?,
@@ -711,7 +711,7 @@ impl Assets {
         for item in items {
             tiles.push(SpriteAsset::from(SpriteAssetData {
                 texture: texture.share(),
-                position: item.src,
+                src: item.src,
                 size: item.size,
                 sampler: sampler.share(),
                 pivot: item.pivot,

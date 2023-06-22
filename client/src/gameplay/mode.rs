@@ -92,6 +92,7 @@ pub struct Gameplay {
     pub game_speed: f32,
     pub default_sampler: SamplerAsset,
     pub metrics: GameplayMetrics,
+    pub ref64: SpriteAsset,
 }
 
 impl Gameplay {
@@ -164,6 +165,7 @@ impl Gameplay {
             game_speed: 1.0,
             default_sampler: assets.sampler("default"),
             metrics,
+            ref64: assets.sprite("ref64"),
         }
     }
 
