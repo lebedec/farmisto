@@ -34,7 +34,7 @@ pub struct Scene {
 
     pub present_index: usize,
     pub screen: Screen,
-    pub zoom: f32,
+    pub scale: f32,
 
     pub camera_position: [f32; 2],
     pub camera_buffer: UniformBuffer<CameraUniform>,
@@ -69,12 +69,15 @@ pub struct Scene {
 
     pub swapchain: usize,
 
-    metrics: Arc<Box<SceneMetrics>>,
+    pub metrics: Arc<Box<SceneMetrics>>,
 
     pub rasterizer: Arc<RwLock<TextRenderThread>>,
 
     pub white: TextureAsset,
     pub rope: TextureAsset,
+
+    pub default_sampler: SamplerAsset,
+    pub pixel_perfect_sampler: SamplerAsset,
 }
 
 impl Scene {
@@ -88,7 +91,7 @@ impl Scene {
         pass: vk::RenderPass,
         assets: &mut Assets,
         zoom: f32,
-        metrics: SceneMetrics,
+        metrics: Arc<Box<SceneMetrics>>,
     ) -> Self {
         let spine_coloration_sampler = assets.sampler("coloration");
         let camera_buffer = UniformBuffer::create(device.clone(), device_memory, swapchain);
@@ -184,8 +187,6 @@ impl Scene {
             VertexBuffer::create(device, device_memory, SPRITE_VERTICES.to_vec());
         let ui_element_sampler = assets.sampler("default");
 
-        let metrics = Arc::new(Box::new(metrics));
-
         let rasterizer = TextRenderThread::spawn(
             assets.fonts_default.share(),
             queue.clone(),
@@ -212,7 +213,7 @@ impl Scene {
             animals_pipeline,
             grounds: vec![],
             screen,
-            zoom,
+            scale: zoom,
             sprite_pipeline,
             ground_vertex_buffer,
             camera_position: [0.0, 0.0],
@@ -230,6 +231,8 @@ impl Scene {
             lines: vec![],
             white: assets.texture_white(),
             rope: assets.texture("assets/texture/rope.png"),
+            default_sampler: assets.sampler("default"),
+            pixel_perfect_sampler: assets.sampler("pixel-perfect"),
         }
     }
 
@@ -245,8 +248,8 @@ impl Scene {
             ),
             proj: Mat4::orthographic_rh_gl(
                 0.0,
-                width * self.zoom,
-                height * self.zoom,
+                width * self.scale,
+                height * self.scale,
                 0.0,
                 0.0,
                 100.0,
@@ -365,7 +368,7 @@ impl Scene {
                 pipeline.bind_vertex_buffer(&spine.vertex_buffer);
                 pipeline.bind_index_buffer(&spine.index_buffer);
                 pipeline.bind_material([
-                    (spine.texture.sampler, spine.texture.view),
+                    (self.default_sampler.handle, spine.texture.view),
                     (self.spine_coloration_sampler.handle, spine.coloration.view),
                 ]);
                 pipeline.bind_data_by_descriptor(spine.lights_descriptor);
@@ -380,7 +383,7 @@ impl Scene {
                 pipeline.bind_vertex_buffer(&animal.vertex_buffer);
                 pipeline.bind_index_buffer(&animal.index_buffer);
                 pipeline.bind_material([
-                    (animal.texture.sampler, animal.texture.view),
+                    (self.default_sampler.handle, animal.texture.view),
                     (self.spine_coloration_sampler.handle, animal.coloration.view),
                 ]);
                 pipeline.bind_data_by_descriptor(animal.lights_descriptor);

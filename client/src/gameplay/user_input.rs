@@ -154,8 +154,8 @@ impl Gameplay {
         }
 
         // TODO: move camera after farmer rendering position changed
-        let width = frame.scene.screen.width() as f32 * frame.scene.zoom;
-        let height = frame.scene.screen.height() as f32 * frame.scene.zoom;
+        let width = frame.scene.screen.width() as f32 * frame.scene.scale;
+        let height = frame.scene.screen.height() as f32 * frame.scene.scale;
         let farmer_rendering_position = rendering_position_of(farmer.rendering_position);
         self.camera.eye = vec3(
             farmer_rendering_position[0] - width / 2.0,

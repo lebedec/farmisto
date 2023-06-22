@@ -700,6 +700,7 @@ impl Gameplay {
         scene.render_sprite(&self.gui_controls, xy([-512.0, 512.0]));
 
         scene.render_sprite(&self.ref64, xy([0.0, 0.0]));
+        scene.render_sprite(&self.ref64, xy([64.0 * 30.0, 64.0 * 16.0]));
     }
 
     pub fn render_ui(&mut self, frame: &mut Frame) {
@@ -752,10 +753,11 @@ impl Gameplay {
             };
             if alpha > 0.0 {
                 let color = [0.07, 0.05, 0.2, alpha];
-                frame.scene.render_texture(
+                frame.scene.render_ui_texture(
                     frame.assets.texture_white(),
+                    self.default_sampler.share(),
                     [0, 0],
-                    frame.scene.screen.size_f32().mul(frame.scene.zoom),
+                    frame.scene.screen.size_f32().mul(frame.scene.scale),
                     color,
                 );
             }

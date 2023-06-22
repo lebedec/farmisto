@@ -3,6 +3,7 @@ use crate::engine::rendering::{Scene, SceneMetrics};
 use crate::engine::{AppConfig, Input};
 use ash::vk;
 use std::ffi::CString;
+use std::sync::Arc;
 
 use libfmod::ffi::{FMOD_INIT_NORMAL, FMOD_STUDIO_INIT_NORMAL, FMOD_VERSION};
 use libfmod::{SpeakerMode, Studio};
@@ -32,6 +33,22 @@ pub trait App {
     fn update(&mut self, frame: &mut Frame);
 }
 
+pub fn determine_scale(height: u32) -> f32 {
+    // reference resolution 1080p
+
+    println!(
+        "SCALE {} {}",
+        (1080.0 / height as f32) as f32,
+        1.0 / (height / 1080) as f32
+    );
+
+    if height <= 1080 {
+        1.0
+    } else {
+        1.0 / (height / 1080) as f32
+    }
+}
+
 pub fn startup<A: App>(title: String) {
     let config = AppConfig::load();
     let system = sdl2::init().unwrap();
@@ -47,7 +64,7 @@ pub fn startup<A: App>(title: String) {
     } else {
         window.fullscreen()
     };
-    let window = window.vulkan().build().unwrap();
+    let mut window = window.vulkan().build().unwrap();
     info!(
         "SDL display: {:?}, dpi {:?}",
         video.display_bounds(0).unwrap(),
@@ -106,8 +123,8 @@ pub fn startup<A: App>(title: String) {
             base.present_image_views.len(),
             renderpass,
             &mut assets,
-            1080.0 / base.screen.height() as f32, // reference resolution 1080p
-            SceneMetrics::new(&metrics_registry).unwrap(),
+            determine_scale(base.screen.height()),
+            Arc::new(Box::new(SceneMetrics::new(&metrics_registry).unwrap())),
         );
 
         let mut app = A::start(&mut assets);
@@ -120,7 +137,7 @@ pub fn startup<A: App>(title: String) {
             studio.update().unwrap();
 
             input.reset();
-            input.zoom = scene.zoom;
+            input.zoom = scene.scale;
             input.window = base.screen.size().map(|value| value as f32);
             input.time = time.elapsed().as_secs_f32();
             time = Instant::now();
@@ -133,26 +150,27 @@ pub fn startup<A: App>(title: String) {
                 break;
             }
 
-            // if input.pressed(Keycode::Return) {
-            //     let [w, h] = config.resolution.clone();
-            //     if windowed {
-            //         window.set_size(w * 2, h * 2).unwrap();
-            //         window.set_fullscreen(FullscreenType::Desktop).unwrap();
-            //         windowed = false;
-            //     } else {
-            //         window.set_size(w, h).unwrap();
-            //         window.set_fullscreen(FullscreenType::Off).unwrap();
-            //         windowed = true;
-            //     }
-            // }
+            if input.ctrl_pressed(Keycode::F9) {
+                let [w, h] = config.resolution;
+                window.set_size(w, h).unwrap();
+            }
+            if input.ctrl_pressed(Keycode::F10) {
+                window.set_size(2560, 1440).unwrap();
+            }
+            if input.ctrl_pressed(Keycode::F11) {
+                window.set_size(3840, 2160).unwrap();
+            }
+            if input.ctrl_pressed(Keycode::F12) {
+                window.set_size(1366, 768).unwrap();
+            }
 
             if input.pressed(Keycode::Z) {
-                scene.zoom += 0.1;
-                info!("ZOOM: {}", scene.zoom);
+                scene.scale += 0.1;
+                info!("ZOOM: {}", scene.scale);
             }
             if input.pressed(Keycode::X) {
-                scene.zoom -= 0.1;
-                info!("ZOOM: {}", scene.zoom);
+                scene.scale -= 0.1;
+                info!("ZOOM: {}", scene.scale);
             }
 
             scene.update();
@@ -176,8 +194,8 @@ pub fn startup<A: App>(title: String) {
                         base.present_image_views.len(),
                         renderpass,
                         &mut assets,
-                        2160.0 / base.screen.height() as f32, // reference resolution 4K
-                        SceneMetrics::new(&metrics_registry).unwrap(),
+                        determine_scale(base.screen.height()),
+                        scene.metrics.clone(),
                     );
                     continue;
                 }

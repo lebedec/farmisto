@@ -43,7 +43,6 @@ pub struct TextureAssetData {
     pub height: u32,
     pub image: vk::Image,
     pub view: vk::ImageView,
-    pub sampler: vk::Sampler,
     device: Device,
 }
 
@@ -71,7 +70,6 @@ impl TextureAssetData {
         )
         .unwrap();
         let view = Self::create_image_view(device, image, format);
-        let sampler = Self::create_texture_sampler(device);
         VULKAN_IMAGES_TOTAL.inc();
         let n = VULKAN_IMAGES_TOTAL.get();
         debug!("Create image {} {}x{} N{n}", name, width, height);
@@ -81,7 +79,6 @@ impl TextureAssetData {
             height,
             image,
             view,
-            sampler,
             device: device.clone(),
         }
     }

@@ -32,25 +32,25 @@ pub enum ShaderData {
     Uniform(vk::DescriptorBufferInfo),
 }
 
-impl From<&TextureAsset> for ShaderData {
-    fn from(texture: &TextureAsset) -> Self {
-        ShaderData::Texture(vk::DescriptorImageInfo {
-            sampler: texture.sampler,
-            image_view: texture.view,
-            image_layout: vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
-        })
-    }
-}
-
-impl From<&mut TextureAsset> for ShaderData {
-    fn from(texture: &mut TextureAsset) -> Self {
-        ShaderData::Texture(vk::DescriptorImageInfo {
-            sampler: texture.sampler,
-            image_view: texture.view,
-            image_layout: vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
-        })
-    }
-}
+// impl From<&TextureAsset> for ShaderData {
+//     fn from(texture: &TextureAsset) -> Self {
+//         ShaderData::Texture(vk::DescriptorImageInfo {
+//             sampler: texture.sampler,
+//             image_view: texture.view,
+//             image_layout: vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
+//         })
+//     }
+// }
+//
+// impl From<&mut TextureAsset> for ShaderData {
+//     fn from(texture: &mut TextureAsset) -> Self {
+//         ShaderData::Texture(vk::DescriptorImageInfo {
+//             sampler: texture.sampler,
+//             image_view: texture.view,
+//             image_layout: vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
+//         })
+//     }
+// }
 
 impl ShaderData {
     pub fn id(&self) -> u64 {

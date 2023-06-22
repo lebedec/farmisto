@@ -255,7 +255,7 @@ impl Scene {
             max_width,
             max_height,
             text,
-            font_size: 32.0,
+            font_size: 16.0,
             font,
             image,
             sampler,
@@ -367,9 +367,10 @@ impl Scene {
         }
     }
 
-    pub fn render_texture(
+    pub fn render_ui_texture(
         &mut self,
         texture: TextureAsset,
+        sampler: SamplerAsset,
         top_left: [i32; 2],
         size: [f32; 2],
         color: [f32; 4],
@@ -394,7 +395,7 @@ impl Scene {
                 .sprite_pipeline
                 .material
                 .describe(vec![[ShaderData::Texture(vk::DescriptorImageInfo {
-                    sampler: texture.sampler,
+                    sampler: sampler.handle,
                     image_view: texture.view,
                     image_layout: vk::ImageLayout::SHADER_READ_ONLY_OPTIMAL,
                 })]])[0],
@@ -403,8 +404,9 @@ impl Scene {
     }
 
     pub fn render_text(&mut self, text: &mut TextController, top_left: [i32; 2]) {
-        self.render_texture(
+        self.render_ui_texture(
             text.image.share(),
+            self.pixel_perfect_sampler.share(),
             top_left,
             [text.max_width as f32, text.max_height as f32],
             [1.0; 4],
@@ -419,14 +421,16 @@ impl Scene {
         } else {
             button.color_bg
         };
-        self.render_texture(
+        self.render_ui_texture(
             button.bg.share(),
+            self.default_sampler.share(),
             [button.top as i32, button.left as i32],
             [button.width as f32, button.height as f32],
             bg_color,
         );
-        self.render_texture(
+        self.render_ui_texture(
             button.text.image.share(),
+            self.default_sampler.share(),
             [button.top as i32, button.left as i32],
             [button.width as f32, button.height as f32],
             button.color_fg,
@@ -441,14 +445,16 @@ impl Scene {
         } else {
             input.color_bg
         };
-        self.render_texture(
+        self.render_ui_texture(
             input.bg.share(),
+            self.default_sampler.share(),
             [input.top as i32, input.left as i32],
             [input.width as f32, input.height as f32],
             bg_color,
         );
-        self.render_texture(
+        self.render_ui_texture(
             input.text.image.share(),
+            self.default_sampler.share(),
             [input.top as i32, input.left as i32],
             [input.width as f32, input.height as f32],
             input.color_fg,
